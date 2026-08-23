@@ -1,0 +1,19 @@
+# CODEOWNERS — 브랜치 보호에서 "Require review from Code Owners"를 켜야 실제로 강제됩니다.
+# 아래는 ADR-0006 / docs/domain/AGENTS.md에서 정한 규칙을 CODEOWNERS 문법으로 옮긴 것입니다.
+# GitHub org: Five-Eagles
+
+# app/ 전체 — 팀장 전용 (ADR-0006)
+/app/ @Lattui
+
+# docs/domain/ 전체 — 팀장 전용 (docs/domain/AGENTS.md)
+/docs/domain/ @Lattui
+
+# features/{기능}/ — 각 담당자 (users/*.md, docs/domain/erd.md 담당자 표 참고)
+/features/user-management/ @dhalsgur13
+/features/ai-pricing/ @dhalsgur13
+/features/project-management/ @magus81818-bit
+/features/engagement/ @magus81818-bit
+/features/applications/ @s643222
+/features/notifications/ @s643222
+/features/contracts-payments/ @chojunyoung66
+/features/reviews/ @chojunyoung66

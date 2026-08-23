@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>sample-login — 로그인 화면 (low-fi 와이어프레임)</title>
+<style>
+  /* low-fi: design-system 미확정 상태이므로 색상·타이포는 전부 회색조 뼈대만 사용한다.
+     design-system 확정 후 high-fi로 교체한다 (sdd-framework/feature-workflow.md). */
+  body{ font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; background:#f1f1f1; margin:0; padding:2rem; color:#333; }
+  .meta{ max-width:420px; margin:0 auto 1rem; font-size:12px; color:#888; }
+  .frame{ max-width:420px; margin:0 auto; background:#fff; border:2px dashed #999; padding:2rem; }
+  .label{ font-size:11px; color:#999; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.25rem; }
+  .box{ background:#e5e5e5; border:1px solid #aaa; border-radius:2px; padding:.75rem; margin-bottom:1rem; color:#777; font-size:14px; }
+  .box.input{ height:1.2em; }
+  .box.button{ background:#ccc; border-color:#888; text-align:center; font-weight:bold; color:#555; cursor:default; }
+  .box.error{ background:#fff; border:1px dashed #bbb; color:#aaa; font-style:italic; }
+  .note{ font-size:11px; color:#999; margin-top:.25rem; }
+</style>
+</head>
+<body>
+
+<div class="meta">sample-login · low-fi 와이어프레임 · design-system 미확정 상태 (뼈대 수준)</div>
+
+<div class="frame">
+  <div class="label">[TEXT INPUT] 이메일</div>
+  <div class="box input">placeholder: 이메일</div>
+
+  <div class="label">[PASSWORD INPUT] 비밀번호</div>
+  <div class="box input">placeholder: 비밀번호</div>
+
+  <div class="label">[CONDITIONAL] 에러 메시지 영역</div>
+  <div class="box error">실패 시에만 노출 — "이메일 또는 비밀번호가 올바르지 않습니다"</div>
+  <div class="note">평소에는 렌더링되지 않음 (spec.md 규칙 1~3)</div>
+
+  <div class="label">[BUTTON] 제출</div>
+  <div class="box button">로그인</div>
+  <div class="note">제출 중(isSubmitting=true)에는 비활성화</div>
+</div>
+
+<div class="frame" style="margin-top:1rem; border-style:solid;">
+  <p class="label" style="margin-bottom:.5rem;">필수 요소 목록 (기본 렌더링 시, 조건부 요소 제외)</p>
+  <ul style="font-size:13px; color:#555; padding-left:1.2rem; margin:0;">
+    <li>placeholder 텍스트 "이메일"</li>
+    <li>placeholder 텍스트 "비밀번호"</li>
+    <li>버튼 텍스트 "로그인"</li>
+  </ul>
+  <p class="note" style="margin-top:.5rem;">구현체가 이 목록을 전부 포함하는지 `prototype/run.ts`가
+  렌더링해서 확인한다 (`sdd-framework/feature-workflow.md` 참고). 조건부 요소(에러 메시지)는
+  기본 렌더링에는 없으므로 이 목록에서 제외한다.</p>
+</div>
+
+</body>
+</html>

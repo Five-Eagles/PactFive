@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>login_sample_claude · low-fi</title>
+<style>
+  body{ font-family: -apple-system, sans-serif; background:#f5f5f5; padding:2rem; }
+  .meta{ font-size:12px; color:#888; margin-bottom:1rem; }
+  .frame{ width:320px; margin:0 auto; padding:1.5rem; background:#fff; border:1px solid #ddd; }
+  .label{ font-size:11px; color:#999; margin-top:.9rem; margin-bottom:.2rem; }
+  .box{ border:1px solid #ccc; padding:.5rem .6rem; font-size:14px; color:#666; }
+  .box.input{ height:1.1em; }
+  .box.button{ background:#ddd; border-color:#999; text-align:center; font-weight:600; color:#444; }
+  .box.error{ border:1px dashed #ccc; color:#bbb; font-style:italic; }
+  .note{ font-size:11px; color:#aaa; margin-top:.25rem; }
+</style>
+</head>
+<body>
+
+<div class="meta">login_sample_claude · low-fi 와이어프레임 · design-system 미확정 (뼈대 수준)</div>
+
+<div class="frame">
+  <div class="label">이메일 입력</div>
+  <div class="box input">placeholder: 이메일</div>
+
+  <div class="label">비밀번호 입력</div>
+  <div class="box input">placeholder: 비밀번호</div>
+
+  <div class="label">에러 영역 (조건부)</div>
+  <div class="box error">실패 시에만: "이메일 또는 비밀번호가 올바르지 않습니다"</div>
+  <div class="note">기본 렌더링에는 나타나지 않음</div>
+
+  <div class="label">제출 버튼</div>
+  <div class="box button">로그인</div>
+</div>
+
+<div class="frame" style="margin-top:1rem;">
+  <p class="label" style="margin-bottom:.5rem;">필수 요소 목록 (기본 렌더링 시)</p>
+  <ul style="font-size:13px; color:#555; padding-left:1.2rem; margin:0;">
+    <li>placeholder 텍스트 "이메일"</li>
+    <li>placeholder 텍스트 "비밀번호"</li>
+    <li>버튼 텍스트 "로그인"</li>
+  </ul>
+  <p class="note" style="margin-top:.5rem;">`prototype/run.tsx`가 이 3개 텍스트가 전부 렌더링되는지
+  기계적으로 확인한다. 에러 메시지는 조건부 요소라 이 목록에서 제외.</p>
+</div>
+
+</body>
+</html>
