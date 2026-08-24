@@ -23,6 +23,7 @@
   `scripts/git-hooks/pre-push`가 세 브랜치로의 직접 push를 로컬에서 차단한다. 이 훅은
   `scripts/ensure-deps.js`가 모든 진입점에서 자동으로 설치하므로 별도 설정이 필요 없다
   (2026-08-24 추가)
+- 세션을 시작할 때는 `scripts/daily-session-start.sh {기능이름}`, 마칠 때는 `scripts/daily-session-finish.sh {run.tsx 경로}`를 실행한다 — 매일 pull→브랜치→커밋→검증→push→PR 루프를 강제하기 위함이며, main·develop·release에는 이 스크립트가 절대 직접 push하지 않는다 (근거: `docs/decisions/0010-daily-session-branch-enforcement.md`, 2026-08-25 추가)
 
 ## features/*/prototype/, features/*/design/ 정의 (2026-08-20 갱신)
 
