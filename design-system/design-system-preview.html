@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PactFive Design System Preview</title>
+  <style>
+    :root {
+      --canvas: #FBFAF7;
+      --surface: #FFFFFF;
+      --surface-subtle: #F7F8FA;
+      --surface-muted: #EEF1F5;
+      --surface-selected: #E7F5F4;
+      --ink: #0B132B;
+      --ink-2: #55627A;
+      --ink-3: #667085;
+      --ink-disabled: #8995A8;
+      --border: #CBD3DF;
+      --border-subtle: #E9EDF3;
+      --border-strong: #7A8498;
+      --teal: #006D70;
+      --teal-hover: #00585C;
+      --teal-pressed: #073F43;
+      --teal-focus: #008A8D;
+      --teal-soft: #E7F5F4;
+      --green: #16734D;
+      --green-soft: #EAF7F0;
+      --amber: #7A4B00;
+      --amber-soft: #FFF3C4;
+      --rust: #B93824;
+      --rust-hover: #932E20;
+      --rust-soft: #FDEEEA;
+      --blue: #1C5F9C;
+      --blue-soft: #EDF5FC;
+      --campaign-yellow: #F4C430;
+      --campaign-plum: #4B173C;
+      --campaign-lavender: #E9DDFB;
+      --shadow-raised: 0 6px 18px rgba(11, 19, 43, 0.10);
+      --shadow-overlay: 0 18px 48px rgba(11, 19, 43, 0.18);
+      --shadow-focus: 0 0 0 3px rgba(0, 138, 141, 0.28);
+      --font: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, select, textarea { font: inherit; }
+    button, a, input, select, textarea { outline: none; }
+    :focus-visible { box-shadow: var(--shadow-focus); }
+    a { color: inherit; }
+    .numeric { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+
+    .layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+    .rail {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 28px 22px;
+      background: var(--surface);
+      border-right: 1px solid var(--border-subtle);
+      overflow-y: auto;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; margin: 0 8px 28px; }
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: var(--radius-md);
+      background: var(--ink);
+      color: white;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+    .brand-name { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; }
+    .version { color: var(--ink-3); font-size: 12px; font-weight: 600; }
+    .nav-label { margin: 24px 10px 8px; color: var(--ink-3); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .nav { display: grid; gap: 4px; }
+    .nav a {
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      color: var(--ink-2);
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .nav a:hover, .nav a.active { background: var(--teal-soft); color: var(--teal); }
+    .nav-index { font-size: 11px; font-variant-numeric: tabular-nums; }
+    .rail-note { margin: 28px 8px 0; padding: 14px; background: var(--surface-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); }
+    .rail-note strong { display: block; margin-bottom: 5px; font-size: 13px; }
+    .rail-note span { color: var(--ink-2); font-size: 12px; }
+
+    .main { min-width: 0; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 12px 40px;
+      background: var(--canvas);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .topbar-title { font-weight: 700; }
+    .topbar-meta { color: var(--ink-2); font-size: 13px; }
+    .topbar-actions { display: flex; align-items: center; gap: 8px; }
+    .content { width: min(1280px, calc(100% - 80px)); margin: 0 auto; padding: 56px 0 96px; }
+
+    .hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(360px, .9fr); gap: 48px; align-items: end; padding: 28px 0 64px; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 18px; color: var(--teal); font-size: 13px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .eyebrow::before { content: ''; width: 24px; height: 2px; background: currentColor; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 20px; font-size: clamp(42px, 5vw, 68px); line-height: 1.08; letter-spacing: -0.045em; }
+    .hero-copy { max-width: 700px; margin-bottom: 0; color: var(--ink-2); font-size: 18px; line-height: 1.7; }
+    .hero-proof { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--border-strong); border-bottom: 1px solid var(--border); }
+    .proof { padding: 18px 4px; }
+    .proof + .proof { padding-left: 22px; border-left: 1px solid var(--border); }
+    .proof strong { display: block; margin-bottom: 4px; font-size: 24px; letter-spacing: -.03em; }
+    .proof span { color: var(--ink-2); font-size: 13px; }
+
+    section { scroll-margin-top: 92px; margin-top: 88px; }
+    .section-head { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 24px; align-items: start; margin-bottom: 28px; padding-top: 20px; border-top: 1px solid var(--border-strong); }
+    .section-no { color: var(--teal); font-size: 13px; font-weight: 800; letter-spacing: .08em; }
+    .section-title h2 { margin-bottom: 8px; font-size: 32px; line-height: 40px; letter-spacing: -.03em; }
+    .section-title p { max-width: 760px; margin-bottom: 0; color: var(--ink-2); }
+    .subhead { margin: 40px 0 16px; font-size: 20px; letter-spacing: -.02em; }
+
+    .grid { display: grid; gap: 16px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .panel { padding: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+    .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .panel-title strong { font-size: 16px; }
+    .panel-title span { color: var(--ink-3); font-size: 12px; }
+
+    .swatches { display: grid; gap: 10px; }
+    .swatch { display: grid; grid-template-columns: 52px minmax(0, 1fr); min-height: 52px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+    .swatch-color { background: var(--swatch); }
+    .swatch-copy { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; background: var(--surface); }
+    .swatch-copy strong { display: block; font-size: 13px; }
+    .swatch-copy code { color: var(--ink-3); font-size: 11px; }
+    .rule-strip { display: grid; grid-template-columns: 3fr 1fr 1fr; min-height: 86px; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border); }
+    .rule-strip > div { display: flex; align-items: end; padding: 14px; font-size: 12px; font-weight: 700; }
+    .rule-neutral { background: var(--surface); }
+    .rule-semantic { background: var(--teal); color: white; }
+    .rule-campaign { background: var(--campaign-yellow); color: var(--ink); }
+
+    .type-sample { padding: 18px 0; border-bottom: 1px solid var(--border-subtle); }
+    .type-sample:last-child { border-bottom: 0; }
+    .type-meta { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 7px; color: var(--ink-3); font-size: 12px; }
+    .display { font-size: 52px; line-height: 60px; font-weight: 800; letter-spacing: -1.5px; }
+    .h1 { font-size: 40px; line-height: 48px; font-weight: 800; letter-spacing: -.6px; }
+    .h2 { font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: -.6px; }
+    .h3 { font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: -.6px; }
+    .body-text { font-size: 16px; line-height: 24px; }
+    .label-text { font-size: 14px; line-height: 20px; font-weight: 600; }
+    .caption-text { font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: .2px; }
+
+    .space-list { display: grid; gap: 10px; }
+    .space-row { display: grid; grid-template-columns: 54px 1fr 48px; align-items: center; gap: 12px; font-size: 12px; }
+    .space-bar { height: 12px; width: var(--w); max-width: 100%; background: var(--teal); border-radius: 2px; }
+    .shape-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; }
+    .shape { width: 92px; height: 72px; display: grid; place-items: center; background: var(--surface-subtle); border: 1px solid var(--border); font-size: 12px; }
+    .shadow-card { width: 150px; min-height: 92px; display: grid; place-items: center; background: white; border-radius: var(--radius-lg); font-size: 12px; }
+
+    .button-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .btn {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 16px;
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 160ms cubic-bezier(.2,0,0,1), border-color 160ms cubic-bezier(.2,0,0,1), color 160ms cubic-bezier(.2,0,0,1);
+    }
+    .btn-primary { background: var(--teal); color: white; }
+    .btn-primary:hover { background: var(--teal-hover); }
+    .btn-primary:active { background: var(--teal-pressed); }
+    .btn-secondary { background: white; color: var(--teal); border-color: var(--teal); }
+    .btn-secondary:hover { background: var(--teal-soft); }
+    .btn-quiet { background: transparent; color: var(--ink); }
+    .btn-quiet:hover { background: var(--surface-muted); }
+    .btn-danger { background: var(--rust); color: white; }
+    .btn-danger:hover { background: var(--rust-hover); }
+    .btn[disabled] { background: var(--surface-muted); color: var(--ink-disabled); border-color: transparent; cursor: not-allowed; }
+    .btn-sm { min-height: 36px; padding-inline: 12px; font-size: 14px; }
+    .btn-lg { min-height: 52px; padding-inline: 20px; }
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.45); border-top-color: white; border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .field { display: grid; gap: 7px; }
+    .field label { font-size: 14px; font-weight: 700; }
+    .field input, .field select {
+      width: 100%;
+      height: 48px;
+      padding: 0 16px;
+      color: var(--ink);
+      background: white;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+    }
+    .field input:focus, .field select:focus { border-color: var(--teal-focus); box-shadow: var(--shadow-focus); }
+    .field small { color: var(--ink-2); }
+    .field.error input { border-color: var(--rust); }
+    .field.error small { color: var(--rust); }
+    .field input[disabled] { color: var(--ink-disabled); background: var(--surface-muted); border-color: var(--border); }
+
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .badge { min-height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+    .badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .neutral { color: var(--ink-2); background: var(--surface-muted); }
+    .info { color: var(--blue); background: var(--blue-soft); }
+    .success { color: var(--green); background: var(--green-soft); }
+    .warning { color: var(--amber); background: var(--amber-soft); }
+    .danger { color: var(--rust); background: var(--rust-soft); }
+
+    .project-card { display: grid; grid-template-columns: 180px minmax(0, 1fr) auto; gap: 20px; padding: 0; overflow: hidden; }
+    .project-media { min-height: 174px; position: relative; display: grid; place-items: center; color: var(--teal); background: #C7E9E8; font-size: 13px; font-weight: 800; }
+    .project-media::before, .project-media::after { content: ''; position: absolute; border: 1px solid rgba(11,19,43,.2); background: rgba(255,255,255,.72); }
+    .project-media::before { width: 104px; height: 70px; top: 32px; left: 34px; }
+    .project-media::after { width: 76px; height: 54px; top: 56px; left: 68px; }
+    .project-main { padding: 20px 0; }
+    .project-title { margin-bottom: 5px; font-size: 19px; font-weight: 800; letter-spacing: -.02em; }
+    .project-client { margin-bottom: 18px; color: var(--ink-2); font-size: 13px; }
+    .project-facts { display: grid; grid-template-columns: repeat(4, minmax(90px, 1fr)); }
+    .fact { padding-right: 14px; border-right: 1px solid var(--border-subtle); }
+    .fact + .fact { padding-left: 14px; }
+    .fact:last-child { border-right: 0; }
+    .fact span { display: block; margin-bottom: 4px; color: var(--ink-3); font-size: 11px; }
+    .fact strong { font-size: 14px; }
+    .project-side { padding: 20px; display: flex; flex-direction: column; align-items: end; justify-content: space-between; }
+    .save { width: 44px; height: 44px; border: 1px solid var(--border); border-radius: var(--radius-md); background: white; color: var(--ink-2); cursor: pointer; }
+    .save[aria-pressed="true"] { color: var(--teal); border-color: var(--teal); background: var(--teal-soft); }
+
+    .budget-shell { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, .55fr); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: white; }
+    .budget-main { padding: 22px; }
+    .budget-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 20px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .budget-stat { padding: 18px 14px; }
+    .budget-stat + .budget-stat { border-left: 1px solid var(--border); }
+    .budget-stat span { display: block; color: var(--ink-3); font-size: 12px; }
+    .budget-stat strong { display: block; margin-top: 5px; font-size: 24px; letter-spacing: -.025em; }
+    .budget-table { width: 100%; border-collapse: collapse; }
+    .budget-table th, .budget-table td { padding: 14px 10px; border-bottom: 1px solid var(--border-subtle); text-align: left; }
+    .budget-table th { color: var(--ink-2); background: var(--surface-subtle); font-size: 12px; }
+    .budget-table td:last-child, .budget-table th:last-child { text-align: right; }
+    .evidence { padding: 22px; background: var(--surface-subtle); border-left: 1px solid var(--border); }
+    .evidence h4 { margin: 0 0 5px; }
+    .evidence > p { color: var(--ink-2); font-size: 12px; }
+    .evidence-item { margin-top: 12px; padding: 12px; background: white; border: 1px solid var(--border); border-radius: var(--radius-md); }
+    .evidence-item strong { display: block; margin-bottom: 4px; font-size: 13px; }
+    .evidence-item span { color: var(--ink-2); font-size: 12px; }
+
+    .alert { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 14px 16px; border-radius: var(--radius-md); border: 1px solid currentColor; }
+    .alert strong { display: block; margin-bottom: 2px; font-size: 14px; }
+    .alert p { margin: 0; font-size: 13px; color: inherit; }
+    .alert-icon { width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-size: 11px; font-weight: 800; }
+
+    .stepper { display: flex; align-items: center; gap: 12px; }
+    .step { display: flex; align-items: center; gap: 8px; color: var(--ink-3); font-size: 14px; font-weight: 700; }
+    .step-num { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--border-strong); border-radius: 50%; }
+    .step.current { color: var(--teal); }
+    .step.current .step-num { border: 2px solid var(--teal); background: var(--teal-soft); }
+    .step.done { color: var(--green); }
+    .step.done .step-num { border-color: var(--green); background: var(--green-soft); }
+    .step-line { width: 64px; height: 1px; background: var(--border); }
+
+    .template-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .template-card { padding: 18px; background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+    .template-card h3 { margin-bottom: 4px; font-size: 16px; }
+    .template-card > p { margin-bottom: 14px; color: var(--ink-2); font-size: 12px; }
+    .wire { height: 230px; padding: 12px; display: grid; gap: 8px; background: var(--surface-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+    .wire-bar { height: 20px; background: white; border: 1px solid var(--border); border-radius: 4px; }
+    .wire-block { background: white; border: 1px solid var(--border); border-radius: 6px; }
+    .wire.discovery { grid-template-columns: 1fr 3fr; grid-template-rows: 24px 50px 1fr; }
+    .wire.discovery .wire-bar { grid-column: 1 / -1; }
+    .wire.discovery .wide { grid-column: 1 / -1; }
+    .wire.form { grid-template-columns: 2fr 1fr; grid-template-rows: 24px 1fr 38px; }
+    .wire.form .wire-bar, .wire.form .foot { grid-column: 1 / -1; }
+    .wire.detail { grid-template-columns: 2.2fr 1fr; grid-template-rows: 24px 1fr; }
+    .wire.detail .wire-bar { grid-column: 1 / -1; }
+    .wire.workspace { grid-template-columns: 2fr .9fr .7fr; grid-template-rows: 24px 1fr 60px; }
+    .wire.workspace .wire-bar, .wire.workspace .foot { grid-column: 1 / -1; }
+
+    .a11y-table { width: 100%; border-collapse: collapse; background: white; border: 1px solid var(--border); }
+    .a11y-table th, .a11y-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); text-align: left; }
+    .a11y-table th { color: var(--ink-2); background: var(--surface-subtle); font-size: 12px; }
+    .a11y-table td { font-size: 14px; }
+    .pass { color: var(--green); font-weight: 800; }
+    .guardrails { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+    .guardrail { display: grid; grid-template-columns: 22px 1fr; gap: 9px; font-size: 14px; }
+    .guardrail::before { content: '×'; width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--rust); border-radius: 50%; color: var(--rust); font-size: 12px; font-weight: 800; }
+
+    .contrast-mode .panel, .contrast-mode .project-card, .contrast-mode .budget-shell, .contrast-mode .template-card { outline: 2px solid var(--blue); outline-offset: 2px; }
+    .footer { margin-top: 88px; padding-top: 24px; border-top: 1px solid var(--border-strong); display: flex; justify-content: space-between; gap: 24px; color: var(--ink-2); font-size: 13px; }
+
+    @media (max-width: 1024px) {
+      .layout { grid-template-columns: 1fr; }
+      .rail { display: none; }
+      .content { width: min(100% - 48px, 900px); }
+      .hero, .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+      .project-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .fact { border-right: 0; padding: 0 !important; }
+    }
+    @media (max-width: 720px) {
+      .topbar { padding-inline: 16px; }
+      .topbar-meta, .topbar-actions .btn-secondary { display: none; }
+      .content { width: calc(100% - 32px); padding-top: 24px; }
+      .hero, .grid-2, .grid-3, .grid-4, .field-grid, .template-grid, .budget-shell { grid-template-columns: 1fr; }
+      .hero { gap: 28px; padding-bottom: 28px; }
+      .section-head { grid-template-columns: 1fr; gap: 5px; }
+      .rule-strip { grid-template-columns: 2fr 1fr 1fr; }
+      .project-card { grid-template-columns: 1fr; }
+      .project-media { min-height: 160px; }
+      .project-main { padding: 0 16px; }
+      .project-side { padding: 0 16px 16px; flex-direction: row; align-items: center; }
+      .budget-summary { grid-template-columns: 1fr; }
+      .budget-stat + .budget-stat { border-left: 0; border-top: 1px solid var(--border); }
+      .evidence { border-left: 0; border-top: 1px solid var(--border); }
+      .guardrails { grid-template-columns: 1fr; }
+      .step-line { width: 20px; }
+      .step span:last-child { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="rail" aria-label="디자인 시스템 목차">
+      <div class="brand">
+        <div class="brand-mark">P5</div>
+        <div><div class="brand-name">PactFive</div><div class="version">Foundation MVP · v1.0</div></div>
+      </div>
+      <div class="nav-label">Foundation</div>
+      <nav class="nav">
+        <a href="#color">Color <span class="nav-index">01</span></a>
+        <a href="#type">Typography <span class="nav-index">02</span></a>
+        <a href="#space">Space & Shape <span class="nav-index">03</span></a>
+      </nav>
+      <div class="nav-label">System</div>
+      <nav class="nav">
+        <a href="#components">Components <span class="nav-index">04</span></a>
+        <a href="#domain">Domain Patterns <span class="nav-index">05</span></a>
+        <a href="#templates">Page Templates <span class="nav-index">06</span></a>
+        <a href="#accessibility">Accessibility <span class="nav-index">07</span></a>
+        <a href="#guardrails">Guardrails <span class="nav-index">08</span></a>
+      </nav>
+      <div class="rail-note"><strong>Core rule</strong><span>시각적 풍부함은 장식색이 아니라 실제 콘텐츠와 거래 근거에서 만든다.</span></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div><div class="topbar-title">Design System Preview</div><div class="topbar-meta">TS 토큰과 동일한 값 · 2026.08.24</div></div>
+        <div class="topbar-actions">
+          <button class="btn btn-secondary btn-sm" id="contrastToggle" type="button" aria-pressed="false">구획 확인</button>
+          <a class="btn btn-primary btn-sm" href="#components">컴포넌트 보기</a>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="hero">
+          <div>
+            <div class="eyebrow">Trust by Evidence</div>
+            <h1>근거가 화면의<br />위계를 결정합니다.</h1>
+            <p class="hero-copy">PactFive는 프리랜서와 의뢰인이 같은 거래 사실을 이해하도록 돕습니다. 색과 장식은 판단을 보조하고, 실제 프로젝트·금액·기한·산출물이 시각의 중심이 됩니다.</p>
+          </div>
+          <div class="hero-proof">
+            <div class="proof"><strong>3 + 1</strong><span>Primitive · Semantic · Component + Domain</span></div>
+            <div class="proof"><strong>AA</strong><span>대비 · 키보드 · 확대 · 반응형 기준</span></div>
+          </div>
+        </div>
+
+        <section id="color">
+          <div class="section-head"><div class="section-no">01 / COLOR</div><div class="section-title"><h2>색은 역할을 가집니다.</h2><p>중립색이 업무 구조를 만들고, 브랜드색과 상태색은 사용자의 현재 판단에 필요한 순간에만 개입합니다.</p></div></div>
+          <div class="rule-strip" aria-label="권장 색 사용 비율"><div class="rule-neutral">중립 UI · 콘텐츠</div><div class="rule-semantic">행동 · 상태</div><div class="rule-campaign">캠페인 한정</div></div>
+          <div class="grid grid-3" style="margin-top:16px">
+            <div class="panel"><div class="panel-title"><strong>Core</strong><span>업무 화면</span></div><div class="swatches">
+              <div class="swatch"><div class="swatch-color" style="--swatch:#0B132B"></div><div class="swatch-copy"><strong>content.primary</strong><code>#0B132B</code></div></div>
+              <div class="swatch"><div class="swatch-color" style="--swatch:#55627A"></div><div class="swatch-copy"><strong>content.secondary</strong><code>#55627A</code></div></div>
+              <div class="swatch"><div class="swatch-color" style="--swatch:#006D70"></div><div class="swatch-copy"><strong>action.primary</strong><code>#006D70</code></div></div>
+              <div class="swatch"><div class="swatch-color" style="--swatch:#CBD3DF"></div><div class="swatch-copy"><strong>border.default</strong><code>#CBD3DF</code></div></div>
+            </div></div>
+            <div class="panel"><div class="panel-title"><strong>Feedback</strong><span>의미 상태</span></div><div class="swatches">
+              <div class="swatch"><div class="swatch-color" style="--swatch:#16734D"></div><div class="swatch-copy"><strong>success</strong><code>#16734D</code></div></div>
+              <div class="swatch"><div class="swatch-color" style="--swatch:#7A4B00"></div><div class="swatch-copy"><strong>warning</strong><code>#7A4B00</code></div></div>
+              <div class="swatch"><div class="swatch-color" style="--swatch:#B93824"></div><div class="swatch-copy"><strong>danger</strong><code>#B93824</code></div></div>
+              <div class="swatch"><div class="swatch-color" style="--swatch:#1C5F9C"></div><div class="swatch-copy"><strong>info</strong><code>#1C5F9C</code></div></div>
+            </div></div>
+            <div class="panel"><div class="panel-title"><strong>Campaign</strong><span>마케팅 전용</span></div><div class="swatches">
+              <div class="swatch"><div class="swatch-color" style="--swatch:#F4C430"></div><div class="swatch-copy"><strong>campaign.yellow</strong><code>#F4C430</code></div></div>
+              <div class="swatch"><div class="swatch-color" style="--swatch:#4B173C"></div><div class="swatch-copy"><strong>campaign.plum</strong><code>#4B173C</code></div></div>
+              <div class="swatch"><div class="swatch-color" style="--swatch:#E9DDFB"></div><div class="swatch-copy"><strong>campaign.lavender</strong><code>#E9DDFB</code></div></div>
+              <div class="swatch"><div class="swatch-color" style="--swatch:#FBFAF7"></div><div class="swatch-copy"><strong>canvas</strong><code>#FBFAF7</code></div></div>
+            </div></div>
+          </div>
+        </section>
+
+        <section id="type">
+          <div class="section-head"><div class="section-no">02 / TYPE</div><div class="section-title"><h2>한국어와 숫자가 먼저 읽힙니다.</h2><p>홈은 편집적인 헤드라인을 사용하고, 거래 화면은 문서처럼 정돈합니다. 금액과 날짜는 같은 자릿수에서 비교됩니다.</p></div></div>
+          <div class="panel">
+            <div class="type-sample"><div class="type-meta"><span>display · 52/60 · 800</span><span>홈 한정</span></div><div class="display">좋은 협업을 만드는 전문가</div></div>
+            <div class="type-sample"><div class="type-meta"><span>heading1 · 40/48 · 800</span><span>페이지 제목</span></div><div class="h1">예산 분석 결과</div></div>
+            <div class="type-sample"><div class="type-meta"><span>heading2 · 32/40 · 700</span><span>핵심 섹션</span></div><div class="h2">브릭앤코 주문 포털 리뉴얼</div></div>
+            <div class="type-sample"><div class="type-meta"><span>heading3 · 24/32 · 700</span><span>그룹 제목</span></div><div class="h3">중간 결과물 검토</div></div>
+            <div class="type-sample"><div class="type-meta"><span>body · 16/24 · 400</span><span>기본 설명</span></div><div class="body-text">검증된 경력과 실제 결과물을 비교하고, 계약까지 안전하게 이어가세요.</div></div>
+            <div class="type-sample"><div class="type-meta"><span>label · 14/20 · 600</span><span>항목·행동</span></div><div class="label-text">합의 금액 · 납품 예정일 · 안전결제</div></div>
+            <div class="type-sample"><div class="type-meta"><span>caption · 12/16 · 500</span><span>보조 정보</span></div><div class="caption-text numeric">기준 시점 2026.08 · 유사 프로젝트 38건</div></div>
+          </div>
+        </section>
+
+        <section id="space">
+          <div class="section-head"><div class="section-no">03 / SPACE</div><div class="section-title"><h2>평면적인 구조가 밀도를 정돈합니다.</h2><p>4 단위의 간격, 절제된 반경, 선 중심 구획을 사용합니다. 그림자는 콘텐츠나 오버레이의 실제 깊이를 설명할 때만 사용합니다.</p></div></div>
+          <div class="grid grid-3">
+            <div class="panel"><div class="panel-title"><strong>Spacing</strong><span>4 기반</span></div><div class="space-list">
+              <div class="space-row"><code>space.1</code><div class="space-bar" style="--w:4px"></div><span>4</span></div>
+              <div class="space-row"><code>space.2</code><div class="space-bar" style="--w:8px"></div><span>8</span></div>
+              <div class="space-row"><code>space.4</code><div class="space-bar" style="--w:16px"></div><span>16</span></div>
+              <div class="space-row"><code>space.6</code><div class="space-bar" style="--w:24px"></div><span>24</span></div>
+              <div class="space-row"><code>space.8</code><div class="space-bar" style="--w:32px"></div><span>32</span></div>
+              <div class="space-row"><code>space.12</code><div class="space-bar" style="--w:48px"></div><span>48</span></div>
+              <div class="space-row"><code>space.16</code><div class="space-bar" style="--w:64px"></div><span>64</span></div>
+            </div></div>
+            <div class="panel"><div class="panel-title"><strong>Radius</strong><span>용도별</span></div><div class="shape-row">
+              <div class="shape" style="border-radius:4px">4 · small</div><div class="shape" style="border-radius:8px">8 · control</div><div class="shape" style="border-radius:12px">12 · card</div><div class="shape" style="border-radius:16px">16 · overlay</div>
+            </div></div>
+            <div class="panel"><div class="panel-title"><strong>Shadow</strong><span>최소 사용</span></div><div class="shape-row">
+              <div class="shadow-card" style="border:1px solid var(--border)">none</div><div class="shadow-card" style="box-shadow:var(--shadow-raised)">raised</div><div class="shadow-card" style="box-shadow:var(--shadow-overlay)">overlay</div>
+            </div></div>
+          </div>
+        </section>
+
+        <section id="components">
+          <div class="section-head"><div class="section-no">04 / COMPONENTS</div><div class="section-title"><h2>모든 상태가 완성되어야 기본 상태도 완성됩니다.</h2><p>행동과 입력은 hover, focus, pressed, disabled, loading, error까지 같은 의미 체계를 유지합니다. 아래 샘플은 실제로 조작할 수 있습니다.</p></div></div>
+          <div class="grid grid-2">
+            <div class="panel"><div class="panel-title"><strong>Actions</strong><span>44 minimum</span></div><div class="button-row">
+              <button class="btn btn-primary" type="button">프로젝트 보기</button><button class="btn btn-secondary" type="button">직접 입력</button><button class="btn btn-quiet" type="button">이전</button><button class="btn btn-danger" type="button">계약 취소</button><button class="btn" type="button" disabled>처리 불가</button>
+            </div><div class="button-row" style="margin-top:14px"><button class="btn btn-primary" id="loadingButton" type="button">분석 상태 재생</button><span id="loadingHelp" class="caption-text" aria-live="polite">대기 중</span></div></div>
+            <div class="panel"><div class="panel-title"><strong>Status</strong><span>색 + 라벨</span></div><div class="badge-row"><span class="badge neutral">모집 마감</span><span class="badge info">작업 중</span><span class="badge success">계약 체결</span><span class="badge warning">응답 대기</span><span class="badge danger">결제 실패</span></div><h3 class="subhead">Progress</h3><div class="stepper"><div class="step done"><span class="step-num">✓</span><span>기본 정보</span></div><div class="step-line"></div><div class="step current"><span class="step-num">2</span><span>일정·예산</span></div><div class="step-line"></div><div class="step"><span class="step-num">3</span><span>기술·확인</span></div></div></div>
+          </div>
+          <div class="panel" style="margin-top:16px"><div class="panel-title"><strong>Fields</strong><button class="btn btn-secondary btn-sm" id="errorToggle" type="button" aria-pressed="false">오류 상태 보기</button></div><div class="field-grid">
+            <div class="field" id="budgetField"><label for="budget">프로젝트 예산</label><input id="budget" class="numeric" value="5,000,000원" /><small id="budgetHelp">프리랜서에게 지불할 총액 기준입니다.</small></div>
+            <div class="field"><label for="deadline">납품 희망일</label><input id="deadline" class="numeric" value="2026. 09. 16" /><small>프로젝트 진행에 충분한 기간을 설정하세요.</small></div>
+            <div class="field"><label for="workMode">작업 방식</label><select id="workMode"><option>원격</option><option>주 2회 오피스</option><option>상주</option></select><small>프리랜서가 지원 전에 확인합니다.</small></div>
+            <div class="field"><label for="locked">합의 금액</label><input id="locked" class="numeric" value="5,200,000원" disabled /><small>계약 확정 후에는 변경할 수 없습니다.</small></div>
+          </div></div>
+          <div class="grid grid-2" style="margin-top:16px">
+            <div class="alert info"><div class="alert-icon">i</div><div><strong>예상 금액입니다.</strong><p>분석 결과는 실제 계약 금액이 아니며 직접 조정할 수 있습니다.</p></div></div>
+            <div class="alert danger"><div class="alert-icon">!</div><div><strong>조건을 수정할 수 없습니다.</strong><p>지원이 시작되어 일정과 예산이 보호되고 있습니다.</p></div></div>
+          </div>
+        </section>
+
+        <section id="domain">
+          <div class="section-head"><div class="section-no">05 / DOMAIN</div><div class="section-title"><h2>업무 사실을 재사용 가능한 패턴으로 묶습니다.</h2><p>프로젝트, 금액, 증거, 상태는 단순 카드가 아니라 제품 정책을 보존하는 조합입니다.</p></div></div>
+          <h3 class="subhead">ProjectCard</h3>
+          <article class="panel project-card">
+            <div class="project-media">실제 작업물 영역</div>
+            <div class="project-main"><div class="project-title">브릭앤코 B2B 주문 포털 리뉴얼</div><div class="project-client">브릭앤코 · 사업자 인증 완료</div><div class="project-facts numeric"><div class="fact"><span>프로젝트 예산</span><strong>5,000,000원</strong></div><div class="fact"><span>모집 마감</span><strong style="color:var(--rust)">D-3 · 08.27</strong></div><div class="fact"><span>작업 방식</span><strong>원격</strong></div><div class="fact"><span>기술</span><strong>React · Figma</strong></div></div></div>
+            <div class="project-side"><button class="save" id="saveButton" type="button" aria-label="프로젝트 저장" aria-pressed="false">◇</button><span class="badge success">모집 중</span></div>
+          </article>
+
+          <h3 class="subhead">MoneyBreakdown + Evidence</h3>
+          <div class="budget-shell">
+            <div class="budget-main"><div class="budget-summary numeric"><div class="budget-stat"><span>입력 예산</span><strong>5,000,000원</strong></div><div class="budget-stat"><span>권장 예산</span><strong style="color:var(--teal)">5,200,000원</strong></div><div class="budget-stat"><span>차이</span><strong>+200,000원</strong></div></div><table class="budget-table numeric"><thead><tr><th>항목</th><th>산출 근거</th><th>금액</th></tr></thead><tbody><tr><td>기획·설계</td><td>요구사항 정리 · 화면 설계</td><td>1,200,000원</td></tr><tr><td>개발</td><td>프론트엔드 · 백엔드 · 연동</td><td>3,200,000원</td></tr><tr><td>테스트·안정화</td><td>오류 수정 · 성능 점검</td><td>800,000원</td></tr></tbody></table></div>
+            <aside class="evidence"><h4>분석 근거</h4><p class="numeric">유사 프로젝트 38건 · 2026.08 기준</p><div class="evidence-item"><strong>B2B 백오피스 구축</strong><span class="numeric">5,400,000원 · 6주 · 평점 4.9</span></div><div class="evidence-item"><strong>주문관리 시스템 개선</strong><span class="numeric">4,900,000원 · 5주 · 평점 5.0</span></div><div class="evidence-item"><strong>관리자 도구 리뉴얼</strong><span class="numeric">5,200,000원 · 6주 · 평점 4.8</span></div></aside>
+          </div>
+        </section>
+
+        <section id="templates">
+          <div class="section-head"><div class="section-no">06 / TEMPLATES</div><div class="section-title"><h2>화면마다 다른 일이 중심이 됩니다.</h2><p>같은 카드 템플릿을 반복하지 않습니다. 탐색은 비교, 입력은 흐름, 상세는 결정, 워크스페이스는 산출물을 중심으로 구성합니다.</p></div></div>
+          <div class="template-grid">
+            <div class="template-card"><h3>Discovery</h3><p>검색 · 필터 · 비교 가능한 결과</p><div class="wire discovery"><div class="wire-bar"></div><div class="wire-block wide"></div><div class="wire-block"></div><div class="wire-block"></div></div></div>
+            <div class="template-card"><h3>Step form</h3><p>현재 단계 · 입력 보존 · 근거 rail</p><div class="wire form"><div class="wire-bar"></div><div class="wire-block"></div><div class="wire-block"></div><div class="wire-block foot"></div></div></div>
+            <div class="template-card"><h3>Detail + action</h3><p>사실 본문 · 권한별 다음 행동</p><div class="wire detail"><div class="wire-bar"></div><div class="wire-block"></div><div class="wire-block"></div></div></div>
+            <div class="template-card"><h3>Workspace</h3><p>산출물 · 대화 · 계약 · 활동 기록</p><div class="wire workspace"><div class="wire-bar"></div><div class="wire-block"></div><div class="wire-block"></div><div class="wire-block"></div><div class="wire-block foot"></div></div></div>
+          </div>
+        </section>
+
+        <section id="accessibility">
+          <div class="section-head"><div class="section-no">07 / ACCESS</div><div class="section-title"><h2>같은 정보와 행동에 접근할 수 있어야 합니다.</h2><p>대비만 통과하는 것으로 끝나지 않습니다. 키보드, 포커스 복귀, 확대, 긴 콘텐츠, 비동기 상태까지 실제 과업을 검증합니다.</p></div></div>
+          <table class="a11y-table"><thead><tr><th>검증 항목</th><th>기준</th><th>Foundation 상태</th></tr></thead><tbody><tr><td>일반 텍스트 대비</td><td class="numeric">4.5:1 이상</td><td class="pass">토큰 통과</td></tr><tr><td>큰 텍스트·필수 UI 대비</td><td class="numeric">3:1 이상</td><td class="pass">토큰 통과</td></tr><tr><td>조작 영역</td><td class="numeric">최소 44×44</td><td class="pass">기본 크기 반영</td></tr><tr><td>키보드·포커스</td><td>모든 기능 실행과 복귀</td><td class="pass">상호작용 샘플 반영</td></tr><tr><td>확대·좁은 폭</td><td class="numeric">200% · 320 폭</td><td>화면별 검수 필요</td></tr><tr><td>상태 변화</td><td>색 이외 라벨·설명, live region</td><td class="pass">패턴 반영</td></tr></tbody></table>
+        </section>
+
+        <section id="guardrails">
+          <div class="section-head"><div class="section-no">08 / GUARDRAILS</div><div class="section-title"><h2>AI처럼 보이는 익숙한 장식을 거부합니다.</h2><p>시각적 완성도는 장식 효과의 수가 아니라 정보의 정확성, 이미지의 맥락, 한국어 조판, 상태의 일관성에서 만듭니다.</p></div></div>
+          <div class="guardrails"><div class="guardrail">사용 목적이 없는 그라데이션과 다색 카드</div><div class="guardrail">모든 내용을 같은 모양의 둥근 카드로 감싸기</div><div class="guardrail">로봇·스파클·마법봉으로 AI를 표현하기</div><div class="guardrail">실제 판단에 필요 없는 차트와 가짜 통계</div><div class="guardrail">옅고 작은 microcopy와 과도한 영문 혼용</div><div class="guardrail">상태와 선택을 색 하나로만 구분하기</div><div class="guardrail">프로젝트명·금액·날짜의 화면 간 불일치</div><div class="guardrail">위험과 마감을 반복 애니메이션으로 압박하기</div></div>
+        </section>
+
+        <footer class="footer"><span>PactFive Design System · Foundation MVP</span><span>Source of truth: design-tokens.md</span></footer>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const contrastToggle = document.getElementById('contrastToggle');
+    contrastToggle.addEventListener('click', () => {
+      const active = document.body.classList.toggle('contrast-mode');
+      contrastToggle.setAttribute('aria-pressed', String(active));
+      contrastToggle.textContent = active ? '구획 확인 끄기' : '구획 확인';
+    });
+
+    const loadingButton = document.getElementById('loadingButton');
+    const loadingHelp = document.getElementById('loadingHelp');
+    loadingButton.addEventListener('click', () => {
+      loadingButton.disabled = true;
+      loadingButton.innerHTML = '<span class="spinner" aria-hidden="true"></span>분석 중';
+      loadingHelp.textContent = '유사 프로젝트와 산출 내역을 확인하고 있습니다.';
+      window.setTimeout(() => {
+        loadingButton.disabled = false;
+        loadingButton.textContent = '다시 재생';
+        loadingHelp.textContent = '분석이 완료되었습니다.';
+      }, 900);
+    });
+
+    const errorToggle = document.getElementById('errorToggle');
+    const budgetField = document.getElementById('budgetField');
+    const budget = document.getElementById('budget');
+    const budgetHelp = document.getElementById('budgetHelp');
+    errorToggle.addEventListener('click', () => {
+      const active = budgetField.classList.toggle('error');
+      errorToggle.setAttribute('aria-pressed', String(active));
+      budget.setAttribute('aria-invalid', String(active));
+      budgetHelp.textContent = active ? '예산은 원 단위의 양의 정수로 입력해주세요.' : '프리랜서에게 지불할 총액 기준입니다.';
+      errorToggle.textContent = active ? '기본 상태 보기' : '오류 상태 보기';
+    });
+
+    const saveButton = document.getElementById('saveButton');
+    saveButton.addEventListener('click', () => {
+      const saved = saveButton.getAttribute('aria-pressed') === 'true';
+      saveButton.setAttribute('aria-pressed', String(!saved));
+      saveButton.setAttribute('aria-label', saved ? '프로젝트 저장' : '프로젝트 저장 취소');
+      saveButton.textContent = saved ? '◇' : '◆';
+    });
+
+    const sections = [...document.querySelectorAll('section[id]')];
+    const navLinks = [...document.querySelectorAll('.nav a')];
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        navLinks.forEach(link => link.classList.toggle('active', link.getAttribute('href') === '#' + entry.target.id));
+      });
+    }, { rootMargin: '-25% 0px -65% 0px' });
+    sections.forEach(section => observer.observe(section));
+  </script>
+</body>
+</html>
