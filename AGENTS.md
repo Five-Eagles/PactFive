@@ -18,6 +18,11 @@
 - PRD·ERD 요약은 각각 `docs/domain/prd.md`, `docs/domain/erd.md` 참고 (2026-08-20 추가, 원본은 `docs/domain/reference/`)
 - 기능 담당자 워크플로우를 실제로 밟은 동작 예시는 `features/sample-login/` 참고 — 팀장과의 대화 없이 다른 AI가 작업해도 이 예시와 `sdd-framework/feature-workflow.md`의 완료 조건만으로 충분해야 한다 (2026-08-20 추가)
 - `prototype/web/`을 브라우저에서 실제로 보고 싶으면 리포 루트에서 `npm run preview:dev` (`tools/preview/`, 전체 기능 공용 프리뷰 하네스) 참고 (2026-08-21 추가)
+- **main/develop/production에는 사람이든 AI든 직접 push하지 않는다 — 항상 PR로만 반영한다.**
+  GitHub CODEOWNERS 필수 리뷰는 유료 플랜이 없어 쓸 수 없어서(`.github/CODEOWNERS` 참고), 대신
+  `scripts/git-hooks/pre-push`가 세 브랜치로의 직접 push를 로컬에서 차단한다. 이 훅은
+  `scripts/ensure-deps.js`가 모든 진입점에서 자동으로 설치하므로 별도 설정이 필요 없다
+  (2026-08-24 추가)
 
 ## features/*/prototype/, features/*/design/ 정의 (2026-08-20 갱신)
 
