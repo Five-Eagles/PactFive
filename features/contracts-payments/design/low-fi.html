@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>contracts-payments — 계약 상세 화면 (low-fi 와이어프레임)</title>
+<style>
+  /* low-fi: design-system 미확정 상태이므로 색상·타이포는 전부 회색조 뼈대만 사용한다.
+     design-system 확정 후 high-fi로 교체한다 (sdd-framework/feature-workflow.md). */
+  body{ font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; background:#f1f1f1; margin:0; padding:2rem; color:#333; }
+  .meta{ max-width:560px; margin:0 auto 1rem; font-size:12px; color:#888; }
+  .frame{ max-width:560px; margin:0 auto; background:#fff; border:2px dashed #999; padding:2rem; }
+  .section{ border-top:1px solid #ddd; padding-top:1rem; margin-top:1rem; }
+  .section:first-child{ border-top:none; padding-top:0; margin-top:0; }
+  .label{ font-size:11px; color:#999; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.25rem; }
+  .box{ background:#e5e5e5; border:1px solid #aaa; border-radius:2px; padding:.75rem; margin-bottom:.75rem; color:#777; font-size:14px; }
+  .box.button{ background:#ccc; border-color:#888; text-align:center; font-weight:bold; color:#555; cursor:default; display:inline-block; padding:.5rem 1rem; margin-right:.5rem; }
+  .box.status{ background:#fff; border:1px dashed #888; font-weight:bold; color:#555; }
+  .row{ display:flex; justify-content:space-between; font-size:14px; margin-bottom:.4rem; }
+  .note{ font-size:11px; color:#999; margin-top:.25rem; }
+  h2{ font-size:15px; margin:0 0 .5rem; }
+</style>
+</head>
+<body>
+
+<div class="meta">contracts-payments · low-fi 와이어프레임 · design-system 미확정 상태 (뼈대 수준)</div>
+
+<div class="frame">
+  <div class="section">
+    <h2>[TEXT] 계약 상세 — ContractDetail</h2>
+    <div class="row"><span>프로젝트</span><span>쇼핑몰 리뉴얼</span></div>
+    <div class="row"><span>합의 금액</span><span>1,000,000원</span></div>
+    <div class="box status">계약 상태: SIGNED</div>
+  </div>
+
+  <div class="section">
+    <div class="label">[BUTTON] 서명</div>
+    <div class="box button">계약 서명하기</div>
+    <div class="note">이미 서명한 쪽에는 비활성화 표시 (spec.md 규칙 4)</div>
+  </div>
+
+  <div class="section">
+    <div class="label">[SECTION] 결제</div>
+    <div class="row"><span>결제 금액</span><span>1,000,000원</span></div>
+    <div class="row"><span>플랫폼 수수료</span><span>100,000원</span></div>
+    <div class="row"><span>정산 예정액</span><span>900,000원</span></div>
+    <div class="box status">결제 상태: PAID</div>
+    <div class="box button">결제하기</div>
+    <div class="note">계약이 SIGNED가 아니면 비활성화 (spec.md 규칙 5)</div>
+  </div>
+
+  <div class="section">
+    <div class="label">[SECTION] 납품</div>
+    <div class="box status">납품 상태: DELIVERY_REQUESTED</div>
+    <div class="box button">납품 요청</div>
+    <div class="box button">납품 승인</div>
+    <div class="note">납품 승인은 의뢰인만 가능 (spec.md 규칙 12)</div>
+  </div>
+
+  <div class="section">
+    <div class="label">[CONDITIONAL] 오류 메시지 영역</div>
+    <div class="box" style="border-style:dashed; font-style:italic;">실패 시에만 노출 — 예: "프로젝트가 취소되었습니다"</div>
+    <div class="note">평소에는 렌더링되지 않음 (spec.md 규칙 9)</div>
+  </div>
+</div>
+
+<div class="frame" style="margin-top:1rem; border-style:solid;">
+  <p class="label" style="margin-bottom:.5rem;">필수 요소 목록 (기본 렌더링 시, 조건부 요소 제외)</p>
+  <ul style="font-size:13px; color:#555; padding-left:1.2rem; margin:0;">
+    <li>텍스트 "계약 상세"</li>
+    <li>텍스트 "합의 금액"</li>
+    <li>버튼 텍스트 "계약 서명하기"</li>
+    <li>텍스트 "결제 금액"</li>
+    <li>텍스트 "플랫폼 수수료"</li>
+    <li>텍스트 "정산 예정액"</li>
+    <li>버튼 텍스트 "결제하기"</li>
+    <li>텍스트 "납품 상태"</li>
+    <li>버튼 텍스트 "납품 요청"</li>
+    <li>버튼 텍스트 "납품 승인"</li>
+  </ul>
+  <p class="note" style="margin-top:.5rem;">구현체가 이 목록을 전부 포함하는지 `prototype/run.tsx`가
+  렌더링해서 확인한다 (`sdd-framework/feature-workflow.md` 참고). 조건부 요소(오류 메시지)는
+  기본 렌더링에는 없으므로 이 목록에서 제외한다.</p>
+</div>
+
+</body>
+</html>
