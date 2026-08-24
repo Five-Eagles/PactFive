@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PactFive UX Philosophy — Trust by Evidence</title>
+  <style>
+    :root {
+      --canvas: #FBFAF7;
+      --paper: #FFFFFF;
+      --ink: #0B132B;
+      --muted: #55627A;
+      --line: #CBD3DF;
+      --line-strong: #7A8498;
+      --teal: #006D70;
+      --teal-soft: #E7F5F4;
+      --yellow: #F4C430;
+      --plum: #4B173C;
+      --rust: #B93824;
+      --font: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--canvas); }
+    body { margin: 0; color: var(--ink); background: var(--canvas); font-family: var(--font); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    h1, h2, h3, p { margin-top: 0; }
+    .page { width: min(1500px, calc(100% - 64px)); margin: 32px auto; background: var(--paper); border: 1px solid var(--line); }
+    .masthead { display: grid; grid-template-columns: 1.45fr .55fr; min-height: 490px; border-bottom: 1px solid var(--line-strong); }
+    .mast-main { padding: 64px 72px 56px; display: flex; flex-direction: column; justify-content: space-between; }
+    .mast-side { display: grid; grid-template-rows: 1fr auto; background: var(--teal); color: white; }
+    .brand { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 800; letter-spacing: -.035em; }
+    .brand-mark { width: 38px; height: 38px; display: grid; place-items: center; color: var(--ink); background: var(--yellow); font-size: 14px; letter-spacing: -.04em; }
+    .kicker { margin-bottom: 20px; color: var(--teal); font-size: 13px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+    h1 { max-width: 980px; margin-bottom: 24px; font-size: clamp(48px, 5vw, 76px); line-height: 1.13; letter-spacing: -.052em; word-break: keep-all; }
+    .lead { max-width: 800px; margin-bottom: 0; color: var(--muted); font-size: 19px; line-height: 1.7; word-break: keep-all; }
+    .mast-side-copy { padding: 60px 44px; display: flex; flex-direction: column; justify-content: space-between; }
+    .mast-side-label { font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; opacity: .8; }
+    .mast-side-copy strong { display: block; max-width: 330px; font-size: 28px; line-height: 1.35; letter-spacing: -.03em; }
+    .mast-side-note { padding: 24px 44px; color: var(--ink); background: var(--yellow); font-size: 14px; font-weight: 700; }
+
+    .section { padding: 58px 72px; border-bottom: 1px solid var(--line); }
+    .section-head { display: grid; grid-template-columns: 150px 1fr; gap: 28px; margin-bottom: 36px; }
+    .section-index { color: var(--teal); font-size: 13px; font-weight: 800; letter-spacing: .1em; }
+    .section-title h2 { margin-bottom: 8px; font-size: 34px; line-height: 1.25; letter-spacing: -.035em; }
+    .section-title p { max-width: 840px; margin-bottom: 0; color: var(--muted); }
+
+    .reason-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    .reason { padding-top: 18px; border-top: 3px solid var(--ink); }
+    .reason.opinion { border-color: var(--teal); }
+    .reason h3 { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; font-size: 20px; }
+    .tag { min-height: 26px; display: inline-flex; align-items: center; padding: 3px 8px; color: white; background: var(--ink); font-size: 11px; letter-spacing: .08em; }
+    .opinion .tag { background: var(--teal); }
+    .reason ol { margin: 0; padding-left: 22px; }
+    .reason li { margin: 10px 0; padding-left: 5px; color: var(--muted); }
+
+    .principle-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 18px; }
+    .principle { grid-column: span 2; min-height: 500px; padding: 28px; display: flex; flex-direction: column; border: 1px solid var(--line); border-top: 5px solid var(--ink); background: white; }
+    .principle:nth-child(2), .principle:nth-child(4) { border-top-color: var(--teal); }
+    .principle:nth-child(4) { grid-column: 2 / span 2; }
+    .principle:nth-child(5) { grid-column: 4 / span 2; }
+    .p-no { margin-bottom: 28px; color: var(--teal); font-size: 13px; font-weight: 800; letter-spacing: .1em; }
+    .principle h3 { margin-bottom: 22px; font-size: 25px; line-height: 1.35; letter-spacing: -.035em; word-break: keep-all; }
+    .p-block { margin-bottom: 16px; }
+    .p-block strong { display: block; margin-bottom: 4px; color: var(--ink); font-size: 12px; letter-spacing: .08em; }
+    .p-block p { margin-bottom: 0; color: var(--muted); font-size: 14px; word-break: keep-all; }
+    .questions { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+    .questions li { margin: 5px 0; }
+    .example { margin-top: auto; padding: 14px; background: var(--teal-soft); border-left: 3px solid var(--teal); }
+    .example strong { display: block; margin-bottom: 4px; color: var(--teal); font-size: 11px; letter-spacing: .06em; }
+    .example p { margin-bottom: 0; color: var(--ink); font-size: 13px; }
+
+    .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; }
+    .rule-sheet { border-top: 1px solid var(--line-strong); }
+    .rule-row { display: grid; grid-template-columns: 42px 1fr; gap: 10px; padding: 15px 0; border-bottom: 1px solid var(--line); }
+    .rule-row span:first-child { color: var(--teal); font-weight: 800; font-variant-numeric: tabular-nums; }
+    .rule-row span:last-child { color: var(--muted); }
+    .priority { counter-reset: priority; border-top: 1px solid var(--line-strong); }
+    .priority-row { counter-increment: priority; display: grid; grid-template-columns: 42px 1fr; gap: 10px; padding: 15px 0; border-bottom: 1px solid var(--line); }
+    .priority-row::before { content: counter(priority, decimal-leading-zero); color: var(--teal); font-weight: 800; }
+    .priority-row span { color: var(--muted); }
+
+    .validation { width: 100%; border-collapse: collapse; border-top: 2px solid var(--ink); }
+    .validation th, .validation td { padding: 15px 16px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .validation th { width: 190px; color: var(--teal); font-size: 13px; letter-spacing: .03em; }
+    .validation td { color: var(--muted); }
+    .review-rules { margin-top: 30px; padding: 22px 26px; background: #F7F8FA; border-left: 4px solid var(--plum); }
+    .review-rules h3 { margin-bottom: 12px; font-size: 17px; }
+    .review-rules ul { margin: 0; padding-left: 20px; columns: 2; column-gap: 42px; }
+    .review-rules li { margin: 7px 0; color: var(--muted); break-inside: avoid; }
+
+    .footer { min-height: 130px; padding: 30px 72px; display: flex; align-items: center; justify-content: space-between; gap: 30px; color: var(--muted); background: var(--canvas); }
+    .footer strong { color: var(--ink); }
+    .footer-meta { text-align: right; font-size: 13px; }
+
+    @media (max-width: 1050px) {
+      .masthead, .reason-grid, .two-column { grid-template-columns: 1fr; }
+      .mast-side { grid-template-columns: 1fr auto; grid-template-rows: 1fr; }
+      .mast-side-note { display: flex; align-items: center; max-width: 280px; }
+      .principle { grid-column: span 3; }
+      .principle:nth-child(4), .principle:nth-child(5) { grid-column: span 3; }
+    }
+    @media (max-width: 720px) {
+      .page { width: 100%; margin: 0; border: 0; }
+      .mast-main, .section { padding: 36px 24px; }
+      .mast-side { grid-template-columns: 1fr; }
+      .mast-side-copy, .mast-side-note { padding: 28px 24px; max-width: none; }
+      .section-head { grid-template-columns: 1fr; gap: 5px; }
+      .principle-grid { grid-template-columns: 1fr; }
+      .principle, .principle:nth-child(4), .principle:nth-child(5) { grid-column: 1; min-height: 0; }
+      .review-rules ul { columns: 1; }
+      .footer { padding: 28px 24px; display: grid; }
+      .footer-meta { text-align: left; }
+    }
+    @media print {
+      body { background: white; }
+      .page { width: 100%; margin: 0; border: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="masthead">
+      <div class="mast-main">
+        <div class="brand"><span class="brand-mark">P5</span>PactFive UX Philosophy</div>
+        <div>
+          <div class="kicker">Trust by Evidence · v1.0</div>
+          <h1>근거·현재 상태·다음 행동으로 불쾌한 불확실성을 없앤다.</h1>
+          <p class="lead">사용자가 불안·의심·당혹감·통제 상실을 느끼지 않도록, 중요한 거래 순간을 이해 가능하고 예측 가능하며 복구 가능한 경험으로 만듭니다.</p>
+        </div>
+      </div>
+      <aside class="mast-side">
+        <div class="mast-side-copy"><span class="mast-side-label">Core philosophy</span><strong>사용자가 불안·의심·당혹감·통제 상실을 느끼지 않게 한다.</strong></div>
+        <div class="mast-side-note">편안함은 위험을 숨기는 것이 아니라, 이유와 선택권 없는 마찰을 없애는 것입니다.</div>
+      </aside>
+    </header>
+
+    <section class="section">
+      <div class="section-head"><div class="section-index">01 / WHY</div><div class="section-title"><h2>왜 이 철학인가</h2><p>확인된 제품 사실과 그 사실에서 도출한 제품 판단을 분리합니다.</p></div></div>
+      <div class="reason-grid">
+        <article class="reason"><h3><span class="tag">FACT</span>확인된 사실</h3><ol><li>PactFive는 탐색, 지원, 금액 합의, 계약, 결제, 납품을 중개합니다.</li><li>모집, 거래, 지원, 합의, 계약, 결제, 납품 상태는 서로 독립적으로 변합니다.</li><li>사용자는 로그인, 역할 확인, 프로필 완성, AI 예산 분석을 위해 본래 과업을 잠시 벗어날 수 있습니다.</li><li>예산, 지원 금액, 합의 금액, 결제 금액, 수수료, 예상 정산액은 의미와 확정 수준이 다릅니다.</li><li>조건 변경, 오래된 합의, 중복 제출, 취소와 서명의 동시 발생은 동의와 결과에 직접 영향을 줍니다.</li></ol></article>
+        <article class="reason opinion"><h3><span class="tag">OPINION</span>제품 판단</h3><ol><li>가장 큰 UX 위험은 기능 부족보다 사용자가 현재 상황을 추측해야 하는 상태입니다.</li><li>신뢰는 중요한 주장에 근거가 있고, 사용자가 그 근거를 이해하고 선택할 수 있을 때 만들어집니다.</li><li>불쾌감은 무시당함, 속았다는 느낌, 이유 없는 재입력, 갑작스러운 차단, 과도한 재촉, 되돌릴 수 없는 실수에서 시작합니다.</li><li>따라서 이해 가능성, 예측 가능성, 복구 가능성, 선택권을 보장해야 합니다.</li></ol></article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><div class="section-index">02 / PRINCIPLES</div><div class="section-title"><h2>다섯 가지 원칙</h2><p>구현 방식이나 특정 구성 요소가 바뀌어도 유지되어야 하는 제품 수준의 약속입니다.</p></div></div>
+      <div class="principle-grid">
+        <article class="principle"><div class="p-no">PRINCIPLE 01</div><h3>사용자에게 추측을 맡기지 않는다</h3><div class="p-block"><strong>보장</strong><p>무엇이 진행 중인지, 이미 일어난 일, 기다리는 주체, 기한, 다음 행동을 이해할 수 있어야 합니다.</p></div><div class="p-block"><strong>이유</strong><p>상태만 보이고 맥락이 없으면 사용자는 지연과 실패를 구분할 수 없습니다.</p></div><div class="p-block"><strong>평가 질문</strong><ul class="questions"><li>현재 상태를 자신의 말로 설명할 수 있는가?</li><li>다음 행동의 주체와 기한을 찾을 수 있는가?</li><li>기다리는 이유와 이후 과정이 보이는가?</li></ul></div><div class="example"><strong>현재 구현 예시 · 원칙 자체가 아님</strong><p>검토 단계, 기한, 상대 기록, 이후 과정을 한 흐름으로 보여줍니다.</p></div></article>
+        <article class="principle"><div class="p-no">PRINCIPLE 02</div><h3>중요한 주장은 검증 가능한 근거에 연결한다</h3><div class="p-block"><strong>보장</strong><p>금액, 경력, 검증, 승인, 변경, 완료는 필요한 출처, 이유, 시각, 행위자, 실제 결과물과 연결되어야 합니다.</p></div><div class="p-block"><strong>이유</strong><p>사용자는 결론뿐 아니라 그 결론을 믿거나 거절할 수 있는 이유가 필요합니다.</p></div><div class="p-block"><strong>평가 질문</strong><ul class="questions"><li>숫자나 상태가 어디에서 왔는가?</li><li>추천과 확정된 사실이 구분되는가?</li><li>근거를 보고 다른 선택을 할 수 있는가?</li></ul></div><div class="example"><strong>현재 구현 예시 · 원칙 자체가 아님</strong><p>예산 분석에 산정 항목, 유사 프로젝트, 기준 시점, 예상 범위, 직접 입력 선택을 함께 제공합니다.</p></div></article>
+        <article class="principle"><div class="p-no">PRINCIPLE 03</div><h3>이미 동의한 조건과 사용자의 작업을 보호한다</h3><div class="p-block"><strong>보장</strong><p>입력과 동의는 이동, 실패, 재시도로 사라지지 않으며, 변경 전후와 최신 사실을 추적할 수 있어야 합니다.</p></div><div class="p-block"><strong>이유</strong><p>과거 동의를 조용히 덮어쓰거나 입력을 잃게 하면 제품과 상대방 모두를 신뢰하기 어렵습니다.</p></div><div class="p-block"><strong>평가 질문</strong><ul class="questions"><li>실패와 이전 이동 뒤에도 내용이 보존되는가?</li><li>변경 전후와 변경 주체가 보이는가?</li><li>실행 전 영향받는 결과를 이해하는가?</li></ul></div><div class="example"><strong>현재 구현 예시 · 원칙 자체가 아님</strong><p>지원 이후 일정과 예산을 보호하고, 변경이 필요하면 잠긴 이유와 가능한 경로를 설명합니다.</p></div></article>
+        <article class="principle"><div class="p-no">PRINCIPLE 04</div><h3>막힘을 비난하지 않고 복구 가능한 경로로 바꾼다</h3><div class="p-block"><strong>보장</strong><p>막힌 이유, 보존된 내용, 해결 방법, 돌아갈 위치를 제공하며 사용자의 잘못처럼 말하지 않습니다.</p></div><div class="p-block"><strong>이유</strong><p>무엇을 해야 할지 모르는 상태와 반복 입력이 오류 자체보다 큰 불쾌감을 만듭니다.</p></div><div class="p-block"><strong>평가 질문</strong><ul class="questions"><li>안내가 해결 가능한 문장인가?</li><li>하던 일과 입력을 잃지 않고 복귀하는가?</li><li>재시도가 중복 결과나 피해를 만들지 않는가?</li></ul></div><div class="example"><strong>현재 구현 예시 · 원칙 자체가 아님</strong><p>지원 중 로그인 후 원래 프로젝트와 시작한 행동으로 돌아오며 입력 내용은 유지합니다.</p></div></article>
+        <article class="principle"><div class="p-no">PRINCIPLE 05</div><h3>필요한 만큼만 드러내고 선택권을 보존한다</h3><div class="p-block"><strong>보장</strong><p>역할, 현재 과업, 결정의 중요도에 맞는 정보와 행동만 우선하며 추천이 결정을 대신하지 않습니다.</p></div><div class="p-block"><strong>이유</strong><p>관련 없는 정보는 판단을 어렵게 하고, 선택권 없는 자동화는 편리함을 통제 상실로 바꿉니다.</p></div><div class="p-block"><strong>평가 질문</strong><ul class="questions"><li>지금 꼭 필요한 사실과 행동이 우선되는가?</li><li>공개 정보와 당사자 정보가 분리되는가?</li><li>추천을 거절하거나 직접 결정할 수 있는가?</li></ul></div><div class="example"><strong>현재 구현 예시 · 원칙 자체가 아님</strong><p>공개 탐색은 모집 판단 정보만 제공하고 계약·결제·거래 이력은 당사자 영역에서만 보여줍니다.</p></div></article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><div class="section-index">03 / PRACTICE</div><div class="section-title"><h2>말과 결정의 기준</h2><p>불쾌감을 만들지 않는 언어와 설계안이 충돌할 때의 판단 순서를 함께 적용합니다.</p></div></div>
+      <div class="two-column">
+        <div><h3>언어 원칙</h3><div class="rule-sheet"><div class="rule-row"><span>01</span><span>사용자를 탓하지 않고 현재 상황과 해결 행동을 말합니다.</span></div><div class="rule-row"><span>02</span><span>긴급성을 과장하거나 손실 공포로 행동을 재촉하지 않습니다.</span></div><div class="rule-row"><span>03</span><span>기술 용어와 내부 오류 식별자를 기본 안내의 중심에 두지 않습니다.</span></div><div class="rule-row"><span>04</span><span>위험과 제한을 숨기지 않고 이해 가능한 영향 단위로 설명합니다.</span></div><div class="rule-row"><span>05</span><span>자동 추천은 기준과 한계를 함께 밝힙니다.</span></div><div class="rule-row"><span>06</span><span>성공을 과장하지 않고 실제로 완료된 범위만 말합니다.</span></div></div></div>
+        <div><h3>의사결정 우선순위</h3><div class="priority"><div class="priority-row"><span>금전·동의·개인정보 피해를 막습니다.</span></div><div class="priority-row"><span>사용자가 하던 일과 이미 만든 내용을 보호합니다.</span></div><div class="priority-row"><span>현재 상태와 판단 근거를 이해하게 합니다.</span></div><div class="priority-row"><span>복구하거나 다른 선택을 할 수 있게 합니다.</span></div><div class="priority-row"><span>그다음 속도, 편의, 시각적 즐거움을 높입니다.</span></div></div></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><div class="section-index">04 / VALIDATION</div><div class="section-title"><h2>철학은 과업에서 검증합니다.</h2><p>좋아 보인다는 인상보다 사용자가 실제 거래 사실을 이해하고 안전하게 이어가는지를 확인합니다.</p></div></div>
+      <table class="validation"><tbody><tr><th>상태 이해</th><td>사용자가 현재 상태와 다음 행동을 도움 없이 설명합니다.</td></tr><tr><th>근거 이해</th><td>금액·추천·승인의 출처와 확정 수준을 구분합니다.</td></tr><tr><th>작업 보호</th><td>실패, 이동, 재인증 이후에도 입력과 맥락이 유지됩니다.</td></tr><tr><th>복구 가능성</th><td>오류·충돌·빈 상태 이후 제공된 경로로 과업을 이어갑니다.</td></tr><tr><th>선택권</th><td>추천을 거절하거나 직접 입력·비교·취소할 수 있습니다.</td></tr><tr><th>비파괴성</th><td>되돌릴 수 없는 결과를 실행 전에 이해하고 확인합니다.</td></tr><tr><th>접근 가능성</th><td>보조 기술, 키보드, 확대 환경에서도 같은 정보와 행동에 접근합니다.</td></tr></tbody></table>
+      <div class="review-rules"><h3>작성·검수 규칙</h3><ul><li>새 화면은 다섯 원칙 중 무엇을 보장하는지 설명합니다.</li><li>원칙과 충돌하는 편의 기능은 추가하지 않습니다.</li><li>현재 구현 예시는 바뀔 수 있으며 원칙의 의미를 제한하지 않습니다.</li><li>디자인 시스템이 바뀌어도 이 문서의 원칙은 유지됩니다.</li><li>확인된 사실, 가정, 제품 판단을 구분합니다.</li></ul></div>
+    </section>
+
+    <footer class="footer"><div><strong>PactFive UX Philosophy</strong><br />Trust by Evidence · 2026.08.24</div><div class="footer-meta">Source of truth: ux-philosophy.md<br />적용 범위: 탐색부터 리뷰까지의 전체 거래 경험</div></footer>
+  </main>
+</body>
+</html>
