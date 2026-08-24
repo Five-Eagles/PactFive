@@ -38,8 +38,28 @@ function ensureDepsInstalled() {
   }
 }
 
-module.exports = { ensureDepsInstalled, findRepoRoot };
+function ensureGitHooksInstalled() {
+  const repoRoot = findRepoRoot(__dirname);
+  const desired = 'scripts/git-hooks';
+  let current = '';
+  try {
+    current = execSync('git config --get core.hooksPath', { cwd: repoRoot }).toString().trim();
+  } catch {
+    // core.hooksPath 미설정 상태 — 정상. 아래에서 설정한다.
+  }
+  if (current === desired) {
+    return;
+  }
+  // main/develop/production 직접 push를 막는 scripts/git-hooks/pre-push를 적용한다.
+  // GitHub CODEOWNERS 필수 리뷰는 유료 플랜이 없어 쓸 수 없어서, 이 로컬 훅으로 대신한다
+  // (.github/CODEOWNERS, sdd-framework/integration-workflow.md 참고).
+  execSync(`git config core.hooksPath ${desired}`, { cwd: repoRoot });
+  console.log('[setup] git core.hooksPath를 scripts/git-hooks로 설정했습니다 (main/develop/production 직접 push 차단).');
+}
+
+module.exports = { ensureDepsInstalled, ensureGitHooksInstalled, findRepoRoot };
 
 if (require.main === module) {
   ensureDepsInstalled();
+  ensureGitHooksInstalled();
 }
