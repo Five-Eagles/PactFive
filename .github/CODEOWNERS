@@ -1,6 +1,12 @@
 # CODEOWNERS — 브랜치 보호에서 "Require review from Code Owners"를 켜야 실제로 강제됩니다.
 # 아래는 ADR-0006 / docs/domain/AGENTS.md에서 정한 규칙을 CODEOWNERS 문법으로 옮긴 것입니다.
 # GitHub org: Five-Eagles
+#
+# 이 저장소는 "Require review from Code Owners"를 쓸 수 있는 유료 플랜이 없어, 위 규칙이
+# GitHub 쪽에서 강제되지 않는다. main/develop/production 직접 push는 대신
+# scripts/git-hooks/pre-push(로컬 훅, scripts/ensure-deps.js가 자동 설치)로 막는다 — 사람이든
+# AI든 이 세 브랜치에는 PR로만 반영해야 한다. 자세한 내용은
+# sdd-framework/integration-workflow.md 참고.
 
 # app/ 전체 — 팀장 전용 (ADR-0006)
 /app/ @Lattui
