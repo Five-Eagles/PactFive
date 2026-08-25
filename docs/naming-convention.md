@@ -2,17 +2,25 @@
 
 | 항목 | 내용 |
 |---|---|
-| 대상 | PactFive 풀스택 JavaScript 프로젝트 참여 개발자 5명 |
+| 대상 | PactFive 풀스택 TypeScript 프로젝트 참여 개발자 5명 |
 | 목적 | 코드, API, DB, Git에서 같은 개념을 같은 이름으로 표현하여 협업 비용과 오류를 줄인다 |
-| 문서 버전 | v1.3 |
-| 반영일 | 2026-08-20 |
-| 원본 | `pactfive-naming-convention-v1.3.pdf` (업로드본) |
+| 문서 버전 | v1.4 |
+| 반영일 | 2026-08-25 |
+| 원본 | `docs/domain/reference/naming_convention-v1.4.md` (업로드본) |
 
-> ⚠️ **알려진 이슈 (수정 대기, §20 참고)** — 이 문서는 원본 v1.3을 그대로 옮긴 것입니다. 세 가지
-> 문제가 이미 논의됐지만 아직 원본 자체는 고쳐지지 않았습니다: ① §3 "client" 이중정의(의뢰인 vs
-> 프론트엔드 앱), ② §18 "AGENT.md" 표기가 실제 파일명 `AGENTS.md`와 불일치, ③ §18.3B의
-> `contracts/openapi.yaml` 경로가 실제 리포 경로 `docs/domain/api-spec/openapi.yaml`과 다름.
-> 자세한 내용과 권장 수정안은 맨 아래 §20을 참고하세요.
+> ⚠️ **알려진 이슈 (수정 대기, §20 참고)** — 이 문서는 원본 v1.4를 그대로 옮기되 v1.3 반영본에서
+> 이미 보정했던 세 항목을 동일하게 다시 보정했습니다. 원본 v1.4에도 아직 고쳐지지 않았습니다:
+> ① §3 "client" 이중정의(의뢰인 vs 프론트엔드 앱), ② §18 "AGENT.md" 표기가 실제 파일명
+> `AGENTS.md`와 불일치, ③ §18.3B의 `contracts/openapi.yaml` 경로가 실제 리포 경로
+> `docs/domain/api-spec/openapi.yaml`과 다름. 자세한 내용은 맨 아래 §20을 참고하세요.
+
+## 개정 이력
+
+| 버전 | 개정일 | 주요 변경 내용 |
+| --- | --- | --- |
+| `v1.2` | 2026-08-13 | WorkBridge 기준 네이밍 규칙과 Git·AI 통제 절차 정리 |
+| `v1.3` | 2026-08-19 | 서비스명을 PactFive로 변경, `/api/v1` 확정, `engagement` 범위 정의, `PROJECT_CANCELED` 추가, 금액 매개변수와 `client` 용어 원칙 보강 |
+| **`v1.4`** | **2026-08-25** | TypeScript 기준 확정, `NotificationType`을 ERD v1.4와 동일한 13값으로 고정, enum 값 목록의 정본 위치 원칙 보강 |
 
 ## 1. 적용 원칙
 
@@ -36,7 +44,7 @@
 | 상수 | UPPER_SNAKE_CASE | `PLATFORM_FEE_RATE` |
 | enum 값 | UPPER_SNAKE_CASE | `DELIVERY_REQUESTED` |
 | React 컴포넌트 파일 | PascalCase.tsx | `PaymentHistory.tsx` |
-| 일반 TS/JS 파일 | kebab-case + 역할 접미사 | `payment.service.ts` |
+| 일반 TypeScript 파일 | kebab-case + 역할 접미사 | `payment.service.ts` |
 | 폴더 | kebab-case | `contracts-payments` |
 | REST 경로 | 소문자 복수 명사, kebab-case | `/payment-histories` |
 | URL 파라미터 | camelCase | `:contractId` |
@@ -59,7 +67,8 @@
 | 북마크 | `bookmark` | favorite, wish |
 | 알림 | `notification` | notice, alarm |
 | 단가 분석 | `pricingAnalysis` | priceCheck, aiPrice |
-| 금액 합의 | `agreement` | negotiation (MVP는 1회 제안→수락/거절만) |
+| 금액 합의 | `agreement` | negotiation (MVP는 1회 제안→수락/거절만이었으나, v1.3부터 다회차
+  재제안은 `negotiation_offer` 엔티티로 별도 관리한다 — §17 참고) |
 | 합의 금액 | `agreedAmount` | finalPrice, dealPrice |
 | 계약 | `contract` | document, deal |
 | 결제 | `payment` | pay, billing |
@@ -72,7 +81,7 @@
 
 **주의:** 코드에서 `application`은 지원서만 의미한다. 소프트웨어 애플리케이션(프론트엔드 앱)은
 **`app`으로만** 표현하고 `application`과 혼용하지 않는다. (원본은 "app / client"라고 썼으나,
-`client`는 아래 역할 값에서 "의뢰인"으로 이미 확정되어 있어 충돌한다 — §20 참고)
+`client`는 위 표에서 "의뢰인"으로 이미 확정되어 있어 충돌한다 — §20 참고)
 
 ### 도메인 폴더 engagement
 
@@ -159,11 +168,12 @@ calculateSettlementAmount(paymentAmount);
 ## 5. 프론트엔드 네이밍
 
 React 컴포넌트는 PascalCase 명사형: `ProjectCard.tsx`, `ApplicationStatusBadge.tsx`,
-`ContractDetail.tsx`, `PaymentCheckout.tsx`. 페이지는 `Page`, 레이아웃은 `Layout`, 폼은 `Form`,
-모달은 `Modal`/`Dialog` 접미사: `ProjectListPage.tsx`, `ClientDashboardLayout.tsx`,
-`PaymentForm.tsx`, `ContractSignDialog.tsx`.
+`ContractDetail.tsx`, `PaymentCheckout.tsx`, `DeliveryApprovalDialog.tsx`. 페이지는 `Page`,
+레이아웃은 `Layout`, 폼은 `Form`, 모달은 `Modal`/`Dialog` 접미사: `ProjectListPage.tsx`,
+`ClientDashboardLayout.tsx`, `PaymentForm.tsx`, `ContractSignDialog.tsx`.
 
-Hooks는 반드시 `use`로 시작: `useAuth()`, `useContract()`, `usePaymentConfirmation()`.
+Hooks는 반드시 `use`로 시작: `useAuth()`, `useProjectFilters()`, `useContract()`,
+`usePaymentConfirmation()`.
 
 이벤트 Props: 컴포넌트가 받는 콜백은 `on`으로, 내부 처리 함수는 `handle`로 시작.
 
@@ -180,8 +190,8 @@ const [isSubmitting, setIsSubmitting] = useState(false);
 ```
 
 API 함수는 HTTP 메서드가 아닌 비즈니스 행위 중심: `getContract`, `signContract`, `createPayment`,
-`confirmPayment`, `requestDelivery`. `callApi`, `requestData`, `fetchData`처럼 대상을 알 수 없는
-이름은 금지한다.
+`confirmPayment`, `getPaymentHistory`, `requestDelivery`, `approveDelivery`. `callApi`,
+`requestData`, `fetchData`처럼 대상을 알 수 없는 이름은 금지한다.
 
 ## 6. 백엔드 네이밍
 
@@ -216,7 +226,10 @@ POST /applications/:applicationId/accept
 POST /applications/:applicationId/reject
 POST /contracts/:contractId/sign
 POST /payments/confirm
+POST /contracts/:contractId/deliveries
 POST /deliveries/:deliveryId/approve
+POST /notifications/read-all
+POST /projects/:projectId/reopen-recruitment
 ```
 
 표준 쿼리 파라미터: `keyword, category, skills, minBudget, maxBudget, recruitmentStatus,
@@ -225,8 +238,9 @@ deadlineBefore, sortBy, sortOrder, page, pageSize`. enum 값은 UPPER_SNAKE_CASE
 
 ## 8. 데이터베이스 네이밍
 
-테이블은 복수형 snake_case: `users`, `projects`, `applications`, `contracts`, `payments`,
-`deliveries`, `reviews`, `notifications`, `bookmarks`, `pricing_analyses`.
+테이블은 복수형 snake_case: `users`, `auth_sessions`, `projects`, `applications`, `agreements`,
+`negotiation_offer`, `contracts`, `payments`, `deliveries`, `reviews`, `notifications`,
+`bookmarks`, `pricing_analyses`.
 
 - PK: `id`
 - FK: `<singular_table>_id`
@@ -235,37 +249,98 @@ deadlineBefore, sortBy, sortOrder, page, pageSize`. enum 값은 UPPER_SNAKE_CASE
 - 소프트 삭제: `deleted_at` (is_deleted와 중복 저장 금지)
 - 금액: `..._amount` / 비율: `..._rate`
 
-## 9. 상태 enum 표준
+## 9. 상태 enum 설계 가이드
 
-상태 타입은 PascalCase, 상태 값은 UPPER_SNAKE_CASE. **실제 값 목록은 이 문서가 아니라
-`docs/domain/erd.md`(정본)를 따른다** — 중복 정의로 인한 불일치를 막기 위해서다.
+네이밍 컨벤션은 **상태 enum의 실제 값 목록을 정의하는 정본이 아니라, 상태 enum을 어떻게 이름
+짓고 설계할지 정하는 가이드**다.
 
-주의:
+> **정본 원칙**: PactFive의 실제 상태 enum과 값 목록은 ERD·`schema.prisma`·
+> `docs/domain/api-spec/*.md`를 정본으로 한다. 이 문서에는 실제 프로젝트 enum 값 목록을 중복
+> 기재하지 않는다. 유일한 예외는 §10의 `NotificationType`이다 — 알림 이벤트 이름은 여러
+> 담당자의 코드가 동시에 참조하는 팀 공통 정본이라 여기 유지하되, ERD `notification_type`·API
+> 계약·프론트 타입과 항상 같은 목록을 유지해야 한다.
 
-- 결제 상태는 `PAID`로 통일. `SUCCESS`, `PAY_COMPLETE`, `COMPLETED_PAYMENT` 금지.
-- 결제 이벤트/알림은 과거형 `PAYMENT_COMPLETED`. 상태 값 `PAID`와 혼동 금지.
-- 미국식 철자 `CANCELED` 사용, `CANCELLED`와 혼용 금지.
-- enum 변경은 DB, API, 프론트 타입에 동시에 반영한다.
+### 9.1 네이밍 규칙
+
+- enum 타입명은 PascalCase, enum 값은 UPPER_SNAKE_CASE를 사용한다.
+- 상태는 현재 스냅샷(`PAID`), 이벤트는 이미 발생한 사실(`PAYMENT_COMPLETED`)로 구분한다.
+- 서로 다른 lifecycle을 하나의 enum에 섞지 않는다 (모집 상태와 거래 상태는 독립 enum).
+- 같은 의미의 동의어를 여러 상태명으로 만들지 않는다. 결제 완료는 `PAID`로 통일하고 `SUCCESS`,
+  `PAY_COMPLETE`, `COMPLETED_PAYMENT`를 금지한다.
+- 미국식 철자 `CANCELED`를 사용하고 `CANCELLED`와 혼용하지 않는다.
+- enum이 변경되면 DB·API·프론트 타입을 함께 갱신한다.
+
+### 9.2 언제 enum으로 설계하는가
+
+아래 세 조건을 모두 만족하면 enum 사용을 우선 검토한다.
+
+1. 값의 집합이 유한하고 사전에 전체 범위를 알 수 있는가?
+2. 값 사이에 전이 규칙이 있어 코드가 허용·금지 전이를 검증해야 하는가?
+3. 프론트엔드·백엔드·DB가 동일한 값 집합을 공유해야 정합성이 유지되는가?
+
+하나라도 맞지 않으면(사용자 입력에 따라 계속 늘어남, 카테고리·태그처럼 자주 추가·삭제됨, 담당자
+재량으로 자주 바뀜) 참조 테이블이나 문자열 기반 모델을 검토한다.
+
+### 9.3 상태 enum 설계 절차
+
+1. **상태인지 이벤트인지 구분한다** — "지금 어느 단계인가"는 상태, "무엇이 발생했다"는 이벤트다.
+2. **기존 enum과 같은 lifecycle인지 확인한다** — 독립적으로 전이되면 별도 enum으로 분리한다.
+3. **값 목록을 정하고 동의어·금지 표현을 점검한다** — §15 금지 목록과 대조한다.
+4. **확정된 실제 값은 정본 문서(ERD·`schema.prisma`·`docs/domain/api-spec/*.md`)에만 기록한다.**
+   네이밍 컨벤션에는 설계 원칙과 절차만 유지한다.
+
+### 9.4 리뷰 체크
+
+- [ ] 이 값 집합이 정말 enum으로 고정할 대상인가?
+- [ ] 상태와 이벤트가 섞이지 않았는가?
+- [ ] 기존 enum과 독립 lifecycle인지 확인했는가?
+- [ ] 타입명은 PascalCase, 값은 UPPER_SNAKE_CASE인가?
+- [ ] 기존 상태명과 동의어·중복 의미가 없는가?
+- [ ] `CANCELED` 등 프로젝트 표준 철자를 따르는가?
+- [ ] 실제 상태 enum 값 목록은 ERD·스키마·도메인 API 문서에만 기록했는가? (`NotificationType`은
+  §10 예외)
+- [ ] 변경 내용을 DB·API·프론트 타입에 함께 반영했는가?
 
 ## 10. 알림·이벤트 네이밍
 
-이벤트는 이미 발생한 사실이므로 과거형 UPPER_SNAKE_CASE: `APPLICATION_SUBMITTED`,
-`CONTRACT_SIGNED`, `PAYMENT_COMPLETED`, `DELIVERY_APPROVED`, `REVIEW_REQUESTED` 등.
+이벤트는 이미 발생한 사실이므로 과거형 UPPER_SNAKE_CASE. 아래 `NotificationType`은 v1.4 구현
+초안의 정본이며 ERD v1.4 `notification_type`과 동일해야 한다 (13값, PRD D-76).
+
+```ts
+enum NotificationType {
+  APPLICATION_SUBMITTED = 'APPLICATION_SUBMITTED',
+  APPLICATION_ACCEPTED = 'APPLICATION_ACCEPTED',
+  APPLICATION_REJECTED = 'APPLICATION_REJECTED',
+  APPLICATION_AUTO_REJECTED = 'APPLICATION_AUTO_REJECTED',
+  PROJECT_RECRUITMENT_CLOSED = 'PROJECT_RECRUITMENT_CLOSED',
+  PROJECT_CANCELED = 'PROJECT_CANCELED',
+  AGREEMENT_ACCEPTED = 'AGREEMENT_ACCEPTED',
+  AGREEMENT_REJECTED = 'AGREEMENT_REJECTED',
+  CONTRACT_SIGNED = 'CONTRACT_SIGNED',
+  PAYMENT_COMPLETED = 'PAYMENT_COMPLETED',
+  DELIVERY_REQUESTED = 'DELIVERY_REQUESTED',
+  DELIVERY_APPROVED = 'DELIVERY_APPROVED',
+  REVIEW_REQUESTED = 'REVIEW_REQUESTED',
+}
+```
 
 이벤트 처리 함수: `publishApplicationAccepted(event)`, `createApplicationAcceptedNotification(event)`.
 
 ## 11. 금액·날짜·외부 API
 
 - 원화는 정수로 저장. 필드명에 `Amount`를 붙인다. `price`, `cost`, `money` 혼용 금지.
-- 날짜/시간: `recruitmentStartAt`, `clientSignedAt`, `paidAt`. 날짜만 의미할 때만 `Date` 사용.
-- 외부 시스템 ID(`oauthProvider`, `pgOrderId`, `storageObjectKey`)에 공급자 이름을 공통 도메인
-  필드에 박아 넣지 않는다 (`tossPaymentKey` 지양, 공급자 전용 어댑터 내부에서는 허용).
+- 날짜/시간: `recruitmentStartAt`, `clientSignedAt`, `paidAt`, `deliveryRequestedAt`. 날짜만
+  의미할 때만 `Date` 사용.
+- 외부 시스템 ID(`oauthProvider`, `oauthProviderUserId`, `pgOrderId`, `pgPaymentKey`,
+  `storageObjectKey`)에 공급자 이름을 공통 도메인 필드에 박아 넣지 않는다 (`tossPaymentKey`,
+  `googleUserId` 지양, 공급자 전용 어댑터 내부에서는 허용).
 
 ## 12. 환경 변수
 
 UPPER_SNAKE_CASE, 목적이 분명해야 함: `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`,
-`OAUTH_CLIENT_ID`, `PG_SECRET_KEY`, `STORAGE_ACCESS_KEY`. 실제 값은 커밋하지 않는다.
-`.env.example`에는 키 이름과 설명만. `API_KEY`, `SECRET`처럼 대상 없는 이름 금지.
+`OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `LLM_API_KEY`, `PG_CLIENT_KEY`, `PG_SECRET_KEY`,
+`STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`. 실제 값은 커밋하지 않는다. `.env.example`에는 키
+이름과 설명만. `API_KEY`, `SECRET`처럼 대상 없는 이름 금지.
 
 ## 13. Git 네이밍
 
@@ -295,6 +370,13 @@ user1, project2, paymentData, getContractApi, postPaymentApi, SUCCESS(결제 상
 
 단, `result`처럼 매우 좁은 함수 내부에서 즉시 반환되는 임시 변수는 예외로 허용한다.
 
+> ⚠️ **`DONE` 금지의 적용 범위 (2026-08-25 명확화)** — 이 금지는 **저장되는 상태 enum 값**에
+> 대한 것이다. "완료"를 `DONE`·`COMPLETED`·`APPROVED`처럼 여러 이름으로 부르지 않기 위함이며,
+> 저장 상태의 완료는 각 enum의 확정 값(`COMPLETED`, `APPROVED`, `PAID` 등)을 쓴다.
+> PRD D-89가 정한 `invalidateAgreementAndContract`의 결과값 `DONE`·`NOT_NEEDED`·`FAILED`는
+> **저장되지 않는 계약 함수의 반환값**이므로 이 금지에 걸리지 않는다. 금지 용어 CI 스캔(§18.2)을
+> 붙일 때 이 구분을 반영해야 오탐이 나지 않는다.
+
 ## 16. PR 네이밍 체크리스트
 
 - [ ] 같은 개념에 기존과 동일한 도메인 용어를 사용했는가?
@@ -308,13 +390,47 @@ user1, project2, paymentData, getContractApi, postPaymentApi, SUCCESS(결제 상
 - [ ] 민감한 공급자 이름이나 비밀 값이 코드에 노출되지 않았는가?
 - [ ] 새 용어를 추가했다면 PR에 정의와 이유를 기록했는가?
 
-## 17. 팀 합의 필요 항목 (원본 §17 기준)
+## 17. 구현 초안 확정 항목 (v1.4, 2026-08-25 기준)
 
-이미 확정: 일반 TS/JS 파일 kebab-case+역할 접미사, React 컴포넌트 파일 PascalCase.tsx, 폴더
-kebab-case, API 버전 접두사 `/api/v1`.
+비판과 개선 제안은 받을 수 있지만, 구현 중 변경은 PRD·ERD·네이밍 컨벤션을 함께 고친 뒤 진행한다.
 
-이후 확정 가능: 사용할 OAuth·LLM·PG·스토리지 공급자, 테스트 설명 언어, 브랜치 이슈 번호 필수
-여부.
+### 확정 (본 문서 §2 기준)
+
+- 기술 스택: TypeScript + npm + Node LTS + Prisma + PostgreSQL (PRD T8·D-74 → **D-87 종결**)
+- 일반 TypeScript 파일: kebab-case + 역할 접미사 (`payment.service.ts`)
+- React 컴포넌트 파일: PascalCase.tsx
+- 폴더: kebab-case
+- API 버전 접두사: `/api/v1`
+- 알림 enum: §10 `NotificationType` 13값 (PRD D-76 · **D-86**)
+
+### 구현에서 잠근 항목
+
+1. 프로젝트 모집 상태(`RecruitmentStatus`)와 거래 상태(`ProjectTransactionStatus`)는 분리한다.
+2. 계약 상태(`ContractStatus`)는 ERD v1.4 값을 따른다.
+3. `AgreementStatus`는 ERD v1.4의 `PROPOSED` · `ACCEPTED` · `REJECTED` 3값을 따른다
+   (PRD D-81 → **D-88 확정**). PRD v6.0까지 쓰던 5값(`PENDING`·`SUPERSEDED`·`CANCELED` 포함)은
+   폐기됐다 — 재제안으로 밀려난 제안은 별도 상태값 없이 `negotiation_offer`의 라운드 번호로
+   판정한다(최신 라운드가 아닌 것이 곧 밀려난 것).
+4. `NegotiationStatus`는 DB enum으로 만들지 않고, `negotiation_offer`의 최신 라운드와 최종
+   `agreement_status`로 계산하는 API 파생 상태로 둔다 (PRD D-82 → **D-88 확정**).
+   값 `NOT_STARTED` · `NEGOTIATING` · `AGREED` · `REJECTED`는 API 응답에 실리는 이름이며 저장
+   대상이 아니다.
+5. `invalidateAgreementAndContract`의 처리 결과는 boolean이 아니라
+   `DONE` · `NOT_NEEDED` · `FAILED` 3값으로 구분한다 (PRD D-89) — "무효화할 것이 없었음"과
+   "시도했으나 실패"가 구분되어야 취소 API(A-07)의 `202` 판정 근거가 선다.
+
+### 이후 확정 가능
+
+6. 사용할 OAuth·LLM·PG·스토리지 공급자 (코드에는 공급자명을 박지 않음 — §11)
+7. 테스트 설명 언어: 한국어 또는 영어 (파일 내 혼용 금지 — §14)
+8. 브랜치에 이슈 번호를 필수로 포함할지 여부
+
+### 후속 문서에 보완할 네이밍 (본 문서 범위 밖)
+
+- Mock/API 계약 파일명 (`openapi`, `fixtures` 등)
+- feature/spec 폴더명과 CODEOWNERS 매핑
+- 공통 에러 코드 형식 (예: `PAYMENT_AMOUNT_MISMATCH`)
+- monorepo 패키지명 (예: `@pactfive/client`)
 
 ## 18. Git·도구로 공유하고 통제하는 방법
 
@@ -354,6 +470,24 @@ kebab-case, API 버전 접두사 `/api/v1`.
 3주차: OpenAPI + Spectral + mock이 동일 계약 참조
 필요시: 금지 용어 CI 스캔 + 마이그레이션 검사
 
+### 18.4 한계
+
+| 잘 막힘 | 잘 안 막힘 → 보완 |
+|---|---|
+| camelCase / PascalCase / snake_case | `client` vs `customer` → §3 금지표 + 리뷰 |
+| 커밋·브랜치 형식 | 비즈니스에 맞는 이름인지 → PR 체크리스트 |
+| API 경로·OpenAPI 필드 | AI가 enum·필드를 슬쩍 추가 → `AGENTS.md` + CODEOWNERS + CI 스캔 |
+
+### 18.5 운영 체크리스트
+
+- [ ] 본 문서가 저장소 `docs/naming-convention.md`에 있는가?
+- [ ] `CODEOWNERS`가 본 문서(및 `docs/domain/api-spec/`) 변경을 보호하는가?
+- [ ] PR 템플릿에 §16이 포함되는가?
+- [ ] `main` 브랜치 보호가 켜져 있는가?
+- [ ] ESLint naming / commitlint / 브랜치 CI 중 합의한 항목이 동작하는가?
+- [ ] `AGENTS.md`가 본 문서를 가리키는가?
+- [ ] OpenAPI(또는 계약)와 mock·서버·클라이언트가 같은 이름을 쓰는가?
+
 ## 19. 최종 합의 선언
 
 PactFive 팀은 이 문서를 코드 리뷰의 기준으로 사용한다. 규칙 변경은 한 명이 임의로 적용하지
@@ -361,25 +495,26 @@ PactFive 팀은 이 문서를 코드 리뷰의 기준으로 사용한다. 규칙
 
 | 항목 | 내용 |
 |---|---|
-| 확정일 | 2026-08-20 |
-| 문서 버전 | v1.3 (본 리포 반영본) |
+| 확정일 | 2026-08-25 |
+| 참여자 | 김락원(팀장) · 오민혁 · 유동우 · 최윤석 · 조준영 |
+| 문서 버전 | v1.4 (본 리포 반영본) |
 | 다음 검토일 | Phase 1 종료일 |
 
 ## 20. 알려진 이슈 (수정 대기)
 
-이식 과정에서 발견된 이슈이며, 원본 PDF(v1.3)에는 아직 반영되지 않았다. 팀 논의 후 v1.4로
-갱신하거나 `change-requests/`에 조정안을 남긴다.
+이식 과정에서 발견된 이슈이며, 원본 v1.4 업로드본에는 아직 반영되지 않았다 (v1.3 반영본에서
+지적했던 문제 세 가지가 v1.4 원본에도 그대로 남아있음을 재확인했다). 팀 논의 후 원본 자체를
+v1.5로 갱신하거나 `change-requests/`에 조정안을 남긴다.
 
 1. **client 이중정의** — §3에서 `client`를 "의뢰인"으로 확정했는데, 같은 절의 주석이 프론트엔드
    앱을 가리키는 대안으로도 `client`를 제시했다. 본 문서(§3)에서는 프론트엔드를 `app`으로만
    쓰도록 수정해서 반영했다.
 2. **AGENT.md 표기** — 원본 §18이 "AGENT.md"(단수)라고 썼으나, 이 리포의 실제 파일명은
    `AGENTS.md`(복수)다. 본 문서(§18.2)에서는 실제 파일명으로 수정해서 반영했다.
-3. **contracts/openapi.yaml 경로** — 원본 §18.3B가 제안한 `contracts/openapi.yaml` 대신, 이미
+3. **contracts/openapi.yaml 경로** — 원본 §18.2가 제안한 `contracts/openapi.yaml` 대신, 이미
    구축된 `docs/domain/api-spec/openapi.yaml`을 단일 소스로 유지하기로 판단했다 (근거: ADR-0006·
    integration-workflow.md가 이미 이 경로를 통제하고 있어 폴더 위치보다 프로세스로 엄격함을
    확보했음). CI 경로 스킵 규칙을 넣게 되면 이 경로를 예외 처리해야 한다.
-4. **§9 상태 enum 실제 값** — 원본은 6개 enum의 실제 값 목록을 담고 있었으나, `docs/domain/erd.md`
-   와 내용이 겹쳐 정본이 두 곳이 되는 문제가 있었다. 본 문서(§9)에서는 실제 값 목록을 빼고
-   ERD를 정본으로 지정했다 (자세한 설계 가이드는
-   `outputs/pactfive_naming_convention_feedback_enum_design.md` 참고).
+
+v1.3 문서에 있던 네 번째 이슈("§9 상태 enum 실제 값 목록 중복 정의")는 v1.4 원본에서 이미
+해소됐다 — §9가 "정본 원칙"을 명시하고 실제 값 목록은 ERD·스키마·API 문서로만 위임한다.

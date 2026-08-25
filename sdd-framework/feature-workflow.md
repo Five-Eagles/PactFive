@@ -36,7 +36,7 @@
 1. `docs/naming-convention.md` — 변수·API·DB·Git 이름 규칙 (전체)
 2. `docs/domain/erd.md` — 내 기능이 다루는 테이블의 필드 정의 (전체를 다 읽을 필요는 없고, 담당
    엔티티만 확인)
-3. `docs/domain/prd.md` — 내 도메인과 관련된 절만 (원본 `docs/domain/reference/prd-v5.2.html`)
+3. `docs/domain/prd.md` — 내 도메인과 관련된 절만 (원본 `docs/domain/reference/prd-v6.4.md`)
 4. `features/sample-login/` — 이 워크플로우를 실제로 밟은 예시 (spec.md부터 prototype/까지 전부)
 5. `sdd-framework/constitution.md` — 프로젝트 전체 원칙 (짧음, 전체를 읽는다)
 

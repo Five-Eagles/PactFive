@@ -14,11 +14,12 @@
 D-06 절차에 따라 팀장이 초안을 작성하고 전원 리뷰를 받는다. (근거: PRD §6.10)
 - 엔티티·불변식·관계도는 각 도메인 담당자 검토 후 확정한다.
 - ERD 이미지(PNG/PDF)는 RFP 제출 산출물이다.
-- 요약은 `docs/domain/erd.md`, 원본은 `docs/domain/reference/erd-v1.2.html` 참고
-  (2026-08-20 추가, 잔여 확정 2026-08-21 금 24:00).
+- 요약은 `docs/domain/erd.md`, 원본은 `docs/domain/reference/erd-v1.4.html`
+  (DBML: `docs/domain/reference/erd-v1.4.dbml`) 참고 (2026-08-25 갱신, 구현 초안 확정).
 
 ## PRD
 
-요약은 `docs/domain/prd.md`, 원본은 `docs/domain/reference/prd-v5.2.html` 참고 (2026-08-20 추가).
+요약은 `docs/domain/prd.md`, 원본은 `docs/domain/reference/prd-v6.4.md` 참고 (HTML판
+`prd-v6.4.html`도 같은 내용이지만, 검색·부분 읽기가 쉬운 마크다운판을 우선 연다. 2026-08-25 갱신).
 상태 enum 실제 값의 정본은 `docs/domain/erd.md`다 — `docs/naming-convention.md` §9는 값을
 중복 정의하지 않는다.
