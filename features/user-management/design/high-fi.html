@@ -1,0 +1,1265 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <title>PactFive 로그인 — user-management high-fi 시안</title>
+  <style>
+    :root {
+      /* design-system/design-tokens.md의 semantic·component token 매핑 */
+      --color-canvas: #fbfaf7;
+      --color-surface: #ffffff;
+      --color-surface-subtle: #f7f8fa;
+      --color-surface-muted: #eef1f5;
+      --color-surface-inverse: #0b132b;
+      --color-surface-selected: #e7f5f4;
+      --color-content-primary: #0b132b;
+      --color-content-secondary: #55627a;
+      --color-content-tertiary: #667085;
+      --color-content-disabled: #8995a8;
+      --color-content-inverse: #ffffff;
+      --color-link: #006d70;
+      --color-border: #cbd3df;
+      --color-border-subtle: #e9edf3;
+      --color-border-interactive: #7a8498;
+      --color-border-focus: #008a8d;
+      --color-action-primary: #006d70;
+      --color-action-primary-hover: #00585c;
+      --color-action-primary-pressed: #073f43;
+      --color-action-primary-text: #ffffff;
+      --color-action-secondary-hover: #e7f5f4;
+      --color-action-disabled: #e9edf3;
+      --color-action-disabled-text: #8995a8;
+      --color-danger: #b93824;
+      --color-danger-surface: #fdeeea;
+      --color-success: #16734d;
+      --color-success-surface: #eaf7f0;
+      --color-info: #1c5f9c;
+      --color-info-surface: #edf5fc;
+      --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --motion-fast: 100ms;
+      --motion-normal: 160ms;
+      --focus-ring: 0 0 0 3px rgba(0, 138, 141, 0.28);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      color: var(--color-content-primary);
+      background: var(--color-canvas);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      background: var(--color-canvas);
+    }
+
+    button,
+    input,
+    a {
+      font: inherit;
+    }
+
+    button,
+    a {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button {
+      border: 0;
+    }
+
+    a {
+      color: var(--color-link);
+      font-weight: 600;
+      text-underline-offset: 3px;
+    }
+
+    a:hover {
+      text-decoration-thickness: 2px;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--color-border-focus);
+      outline-offset: 3px;
+      box-shadow: var(--focus-ring);
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 100;
+      top: 12px;
+      left: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      color: var(--color-content-inverse);
+      background: var(--color-surface-inverse);
+      transform: translateY(-180%);
+      transition: transform var(--motion-normal) cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+    }
+
+    .site-header {
+      border-bottom: 1px solid var(--color-border-subtle);
+      background: var(--color-surface);
+    }
+
+    .header-inner {
+      display: flex;
+      min-height: 72px;
+      max-width: 1200px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      margin: 0 auto;
+      padding: 0 32px;
+    }
+
+    .wordmark {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--color-content-primary);
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      text-decoration: none;
+    }
+
+    .wordmark-mark {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      border-radius: var(--radius-md);
+      color: var(--color-action-primary-text);
+      background: var(--color-action-primary);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+    }
+
+    .header-action {
+      display: inline-flex;
+      min-height: 44px;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      border-radius: var(--radius-md);
+      color: var(--color-content-secondary);
+      text-decoration: none;
+    }
+
+    .header-action:hover {
+      color: var(--color-content-primary);
+      background: var(--color-surface-subtle);
+    }
+
+    .header-action svg {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+    }
+
+    .page-shell {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 64px 32px 80px;
+    }
+
+    .auth-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 0.88fr) minmax(420px, 1fr);
+      overflow: hidden;
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      background: var(--color-surface);
+    }
+
+    .return-context {
+      display: flex;
+      min-height: 650px;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 40px;
+      padding: 48px;
+      color: var(--color-content-inverse);
+      background: var(--color-surface-inverse);
+    }
+
+    .context-kicker,
+    .eyebrow {
+      margin: 0 0 12px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .context-kicker {
+      color: #8fd3d1;
+    }
+
+    .context-title {
+      max-width: 13em;
+      margin: 0;
+      font-size: clamp(28px, 3.3vw, 40px);
+      line-height: 1.2;
+      letter-spacing: -0.6px;
+    }
+
+    .context-description {
+      max-width: 33em;
+      margin: 18px 0 0;
+      color: #d5dce7;
+      font-size: 16px;
+      line-height: 1.65;
+    }
+
+    .return-card {
+      border: 1px solid #394760;
+      border-radius: var(--radius-lg);
+      background: #111b33;
+    }
+
+    .return-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 20px;
+      border-bottom: 1px solid #394760;
+    }
+
+    .return-icon {
+      display: grid;
+      width: 40px;
+      height: 40px;
+      flex: 0 0 auto;
+      place-items: center;
+      border-radius: var(--radius-md);
+      color: #8fd3d1;
+      background: #073f43;
+    }
+
+    .return-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .return-card-title {
+      margin: 0;
+      color: var(--color-content-inverse);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .return-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+      color: #a7dfc5;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .return-badge svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .return-details {
+      display: grid;
+      gap: 16px;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .return-detail {
+      display: grid;
+      grid-template-columns: 104px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .return-detail dt {
+      color: #b7c0cf;
+      font-size: 13px;
+    }
+
+    .return-detail dd {
+      min-width: 0;
+      margin: 0;
+      color: var(--color-content-inverse);
+      font-size: 14px;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+
+    .return-path {
+      display: block;
+      margin-top: 4px;
+      color: #b7c0cf;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    .context-footnote {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 16px 2px 0;
+      color: #b7c0cf;
+      font-size: 13px;
+    }
+
+    .context-footnote svg {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      margin-top: 2px;
+    }
+
+    .auth-panel {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      padding: 48px clamp(32px, 5vw, 64px);
+    }
+
+    .auth-content {
+      width: 100%;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      color: var(--color-link);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(32px, 4vw, 40px);
+      line-height: 1.2;
+      letter-spacing: -0.6px;
+    }
+
+    .auth-description {
+      margin: 12px 0 28px;
+      color: var(--color-content-secondary);
+      font-size: 15px;
+    }
+
+    .auth-status {
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 12px 14px;
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+    }
+
+    .auth-status.is-visible {
+      display: flex;
+    }
+
+    .auth-status[data-tone="success"] {
+      border-color: #a7dfc5;
+      color: #115d3e;
+      background: var(--color-success-surface);
+    }
+
+    .auth-status[data-tone="info"] {
+      border-color: #b9d9f3;
+      color: #164e80;
+      background: var(--color-info-surface);
+    }
+
+    .auth-status svg {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+      margin-top: 1px;
+    }
+
+    .oauth-stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .button {
+      position: relative;
+      display: inline-flex;
+      min-height: 48px;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 0 16px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 700;
+      transition: border-color var(--motion-fast) cubic-bezier(0.2, 0, 0, 1), background var(--motion-fast) cubic-bezier(0.2, 0, 0, 1), transform var(--motion-fast) cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .button:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .button:disabled {
+      color: var(--color-action-disabled-text);
+      background: var(--color-action-disabled);
+      border-color: var(--color-border-subtle);
+      cursor: not-allowed;
+    }
+
+    .button-secondary {
+      border: 1px solid var(--color-border-interactive);
+      color: var(--color-content-primary);
+      background: var(--color-surface);
+    }
+
+    .button-secondary:hover:not(:disabled) {
+      border-color: var(--color-border-focus);
+      background: var(--color-action-secondary-hover);
+    }
+
+    .button-primary {
+      margin-top: 8px;
+      color: var(--color-action-primary-text);
+      background: var(--color-action-primary);
+    }
+
+    .button-primary:hover:not(:disabled) {
+      background: var(--color-action-primary-hover);
+    }
+
+    .button-primary:active:not(:disabled) {
+      background: var(--color-action-primary-pressed);
+    }
+
+    .provider-mark {
+      display: grid;
+      width: 24px;
+      height: 24px;
+      flex: 0 0 auto;
+      place-items: center;
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 50%;
+      color: var(--color-content-primary);
+      background: var(--color-surface);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .provider-mark.kakao {
+      border: 0;
+      border-radius: var(--radius-sm);
+      color: #090d18;
+      background: #f4c430;
+    }
+
+    .divider {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 12px;
+      margin: 24px 0;
+      color: var(--color-content-tertiary);
+      font-size: 12px;
+    }
+
+    .divider::before,
+    .divider::after {
+      height: 1px;
+      background: var(--color-border-subtle);
+      content: "";
+    }
+
+    .error-summary {
+      margin: 0 0 20px;
+      padding: 14px 16px;
+      border-left: 3px solid var(--color-danger);
+      color: #932e20;
+      background: var(--color-danger-surface);
+      font-size: 14px;
+    }
+
+    .error-summary[hidden] {
+      display: none;
+    }
+
+    .error-summary strong {
+      display: block;
+      margin-bottom: 2px;
+      color: #932e20;
+    }
+
+    .field-group {
+      margin-bottom: 18px;
+    }
+
+    .field-heading {
+      display: flex;
+      min-height: 24px;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .field-heading label {
+      color: var(--color-content-primary);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .field-heading a {
+      font-size: 13px;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    .input {
+      width: 100%;
+      min-height: 48px;
+      padding: 11px 16px;
+      border: 1px solid var(--color-border-interactive);
+      border-radius: var(--radius-md);
+      color: var(--color-content-primary);
+      background: var(--color-surface);
+      font-size: 16px;
+      line-height: 24px;
+      transition: border-color var(--motion-fast) cubic-bezier(0.2, 0, 0, 1), box-shadow var(--motion-fast) cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .input::placeholder {
+      color: var(--color-content-tertiary);
+      opacity: 1;
+    }
+
+    .input:hover:not(:disabled) {
+      border-color: var(--color-content-secondary);
+    }
+
+    .input:focus {
+      border-color: var(--color-border-focus);
+      outline: 0;
+      box-shadow: var(--focus-ring);
+    }
+
+    .input[aria-invalid="true"] {
+      border-color: var(--color-danger);
+    }
+
+    .input:disabled {
+      color: var(--color-content-disabled);
+      background: var(--color-surface-muted);
+      cursor: not-allowed;
+    }
+
+    .password-input {
+      padding-right: 98px;
+    }
+
+    .password-toggle {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      min-width: 78px;
+      min-height: 40px;
+      padding: 0 10px;
+      border-radius: 6px;
+      color: var(--color-link);
+      background: transparent;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .password-toggle:hover:not(:disabled) {
+      background: var(--color-action-secondary-hover);
+    }
+
+    .password-toggle:disabled {
+      color: var(--color-content-disabled);
+      cursor: not-allowed;
+    }
+
+    .field-error {
+      display: none;
+      margin: 7px 0 0;
+      color: var(--color-danger);
+      font-size: 13px;
+    }
+
+    .field-error.is-visible {
+      display: block;
+    }
+
+    .spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+      border: 2px solid rgba(255, 255, 255, 0.42);
+      border-top-color: var(--color-content-inverse);
+      border-radius: 50%;
+      animation: spin 720ms linear infinite;
+    }
+
+    .button-primary.is-loading .spinner {
+      display: block;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .form-footnote {
+      margin: 18px 0 0;
+      color: var(--color-content-tertiary);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .signup-prompt {
+      margin: 28px 0 0;
+      padding-top: 22px;
+      border-top: 1px solid var(--color-border-subtle);
+      color: var(--color-content-secondary);
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .prototype-tools,
+    .required-contract {
+      margin-top: 24px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      background: var(--color-surface);
+    }
+
+    .prototype-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 18px 20px;
+    }
+
+    .prototype-copy h2,
+    .required-contract h2 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 24px;
+      letter-spacing: 0;
+    }
+
+    .prototype-copy p {
+      margin: 2px 0 0;
+      color: var(--color-content-secondary);
+      font-size: 13px;
+    }
+
+    .state-switcher {
+      display: inline-flex;
+      flex: 0 0 auto;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--color-border-subtle);
+      border-radius: 10px;
+      background: var(--color-surface-subtle);
+    }
+
+    .state-button {
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 6px;
+      color: var(--color-content-secondary);
+      background: transparent;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .state-button:hover {
+      color: var(--color-content-primary);
+      background: var(--color-surface);
+    }
+
+    .state-button[aria-pressed="true"] {
+      color: var(--color-content-inverse);
+      background: var(--color-surface-inverse);
+    }
+
+    .required-contract {
+      padding: 24px;
+    }
+
+    .contract-description {
+      margin: 6px 0 18px;
+      color: var(--color-content-secondary);
+      font-size: 14px;
+    }
+
+    .contract-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 28px;
+      margin: 0;
+      padding-left: 20px;
+      color: var(--color-content-secondary);
+      font-size: 14px;
+    }
+
+    .contract-list li::marker {
+      color: var(--color-action-primary);
+    }
+
+    .contract-note {
+      margin: 18px 0 0;
+      padding-top: 16px;
+      border-top: 1px solid var(--color-border-subtle);
+      color: var(--color-content-tertiary);
+      font-size: 12px;
+    }
+
+    .page-footer {
+      margin-top: 24px;
+      color: var(--color-content-tertiary);
+      text-align: center;
+      font-size: 12px;
+    }
+
+    @media (max-width: 840px) {
+      .page-shell {
+        max-width: 680px;
+        padding: 40px 24px 64px;
+      }
+
+      .auth-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .return-context {
+        min-height: auto;
+        padding: 36px;
+      }
+
+      .context-title {
+        max-width: 18em;
+      }
+
+      .return-card {
+        margin-top: 32px;
+      }
+
+      .auth-panel {
+        padding: 44px 36px 48px;
+      }
+
+      .prototype-tools {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .state-switcher {
+        align-self: flex-start;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .header-inner {
+        min-height: 64px;
+        padding: 0 16px;
+      }
+
+      .header-action span {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      .page-shell {
+        padding: 24px 16px 48px;
+      }
+
+      .auth-layout {
+        border-radius: var(--radius-lg);
+      }
+
+      .return-context,
+      .auth-panel {
+        padding: 28px 20px;
+      }
+
+      .context-description {
+        font-size: 15px;
+      }
+
+      .return-detail {
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+
+      .return-card-header,
+      .return-details {
+        padding-right: 16px;
+        padding-left: 16px;
+      }
+
+      .state-switcher {
+        display: grid;
+        width: 100%;
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .state-button {
+        padding: 0 8px;
+      }
+
+      .contract-list {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0ms !important;
+        animation-duration: 0ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#auth-heading">로그인 영역으로 건너뛰기</a>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="wordmark" href="#" aria-label="PactFive 홈">
+        <span class="wordmark-mark" aria-hidden="true">P5</span>
+        <span>PactFive</span>
+      </a>
+      <a class="header-action" href="#return-context">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+        <span>이전 화면으로</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section class="auth-layout" aria-labelledby="auth-heading">
+      <aside class="return-context" id="return-context" aria-labelledby="return-context-heading">
+        <div>
+          <p class="context-kicker">CONTEXT RECOVERY</p>
+          <h2 class="context-title" id="return-context-heading">하던 작업을 그대로 이어가세요</h2>
+          <p class="context-description">
+            로그인 후 이전 작업 화면으로 돌아갑니다. 작성 중인 내용과 이동 목적은 로그인 과정에서 바뀌지 않습니다.
+          </p>
+        </div>
+
+        <div>
+          <section class="return-card" aria-label="로그인 후 돌아갈 위치">
+            <div class="return-card-header">
+              <span class="return-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M7 3.8h7l4 4V20H7z" />
+                  <path d="M14 3.8V8h4M9.5 12h6M9.5 15.5h4" />
+                </svg>
+              </span>
+              <div>
+                <p class="return-card-title">로그인 후 계속할 작업</p>
+                <span class="return-badge" id="return-state">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="m5 12 4 4L19 6" />
+                  </svg>
+                  작성 내용 보존됨
+                </span>
+              </div>
+            </div>
+            <dl class="return-details">
+              <div class="return-detail">
+                <dt>돌아갈 위치</dt>
+                <dd id="return-label">프로젝트 등록</dd>
+              </div>
+              <div class="return-detail">
+                <dt>이동 경로</dt>
+                <dd>
+                  안전하게 확인된 내부 경로
+                  <code class="return-path" id="return-to-value">/projects/new</code>
+                </dd>
+              </div>
+            </dl>
+          </section>
+          <p class="context-footnote">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <rect x="5" y="10" width="14" height="10" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+            </svg>
+            외부 주소는 returnTo 경로로 사용하지 않아 안전한 복귀 위치를 유지합니다.
+          </p>
+        </div>
+      </aside>
+
+      <div class="auth-panel">
+        <div class="auth-content">
+          <p class="eyebrow">안전한 계정 확인</p>
+          <h1 id="auth-heading">로그인</h1>
+          <p class="auth-description">사용 중인 계정으로 로그인하고 이전 작업을 계속하세요.</p>
+
+          <div class="auth-status" id="auth-status" role="status" aria-live="polite" data-tone="info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 10v6M12 7h.01" />
+            </svg>
+            <span id="auth-status-text"></span>
+          </div>
+
+          <div class="oauth-stack" aria-label="소셜 계정 로그인">
+            <button class="button button-secondary oauth-button" type="button" data-provider="Google">
+              <span class="provider-mark" aria-hidden="true">G</span>
+              <span>Google로 계속하기</span>
+            </button>
+            <button class="button button-secondary oauth-button" type="button" data-provider="Kakao">
+              <span class="provider-mark kakao" aria-hidden="true">K</span>
+              <span>Kakao로 계속하기</span>
+            </button>
+          </div>
+
+          <div class="divider" aria-hidden="true">또는 이메일로 로그인</div>
+
+          <form id="login-form" novalidate>
+            <input id="return-to-input" name="returnTo" type="hidden" value="/projects/new" />
+
+            <div class="error-summary" id="error-summary" role="alert" tabindex="-1" hidden>
+              <strong>로그인 정보를 확인해 주세요.</strong>
+              <span id="error-summary-message">입력한 이메일 또는 비밀번호가 올바르지 않습니다. 내용을 확인한 뒤 다시 시도해 주세요.</span>
+            </div>
+
+            <div class="field-group">
+              <div class="field-heading">
+                <label for="email">이메일</label>
+              </div>
+              <input
+                class="input"
+                id="email"
+                name="email"
+                type="email"
+                inputmode="email"
+                autocomplete="email"
+                placeholder="name@example.com"
+                aria-describedby="email-error"
+                required
+              />
+              <p class="field-error" id="email-error">올바른 이메일 주소를 입력해 주세요.</p>
+            </div>
+
+            <div class="field-group">
+              <div class="field-heading">
+                <label for="password">비밀번호</label>
+              </div>
+              <div class="input-wrap">
+                <input
+                  class="input password-input"
+                  id="password"
+                  name="password"
+                  type="password"
+                  autocomplete="current-password"
+                  minlength="8"
+                  placeholder="비밀번호 8자 이상"
+                  aria-describedby="password-error"
+                  required
+                />
+                <button class="password-toggle" id="password-toggle" type="button" aria-controls="password" aria-pressed="false">비밀번호 보기</button>
+              </div>
+              <p class="field-error" id="password-error">비밀번호를 8자 이상 입력해 주세요.</p>
+            </div>
+
+            <button class="button button-primary" id="email-submit" type="submit">
+              <span class="spinner" aria-hidden="true"></span>
+              <span id="submit-label">이메일로 로그인</span>
+            </button>
+          </form>
+
+          <p class="form-footnote">
+            계정 보호와 개인정보 처리 기준은 <a href="#terms">이용약관</a>과 <a href="#privacy">개인정보 처리방침</a>에서 확인할 수 있습니다.
+          </p>
+          <p class="signup-prompt">처음이신가요? <a href="#signup">회원가입</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="prototype-tools" aria-labelledby="prototype-tools-heading">
+      <div class="prototype-copy">
+        <h2 id="prototype-tools-heading">시안 상태 확인</h2>
+        <p>기본·오류·로딩 상태를 버튼과 키보드로 확인할 수 있습니다. 실제 인증 요청은 보내지 않습니다.</p>
+      </div>
+      <div class="state-switcher" role="group" aria-label="로그인 화면 상태 선택">
+        <button class="state-button" type="button" data-demo-state="default" aria-pressed="true">기본</button>
+        <button class="state-button" type="button" data-demo-state="error" aria-pressed="false">오류</button>
+        <button class="state-button" type="button" data-demo-state="loading" aria-pressed="false">로딩</button>
+      </div>
+    </section>
+
+    <section class="required-contract" aria-labelledby="required-contract-heading">
+      <h2 id="required-contract-heading">필수 요소 목록</h2>
+      <p class="contract-description">기본 렌더링에서 구현체가 정확히 포함해야 하는 텍스트 계약입니다.</p>
+      <ul class="contract-list">
+        <li>제목 “로그인”</li>
+        <li>문맥 제목 “로그인 후 계속할 작업”</li>
+        <li>상태 문구 “작성 내용 보존됨”</li>
+        <li>라벨 “이메일”</li>
+        <li>placeholder “name@example.com”</li>
+        <li>라벨 “비밀번호”</li>
+        <li>placeholder “비밀번호 8자 이상”</li>
+        <li>버튼 “Google로 계속하기”</li>
+        <li>버튼 “Kakao로 계속하기”</li>
+        <li>버튼 “이메일로 로그인”</li>
+        <li>링크 “회원가입”</li>
+      </ul>
+      <p class="contract-note">
+        조건부 요소: 오류 상태의 “로그인 정보를 확인해 주세요.”, 로딩 상태의 “로그인 중…” 및 성공 안내는 기본 렌더링 필수 목록에서 제외합니다.
+      </p>
+    </section>
+
+    <footer class="page-footer">user-management · high-fi interactive HTML · PactFive Design System v1.0</footer>
+  </main>
+
+  <script>
+    (() => {
+      const DEFAULT_RETURN_TO = "/projects/new";
+      const form = document.querySelector("#login-form");
+      const email = document.querySelector("#email");
+      const password = document.querySelector("#password");
+      const passwordToggle = document.querySelector("#password-toggle");
+      const submitButton = document.querySelector("#email-submit");
+      const submitLabel = document.querySelector("#submit-label");
+      const errorSummary = document.querySelector("#error-summary");
+      const errorSummaryMessage = document.querySelector("#error-summary-message");
+      const emailError = document.querySelector("#email-error");
+      const passwordError = document.querySelector("#password-error");
+      const status = document.querySelector("#auth-status");
+      const statusText = document.querySelector("#auth-status-text");
+      const returnLabel = document.querySelector("#return-label");
+      const returnToValue = document.querySelector("#return-to-value");
+      const returnToInput = document.querySelector("#return-to-input");
+      const returnState = document.querySelector("#return-state");
+      const oauthButtons = [...document.querySelectorAll(".oauth-button")];
+      const stateButtons = [...document.querySelectorAll(".state-button")];
+      const authControls = [email, password, passwordToggle, submitButton, ...oauthButtons];
+      let activeTimer = null;
+
+      const getSafeReturnTo = () => {
+        const requested = new URLSearchParams(window.location.search).get("returnTo");
+        const hasUnsafeShape = !requested
+          || requested.length > 160
+          || !requested.startsWith("/")
+          || requested.startsWith("//")
+          || requested.includes("\\")
+          || requested.includes("#")
+          || /[\u0000-\u001f\u007f]/.test(requested);
+        if (hasUnsafeShape) {
+          return DEFAULT_RETURN_TO;
+        }
+        const isAllowed = requested === "/"
+          || requested === "/projects"
+          || requested === "/projects/new"
+          || requested === "/bookmarks"
+          || requested === "/profile"
+          || /^\/projects\/prj_[A-Za-z0-9_-]+$/.test(requested);
+        return isAllowed ? requested : DEFAULT_RETURN_TO;
+      };
+
+      const getReturnLabel = (path) => {
+        if (path === "/projects/new") return "프로젝트 등록";
+        if (path.includes("pricing") || path.includes("budget")) return "예산 분석";
+        if (path.includes("projects")) return "프로젝트 상세";
+        return "이전 작업";
+      };
+
+      const safeReturnTo = getSafeReturnTo();
+      const safeReturnLabel = getReturnLabel(safeReturnTo);
+      returnToValue.textContent = safeReturnTo;
+      returnToInput.value = safeReturnTo;
+      returnLabel.textContent = safeReturnLabel;
+
+      const setSelectedDemoState = (nextState) => {
+        stateButtons.forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.demoState === nextState));
+        });
+      };
+
+      const hideStatus = () => {
+        status.classList.remove("is-visible");
+        statusText.textContent = "";
+      };
+
+      const showStatus = (message, tone = "info") => {
+        status.dataset.tone = tone;
+        statusText.textContent = message;
+        status.classList.add("is-visible");
+      };
+
+      const setFieldError = (input, error, hasError) => {
+        input.setAttribute("aria-invalid", String(hasError));
+        error.classList.toggle("is-visible", hasError);
+      };
+
+      const clearErrors = () => {
+        errorSummary.hidden = true;
+        setFieldError(email, emailError, false);
+        setFieldError(password, passwordError, false);
+      };
+
+      const setControlsDisabled = (disabled) => {
+        authControls.forEach((control) => {
+          control.disabled = disabled;
+        });
+        form.setAttribute("aria-busy", String(disabled));
+      };
+
+      const cancelTimer = () => {
+        if (activeTimer !== null) {
+          window.clearTimeout(activeTimer);
+          activeTimer = null;
+        }
+      };
+
+      const showDefaultState = () => {
+        cancelTimer();
+        clearErrors();
+        hideStatus();
+        setControlsDisabled(false);
+        submitButton.classList.remove("is-loading");
+        submitLabel.textContent = "이메일로 로그인";
+        returnState.lastChild.textContent = " 작성 내용 보존됨";
+        setSelectedDemoState("default");
+      };
+
+      const showErrorState = (focusSummary = false, validation = false) => {
+        cancelTimer();
+        setControlsDisabled(false);
+        submitButton.classList.remove("is-loading");
+        submitLabel.textContent = "이메일로 로그인";
+        hideStatus();
+
+        const emailInvalid = validation ? !email.validity.valid : true;
+        const passwordInvalid = validation ? !password.validity.valid : true;
+        setFieldError(email, emailError, emailInvalid);
+        setFieldError(password, passwordError, passwordInvalid);
+        errorSummaryMessage.textContent = validation
+          ? "입력하지 않았거나 형식이 맞지 않는 항목을 확인한 뒤 다시 시도해 주세요."
+          : "입력한 이메일 또는 비밀번호가 올바르지 않습니다. 작성한 내용은 유지되므로 확인한 뒤 다시 시도해 주세요.";
+        errorSummary.hidden = false;
+        setSelectedDemoState("error");
+
+        if (focusSummary) errorSummary.focus();
+      };
+
+      const showLoadingState = (message = "로그인 정보를 안전하게 확인하고 있습니다.", transient = false) => {
+        cancelTimer();
+        clearErrors();
+        setControlsDisabled(true);
+        submitButton.classList.add("is-loading");
+        submitLabel.textContent = "로그인 중…";
+        showStatus(message, "info");
+        setSelectedDemoState("loading");
+
+        if (transient) {
+          activeTimer = window.setTimeout(() => {
+            setControlsDisabled(false);
+            submitButton.classList.remove("is-loading");
+            submitLabel.textContent = "이메일로 로그인";
+            returnState.lastChild.textContent = " 복귀 위치 확인됨";
+            showStatus(`성공 상태 예시: 로그인 후 ${safeReturnLabel} 화면으로 돌아갑니다.`, "success");
+            setSelectedDemoState("default");
+            activeTimer = null;
+          }, 1200);
+        }
+      };
+
+      passwordToggle.addEventListener("click", () => {
+        const shouldShow = password.type === "password";
+        password.type = shouldShow ? "text" : "password";
+        passwordToggle.textContent = shouldShow ? "비밀번호 숨기기" : "비밀번호 보기";
+        passwordToggle.setAttribute("aria-pressed", String(shouldShow));
+        password.focus();
+      });
+
+      email.addEventListener("input", () => {
+        if (email.getAttribute("aria-invalid") === "true") {
+          setFieldError(email, emailError, false);
+        }
+      });
+
+      password.addEventListener("input", () => {
+        if (password.getAttribute("aria-invalid") === "true") {
+          setFieldError(password, passwordError, false);
+        }
+      });
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (!email.validity.valid || !password.validity.valid) {
+          showErrorState(true, true);
+          return;
+        }
+        showLoadingState("이메일 로그인 정보를 안전하게 확인하고 있습니다.", true);
+      });
+
+      oauthButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          showLoadingState(`${button.dataset.provider} 로그인 창을 확인하고 있습니다.`, true);
+        });
+      });
+
+      stateButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const nextState = button.dataset.demoState;
+          if (nextState === "error") {
+            showErrorState(false, false);
+          } else if (nextState === "loading") {
+            showLoadingState("로딩 상태 예시입니다. ‘기본’을 선택하면 입력을 계속할 수 있습니다.");
+          } else {
+            showDefaultState();
+          }
+        });
+      });
+
+      showDefaultState();
+    })();
+  </script>
+</body>
+</html>
