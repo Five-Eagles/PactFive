@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>계약 연동 함수 호출 계약 확인 요청 — 유동우 (project-management)</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 11.5px; line-height: 1.45; color: #1a1a1a; margin: 0;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 13px; margin: 18px 0 8px; border-bottom: 1px solid #222; padding-bottom: 3px; }
+  h3 { font-size: 12px; margin: 14px 0 6px; }
+  .meta { color: #555; font-size: 11px; margin-bottom: 14px; }
+  .badge { display: inline-block; background: #eee; border: 1px solid #ccc; padding: 1px 6px; font-size: 10px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 11px; }
+  th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; }
+  code, pre { font-family: ui-monospace, Menlo, monospace; font-size: 10px; }
+  pre { background: #f7f7f7; border: 1px solid #ddd; padding: 8px; overflow: hidden; white-space: pre-wrap; }
+  .check { width: 14px; height: 14px; border: 1.5px solid #333; display: inline-block; vertical-align: middle; margin-right: 4px; }
+  .memo { border-bottom: 1px dotted #999; min-height: 18px; }
+  .note { color: #444; font-size: 11px; }
+  .assumption { background: #fff8e6; border-left: 3px solid #c90; padding: 6px 8px; margin: 8px 0; }
+  ul { margin: 6px 0 10px; padding-left: 18px; }
+</style>
+</head>
+<body>
+
+<h1>계약 연동 함수 호출 계약 확인 요청</h1>
+<p class="meta">
+  수신: <strong>유동우</strong> (project-management · 4함수 제공자) ·
+  발신: 조준영 (contracts-payments) · 2026-08-25<br>
+  출처: <code>features/contracts-payments/spec.md</code> 규칙 1~6 ·
+  <code>api-contract.md</code> · 정본 PRD v6.4 §5.4 · ERD v1.4<br>
+  <span class="badge">작업 가설</span> 합의되면 spec·API 계약을 확정본으로 올린다.
+</p>
+<p>브라우저 공개 API가 아니다. 조준영 서버가 유동우 Mock/서비스에 호출하는 내부 계약이다.
+함수명이 정본이다 (D-48). REST 경로는 Mock용 제안이다.</p>
+
+<h2>확인 체크리스트</h2>
+<p class="note">해당 칸에 표시하고, 다르면 메모에 대안을 적어 주세요.</p>
+<table>
+  <thead>
+    <tr><th style="width:6%">#</th><th>확인 항목</th><th style="width:12%">예</th><th style="width:12%">아니오</th><th style="width:28%">메모</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td><code>start</code>/<code>complete</code> 멱등 키를 <code>transaction-start-{contractId}</code> / <code>transaction-complete-{contractId}</code>로 해도 되는가. (PRD 키 표에 이 두 함수가 없음 · ASSUMPTION)</td>
+      <td><span class="check"></span></td>
+      <td><span class="check"></span></td>
+      <td class="memo"></td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><code>markPaymentPending</code>은 상태 전이가 아니므로 <code>projectVersion</code>을 올리지 않는가. (ASSUMPTION)</td>
+      <td><span class="check"></span></td>
+      <td><span class="check"></span></td>
+      <td class="memo"></td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>아래 내부 REST 5개를 project-management에서 제공하는가.<br>
+        <code>GET .../negotiation-context</code><br>
+        <code>POST .../mark-payment-pending</code><br>
+        <code>POST .../start-transaction</code><br>
+        <code>POST .../complete-transaction</code><br>
+        <code>POST .../restore-pre-contract</code></td>
+      <td><span class="check"></span></td>
+      <td><span class="check"></span></td>
+      <td class="memo"></td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>D-43(대기 지원 잔존) 때 <code>restorePreContractProject</code> 응답이 <code>200</code> + <code>reopened: false</code> + <code>transactionStatus: NONE</code>인가.</td>
+      <td><span class="check"></span></td>
+      <td><span class="check"></span></td>
+      <td class="memo"></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>공통 봉투 (D-54)</h2>
+<p>요청: <code>requestId</code>, <code>idempotencyKey</code>, <code>occurredAt</code>, 선택 <code>expectedProjectVersion</code>.
+응답: <code>alreadyProcessed</code>, <code>processedAt</code>, <code>changed</code>, <code>projectVersion</code>.
+<code>projectVersion</code>은 거래/모집 상태 전이 성공 시에만 +1 (ERD E-23).</p>
+
+<h2>오류 코드 (PRD §8.3만)</h2>
+<table>
+  <thead><tr><th>code</th><th>HTTP</th><th>언제</th></tr></thead>
+  <tbody>
+    <tr><td><code>PROJECT_NOT_FOUND</code></td><td>404</td><td>없음 또는 소프트 삭제</td></tr>
+    <tr><td><code>PROJECT_TRANSITION_CONFLICT</code></td><td>409</td><td>허용 상태 아님. <code>CANCELED</code> 포함. 전용 코드 없음 (D-31)</td></tr>
+    <tr><td><code>PROJECT_VERSION_CONFLICT</code></td><td>409</td><td><code>expectedProjectVersion</code> 불일치</td></tr>
+    <tr><td><code>PROJECT_ALREADY_RESTORED</code></td><td>409</td><td>restore, 다른 협상으로 이미 복원</td></tr>
+    <tr><td><code>VALIDATION_ERROR</code></td><td>422</td><td>필수 누락·<code>reason</code> 오류</td></tr>
+  </tbody>
+</table>
+<pre>{ "error": { "code": "PROJECT_TRANSITION_CONFLICT",
+  "message": "프로젝트 상태가 변경되어 처리할 수 없습니다.", "details": null } }</pre>
+
+<h2>1. startProjectTransaction — 가장 먼저 확정</h2>
+<p>조준영 → 유동우. 계약 <code>SIGNED</code> <strong>그리고</strong> 결제 <code>PAID</code> 직후 1회.
+선행: 최윤석 <code>acceptProjectApplication</code> → <code>CONTRACT_PENDING</code>.
+호출 전 <code>getProjectNegotiationContext</code> 의무 (D-44).</p>
+<table>
+  <tr><th>항목</th><th>계약</th></tr>
+  <tr><td>경로</td><td><code>POST /api/v1/projects/:projectId/start-transaction</code></td></tr>
+  <tr><td>실행 전</td><td><code>CONTRACT_PENDING</code></td></tr>
+  <tr><td>실행 후</td><td><code>IN_PROGRESS</code> (모집 <code>CLOSED</code> 유지)</td></tr>
+  <tr><td>중복</td><td>이미 <code>IN_PROGRESS</code>면 200. <code>CANCELED</code>면 재시도도 409</td></tr>
+  <tr><td>판정 순서</td><td>존재 → 멱등 키 → 이미 IN_PROGRESS → 그 외 상태 → 버전 → 전이</td></tr>
+  <tr><td>멱등 키</td><td class="assumption">제안: <code>transaction-start-{contractId}</code></td></tr>
+</table>
+<pre>{ "requestId": "req_start_01", "idempotencyKey": "transaction-start-ctr_123",
+  "occurredAt": "2026-08-25T05:01:00Z", "expectedProjectVersion": 7 }</pre>
+<pre>{ "projectId": "prj_123", "recruitmentStatus": "CLOSED", "transactionStatus": "IN_PROGRESS",
+  "alreadyProcessed": false, "processedAt": "2026-08-25T05:01:00Z",
+  "changed": true, "projectVersion": 8 }</pre>
+
+<h2>2. getProjectNegotiationContext</h2>
+<p><code>GET /api/v1/projects/:projectId/negotiation-context</code> · <code>start</code>/<code>complete</code>/<code>markPaymentPending</code> 전 조회.</p>
+<pre>{ "projectId": "prj_123", "clientId": "usr_client_a",
+  "recruitmentStatus": "CLOSED", "transactionStatus": "CONTRACT_PENDING",
+  "acceptedApplicationId": "app_123",
+  "recruitmentDeadlineAt": "2026-09-16T14:59:59Z",
+  "canceledAt": null, "paymentPendingAt": null, "projectVersion": 7 }</pre>
+<p>에러: 404 <code>PROJECT_NOT_FOUND</code>.</p>
+
+<h2>3. markPaymentPending</h2>
+<p>PG 요청 직전. 경로 <code>POST .../mark-payment-pending</code>. 멱등 키 <code>payment-pending-{contractId}</code>.
+거래/모집 상태는 바꾸지 않는다. 이미 <code>paymentPendingAt</code>이 있으면 200.</p>
+<div class="assumption">ASSUMPTION: <code>projectVersion</code>을 올리지 않음 (상태 전이가 아님).</div>
+<pre>{ "projectId": "prj_123", "transactionStatus": "CONTRACT_PENDING",
+  "paymentPendingAt": "2026-08-25T05:00:00Z",
+  "alreadyProcessed": false, "processedAt": "2026-08-25T05:00:00Z",
+  "changed": true, "projectVersion": 7 }</pre>
+
+<h2>4. completeProjectTransaction</h2>
+<p><code>APPROVED</code> ∧ <code>RELEASED</code> 직후. 전 <code>IN_PROGRESS</code> → 후 <code>COMPLETED</code>.
+이미 <code>COMPLETED</code>면 200. 멱등 키 제안 <code>transaction-complete-{contractId}</code>.</p>
+<pre>{ "projectId": "prj_123", "recruitmentStatus": "CLOSED", "transactionStatus": "COMPLETED",
+  "alreadyProcessed": false, "processedAt": "2026-08-25T06:00:00Z",
+  "changed": true, "projectVersion": 9 }</pre>
+
+<h2>5. restorePreContractProject</h2>
+<p>최신 제안 수신자의 최종 거절만. 입력: <code>negotiationId</code>(필수), <code>offerId</code>(선택),
+<code>actorUserId</code>, <code>reason</code>(<code>FREELANCER_REJECTED</code> | <code>CLIENT_REJECTED</code>).
+멱등 키 <code>negotiation-reject-{negotiationId}</code>. §5.7 <code>agreementId</code>는 D-55로 폐기.</p>
+<p>실행 후 <code>transactionStatus → NONE</code>. 마감 남고 대기 지원 0이면 <code>OPEN</code> + <code>reopened: true</code>.
+마감 지남 또는 대기 지원 잔존이면 <code>CLOSED</code> + <code>reopened: false</code> (200).
+대기 지원이 있으면 유동우가 최윤석에게 <code>rejectPendingApplications</code>를 재요청한다 (D-43).
+같은 <code>negotiationId</code>는 200, 다른 협상은 <code>409 PROJECT_ALREADY_RESTORED</code>.</p>
+<pre>{ "projectId": "prj_123", "negotiationId": "ngt_123",
+  "recruitmentStatus": "OPEN", "transactionStatus": "NONE", "reopened": true,
+  "restoredFields": ["recruitmentStatus", "transactionStatus"],
+  "alreadyProcessed": false, "processedAt": "2026-08-25T04:30:00Z",
+  "changed": true, "projectVersion": 8 }</pre>
+
+<h2>ProjectTransactionPort (Mock이 구현)</h2>
+<pre>getProjectNegotiationContext(projectId)
+markPaymentPending(projectId, input)
+startProjectTransaction(projectId, input)
+completeProjectTransaction(projectId, input)
+restorePreContractProject(projectId, input)</pre>
+<p>4xx 시 Mock 기본은 에러 봉투를 throw. 전체 타입은 <code>api-contract.md</code> DTO 절.</p>
+
+</body>
+</html>
