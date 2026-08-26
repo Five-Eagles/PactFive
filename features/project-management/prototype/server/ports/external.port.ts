@@ -82,10 +82,29 @@ export type ClaimPricingAnalysisResult = {
   recommendedAmount: number;
 };
 
+export type PricingRecommendationQuery = {
+  analysisId: string;
+  projectId: string;
+  requesterId: string;
+};
+
 export interface PricingAnalysisClaimPort {
   claimPricingAnalysisForCreatedProject(
     transaction: TransactionContext,
     input: ClaimPricingAnalysisInput,
+  ): Promise<ClaimPricingAnalysisResult>;
+
+  /**
+   * **⚠ 오민혁 확인 대기.** 규칙 52·53 회신에는 등록 시점의 `claim` 만 있었다.
+   *
+   * `applyPricingAnalysisBudget`(규칙 40)은 **이미 등록된** 프로젝트의 예산을 고친다.
+   * 이때도 "분석에 저장된 추천 금액을 쓴다"이므로 저장된 값을 읽을 방법이 필요한데,
+   * `claim` 은 등록 트랜잭션 전용이라 재사용할 수 없다.
+   *
+   * 형태가 다르면 `mock/external.mock.ts` 의 어댑터 한 곳만 고친다.
+   */
+  getPricingAnalysisRecommendation(
+    query: PricingRecommendationQuery,
   ): Promise<ClaimPricingAnalysisResult>;
 }
 

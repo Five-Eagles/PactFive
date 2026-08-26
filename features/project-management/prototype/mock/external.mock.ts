@@ -17,6 +17,7 @@ import type {
   InvalidateAgreementInput,
   InvalidateAgreementResult,
   PricingAnalysisClaimPort,
+  PricingRecommendationQuery,
   ProfileCompletion,
   ProfilePort,
   RejectPendingApplicationsInput,
@@ -33,6 +34,7 @@ export type ExternalMocks = ExternalPorts & {
     rejectPendingApplications: CallLog<RejectPendingApplicationsInput>;
     invalidateAgreementAndContract: CallLog<InvalidateAgreementInput>;
     claimPricingAnalysis: ClaimPricingAnalysisInput[];
+    getPricingAnalysisRecommendation: PricingRecommendationQuery[];
     getProfileCompletion: string[];
   };
   /** 다음 호출을 실패시킨다. 규칙 23("실패해도 되돌리지 않는다") 검증용 */
@@ -68,6 +70,7 @@ export function createExternalMocks(): ExternalMocks {
     rejectPendingApplications: [],
     invalidateAgreementAndContract: [],
     claimPricingAnalysis: [],
+    getPricingAnalysisRecommendation: [],
     getProfileCompletion: [],
   };
 
@@ -133,6 +136,16 @@ export function createExternalMocks(): ExternalMocks {
       // PRICING_ANALYSIS_NOT_APPLICABLE 로 바꾸는지만 확인하면 된다.
       if (!found || found.ownerId !== input.requesterId) {
         throw new Error(`PRICING_ANALYSIS_NOT_CLAIMABLE: ${input.analysisId}`);
+      }
+      return { recommendedAmount: found.amount };
+    },
+
+    async getPricingAnalysisRecommendation(query): Promise<ClaimPricingAnalysisResult> {
+      calls.getPricingAnalysisRecommendation.push(query);
+
+      const found = PRICING_ANALYSES[query.analysisId];
+      if (!found || found.ownerId !== query.requesterId) {
+        throw new Error(`PRICING_ANALYSIS_NOT_APPLICABLE: ${query.analysisId}`);
       }
       return { recommendedAmount: found.amount };
     },

@@ -411,9 +411,13 @@
 
 에러: 위 공통 + 403 `PROJECT_FORBIDDEN` · **409 `PROJECT_EDIT_LOCKED`**(대기 지원 있음)
 
-## POST /internal/v1/projects/:projectId/cancel
+## `cancelProject` — 내부 주소를 열지 않는다
 
-`cancelProject` — 의뢰인 요청이 공개 API(A-07)를 거쳐 들어온다. **내부 계약으로 따로 열지 않는다.**
+계약 함수 8종 중 마지막 하나다. 의뢰인 요청이라 공개 API `POST /api/v1/projects/:projectId/cancel`(A-07)로
+들어오며, **`/internal/v1`에는 같은 주소를 만들지 않는다.**
+
+따라서 위에 적힌 내부 주소는 7개다. 중복 방지 키 `project-cancel-{cancellationId}`는
+A-07 처리에서 그대로 쓴다.
 
 ---
 
@@ -426,6 +430,7 @@
 | `rejectPendingApplications` | 최윤석 | 마감·취소 시 대기 지원 일괄 거절 (규칙 23·29) |
 | `invalidateAgreementAndContract` | 조준영 | 취소 시 합의·계약 무효화 (규칙 29) |
 | `claimPricingAnalysisForCreatedProject` | 오민혁 | 등록 시 분석 연결 (규칙 52) |
+| `getPricingAnalysisRecommendation` | 오민혁 | 이미 등록된 프로젝트의 예산 반영 (규칙 40) — **확인 대기 · CR-0003** |
 | `getProfileCompletion` | 오민혁 | 등록 전 프로필 완성 확인 (규칙 7) |
 
 **전부 `prototype/server/ports/` 뒤에 둔다.** 형태가 바뀌면 어댑터 한 곳만 고친다 (ADR-0009).

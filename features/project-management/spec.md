@@ -190,7 +190,7 @@ transaction_status      NONE · CONTRACT_PENDING ·
 > `reason`을 나눈 것은 **알림 문구가 다르기 때문**이다. 마감이면 "모집이 마감되었습니다", 취소면 "프로젝트가 취소되었습니다"가 나가야 한다.
 > `result` 세 값은 contracts-payments가 무효화 응답에 쓰기로 한 것과 같은 형태다 (D-89).
 
-**미확정 항목은 없다.** 위 세 건은 `prototype/server/ports/applications.port.ts` 뒤에 두어, 최윤석 담당의 실제 형태가 다르면 어댑터 한 곳만 교체한다 (ADR-0009).
+**미확정 항목은 없다.** 위 세 건은 `prototype/server/ports/external.port.ts`의 `ApplicationsPort` 뒤에 두어, 최윤석 담당의 실제 형태가 다르면 어댑터 한 곳만 교체한다 (ADR-0009).
 
 ## 크기 기준
 

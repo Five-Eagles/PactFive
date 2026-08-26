@@ -3,9 +3,12 @@
  *
  * ## 이 파일이 여기 있는 이유
  *
- * 이 다섯 함수는 `projects` 의 상태를 바꾼다. PRD §5.1 원칙 1 —
+ * 이 함수들은 `projects` 의 상태를 바꾼다. PRD §5.1 원칙 1 —
  * "상태에는 주인이 있다. 바꾸고 싶으면 주인이 제공하는 함수를 호출한다."
  * 따라서 **함수의 모양도 제공자(project-management)가 정한다.**
+ *
+ * 계약 함수는 8종이고, 그중 7종이 여기 있다. 나머지 하나 `cancelProject` 는
+ * 의뢰인 요청이라 공개 API(A-07)로 들어오며 내부 주소를 따로 열지 않는다.
  *
  * contracts-payments 가 2026-08-26 에 같은 형태의 Mock 스탠드인을
  * `features/contracts-payments/prototype/` 에 만들어 두었다. 제 구현이 없던 동안
@@ -91,6 +94,29 @@ export type CompleteTransactionResult = ContractResult & {
   transactionStatus: ProjectTransactionStatus;
 };
 
+export type AcceptApplicationInput = ContractEnvelope & {
+  applicationId: string;
+  actorUserId: string;
+};
+
+export type AcceptApplicationResult = ContractResult & {
+  projectId: string;
+  acceptedApplicationId: string;
+  recruitmentStatus: RecruitmentStatus;
+  transactionStatus: ProjectTransactionStatus;
+};
+
+export type ApplyPricingBudgetInput = ContractEnvelope & {
+  pricingAnalysisId: string;
+  actorUserId: string;
+};
+
+export type ApplyPricingBudgetResult = ContractResult & {
+  projectId: string;
+  /** 분석에 저장된 추천 금액. 호출자가 보낸 금액은 받지 않는다 (규칙 40) */
+  budgetAmount: number;
+};
+
 export type RestoreReason = "FREELANCER_REJECTED" | "CLIENT_REJECTED";
 
 export type RestorePreContractInput = ContractEnvelope & {
@@ -110,7 +136,15 @@ export type RestorePreContractResult = ContractResult & {
   transactionStatus: ProjectTransactionStatus;
   reopened: boolean;
   notReopenedReason: NotReopenedReason | null;
-  /** 항상 이 두 개다. recruitmentStartAt 은 건드리지 않는다 — 그건 A-13 재모집뿐 */
+  /**
+   * 되돌린 필드 이름. `recruitmentStartAt` 은 건드리지 않는다 — 그건 A-13 재모집뿐이다.
+   *
+   * **`acceptedApplicationId` 와 `paymentPendingAt` 도 함께 비운다.**
+   * 계약 문서의 응답 예시에는 두 개만 적혀 있으나, 남겨두면 조용히 막히는 곳이 생긴다 —
+   * 수락 지원서가 남으면 규칙 47 때문에 다른 지원자를 수락할 수 없고,
+   * 결제 시작 시각이 남으면 규칙 27 때문에 취소가 영영 막힌다.
+   * change-requests/0002 에 근거를 적었고 contracts-payments 확인 대기 중이다.
+   */
   restoredFields: string[];
 };
 
@@ -119,6 +153,17 @@ export type RestorePreContractResult = ContractResult & {
 export interface ProjectTransactionPort {
   /** start·complete·markPaymentPending 호출 전 조회 (PRD D-44) */
   getProjectNegotiationContext(projectId: string): Promise<NegotiationContext>;
+
+  /**
+   * 지원 수락. OPEN + NONE → CLOSED + CONTRACT_PENDING (규칙 36)
+   *
+   * **"같은 지원서인가"를 상태 조건보다 먼저 본다** (규칙 55).
+   * 순서가 반대면 정상 재시도가 409 를 받고 화면에 사실과 다른 안내가 뜬다.
+   */
+  acceptProjectApplication(
+    projectId: string,
+    input: AcceptApplicationInput,
+  ): Promise<AcceptApplicationResult>;
 
   /** PG 요청 직전 1회. 상태 축을 바꾸지 않으므로 버전도 올리지 않는다 (규칙 41) */
   markPaymentPending(
@@ -149,6 +194,17 @@ export interface ProjectTransactionPort {
     projectId: string,
     input: RestorePreContractInput,
   ): Promise<RestorePreContractResult>;
+
+  /**
+   * 이미 등록된 프로젝트의 예산에 AI 추천을 반영한다 (규칙 40).
+   *
+   * 등록 시점의 연결은 이 함수가 아니라 `POST /api/v1/projects` 의 `pricingAnalysisId`
+   * 필드로 처리한다. 두 경로를 헷갈리면 등록 트랜잭션이 두 번 돈다.
+   */
+  applyPricingAnalysisBudget(
+    projectId: string,
+    input: ApplyPricingBudgetInput,
+  ): Promise<ApplyPricingBudgetResult>;
 }
 
 /* ─────────────── 중복 방지 키 (PRD §5.4) ─────────────── */

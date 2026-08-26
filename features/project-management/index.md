@@ -6,6 +6,8 @@
 ## 스펙 (features/project-management/)
 - spec.md 핵심 요약: 프로젝트 게시물의 일생 — 등록(3단계) · 조회·검색 · 수정(조건부 잠금) ·
   소프트 삭제 · 모집 마감 · 취소 · 재모집. 번호 규칙 48개 + 확정 9건(49~57). **미확정 0건.**
+  구현 중 나온 변경 요청 2건은 회신 대기 (CR-0002 조준영 · CR-0003 오민혁).
+  둘 다 권장안대로 구현해뒀고, 회신이 다르면 해당 함수 한 곳만 고친다.
   북마크·추천은 `features/engagement/`, 지원서·알림·계약·결제는 다른 기능.
 - api-contract.md: 공개 API 9종(`/api/v1`) + 내부 계약 8종(`/internal/v1`).
   내부 계약은 브라우저에서 부를 수 없다 (규칙 49).
@@ -13,8 +15,8 @@
   `high-fi-register.html`(SCR-B03~B05) · `high-fi-browse.html`(SCR-B01·B02) ·
   `high-fi-manage.html`(SCR-B06·B07·B10). **필수 요소 목록 합계 43개**,
   전부 PRD §14 문구 정본과 일치하는 것까지 기계 대조함.
-- prototype/ 구성: 데이터 계층까지 작성됨. `run.tsx` **PASS 33 · FAIL 0**.
-  계약 함수 8종 · 공개 API 9종 · 화면은 이어지는 PR에서 채운다 (run.tsx 5~7절 자리 표시).
+- prototype/ 구성: 데이터 계층 + **계약 함수 7종**까지 작성됨. `run.tsx` **PASS 86 · FAIL 0**.
+  공개 API 9종 · 화면은 이어지는 PR에서 채운다 (run.tsx 6~7절 자리 표시).
 
 ## 상태 모델 — 이 기능의 핵심
 
@@ -37,6 +39,8 @@ transaction_status      NONE · CONTRACT_PENDING ·
   - `ports/project-transaction.port.ts` — **내가 제공하는** 계약 함수 5종의 인터페이스
   - `ports/external.port.ts` — **내가 호출하는** 다른 도메인 4종
   - `mock/seeds.ts` — 시드 17종(공유 10 + 전용 7) · `mock/project.mock.ts` · `mock/external.mock.ts`
+  - `project-contract.service.ts` — 계약 함수 7종 구현.
+    나머지 1종 `cancelProject`는 의뢰인 요청이라 공개 API(A-07)에 있다
 - 주요 API 엔드포인트: `POST /projects` · `GET /projects` · `GET /projects/:projectId` ·
   `PATCH /projects/:projectId` · `DELETE /projects/:projectId` ·
   `POST /projects/:projectId/close-recruitment` · `POST /projects/:projectId/cancel` ·
@@ -49,6 +53,7 @@ transaction_status      NONE · CONTRACT_PENDING ·
 |---|---|---|
 | `getProfileCompletion` | 오민혁 | ✅ 확정 (PRD D-58) |
 | `claimPricingAnalysisForCreatedProject` | 오민혁 | ✅ 확정 (2026-08-25 회신) |
+| `getPricingAnalysisRecommendation` | 오민혁 | ⏳ 회신 대기 (CR-0003) |
 | `rejectPendingApplications` | 최윤석 | ✅ 확정 (규칙 57 · 무응답 확정) |
 | `invalidateAgreementAndContract` | 조준영 | ✅ 확정 (PRD D-89) |
 
@@ -59,3 +64,4 @@ transaction_status      NONE · CONTRACT_PENDING ·
 | 2026-08-25 | 최초 작성 — spec.md · api-contract.md · index.md |
 | 2026-08-25 | design/ high-fi 3파일 추가 — 화면 8종 · 필수 요소 43개 |
 | 2026-08-26 | prototype/ 데이터 계층 — 타입 · 포트 2종 · Mock 3종 · run.tsx (PASS 33) |
+| 2026-08-26 | 계약 함수 7종 구현 — run.tsx PASS 86 · 변경 요청 CR-0002 · CR-0003 |
