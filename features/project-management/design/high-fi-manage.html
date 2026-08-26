@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>project-management — 수정 · 내 프로젝트 · 재모집 (high-fi)</title>
+<link rel="stylesheet" href="_tokens.css" />
+<style>
+  .row { display:flex; align-items:center; gap:16px; padding:16px 0; border-bottom:1px solid var(--border-subtle); }
+  .row:last-child { border-bottom:0; }
+  .row .main { flex:1; min-width:0; }
+  .row h3 { font-size:16px; font-weight:600; margin:0 0 4px; }
+  .row .sub { font-size:12px; color:var(--content-tertiary); }
+  .row .badges { display:flex; gap:6px; }
+  .row .acts { display:flex; gap:6px; }
+  .row .acts button { height:36px; padding:0 12px; font-size:14px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .locked { position:relative; }
+  .locked .field { background:var(--surface-subtle); color:var(--content-disabled); }
+  .dialog-demo { max-width:560px; border:1px solid var(--border); border-radius:var(--dialog-radius);
+    padding:var(--dialog-pad); background:var(--surface); }
+  .dialog-demo h4 { font-size:20px; font-weight:700; letter-spacing:-.2px; margin:0 0 8px; }
+  .dialog-demo p { margin:0 0 20px; color:var(--content-secondary); line-height:24px; }
+  .dialog-demo .btn-row { justify-content:flex-end; }
+</style>
+</head>
+<body>
+
+<div class="meta">
+  <h1>수정 · 내 프로젝트 · 재모집</h1>
+  <p>SCR-B06 · SCR-B07 · SCR-B10 · design-system v1.0 적용 · 문구는 PRD §14 정본</p>
+  <span class="fi">high-fi</span>
+</div>
+
+<!-- ═══════════════ SCR-B07 : 내 프로젝트 ═══════════════ -->
+<section class="screen">
+  <div class="id">SCR-B07 · 내 프로젝트 (의뢰인)</div>
+  <div class="frame">
+    <header>
+      <span class="logo">PactFive</span>
+      <nav><span>프로젝트 찾기</span><span>내 프로젝트</span></nav>
+    </header>
+    <div class="body-pad">
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+        <h2 class="h3" style="margin:0">내 프로젝트</h2>
+        <button class="btn primary">프로젝트 등록</button>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div class="main">
+            <h3>쇼핑몰 웹사이트 구축</h3>
+            <span class="sub">5,000,000원 · 지원 3건 · 마감 5일 전</span>
+          </div>
+          <div class="badges"><span class="badge open">모집 중</span></div>
+          <div class="acts">
+            <button class="btn secondary">수정</button>
+            <button class="btn quiet">모집 마감</button>
+            <button class="btn quiet">지원자 관리</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="main">
+            <h3>사내 관리 시스템 리뉴얼</h3>
+            <span class="sub">8,200,000원 · 지원 0건 · 2026. 9. 1. 모집 시작</span>
+          </div>
+          <div class="badges"><span class="badge scheduled">모집 예정</span></div>
+          <div class="acts">
+            <button class="btn secondary">수정</button>
+            <button class="btn quiet">모집 마감</button>
+            <button class="btn quiet">삭제</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="main">
+            <h3>브랜드 리뉴얼 디자인</h3>
+            <span class="sub">4,000,000원 · 선정된 프리랜서와 금액 합의 중</span>
+          </div>
+          <div class="badges">
+            <span class="badge closed">모집 마감</span><span class="badge reopen">계약 대기</span>
+          </div>
+          <div class="acts"><button class="btn danger">프로젝트 취소</button></div>
+        </div>
+
+        <div class="row">
+          <div class="main">
+            <h3>랜딩 페이지 제작</h3>
+            <span class="sub">2,800,000원 · 협상이 끝났으나 마감일이 지났습니다</span>
+          </div>
+          <div class="badges"><span class="badge reopen">재모집 가능</span></div>
+          <div class="acts"><button class="btn primary">다시 모집하기</button></div>
+        </div>
+      </div>
+
+      <p class="helper">거래 상태 배지(<code>계약 대기</code> · <code>작업 중</code> · <code>완료</code> ·
+      <code>취소됨</code>)는 <strong>이 화면과 내 지원 현황에만</strong> 나온다. 공개 목록·상세에는 나오지 않는다
+      (spec.md 규칙 9).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SCR-B07 : 빈 상태 ═══════════════ -->
+<section class="screen">
+  <div class="id">SCR-B07 · 등록한 프로젝트가 없을 때 (조건부)</div>
+  <div class="frame">
+    <div class="body-pad">
+      <div class="empty">
+        <p class="title" style="margin-bottom:4px">등록한 프로젝트가 없습니다</p>
+        <p style="margin:0 0 16px">첫 프로젝트를 등록하고 프리랜서를 만나보세요.</p>
+        <button class="btn primary">프로젝트 등록</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SCR-B06 : 프로젝트 수정 ═══════════════ -->
+<section class="screen">
+  <div class="id">SCR-B06 · 프로젝트 수정 — 잠금이 걸린 상태</div>
+  <div class="frame">
+    <header>
+      <span class="logo">PactFive</span>
+      <nav><span>프로젝트 찾기</span><span>내 프로젝트</span></nav>
+    </header>
+    <div class="body-pad">
+
+      <h2 class="h3">프로젝트 수정</h2>
+
+      <p class="notice warning" style="margin-bottom:20px">지원자 3명이 있어 예산과 일정은 변경할 수 없습니다.</p>
+
+      <div class="field-row">
+        <label class="label" for="b06-title">프로젝트 제목</label>
+        <input class="field" id="b06-title" value="쇼핑몰 웹사이트 구축" />
+      </div>
+
+      <div class="field-row">
+        <label class="label" for="b06-desc">프로젝트 설명</label>
+        <textarea class="field" id="b06-desc">자사 브랜드 온라인 스토어를 새로 만들려고 합니다. 상품 등록과 결제 연동이 필요합니다.</textarea>
+      </div>
+
+      <div class="two">
+        <div class="field-row locked">
+          <label class="label" for="b06-end">모집 마감일</label>
+          <input class="field" id="b06-end" value="2026-09-16" disabled />
+          <p class="helper">지원자가 있어 변경할 수 없습니다</p>
+        </div>
+        <div class="field-row locked">
+          <label class="label" for="b06-budget">예산</label>
+          <input class="field" id="b06-budget" value="5,000,000" disabled />
+          <p class="helper">지원자가 있어 변경할 수 없습니다</p>
+        </div>
+      </div>
+
+      <div class="btn-row" style="justify-content:flex-end">
+        <button class="btn quiet">취소</button>
+        <button class="btn primary">저장</button>
+      </div>
+
+      <p class="helper">어느 칸이 열려 있는지는 서버가 <code>editableFields</code>로 내려준다.
+      화면이 잠금 규칙을 다시 계산하지 않는다 (spec.md 규칙 13·15).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SCR-B10 : 재모집 확인 ═══════════════ -->
+<section class="screen">
+  <div class="id">SCR-B10 · 재모집 확인</div>
+  <div class="frame">
+    <header>
+      <span class="logo">PactFive</span>
+      <nav><span>프로젝트 찾기</span><span>내 프로젝트</span></nav>
+    </header>
+    <div class="body-pad">
+
+      <h2 class="h3">다시 모집하기</h2>
+
+      <p class="notice info" style="margin-bottom:20px">협상이 마무리되는 사이에 모집 마감일이 지났습니다. 마감일을 새로 정하면 다시 모집할 수 있습니다.</p>
+
+      <div class="card" style="margin-bottom:20px">
+        <p class="body-strong" style="margin:0 0 4px">랜딩 페이지 제작</p>
+        <p class="caption" style="margin:0">이전 마감일 8/22</p>
+      </div>
+
+      <div class="field-row">
+        <label class="label" for="b10-end">모집 마감일</label>
+        <input class="field" id="b10-end" type="date" />
+        <p class="helper">모집 기간은 7일 이상을 권장합니다. 최대 1년까지 설정할 수 있습니다.</p>
+      </div>
+
+      <div class="btn-row" style="justify-content:flex-end">
+        <button class="btn quiet">그만두기</button>
+        <button class="btn primary">다시 모집하기</button>
+      </div>
+
+      <p class="helper">모집 시작 시각은 화면에서 받지 않는다. 재모집이 성공하면 서버가 현재 시각으로
+      갱신하고, 마감일 상한을 그 값 기준으로 검증한다 (spec.md 규칙 33).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ 확인 다이얼로그 (조건부) ═══════════════ -->
+<section class="screen">
+  <div class="id">확인 다이얼로그 3종 (조건부 — 필수 요소 목록에서 제외)</div>
+  <div class="frame">
+    <div class="body-pad" style="display:grid; gap:16px">
+
+      <div class="dialog-demo">
+        <h4>모집을 마감할까요?</h4>
+        <p>마감하면 다시 모집할 수 없습니다. 대기 중인 지원 3건이 거절 처리됩니다.</p>
+        <div class="btn-row"><button class="btn quiet">그만두기</button><button class="btn primary">마감하기</button></div>
+      </div>
+
+      <div class="dialog-demo">
+        <h4>프로젝트를 취소할까요?</h4>
+        <p>취소하면 되돌릴 수 없습니다. 선정된 프리랜서에게 취소 알림이 전송되고, 진행 중이던 계약이 무효 처리됩니다.</p>
+        <div class="btn-row"><button class="btn quiet">그만두기</button><button class="btn danger">취소하기</button></div>
+      </div>
+
+      <div class="dialog-demo">
+        <h4>프로젝트를 삭제할까요?</h4>
+        <p>삭제하면 목록에서 사라집니다. 되돌릴 수 없습니다.</p>
+        <div class="btn-row"><button class="btn quiet">그만두기</button><button class="btn danger">삭제하기</button></div>
+      </div>
+
+      <p class="helper">닫기 버튼은 셋 다 <code>그만두기</code>다. <code>취소</code>라고 쓰면
+      "프로젝트 취소" 다이얼로그에서 무엇을 취소하는지 모호해진다 (PRD D-24).
+      본문의 지원자·계약 문구는 조건에 따라 붙거나 빠진다 (PRD §14.7).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ 필수 요소 목록 ═══════════════ -->
+<section class="required">
+  <h2>필수 요소 목록</h2>
+  <p class="lead">기본 렌더링 시 화면에 반드시 보여야 하는 <strong>정확한 텍스트</strong>다.
+  <code>prototype/run.tsx</code>가 컴포넌트를 렌더링해 이 목록이 전부 나타나는지 확인한다.</p>
+
+  <table>
+    <thead><tr><th style="width:110px">화면</th><th style="width:90px">종류</th><th>텍스트</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="5">SCR-B07</td><td>제목</td><td>내 프로젝트</td></tr>
+      <tr><td>버튼</td><td>프로젝트 등록</td></tr>
+      <tr><td>버튼</td><td>수정</td></tr>
+      <tr><td>버튼</td><td>모집 마감</td></tr>
+      <tr><td>버튼</td><td>지원자 관리</td></tr>
+
+      <tr><td rowspan="5">SCR-B06</td><td>제목</td><td>프로젝트 수정</td></tr>
+      <tr><td>라벨</td><td>프로젝트 제목</td></tr>
+      <tr><td>라벨</td><td>프로젝트 설명</td></tr>
+      <tr><td>버튼</td><td>저장</td></tr>
+      <tr><td>버튼</td><td>취소</td></tr>
+
+      <tr><td rowspan="4">SCR-B10</td><td>안내</td><td>협상이 마무리되는 사이에 모집 마감일이 지났습니다. 마감일을 새로 정하면 다시 모집할 수 있습니다.</td></tr>
+      <tr><td>라벨</td><td>모집 마감일</td></tr>
+      <tr><td>버튼</td><td>다시 모집하기</td></tr>
+      <tr><td>버튼</td><td>그만두기</td></tr>
+    </tbody>
+  </table>
+
+  <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
+  조건부로만 나타나는 요소는 기본 렌더링에 없으므로 세지 않는다.
+  잠금 안내(<code>지원자 3명이 있어…</code>), 빈 상태(<code>등록한 프로젝트가 없습니다</code>),
+  확인 다이얼로그 3종, 상태 배지(프로젝트마다 다름), <code>프로젝트 취소</code> ·
+  <code>삭제</code> 버튼(상태에 따라 숨김)이 그 대상이다.</p>
+
+  <p class="helper" style="margin-top:8px"><strong>근거</strong> — 문구는 PRD §14.4(버튼·CTA) ·
+  §14.7(확인 다이얼로그) · §14.8(빈 상태) · §14.9(안내) 정본. 화면 구성은 §7.2 SCR-B06·B07·B10,
+  동작 규칙은 <code>spec.md</code> 규칙 15~18 · 22 · 26 · 32~35다.</p>
+</section>
+
+</body>
+</html>

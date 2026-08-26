@@ -9,7 +9,11 @@
   북마크·추천은 `features/engagement/`, 지원서·알림·계약·결제는 다른 기능.
 - api-contract.md: 공개 API 9종(`/api/v1`) + 내부 계약 8종(`/internal/v1`).
   내부 계약은 브라우저에서 부를 수 없다 (규칙 49).
-- design/, prototype/ 구성: 작성 예정 (design/ high-fi 10화면, prototype/ Mock + 구현 초안)
+- design/ 구성: `_tokens.css`(design-system v1.0 → CSS 변수) ·
+  `high-fi-register.html`(SCR-B03~B05) · `high-fi-browse.html`(SCR-B01·B02) ·
+  `high-fi-manage.html`(SCR-B06·B07·B10). **필수 요소 목록 합계 43개**,
+  전부 PRD §14 문구 정본과 일치하는 것까지 기계 대조함.
+- prototype/ 구성: 작성 예정 (Mock + 구현 초안 + run.tsx)
 
 ## 상태 모델 — 이 기능의 핵심
 
@@ -48,3 +52,4 @@ transaction_status      NONE · CONTRACT_PENDING ·
 | 날짜 | 변경 |
 |---|---|
 | 2026-08-25 | 최초 작성 — spec.md · api-contract.md · index.md |
+| 2026-08-25 | design/ high-fi 3파일 추가 — 화면 8종 · 필수 요소 43개 |
