@@ -23,7 +23,12 @@
   `scripts/git-hooks/pre-push`가 세 브랜치로의 직접 push를 로컬에서 차단한다. 이 훅은
   `scripts/ensure-deps.js`가 모든 진입점에서 자동으로 설치하므로 별도 설정이 필요 없다
   (2026-08-24 추가)
-- 세션을 시작할 때는 `scripts/daily-session-start.sh {기능이름}`, 마칠 때는 `scripts/daily-session-finish.sh {run.tsx 경로}`를 실행한다 — 매일 pull→브랜치→커밋→검증→push→PR 루프를 강제하기 위함이며, main·develop·release에는 이 스크립트가 절대 직접 push하지 않는다 (근거: `docs/decisions/0010-daily-session-branch-enforcement.md`, 2026-08-25 추가)
+- 세션을 시작할 때는 `scripts/daily-session-start.sh {기능이름}`, 마칠 때는 `scripts/daily-session-finish.sh {run.tsx 경로}`를 실행한다 — 매일 pull→브랜치→커밋→검증→push→PR 루프를 강제하기 위함이며, main·develop·production에는 이 스크립트가 절대 직접 push하지 않는다 (근거: `docs/decisions/0010-daily-session-branch-enforcement.md`, 2026-08-25 추가, 2026-08-26 브랜치명 정정)
+- **PR은 항상 `develop`을 대상으로 연다 — `main`이 아니다.** 담당자 브랜치는 `develop`에서 따고
+  `develop`으로 되돌린다(담당자별 브랜치 · 매일 1회 통합). `main`으로 가는 PR은 `develop → main`
+  통합 한 가지뿐이며 팀장이 연다. **`gh pr create`를 직접 쓸 때는 `--base develop`을 반드시
+  붙인다** — 생략하면 저장소 기본 브랜치로 PR이 열린다. `scripts/daily-session-finish.sh`는 이
+  값을 이미 넣어 호출하므로 그 스크립트를 쓰는 쪽이 안전하다 (2026-08-26 추가)
 
 ## features/*/prototype/, features/*/design/ 정의 (2026-08-20 갱신)
 
