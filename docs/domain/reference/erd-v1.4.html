@@ -2611,7 +2611,7 @@ agreements.application_id  UNIQUE
 <li><code>deadline_notified_at</code> — 마감 알림(지연 10분 SLA)의 <strong>중복 발송 방지</strong>와 <strong>미발송 추적</strong>에 필요하다고 판단했습니다. 불필요하면 제거 가능합니다</li>
 <li>마감일 하한(등록+1일, D-09)을 DB <code>CHECK</code>가 아니라 애플리케이션 검증에 둔 이유는 <strong>시드 데이터가 이 제약을 우회해야</strong> 하기 때문입니다(§9.4)</li>
 <li><code>application_count</code>·<code>pending_application_count</code>의 갱신 주체는 <code>applications</code> 도메인(최윤석)입니다. §2.7 "다른 도메인의 상태를 직접 UPDATE하지 않는다"와 충돌하지 않는지 두 분 확인이 필요합니다</li>
-<li><code>project_version</code>은 상태 전이 계약(C-01~C-07) 호출 시에만 증가합니다. 협상 중 설명 한 줄만 고치는 것처럼 상태 전이가 아닌 수정에도 증가시키면 상대 요청이 불필요하게 409로 튕깁니다(PRD D-53) — 계약 함수를 실제 구현하실 때 이 경계를 지켜주세요</li>
+<li><code>project_version</code>은 <strong>상태가 실제로 전이됐을 때만</strong> 증가합니다 — 계약 호출 자체가 기준이 아닙니다(2026-08-26 정정, E-26 · 질의 Q-09). C-01~C-07을 호출했더라도 상태가 바뀌지 않았으면(멱등 재호출로 200을 돌려주는 경우, 전이 조건 미충족으로 거부되는 경우) 증가시키지 않습니다. 협상 중 설명 한 줄만 고치는 것처럼 상태 전이가 아닌 수정에도 증가시키면 상대 요청이 불필요하게 409로 튕깁니다(PRD D-53) — 계약 함수를 실제 구현하실 때 이 경계를 지켜주세요</li>
 </ol>
 </div>
 
@@ -2953,7 +2953,7 @@ REVOKE DELETE ON negotiation_offer FROM app_role;   -- v1.4, 제안 이력에도
 <tbody>
 <tr><td>I-39</td><td>auth_sessions: refresh 요청마다 refresh_token_hash 로테이션, previous_token_hash로 직전 값 이동</td><td>E-22</td></tr>
 <tr><td>I-40</td><td>auth_sessions: previous_token_hash 재사용 감지 시 해당 세션 즉시 폐기(REUSE_DETECTED)</td><td>E-22</td></tr>
-<tr><td>I-41</td><td>projects.project_version: 상태 전이 계약(C-01~C-07) 호출 시에만 +1</td><td>E-23 · D-53</td></tr>
+<tr><td>I-41</td><td>projects.project_version: 상태가 실제로 전이됐을 때만 +1 (호출 기준 아님)</td><td>E-23 · D-53 · E-26</td></tr>
 <tr><td>I-42</td><td>projects.pending_application_count: applications 도메인이 생성·거절·수락 시 함께 증감</td><td>E-23</td></tr>
 </tbody>
 </table>
