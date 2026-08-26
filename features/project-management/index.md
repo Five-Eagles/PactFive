@@ -13,7 +13,8 @@
   `high-fi-register.html`(SCR-B03~B05) · `high-fi-browse.html`(SCR-B01·B02) ·
   `high-fi-manage.html`(SCR-B06·B07·B10). **필수 요소 목록 합계 43개**,
   전부 PRD §14 문구 정본과 일치하는 것까지 기계 대조함.
-- prototype/ 구성: 작성 예정 (Mock + 구현 초안 + run.tsx)
+- prototype/ 구성: 데이터 계층까지 작성됨. `run.tsx` **PASS 33 · FAIL 0**.
+  계약 함수 8종 · 공개 API 9종 · 화면은 이어지는 PR에서 채운다 (run.tsx 5~7절 자리 표시).
 
 ## 상태 모델 — 이 기능의 핵심
 
@@ -31,7 +32,11 @@ transaction_status      NONE · CONTRACT_PENDING ·
 - Mock 계약 상태: 작성 예정
 
 ## 백엔드 (prototype/server/)
-- 계층 구성: 작성 예정 (controller → service → repository)
+- 계층 구성: controller → service → repository. 현재 타입·포트·저장소 Mock까지 작성됨
+  - `project.types.ts` — 도메인 타입 · DTO · `ProjectContractError`(오류 코드 24종)
+  - `ports/project-transaction.port.ts` — **내가 제공하는** 계약 함수 5종의 인터페이스
+  - `ports/external.port.ts` — **내가 호출하는** 다른 도메인 4종
+  - `mock/seeds.ts` — 시드 17종(공유 10 + 전용 7) · `mock/project.mock.ts` · `mock/external.mock.ts`
 - 주요 API 엔드포인트: `POST /projects` · `GET /projects` · `GET /projects/:projectId` ·
   `PATCH /projects/:projectId` · `DELETE /projects/:projectId` ·
   `POST /projects/:projectId/close-recruitment` · `POST /projects/:projectId/cancel` ·
@@ -53,3 +58,4 @@ transaction_status      NONE · CONTRACT_PENDING ·
 |---|---|
 | 2026-08-25 | 최초 작성 — spec.md · api-contract.md · index.md |
 | 2026-08-25 | design/ high-fi 3파일 추가 — 화면 8종 · 필수 요소 43개 |
+| 2026-08-26 | prototype/ 데이터 계층 — 타입 · 포트 2종 · Mock 3종 · run.tsx (PASS 33) |
