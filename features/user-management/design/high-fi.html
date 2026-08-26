@@ -393,6 +393,12 @@
       background: var(--color-info-surface);
     }
 
+    .auth-status[data-tone="danger"] {
+      border-color: #efb6ad;
+      color: #932e20;
+      background: var(--color-danger-surface);
+    }
+
     .auth-status svg {
       width: 18px;
       height: 18px;
@@ -402,22 +408,23 @@
 
     .oauth-stack {
       display: grid;
-      gap: 10px;
+      gap: 8px;
     }
 
     .button {
       position: relative;
       display: inline-flex;
-      min-height: 48px;
+      min-height: 44px;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 8px;
       width: 100%;
       padding: 0 16px;
       border-radius: var(--radius-md);
       cursor: pointer;
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 700;
+      text-decoration: none;
       transition: border-color var(--motion-fast) cubic-bezier(0.2, 0, 0, 1), background var(--motion-fast) cubic-bezier(0.2, 0, 0, 1), transform var(--motion-fast) cubic-bezier(0.2, 0, 0, 1);
     }
 
@@ -472,10 +479,17 @@
     }
 
     .provider-mark.kakao {
-      border: 0;
+      border: 1px solid var(--color-border-subtle);
       border-radius: var(--radius-sm);
-      color: #090d18;
-      background: #f4c430;
+      color: var(--color-content-primary);
+      background: var(--color-surface-muted);
+    }
+
+    .oauth-note {
+      margin: 10px 0 0;
+      color: var(--color-content-tertiary);
+      font-size: 12px;
+      line-height: 1.6;
     }
 
     .divider {
@@ -585,10 +599,10 @@
 
     .password-toggle {
       position: absolute;
-      top: 4px;
-      right: 4px;
+      top: 2px;
+      right: 2px;
       min-width: 78px;
-      min-height: 40px;
+      min-height: 44px;
       padding: 0 10px;
       border-radius: 6px;
       color: var(--color-link);
@@ -644,6 +658,18 @@
       line-height: 1.6;
     }
 
+    .recovery-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin: -8px 0 20px;
+    }
+
+    .recovery-actions[hidden],
+    .recovery-action[hidden] {
+      display: none;
+    }
+
     .signup-prompt {
       margin: 28px 0 0;
       padding-top: 22px;
@@ -686,6 +712,7 @@
     .state-switcher {
       display: inline-flex;
       flex: 0 0 auto;
+      flex-wrap: wrap;
       gap: 4px;
       padding: 4px;
       border: 1px solid var(--color-border-subtle);
@@ -694,7 +721,7 @@
     }
 
     .state-button {
-      min-height: 40px;
+      min-height: 44px;
       padding: 0 14px;
       border-radius: 6px;
       color: var(--color-content-secondary);
@@ -837,7 +864,7 @@
       .state-switcher {
         display: grid;
         width: 100%;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .state-button {
@@ -866,15 +893,15 @@
 
   <header class="site-header">
     <div class="header-inner">
-      <a class="wordmark" href="#" aria-label="PactFive 홈">
+      <a class="wordmark" href="/" aria-label="PactFive 홈">
         <span class="wordmark-mark" aria-hidden="true">P5</span>
         <span>PactFive</span>
       </a>
-      <a class="header-action" href="#return-context">
+      <a class="header-action" href="/">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
           <path d="m15 18-6-6 6-6" />
         </svg>
-        <span>이전 화면으로</span>
+        <span>홈으로</span>
       </a>
     </div>
   </header>
@@ -912,13 +939,13 @@
             <dl class="return-details">
               <div class="return-detail">
                 <dt>돌아갈 위치</dt>
-                <dd id="return-label">프로젝트 등록</dd>
+                <dd id="return-label">홈</dd>
               </div>
               <div class="return-detail">
                 <dt>이동 경로</dt>
                 <dd>
                   안전하게 확인된 내부 경로
-                  <code class="return-path" id="return-to-value">/projects/new</code>
+                  <code class="return-path" id="return-to-value">/</code>
                 </dd>
               </div>
             </dl>
@@ -947,6 +974,12 @@
             <span id="auth-status-text"></span>
           </div>
 
+          <div class="recovery-actions" id="recovery-actions" hidden>
+            <button class="button button-secondary recovery-action" id="resend-confirmation" type="button" hidden>확인 메일 다시 보내기</button>
+            <button class="button button-secondary recovery-action" id="retry-auth" type="button" hidden>다시 시도</button>
+            <a class="button button-secondary recovery-action" id="complete-registration" href="/sign-up?mode=recovery&amp;returnTo=%2F" hidden>가입 완료하기</a>
+          </div>
+
           <div class="oauth-stack" aria-label="소셜 계정 로그인">
             <button class="button button-secondary oauth-button" type="button" data-provider="Google">
               <span class="provider-mark" aria-hidden="true">G</span>
@@ -957,11 +990,12 @@
               <span>Kakao로 계속하기</span>
             </button>
           </div>
+          <p class="oauth-note">처음 소셜 계정으로 가입하면 회원가입 화면에서 역할을 선택한 뒤 인증을 계속합니다.</p>
 
           <div class="divider" aria-hidden="true">또는 이메일로 로그인</div>
 
           <form id="login-form" novalidate>
-            <input id="return-to-input" name="returnTo" type="hidden" value="/projects/new" />
+            <input id="return-to-input" name="returnTo" type="hidden" value="/" />
 
             <div class="error-summary" id="error-summary" role="alert" tabindex="-1" hidden>
               <strong>로그인 정보를 확인해 주세요.</strong>
@@ -1014,9 +1048,9 @@
           </form>
 
           <p class="form-footnote">
-            계정 보호와 개인정보 처리 기준은 <a href="#terms">이용약관</a>과 <a href="#privacy">개인정보 처리방침</a>에서 확인할 수 있습니다.
+            계정 보호와 개인정보 처리 기준은 <a href="/terms">이용약관</a>과 <a href="/privacy">개인정보 처리방침</a>에서 확인할 수 있습니다.
           </p>
-          <p class="signup-prompt">처음이신가요? <a href="#signup">회원가입</a></p>
+          <p class="signup-prompt">처음이신가요? <a id="signup-link" href="/sign-up?returnTo=%2F">회원가입</a></p>
         </div>
       </div>
     </section>
@@ -1024,11 +1058,16 @@
     <section class="prototype-tools" aria-labelledby="prototype-tools-heading">
       <div class="prototype-copy">
         <h2 id="prototype-tools-heading">시안 상태 확인</h2>
-        <p>기본·오류·로딩 상태를 버튼과 키보드로 확인할 수 있습니다. 실제 인증 요청은 보내지 않습니다.</p>
+        <p>기본·오류·복구·로딩 상태를 버튼과 키보드로 확인할 수 있습니다. 실제 인증 요청은 보내지 않습니다.</p>
       </div>
       <div class="state-switcher" role="group" aria-label="로그인 화면 상태 선택">
         <button class="state-button" type="button" data-demo-state="default" aria-pressed="true">기본</button>
-        <button class="state-button" type="button" data-demo-state="error" aria-pressed="false">오류</button>
+        <button class="state-button" type="button" data-demo-state="credential-error" aria-pressed="false">인증 오류</button>
+        <button class="state-button" type="button" data-demo-state="email-verification" aria-pressed="false">메일 확인</button>
+        <button class="state-button" type="button" data-demo-state="registration-recovery" aria-pressed="false">가입 복구</button>
+        <button class="state-button" type="button" data-demo-state="oauth-error" aria-pressed="false">OAuth 오류</button>
+        <button class="state-button" type="button" data-demo-state="temporary-error" aria-pressed="false">일시 장애</button>
+        <button class="state-button" type="button" data-demo-state="session-expired" aria-pressed="false">세션 만료</button>
         <button class="state-button" type="button" data-demo-state="loading" aria-pressed="false">로딩</button>
       </div>
     </section>
@@ -1050,7 +1089,8 @@
         <li>링크 “회원가입”</li>
       </ul>
       <p class="contract-note">
-        조건부 요소: 오류 상태의 “로그인 정보를 확인해 주세요.”, 로딩 상태의 “로그인 중…” 및 성공 안내는 기본 렌더링 필수 목록에서 제외합니다.
+        조건부 요소: 인증 오류, 이메일 확인·재전송, 고립 계정 가입 복구, OAuth 실패, 공급자/세션 일시 장애, 세션 만료,
+        로딩 상태의 안내와 성공 안내는 기본 렌더링 필수 목록에서 제외합니다.
       </p>
     </section>
 
@@ -1059,7 +1099,7 @@
 
   <script>
     (() => {
-      const DEFAULT_RETURN_TO = "/projects/new";
+      const DEFAULT_RETURN_TO = "/";
       const form = document.querySelector("#login-form");
       const email = document.querySelector("#email");
       const password = document.querySelector("#password");
@@ -1076,9 +1116,14 @@
       const returnToValue = document.querySelector("#return-to-value");
       const returnToInput = document.querySelector("#return-to-input");
       const returnState = document.querySelector("#return-state");
+      const signupLink = document.querySelector("#signup-link");
+      const recoveryActions = document.querySelector("#recovery-actions");
+      const resendConfirmation = document.querySelector("#resend-confirmation");
+      const retryAuth = document.querySelector("#retry-auth");
+      const completeRegistration = document.querySelector("#complete-registration");
       const oauthButtons = [...document.querySelectorAll(".oauth-button")];
       const stateButtons = [...document.querySelectorAll(".state-button")];
-      const authControls = [email, password, passwordToggle, submitButton, ...oauthButtons];
+      const authControls = [email, password, passwordToggle, submitButton, resendConfirmation, retryAuth, ...oauthButtons];
       let activeTimer = null;
 
       const getSafeReturnTo = () => {
@@ -1103,6 +1148,7 @@
       };
 
       const getReturnLabel = (path) => {
+        if (path === "/") return "홈";
         if (path === "/projects/new") return "프로젝트 등록";
         if (path.includes("pricing") || path.includes("budget")) return "예산 분석";
         if (path.includes("projects")) return "프로젝트 상세";
@@ -1114,6 +1160,8 @@
       returnToValue.textContent = safeReturnTo;
       returnToInput.value = safeReturnTo;
       returnLabel.textContent = safeReturnLabel;
+      signupLink.href = `/sign-up?returnTo=${encodeURIComponent(safeReturnTo)}`;
+      completeRegistration.href = `/sign-up?mode=recovery&returnTo=${encodeURIComponent(safeReturnTo)}`;
 
       const setSelectedDemoState = (nextState) => {
         stateButtons.forEach((button) => {
@@ -1143,6 +1191,20 @@
         setFieldError(password, passwordError, false);
       };
 
+      const hideRecoveryActions = () => {
+        recoveryActions.hidden = true;
+        resendConfirmation.hidden = true;
+        retryAuth.hidden = true;
+        completeRegistration.hidden = true;
+      };
+
+      const showRecoveryActions = ({ resend = false, retry = false, complete = false } = {}) => {
+        resendConfirmation.hidden = !resend;
+        retryAuth.hidden = !retry;
+        completeRegistration.hidden = !complete;
+        recoveryActions.hidden = !resend && !retry && !complete;
+      };
+
       const setControlsDisabled = (disabled) => {
         authControls.forEach((control) => {
           control.disabled = disabled;
@@ -1161,6 +1223,7 @@
         cancelTimer();
         clearErrors();
         hideStatus();
+        hideRecoveryActions();
         setControlsDisabled(false);
         submitButton.classList.remove("is-loading");
         submitLabel.textContent = "이메일로 로그인";
@@ -1175,22 +1238,50 @@
         submitLabel.textContent = "이메일로 로그인";
         hideStatus();
 
-        const emailInvalid = validation ? !email.validity.valid : true;
-        const passwordInvalid = validation ? !password.validity.valid : true;
+        hideRecoveryActions();
+        const emailInvalid = validation ? !email.validity.valid : false;
+        const passwordInvalid = validation ? !password.validity.valid : false;
         setFieldError(email, emailError, emailInvalid);
         setFieldError(password, passwordError, passwordInvalid);
         errorSummaryMessage.textContent = validation
           ? "입력하지 않았거나 형식이 맞지 않는 항목을 확인한 뒤 다시 시도해 주세요."
           : "입력한 이메일 또는 비밀번호가 올바르지 않습니다. 작성한 내용은 유지되므로 확인한 뒤 다시 시도해 주세요.";
         errorSummary.hidden = false;
-        setSelectedDemoState("error");
+        setSelectedDemoState("credential-error");
 
         if (focusSummary) errorSummary.focus();
+      };
+
+      const showRecoveryState = (nextState) => {
+        cancelTimer();
+        clearErrors();
+        setControlsDisabled(false);
+        submitButton.classList.remove("is-loading");
+        submitLabel.textContent = "이메일로 로그인";
+
+        if (nextState === "email-verification") {
+          showStatus("이메일 확인이 필요합니다. 메일함을 확인하거나 확인 메일을 다시 요청해 주세요.", "info");
+          showRecoveryActions({ resend: true });
+        } else if (nextState === "registration-recovery") {
+          showStatus("이메일 확인은 완료됐지만 가입 정보를 다시 확인해야 합니다. 계정 소유권을 다시 확인하고 가입을 완료해 주세요.", "info");
+          showRecoveryActions({ complete: true });
+        } else if (nextState === "oauth-error") {
+          showStatus("소셜 로그인을 완료할 수 없습니다. 입력 내용은 유지됩니다. 다시 시도하거나 다른 로그인 방법을 선택해 주세요.", "danger");
+          showRecoveryActions({ retry: true });
+        } else if (nextState === "temporary-error") {
+          showStatus("인증 서비스에 일시적으로 연결할 수 없습니다. 로그아웃된 것으로 처리하지 않았습니다. 잠시 후 다시 시도해 주세요.", "danger");
+          showRecoveryActions({ retry: true });
+        } else {
+          showStatus("로그인 세션이 만료되었습니다. 하던 작업 위치는 보존됐습니다. 다시 로그인해 주세요.", "info");
+          hideRecoveryActions();
+        }
+        setSelectedDemoState(nextState);
       };
 
       const showLoadingState = (message = "로그인 정보를 안전하게 확인하고 있습니다.", transient = false) => {
         cancelTimer();
         clearErrors();
+        hideRecoveryActions();
         setControlsDisabled(true);
         submitButton.classList.add("is-loading");
         submitLabel.textContent = "로그인 중…";
@@ -1218,16 +1309,34 @@
         password.focus();
       });
 
+      const clearFeedbackOnInput = () => {
+        errorSummary.hidden = true;
+        hideStatus();
+        hideRecoveryActions();
+        setSelectedDemoState("default");
+      };
+
       email.addEventListener("input", () => {
         if (email.getAttribute("aria-invalid") === "true") {
           setFieldError(email, emailError, false);
         }
+        clearFeedbackOnInput();
       });
 
       password.addEventListener("input", () => {
         if (password.getAttribute("aria-invalid") === "true") {
           setFieldError(password, passwordError, false);
         }
+        clearFeedbackOnInput();
+      });
+
+      resendConfirmation.addEventListener("click", () => {
+        showStatus("재전송 요청 상태 예시입니다. 계정 존재 여부와 관계없이 같은 안내를 표시합니다.", "success");
+        showRecoveryActions();
+      });
+
+      retryAuth.addEventListener("click", () => {
+        showLoadingState("인증 서비스 연결을 다시 확인하고 있습니다.", true);
       });
 
       form.addEventListener("submit", (event) => {
@@ -1248,10 +1357,12 @@
       stateButtons.forEach((button) => {
         button.addEventListener("click", () => {
           const nextState = button.dataset.demoState;
-          if (nextState === "error") {
+          if (nextState === "credential-error") {
             showErrorState(false, false);
           } else if (nextState === "loading") {
             showLoadingState("로딩 상태 예시입니다. ‘기본’을 선택하면 입력을 계속할 수 있습니다.");
+          } else if (["email-verification", "registration-recovery", "oauth-error", "temporary-error", "session-expired"].includes(nextState)) {
+            showRecoveryState(nextState);
           } else {
             showDefaultState();
           }
