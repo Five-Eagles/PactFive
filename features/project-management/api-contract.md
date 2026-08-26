@@ -447,10 +447,10 @@ interface PricingAnalysisClaimPort {
 }
 ```
 
-`rejectPendingApplications`의 요청·응답 형태는 **아직 확정되지 않았다** (Q-05 회신 대기). 아래는 작업 가설이다.
+`rejectPendingApplications`의 형태는 **팀 방침에 따라 아래로 확정했다** (spec.md 규칙 57). 최윤석 담당 영역이라 실제 형태가 다르면 `applications.port.ts` 어댑터 한 곳만 교체한다.
 
 ```ts
-// ASSUMPTION — 최윤석 회신 후 확정
+// spec.md 규칙 57 — 무응답 확정 (사후 검토·재이슈 가능)
 type RejectPendingApplicationsInput = {
   closureEventId: string;
   reason: 'RECRUITMENT_CLOSED' | 'PROJECT_CANCELED';

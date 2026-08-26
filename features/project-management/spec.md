@@ -177,17 +177,20 @@ transaction_status      NONE · CONTRACT_PENDING ·
 
 > ai-pricing이 돌려주는 실패 사유는 그쪽 도메인 코드다. 이 문서의 API는 그것을 `409 PRICING_ANALYSIS_NOT_APPLICABLE`로 바꿔 응답한다 — 클라이언트에게는 이쪽 오류 코드 체계만 노출한다.
 
-## ASSUMPTION
+## 확정된 것 — applications 관련 (2026-08-25 등록 · 무응답 확정)
 
-최윤석 회신 대기 중이라 권장안으로 적어둔 것이다. **회신이 없으면 2026-08-26 정오 기준으로 아래 값으로 확정하고 진행한다** (팀 합의 — 답변 대기로 병목을 만들지 않는다).
+팀 방침에 따라 **먼저 등록한 쪽의 권장안으로 확정**한다. 최윤석 담당 영역과 맞물리는 항목이며, 사후 검토와 재이슈는 열려 있다.
 
-미확정 대상은 `prototype/server/ports/` 뒤에 두어, 답이 오면 어댑터 한 곳만 교체하면 되게 한다 (ADR-0009 · 네이밍 컨벤션 §5).
+| # | 규칙 |
+|---|---|
+| 55 | 규칙 36의 판정 순서 — **"같은 지원서인가"를 상태 조건보다 먼저** 본다. 순서가 반대면 정상 재시도가 `409`를 받고 화면에 사실과 다른 안내가 뜬다 (D-41) |
+| 56 | `pending_application_count`는 **지원 생성 시 +1 · 거절 시 −1 · 수락 시 −1**, 각각 그 상태를 바꾸는 트랜잭션 안에서 함께 갱신한다 |
+| 57 | 규칙 23·29의 일괄 거절 요청은 `closureEventId` · `reason`(`RECRUITMENT_CLOSED` / `PROJECT_CANCELED`) · `occurredAt`을 보내고, `rejectedCount` · `alreadyProcessed` · `result`(`DONE` / `NOT_NEEDED` / `FAILED`)를 받는다 |
 
-| # | 내용 | 확정되면 고칠 곳 |
-|---|---|---|
-| A1 | 규칙 23·29의 일괄 거절 요청은 `closureEventId` · `reason` · `occurredAt`을 보내고 `rejectedCount` · `result`를 받는다 (Q-05) | `applications.port.ts` |
-| A2 | 규칙 36의 판정 순서 — "같은 지원서인가"를 상태 조건보다 먼저 본다 (Q-03) | 이 문서 규칙 36 |
-| A3 | 규칙 15·20·34가 쓰는 `pending_application_count`는 지원 생성 시 +1, 거절·수락 시 −1로 갱신된다 (Q-04) | `applications.port.ts` |
+> `reason`을 나눈 것은 **알림 문구가 다르기 때문**이다. 마감이면 "모집이 마감되었습니다", 취소면 "프로젝트가 취소되었습니다"가 나가야 한다.
+> `result` 세 값은 contracts-payments가 무효화 응답에 쓰기로 한 것과 같은 형태다 (D-89).
+
+**미확정 항목은 없다.** 위 세 건은 `prototype/server/ports/applications.port.ts` 뒤에 두어, 최윤석 담당의 실제 형태가 다르면 어댑터 한 곳만 교체한다 (ADR-0009).
 
 ## 크기 기준
 
