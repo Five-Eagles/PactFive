@@ -139,11 +139,13 @@
    - **중복 호출:** 이미 `paymentPendingAt`이 있으면 **200 성공**, **시각은 최초값 유지** (P4).
      재호출로 시각을 갱신하면 취소 차단 경계가 뒤로 밀린다. `CANCELED`면 **409**.
 
-7. **호출 순서 (해피패스).** 최윤석 `acceptProjectApplication` 성공 → 나머지 지원 거절 →
-   조준영 금액합의·서명 → `markPaymentPending` → PG → `SIGNED`∧`PAID` →
+7. **호출 순서 (해피패스).** 최윤석 `acceptProjectApplication` 성공 → 나머지 PENDING 거절 →
+   알림 → 조준영 금액합의·서명 → `markPaymentPending` → PG → `SIGNED`∧`PAID` →
    `startProjectTransaction` → 작업·납품 → `APPROVED`∧`RELEASED` →
    `completeProjectTransaction`. 최종 거절 시만 `restorePreContractProject`.
    결제 확정 후 상태 전이가 실패하면 PG를 되돌리지 않고 전이를 재시도한다 (§5.8).
+   수락 전에는 `acceptedApplicationId`가 null이며 계약 흐름에 들어가지 않는다. 프로젝트당
+   수락 지원은 1건이다 (최윤석 2026-08-26 예).
 
 8. **오류 코드는 PRD §8.3 24종만 쓴다.** 새 코드를 만들지 않는다. HTTP 본문은
    `{ error: { code, message, details } }`. `CANCELED`와 "상태 불일치"는 같은
@@ -160,17 +162,16 @@
 `markPaymentPending` 본문에 `contractId` 필수. J1~J3은 유동우 spec 규칙 49~51. 상세는
 `review/yudong-function-defs-reply.md`.
 
-**최윤석 (지원 수락 선행) — 아직 회신 없음.**
-1. `acceptProjectApplication` 성공 → 나머지 거절 → 알림 순서가 끝난 뒤에야 조준영이
-   `startProjectTransaction` 흐름에 들어가는 것을 Mock에 반영하는가.
-2. `restorePreContractProject` 중 유동우의 `rejectPendingApplications` 재요청을
-   applications Mock이 다시 받을 수 있는가 (D-43).
-3. 합의 최종 거절 후 재개된 프로젝트의 새 지원은 기존과 같은 `PENDING` 규칙인가.
+**최윤석 (지원 수락 선행) — 2026-08-26 확정.** A1~A4, B1~B4, 기존 1~3 전부 예
+(`review/yoonseok-function-defs-response-final.html`). start·complete·markPaymentPending는
+applications 범위 밖. restore 시 기존 `REJECTED`는 되살리지 않음. 대기 지원 잔존 시
+`rejectPendingApplications` 재요청을 다시 받음. 재개 후 새 지원은 `PENDING`. 거절 사유는
+`PROJECT_CANCELED`와 `AGREEMENT_DECLINED`를 구분.
 
 ## 비고
 
-멱등 키·버전 비증가·내부 경로·`notReopenedReason`·start/complete 버전 필수는 FACT다.
-최윤석 1~3만 확인 대기(ASSUMPTION).
+멱등 키·버전 비증가·내부 경로·`notReopenedReason`·start/complete 버전 필수·최윤석 호출 순서는
+FACT다. 교차 담당 확인 대기는 없다.
 
 추가 제안 2건 — **조준영 동의.**
 1. `CONTRACT_PENDING` ⇒ `accepted_application_id` 존재. 유동우가 PRD 다음 개정에서 불변식으로

@@ -18,9 +18,9 @@
 
 ## 교차 담당
 - 유동우 (project-management): 4함수 제공자. 2026-08-25 함수별 정의 회신 반영 완료
-  (`review/yudong-function-defs-reply.md`). 최윤석 확인은 대기.
-- 최윤석 (applications): 지원 수락이 `startProjectTransaction`의 선행.
-  spec.md 「담당자 확인」 1~3.
+  (`review/yudong-function-defs-reply.md`).
+- 최윤석 (applications): 지원 수락 선행. 2026-08-26 함수별 정의 11건 전부 예
+  (`review/yoonseok-function-defs-response-final.html`).
 
 ## 갱신 이력
 
@@ -30,3 +30,4 @@
 | 2026-08-25 | 유동우 함수별 정의 회신 반영. P3 `contractId` 본문 필수. `/internal/v1`. 최윤석 대기 |
 | 2026-08-26 | prototype Mock + run.tsx. spec 규칙 1~8 PASS 24 |
 | 2026-08-26 | 유동우·최윤석 Mock import 안내 (`review/mock-stub-import-guide.md`) |
+| 2026-08-26 | 최윤석 함수별 정의 회신 반영. A1~A4·B1~B4·기존 1~3 전부 예 |

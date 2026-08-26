@@ -23,12 +23,12 @@
 
 규칙 4의 I-30은 호출자 검증이다. `completeProjectTransactionIfSettled`가 APPROVED∧RELEASED 전에는 포트를 부르지 않는다.
 
-규칙 7의 최윤석 구간(수락→거절→알림)은 PRD 가정으로 시드가 `CONTRACT_PENDING`인 것만 확인했다.
+규칙 7의 최윤석 구간(수락 → 잔여 PENDING 거절 → 알림)은 2026-08-26 회신으로 확정이다. 시드
+`CONTRACT_PENDING`은 그 세 단계가 끝난 상태다.
 
 ## 아직 안 되는 것 (Known Issues)
 
 - `prototype/`은 유동우 포트 스탠드인 Mock이다. 실제 HTTP·DB는 없다.
-- 최윤석 확인 3건은 아직 회신 없음. 순서 가정이 바뀌면 규칙 7 테스트를 고친다.
 - `design/`·`prototype/web/` 없음. 다음 증분(합의·서명·PG 화면).
 
 ## 팀장에게 물어봐야 하는 것

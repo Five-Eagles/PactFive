@@ -102,15 +102,15 @@ markPaymentPending 본문에는 `contractId`가 있어야 합니다. 없으면 4
 3. 알림
 4. 그 다음 조준영 금액합의·서명 → `markPaymentPending` → start
 
-시드 `prj_alive`는 이미 1~3이 끝난 상태(`CONTRACT_PENDING` + `acceptedApplicationId: app_123`)로 가정합니다.
+시드 `prj_alive`는 1~3이 끝난 상태(`CONTRACT_PENDING` + `acceptedApplicationId: app_123`)다.
+최윤석 2026-08-26 회신으로 이 순서는 확정이다.
 
 restore 때 알아 두실 것:
 
 - 이미 거절된 지원자를 되살리지 않습니다.
 - 대기 지원이 남으면 (`prj_pending_apps`) HTTP 200, `reopened: false`, `notReopenedReason: PENDING_APPLICATIONS_REMAIN`. 유동우가 `rejectPendingApplications`를 다시 보낼 수 있습니다.
 - 재개 성공(`prj_restore`) 후 새 지원은 기존 `PENDING` 규칙입니다.
-
-확인 요청 3문항은 `review/yoonseok-function-defs-review.md`에 있습니다. 회신이 오면 규칙 7 테스트를 맞추겠습니다.
+- 거절 사유는 `PROJECT_CANCELED`(프로젝트 취소)와 `AGREEMENT_DECLINED`(합의 결렬)를 구분합니다.
 
 ---
 
