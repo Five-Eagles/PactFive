@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>함수별 필수 정의 확인 — 유동우</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; font-size: 11px; line-height: 1.4; color: #1a1a1a; margin: 0; }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  h2 { font-size: 13px; margin: 14px 0 6px; border-bottom: 1px solid #222; padding-bottom: 2px; }
+  h3 { font-size: 11.5px; margin: 10px 0 4px; }
+  .meta { color: #555; font-size: 10.5px; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 10.5px; }
+  th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 9.5px; }
+  .check { width: 12px; height: 12px; border: 1.5px solid #333; display: inline-block; }
+  .note { color: #444; font-size: 10.5px; }
+</style>
+</head>
+<body>
+<h1>함수별 필수 정의 확인 요청 — 유동우</h1>
+<p class="meta">수신: <strong>유동우</strong> (project-management) · 발신: 조준영 (contracts-payments) · 2026-08-25<br>
+정본: PRD v6.4 §5.4 · ERD v1.4 · spec.md · 목적: 네 함수의 필수 정의사항을 예/아니오로 확정</p>
+<p class="note">이미 「예」로 닫힌 멱등 키·버전 비증가·D-43은 다시 묻지 않습니다. 조준영이 동의한 내부 경로·<code>notReopenedReason</code>·버전 필수는 맨 아래 재확인만 받습니다.</p>
+
+<h2>참고 — 다시 묻지 않는 합의</h2>
+<table>
+<tr><th>항목</th><th>상태</th></tr>
+<tr><td>멱등 키 <code>transaction-start-{contractId}</code> / <code>transaction-complete-{contractId}</code></td><td>유동우 예</td></tr>
+<tr><td><code>markPaymentPending</code> 버전 비증가</td><td>유동우 예</td></tr>
+<tr><td>D-43: 200 + 모집 재개만 보류</td><td>유동우 예</td></tr>
+<tr><td>내부 주소 5개 유동우가 만듦</td><td>유동우 예</td></tr>
+<tr><td><code>/internal/v1/...</code> · <code>notReopenedReason</code> · start/complete 버전 필수</td><td>조준영 동의, 재확인</td></tr>
+</table>
+
+<h2>1. startProjectTransaction</h2>
+<p>반드시 확정: 호출 주체, 수락된 지원 ID, 프로젝트 시작 상태</p>
+<table>
+<tr><th>항목</th><th>현재 초안</th></tr>
+<tr><td>호출 주체</td><td>조준영 → 유동우. <code>SIGNED</code> 그리고 <code>PAID</code> 직후 1회</td></tr>
+<tr><td>수락된 지원 ID</td><td>요청 본문에 없음. C-01이 심은 <code>accepted_application_id</code>를 조회로만 확인</td></tr>
+<tr><td>시작 상태</td><td><code>CONTRACT_PENDING</code> → <code>IN_PROGRESS</code> (모집 <code>CLOSED</code>)</td></tr>
+</table>
+<table>
+<tr><th>#</th><th>질문</th><th>예</th><th>아니오</th><th>대안</th></tr>
+<tr><td>S1</td><td>호출 주체는 조준영 서버만이고, 브라우저·의뢰인 직접 호출은 거부하는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>S2</td><td>start 요청에 <code>acceptedApplicationId</code>를 넣지 않고 프로젝트 컬럼만 믿는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>S3</td><td>조회 응답의 <code>acceptedApplicationId</code>가 null이면 start를 409로 거부하는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>S4</td><td>허용 시작 상태는 <code>CONTRACT_PENDING</code>뿐이며 성공 후는 <code>IN_PROGRESS</code>인가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+</table>
+
+<h2>2. completeProjectTransaction</h2>
+<p>반드시 확정: 완료 조건, 완료 권한, 중복 완료 처리</p>
+<table>
+<tr><th>항목</th><th>현재 초안</th></tr>
+<tr><td>완료 조건</td><td>호출자가 <code>APPROVED</code> ∧ <code>RELEASED</code>를 지킴. 유동우는 <code>IN_PROGRESS</code>만 검사</td></tr>
+<tr><td>완료 권한</td><td>내부 계약만. 사용자 로그인 토큰 불가</td></tr>
+<tr><td>중복 완료</td><td>이미 <code>COMPLETED</code>면 200. <code>CANCELED</code>면 409</td></tr>
+</table>
+<table>
+<tr><th>#</th><th>질문</th><th>예</th><th>아니오</th><th>대안</th></tr>
+<tr><td>C1</td><td>납품·정산 테이블을 읽지 않고 <code>IN_PROGRESS</code>만 보고 전이하는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>C2</td><td>완료는 조준영 서버만, 공개 API로는 열지 않는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>C3</td><td>이미 <code>COMPLETED</code> 재호출은 200 멱등인가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>C4</td><td><code>CANCELED</code>에서 complete는 409인가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+</table>
+
+<h2>3. restorePreContractProject</h2>
+<p>반드시 확정: 복원 대상 상태, 합의·계약 취소와의 관계</p>
+<table>
+<tr><th>항목</th><th>현재 초안</th></tr>
+<tr><td>복원 대상</td><td><code>transactionStatus → NONE</code>. 조건부 모집 <code>OPEN</code>. 제목·설명 보존</td></tr>
+<tr><td>합의·계약</td><td>이 함수는 합의·계약을 취소하지 않음. <code>invalidateAgreementAndContract</code>와 반대 방향·다른 사건</td></tr>
+</table>
+<table>
+<tr><th>#</th><th>질문</th><th>예</th><th>아니오</th><th>대안</th></tr>
+<tr><td>R1</td><td>건드리는 필드는 거래 상태와 (조건부) 모집 상태뿐인가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>R2</td><td>restore가 합의 REJECTED·계약 CANCELED를 대신하지 않는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>R3</td><td>프로젝트 취소와 restore를 같은 경로로 처리하지 않는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>R4</td><td>자동 거절된 지원자를 되살리지 않는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+</table>
+
+<h2>4. markPaymentPending</h2>
+<p>반드시 확정: 결제 대기 전환 조건, 결제 식별정보 포함 여부</p>
+<table>
+<tr><th>항목</th><th>현재 초안</th></tr>
+<tr><td>전환 조건</td><td><code>CONTRACT_PENDING</code> + 미취소. PG 직전. 상태는 안 바꾸고 <code>paymentPendingAt</code>만</td></tr>
+<tr><td>식별정보</td><td>본문에 paymentId/contractId 없음. 멱등 키만 <code>payment-pending-{contractId}</code></td></tr>
+</table>
+<table>
+<tr><th>#</th><th>질문</th><th>예</th><th>아니오</th><th>대안</th></tr>
+<tr><td>P1</td><td>허용 조건은 CONTRACT_PENDING + 미취소뿐인가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>P2</td><td>본문에 결제·계약 ID 없이 멱등 키만으로 충분한가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>P3</td><td>본문에 contractId 명시 필드가 필요한가 (초안은 아니오)</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>P4</td><td>이미 paymentPendingAt이면 200, 시각은 최초값 유지인가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+</table>
+
+<h2>함께 정할 3건 — 구현 측 재확인</h2>
+<table>
+<tr><th>#</th><th>내용</th><th>예</th><th>아니오</th><th>메모</th></tr>
+<tr><td>J1</td><td>경로 <code>/internal/v1/projects/:projectId/...</code></td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>J2</td><td><code>notReopenedReason</code>: null / DEADLINE_PASSED / PENDING_APPLICATIONS_REMAIN</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>J3</td><td>start와 complete만 expectedProjectVersion 필수</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+</table>
+<p class="note">ERD project_version 주석 정정은 김락원 담당, change-request로 남깁니다.</p>
+</body>
+</html>
