@@ -65,7 +65,7 @@ async function main() {
   section("시드");
 
   check(SHARED_SEEDS.length === 10, "시드: contracts-payments 공유 10종");
-  check(OWN_SEEDS.length === 7, "시드: project-management 전용 7종");
+  check(OWN_SEEDS.length === 8, "시드: project-management 전용 8종");
   check(
     new Set(ALL_SEEDS.map((p) => p.projectId)).size === ALL_SEEDS.length,
     "시드: projectId 중복 없음",
@@ -605,10 +605,488 @@ async function main() {
     );
   }
 
-  /* ═══════════ 6. 공개 API 9종 — 다음 라운드에서 추가 ═══════════ */
-  /* ═══════════ 7. 화면 필수 요소 43개 — 다음 라운드에서 추가 ═══════════ */
+  /* ═══════════ 6. 공개 API 9종 ═══════════ */
 
-  /* ═══════════ 6. 공개 API 9종 — 다음 라운드에서 추가 ═══════════ */
+  const { createProjectService } = await import("./server/project.service");
+  type ClientDetail = import("./server/project.types").ClientProjectDetail;
+
+  const CLIENT_A = { userId: "usr_client_a", role: "CLIENT" as const };
+  const CLIENT_B = { userId: "usr_client_b", role: "CLIENT" as const };
+  const FREELANCER = { userId: "usr_free_1", role: "FREELANCER" as const };
+  const INCOMPLETE = { userId: "usr_incomplete", role: "CLIENT" as const };
+
+  let seq = 0;
+  function newApi() {
+    const r = createProjectRepositoryMock(createFixedClock(AT));
+    const e = createExternalMocks();
+    const api = createProjectService({
+      repo: r,
+      ports: e,
+      now: () => AT,
+      newProjectId: () => `prj_new_${++seq}`,
+    });
+    return { api, repo: r, ext: e };
+  }
+
+  const TX = createMockTransaction();
+  const validCreate = {
+    title: "쇼핑몰 웹사이트 구축",
+    description:
+      "자사 브랜드 온라인 스토어를 새로 만들려고 합니다. 상품 등록과 결제 연동이 필요합니다.",
+    category: "WEB_DEVELOPMENT",
+    recruitmentStartAt: null,
+    recruitmentDeadlineAt: "2026-09-16T14:59:59Z",
+    budgetAmount: 5_000_000,
+    skillIds: ["REACT", "NODEJS"],
+  };
+
+  /* --- 6-1. 등록 (규칙 2~8) --- */
+  section("공개 API — 등록");
+  {
+    const { api, repo: r } = newApi();
+    const res = await api.createProject(CLIENT_A, validCreate, TX);
+    check(res.status === 201, "등록 성공 201");
+    check(res.body.recruitmentStatus === "OPEN", "시작 시각이 없으면 즉시 모집 (규칙 4)");
+    check(res.body.transactionStatus === "NONE", "거래는 NONE 으로 시작");
+    check(res.body.projectVersion === 1, "버전 1 로 시작");
+    check(r.findById(res.body.projectId) !== null, "저장소에 실제로 들어갔다");
+    check(
+      res.body.category.displayName === "웹 개발" && res.body.skills[0]!.displayName === "React",
+      "카테고리·기술이 사람이 읽는 이름으로 나간다",
+    );
+
+    const later = await api.createProject(
+      CLIENT_A,
+      { ...validCreate, recruitmentStartAt: "2026-09-01T00:00:00Z" },
+      TX,
+    );
+    check(later.body.recruitmentStatus === "SCHEDULED", "시작 시각이 미래면 SCHEDULED (규칙 4)");
+  }
+  {
+    const { api } = newApi();
+    await expectError("비로그인 등록", 401, "AUTH_REQUIRED", () =>
+      api.createProject(null, validCreate, TX),
+    );
+    await expectError("프리랜서 등록", 403, "PROJECT_CREATE_ROLE_REQUIRED", () =>
+      api.createProject(FREELANCER, validCreate, TX),
+    );
+    await expectError("프로필 미완성", 403, "PROJECT_PROFILE_REQUIRED", () =>
+      api.createProject(INCOMPLETE, validCreate, TX),
+    );
+    await expectError("제목 4자", 422, "VALIDATION_ERROR", () =>
+      api.createProject(CLIENT_A, { ...validCreate, title: "네글자" }, TX),
+    );
+    await expectError("설명 19자", 422, "VALIDATION_ERROR", () =>
+      api.createProject(CLIENT_A, { ...validCreate, description: "가".repeat(19) }, TX),
+    );
+    await expectError("없는 카테고리", 422, "INVALID_CATEGORY", () =>
+      api.createProject(CLIENT_A, { ...validCreate, category: "COOKING" }, TX),
+    );
+    await expectError("예산 0", 422, "BUDGET_MUST_BE_POSITIVE", () =>
+      api.createProject(CLIENT_A, { ...validCreate, budgetAmount: 0 }, TX),
+    );
+    await expectError("기술 0개", 422, "SKILL_REQUIRED", () =>
+      api.createProject(CLIENT_A, { ...validCreate, skillIds: [] }, TX),
+    );
+    await expectError("커스텀 기술", 422, "CUSTOM_SKILL_NOT_ALLOWED", () =>
+      api.createProject(CLIENT_A, { ...validCreate, skillIds: ["MY_OWN_STACK"] }, TX),
+    );
+    await expectError("없는 기술", 422, "INVALID_SKILL", () =>
+      api.createProject(CLIENT_A, { ...validCreate, skillIds: ["COBOL"] }, TX),
+    );
+  }
+  {
+    // 규칙 3 — 세 가지를 다른 코드로 구분한다. 하나로 뭉치면 무엇을 고치라고 안내할 수 없다.
+    const { api } = newApi();
+    await expectError("마감일 과거", 422, "DEADLINE_MUST_BE_FUTURE", () =>
+      api.createProject(
+        CLIENT_A,
+        { ...validCreate, recruitmentDeadlineAt: "2026-08-01T00:00:00Z" },
+        TX,
+      ),
+    );
+    await expectError("마감일 12시간 뒤", 422, "DEADLINE_BELOW_MINIMUM", () =>
+      api.createProject(
+        CLIENT_A,
+        { ...validCreate, recruitmentDeadlineAt: "2026-08-26T21:00:00Z" },
+        TX,
+      ),
+    );
+    await expectError("마감일 366일 뒤", 422, "DEADLINE_EXCEEDS_LIMIT", () =>
+      api.createProject(
+        CLIENT_A,
+        { ...validCreate, recruitmentDeadlineAt: "2027-09-01T00:00:00Z" },
+        TX,
+      ),
+    );
+  }
+  {
+    // 규칙 8 — 분석을 연결하면 클라이언트가 보낸 금액을 덮어쓴다.
+    const { api, ext: e } = newApi();
+    const res = await api.createProject(
+      CLIENT_A,
+      { ...validCreate, budgetAmount: 9_999_999, pricingAnalysisId: "ana_valid" },
+      TX,
+    );
+    check(res.body.budgetAmount === 4_800_000, "분석 추천 금액으로 덮어쓴다 (규칙 8)");
+    check(e.calls.claimPricingAnalysis.length === 1, "등록 트랜잭션 안에서 연결을 호출한다");
+    check(
+      e.calls.claimPricingAnalysis[0]!.projectId === res.body.projectId,
+      "프로젝트를 먼저 만든 뒤 연결한다 (FK 순서)",
+    );
+  }
+  {
+    const { api, repo: r } = newApi();
+    const before = r.findAll().length;
+    await expectError("남의 분석 연결", 409, "PRICING_ANALYSIS_NOT_APPLICABLE", () =>
+      api.createProject(CLIENT_A, { ...validCreate, pricingAnalysisId: "ana_other_owner" }, TX),
+    );
+    check(r.findAll().length === before, "연결 실패면 프로젝트 생성까지 되돌린다 (규칙 8)");
+  }
+
+  /* --- 6-2. 목록 · 검색 (규칙 9~12·14) --- */
+  section("공개 API — 목록 · 검색");
+  {
+    const { api } = newApi();
+    const all = api.listProjects({});
+    check(
+      all.body.items.every((i) => !("transactionStatus" in i)),
+      "규칙 9: 목록에 거래 상태 키 자체가 없다",
+    );
+    check(
+      all.body.items.every((i) => i.recruitmentStatus !== "CLOSED"),
+      "규칙 10: 마감된 것은 기본으로 빠진다",
+    );
+    check(
+      !all.body.items.some((i) => i.projectId === "prj_deleted"),
+      "규칙 11: 삭제된 것은 어떤 조건으로도 안 나온다",
+    );
+
+    const closed = api.listProjects({ recruitmentStatus: "CLOSED" });
+    check(closed.body.items.length > 0, "명시하면 마감된 것도 나온다");
+    check(
+      !closed.body.items.some((i) => i.projectId === "prj_deleted"),
+      "명시해도 삭제된 것은 안 나온다",
+    );
+
+    const paged = api.listProjects({ page: 1, pageSize: 2 });
+    check(paged.body.items.length === 2 && paged.body.pageSize === 2, "페이지 크기 적용");
+    check(paged.body.totalPages === Math.ceil(paged.body.totalCount / 2), "totalPages 계산");
+
+    const byCategory = api.listProjects({ category: "DESIGN" });
+    check(
+      byCategory.body.items.length > 0 &&
+        byCategory.body.items.every((i) => i.category.category === "DESIGN"),
+      "카테고리 필터",
+    );
+    const bySkill = api.listProjects({ skills: ["FIGMA"] });
+    check(
+      bySkill.body.items.length > 0 &&
+        bySkill.body.items.every((i) => i.skills.some((s) => s.skillId === "FIGMA")),
+      "기술 필터",
+    );
+    const byBudget = api.listProjects({ minBudget: 5_000_000 });
+    check(byBudget.body.items.every((i) => i.budgetAmount >= 5_000_000), "예산 하한 필터");
+
+    const sorted = api.listProjects({ sortBy: "budget", sortOrder: "asc" });
+    const amounts = sorted.body.items.map((i) => i.budgetAmount);
+    check(
+      amounts.every((v, idx) => idx === 0 || amounts[idx - 1]! <= v),
+      "예산 오름차순 정렬",
+    );
+
+    await expectError("page 0", 422, "VALIDATION_ERROR", async () => api.listProjects({ page: 0 }));
+    await expectError("pageSize 51", 422, "VALIDATION_ERROR", async () =>
+      api.listProjects({ pageSize: 51 }),
+    );
+    await expectError("없는 카테고리", 422, "INVALID_CATEGORY", async () =>
+      api.listProjects({ category: "COOKING" }),
+    );
+  }
+  {
+    // 규칙 14 — 저장값이 아니라 조회 시점 기준으로 보인다.
+    const late = createProjectService({
+      repo: createProjectRepositoryMock(createFixedClock(AT)),
+      ports: createExternalMocks(),
+      now: () => "2026-09-02T00:00:00Z",
+      newProjectId: () => "prj_x",
+    });
+    const scheduled = late.getProject(null, "prj_scheduled");
+    check(
+      scheduled.body.recruitmentStatus === "OPEN",
+      "규칙 14: 시작 시각이 지나면 SCHEDULED 가 OPEN 으로 보인다",
+    );
+  }
+
+  /* --- 6-3. 상세 (규칙 9·13·15) --- */
+  section("공개 API — 상세");
+  {
+    const { api } = newApi();
+    const anon = api.getProject(null, "prj_open_free");
+    check(!("transactionStatus" in anon.body), "비로그인: 거래 상태 키 없음 (규칙 9)");
+    check(!("editableFields" in anon.body), "비로그인: 잠금 정보 없음");
+
+    const free = api.getProject(FREELANCER, "prj_open_free");
+    check("canApply" in free.body, "프리랜서: canApply 포함");
+    check(!("transactionStatus" in free.body), "프리랜서: 거래 상태 키 없음");
+
+    const owner = api.getProject(CLIENT_A, "prj_open_free").body as ClientDetail;
+    check("transactionStatus" in owner, "등록 의뢰인: 거래 상태 포함");
+    check(owner.editableFields.includes("budgetAmount"), "규칙 13: 지원 0건이면 예산 수정 가능");
+
+    const locked = api.getProject(CLIENT_A, "prj_open_locked").body as ClientDetail;
+    check(
+      !locked.editableFields.includes("budgetAmount") && locked.editableFields.includes("title"),
+      "규칙 15: 대기 지원이 있으면 예산만 잠기고 제목은 열려 있다",
+    );
+    check(
+      !locked.availableActions.includes("DELETE"),
+      "규칙 20: 대기 지원이 있으면 삭제 버튼이 없다",
+    );
+
+    const reopenable = api.getProject(CLIENT_A, "prj_reopenable").body as ClientDetail;
+    check(
+      reopenable.availableActions.includes("REOPEN_RECRUITMENT"),
+      "규칙 32: 재모집 가능하면 배지가 붙는다",
+    );
+
+    const paying = api.getProject(CLIENT_A, "prj_paying").body as ClientDetail;
+    check(
+      !paying.availableActions.includes("CANCEL"),
+      "규칙 27: 결제가 시작되면 취소 버튼이 없다",
+    );
+
+    await expectError("삭제된 프로젝트 상세", 404, "PROJECT_NOT_FOUND", async () =>
+      api.getProject(null, "prj_deleted"),
+    );
+  }
+
+  /* --- 6-4. 수정 (규칙 15~18) --- */
+  section("공개 API — 수정");
+  {
+    const { api, repo: r } = newApi();
+    const res = api.updateProject(CLIENT_A, "prj_open_free", { title: "제목을 바꿉니다" });
+    check(res.body.title === "제목을 바꿉니다", "제목 수정");
+    check(res.body.projectVersion === 1, "규칙 18: 일반 수정으로 버전이 안 오른다");
+    check(r.findById("prj_open_free")!.updatedAt === AT, "updatedAt 은 갱신된다");
+
+    const budget = api.updateProject(CLIENT_A, "prj_open_free", { budgetAmount: 7_000_000 });
+    check(budget.body.budgetAmount === 7_000_000, "지원 0건이면 예산 수정 가능");
+
+    const titleOnly = api.updateProject(CLIENT_A, "prj_open_locked", { title: "제목만 바꿉니다" });
+    check(titleOnly.body.title === "제목만 바꿉니다", "규칙 15: 잠긴 상태에서도 제목은 바뀐다");
+
+    await expectError("남의 프로젝트 수정", 403, "PROJECT_FORBIDDEN", async () =>
+      api.updateProject(CLIENT_B, "prj_open_free", { title: "가로채기 시도" }),
+    );
+    await expectError("비로그인 수정", 401, "AUTH_REQUIRED", async () =>
+      api.updateProject(null, "prj_open_free", { title: "비로그인 수정" }),
+    );
+    await expectError("대기 지원 있는데 예산 수정", 409, "PROJECT_EDIT_LOCKED", async () =>
+      api.updateProject(CLIENT_A, "prj_open_locked", { budgetAmount: 1_000_000 }),
+    );
+    await expectError("마감된 프로젝트 수정", 409, "PROJECT_EDIT_CLOSED", async () =>
+      api.updateProject(CLIENT_A, "prj_closed", { title: "마감 후 수정" }),
+    );
+  }
+
+  /* --- 6-5. 삭제 (규칙 19~21) --- */
+  section("공개 API — 삭제");
+  {
+    const { api, repo: r } = newApi();
+    const res = api.deleteProject(CLIENT_A, "prj_open_free");
+    check(res.status === 204, "삭제 204");
+    check(r.findByIdIncludingDeleted("prj_open_free")!.deletedAt === AT, "규칙 19: 소프트 삭제");
+    check(r.findById("prj_open_free") === null, "조회에서 사라진다");
+
+    const again = api.deleteProject(CLIENT_A, "prj_open_free");
+    check(again.status === 204, "규칙 21: 이미 삭제된 것을 다시 지워도 204");
+
+    await expectError("대기 지원 있음", 409, "PROJECT_DELETE_HAS_APPLICATIONS", async () =>
+      api.deleteProject(CLIENT_A, "prj_open_locked"),
+    );
+    await expectError("거래 진행 중", 409, "PROJECT_DELETE_IN_TRANSACTION", async () =>
+      api.deleteProject(CLIENT_A, "prj_in_progress"),
+    );
+    await expectError("남의 프로젝트 삭제", 403, "PROJECT_FORBIDDEN", async () =>
+      api.deleteProject(CLIENT_B, "prj_scheduled"),
+    );
+  }
+
+  /* --- 6-6. 모집 마감 (규칙 22~25) --- */
+  section("공개 API — 모집 마감");
+  {
+    const { api, repo: r, ext: e } = newApi();
+    const res = await api.closeRecruitment(CLIENT_A, "prj_open_locked");
+    check(res.body.recruitmentStatus === "CLOSED", "OPEN → CLOSED");
+    check(res.body.rejectedApplicationCount === 3, "대기 지원 3건이 일괄 거절됐다");
+    check(
+      e.calls.rejectPendingApplications[0]!.input.reason === "RECRUITMENT_CLOSED",
+      "규칙 57: 마감 사유로 요청한다 (알림 문구가 다르다)",
+    );
+    check(r.findById("prj_open_locked")!.projectVersion === 2, "상태가 바뀌어 버전 +1");
+
+    const again = await api.closeRecruitment(CLIENT_A, "prj_open_locked");
+    check(
+      again.status === 200 && again.body.rejectedApplicationCount === 0,
+      "규칙 24: 재마감은 200, 거절 0건",
+    );
+
+    const scheduled = await api.closeRecruitment(CLIENT_A, "prj_scheduled");
+    check(scheduled.body.recruitmentStatus === "CLOSED", "규칙 22: SCHEDULED 도 마감된다");
+  }
+  {
+    // 규칙 23 — 후처리가 실패해도 마감은 되돌리지 않는다.
+    const { api, repo: r, ext: e } = newApi();
+    e.failNext.rejectPendingApplications = true;
+    const res = await api.closeRecruitment(CLIENT_A, "prj_open_locked");
+    check(res.body.recruitmentStatus === "CLOSED", "규칙 23: 후처리 실패해도 마감은 유지된다");
+    check(r.findById("prj_open_locked")!.recruitmentStatus === "CLOSED", "저장소도 마감 상태");
+
+    await expectError("취소된 프로젝트 마감", 409, "PROJECT_TRANSITION_CONFLICT", () =>
+      api.closeRecruitment(CLIENT_A, "prj_canceled"),
+    );
+  }
+
+  /* --- 6-7. 취소 (규칙 26~31) --- */
+  section("공개 API — 취소");
+  {
+    const { api, repo: r } = newApi();
+    const res = await api.cancelProject(CLIENT_A, "prj_open_free");
+    check(res.status === 200, "취소 200");
+    check(
+      res.body.transactionStatus === "CANCELED" && res.body.recruitmentStatus === "CLOSED",
+      "규칙 26: 거래 CANCELED + 모집 CLOSED",
+    );
+    check(res.body.postActions.contractInvalidation === "NOT_NEEDED", "계약이 없으면 NOT_NEEDED");
+    check(r.findById("prj_open_free")!.projectVersion === 2, "버전 +1");
+
+    const again = await api.cancelProject(CLIENT_A, "prj_open_free");
+    check(again.status === 200, "규칙 30: 재취소는 200");
+  }
+  {
+    const { api, ext: e } = newApi();
+    const res = await api.cancelProject(CLIENT_A, "prj_alive");
+    check(
+      res.body.postActions.contractInvalidation === "DONE",
+      "계약 대기 중이면 합의·계약 무효화를 요청한다 (규칙 29)",
+    );
+    check(e.calls.invalidateAgreementAndContract.length === 1, "contracts 를 실제로 호출한다");
+  }
+  {
+    // 규칙 29 — 하나라도 실패하면 202.
+    const { api, repo: r, ext: e } = newApi();
+    e.failNext.rejectPendingApplications = true;
+    const res = await api.cancelProject(CLIENT_A, "prj_open_locked");
+    check(res.status === 202, "규칙 29: 후처리 실패면 202");
+    check(res.body.postActions.applicationRejection === "FAILED", "무엇이 실패했는지 알려준다");
+    check(
+      r.findById("prj_open_locked")!.transactionStatus === "CANCELED",
+      "취소 자체는 되돌리지 않는다",
+    );
+  }
+  {
+    const { api } = newApi();
+    await expectError("결제 시작 후 취소", 409, "PROJECT_CANCEL_AFTER_PAYMENT", () =>
+      api.cancelProject(CLIENT_A, "prj_paying"),
+    );
+    await expectError("진행 중 거래 취소", 409, "PROJECT_TRANSITION_CONFLICT", () =>
+      api.cancelProject(CLIENT_A, "prj_in_progress"),
+    );
+    await expectError("남의 프로젝트 취소", 403, "PROJECT_FORBIDDEN", () =>
+      api.cancelProject(CLIENT_B, "prj_open_free"),
+    );
+  }
+
+  /* --- 6-8. 내 프로젝트 --- */
+  section("공개 API — 내 프로젝트");
+  {
+    const { api } = newApi();
+    const mine = api.listMyProjects(CLIENT_A, "usr_client_a", {});
+    check(mine.body.items.length > 0, "내 프로젝트가 나온다");
+    check(
+      mine.body.items.every((i) => "transactionStatus" in i),
+      "본인 목록에는 거래 상태가 들어간다",
+    );
+    check(
+      !mine.body.items.some((i) => i.projectId === "prj_other_client"),
+      "남의 프로젝트는 안 나온다",
+    );
+    check(!mine.body.items.some((i) => i.projectId === "prj_deleted"), "삭제된 것은 안 나온다");
+    check(
+      mine.body.items.some((i) => i.availableActions.includes("REOPEN_RECRUITMENT")),
+      "재모집 가능한 것에 배지가 붙는다",
+    );
+
+    const filtered = api.listMyProjects(CLIENT_A, "usr_client_a", {
+      transactionStatus: "COMPLETED",
+    });
+    check(
+      filtered.body.items.length > 0 &&
+        filtered.body.items.every((i) => i.transactionStatus === "COMPLETED"),
+      "거래 상태 필터",
+    );
+
+    await expectError("남의 목록 조회", 403, "PROJECT_FORBIDDEN", async () =>
+      api.listMyProjects(CLIENT_A, "usr_client_b", {}),
+    );
+    await expectError("비로그인 목록", 401, "AUTH_REQUIRED", async () =>
+      api.listMyProjects(null, "usr_client_a", {}),
+    );
+  }
+
+  /* --- 6-9. 재모집 (규칙 32~35) --- */
+  section("공개 API — 재모집");
+  {
+    const { api, repo: r } = newApi();
+    const res = api.reopenRecruitment(CLIENT_A, "prj_reopenable", {
+      recruitmentDeadlineAt: "2026-09-20T14:59:59Z",
+    });
+    check(res.body.reopened && res.body.recruitmentStatus === "OPEN", "재모집 성공");
+    check(res.body.recruitmentStartAt === AT, "규칙 33: 시작 시각을 현재로 갱신한다");
+    check(res.body.projectVersion === 10, "버전 +1");
+    check(r.findById("prj_reopenable")!.recruitmentClosedAt === null, "마감 시각을 지운다");
+  }
+  {
+    // 규칙 33 — 상한은 **갱신 후** 시작 시각 기준이다.
+    // 옛 시작 시각으로 쟀다면 이 요청은 통과했을 것이다.
+    const { api } = newApi();
+    await expectError("갱신 후 기준 366일", 422, "DEADLINE_EXCEEDS_LIMIT", async () =>
+      api.reopenRecruitment(CLIENT_A, "prj_reopenable", {
+        recruitmentDeadlineAt: "2027-09-01T00:00:00Z",
+      }),
+    );
+  }
+  {
+    const { api, repo: r } = newApi();
+    const before = r.findById("prj_open_free")!.recruitmentDeadlineAt;
+    const noop = api.reopenRecruitment(CLIENT_A, "prj_open_free", {
+      recruitmentDeadlineAt: "2027-01-01T00:00:00Z",
+    });
+    check(!noop.body.reopened, "규칙 35: 이미 OPEN 이면 reopened: false");
+    check(
+      r.findById("prj_open_free")!.recruitmentDeadlineAt === before,
+      "규칙 35: 아무것도 바꾸지 않는다 — 모집 기간이 늘어나면 안 된다",
+    );
+
+    await expectError("대기 지원 잔존", 409, "PROJECT_EDIT_LOCKED", async () =>
+      api.reopenRecruitment(CLIENT_A, "prj_closed_pending", {
+        recruitmentDeadlineAt: "2026-09-20T14:59:59Z",
+      }),
+    );
+    await expectError("취소된 프로젝트", 409, "PROJECT_TRANSITION_CONFLICT", async () =>
+      api.reopenRecruitment(CLIENT_A, "prj_canceled", {
+        recruitmentDeadlineAt: "2026-09-20T14:59:59Z",
+      }),
+    );
+    await expectError("버전 불일치", 409, "PROJECT_VERSION_CONFLICT", async () =>
+      api.reopenRecruitment(CLIENT_A, "prj_reopenable", {
+        recruitmentDeadlineAt: "2026-09-20T14:59:59Z",
+        expectedProjectVersion: 1,
+      }),
+    );
+  }
+
   /* ═══════════ 7. 화면 필수 요소 43개 — 다음 라운드에서 추가 ═══════════ */
 
   section("결과");

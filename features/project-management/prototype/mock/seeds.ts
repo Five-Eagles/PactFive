@@ -205,6 +205,23 @@ export const OWN_SEEDS: ProjectRecord[] = [
     projectVersion: 9,
   }),
 
+  /**
+   * 마감됐는데 대기 지원이 남음 — 재모집 불가 (규칙 34)
+   *
+   * 마감일이 지나 자동 마감됐지만 일괄 거절 후처리가 실패한 상태다.
+   * 규칙 23 이 "후처리가 실패해도 마감은 되돌리지 않는다"이므로 실제로 생길 수 있다.
+   */
+  base({
+    projectId: "prj_closed_pending",
+    title: "물류 관리 도구 개발",
+    budgetAmount: 6_100_000,
+    recruitmentDeadlineAt: DEADLINE_PAST,
+    recruitmentClosedAt: "2026-08-23T00:00:00Z",
+    applicationCount: 4,
+    pendingApplicationCount: 2,
+    projectVersion: 2,
+  }),
+
   /** 남의 프로젝트 — 403 PROJECT_FORBIDDEN (규칙 17) */
   base({
     projectId: "prj_other_client",

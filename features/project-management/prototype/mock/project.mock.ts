@@ -9,7 +9,12 @@
  * contracts-payments Mock 도 같은 방식이다.
  */
 
-import type { ProjectRecord } from "../server/project.types";
+import type {
+  CategoryRef,
+  ClientPublicProfile,
+  ProjectRecord,
+  SkillRef,
+} from "../server/project.types";
 import { cloneSeeds } from "./seeds";
 
 /* ─────────────── 저장소 인터페이스 ─────────────── */
@@ -143,4 +148,76 @@ export function isKnownSkill(skillId: string): boolean {
 
 export function isValidCategory(category: string): boolean {
   return (VALID_CATEGORIES as readonly string[]).includes(category);
+}
+
+/**
+ * 화면에 보일 이름. 정본은 오민혁 도메인이고 여기 값은 표시 확인용이다.
+ * 목록·상세 응답이 코드가 아니라 사람이 읽는 이름을 내려보내야 해서 필요하다.
+ */
+const CATEGORY_LABELS: Record<string, string> = {
+  WEB_DEVELOPMENT: "웹 개발",
+  MOBILE_APP: "모바일 앱",
+  DESIGN: "디자인",
+  DATA_AI: "데이터·AI",
+  PLANNING: "기획",
+  MARKETING: "마케팅",
+};
+
+const SKILL_LABELS: Record<string, string> = {
+  REACT: "React",
+  NODEJS: "Node.js",
+  SQL: "SQL",
+  TYPESCRIPT: "TypeScript",
+  JAVASCRIPT: "JavaScript",
+  VUE: "Vue",
+  SPRING: "Spring",
+  FIGMA: "Figma",
+  FLUTTER: "Flutter",
+  PYTHON: "Python",
+  HTML_CSS: "HTML/CSS",
+  AWS: "AWS",
+};
+
+export function toCategoryRef(category: string): CategoryRef {
+  return { category, displayName: CATEGORY_LABELS[category] ?? category };
+}
+
+export function toSkillRefs(skillIds: string[]): SkillRef[] {
+  return skillIds.map((skillId) => ({
+    skillId,
+    displayName: SKILL_LABELS[skillId] ?? skillId,
+  }));
+}
+
+/** 의뢰인 공개 프로필. user-management 가 정본이다 (PRD D-12) */
+const CLIENT_PROFILES: Record<string, ClientPublicProfile> = {
+  usr_client_a: {
+    userId: "usr_client_a",
+    name: "김의뢰",
+    companyName: "스튜디오 A",
+    profileImageUrl: null,
+    averageRating: 4.6,
+    reviewCount: 12,
+  },
+  usr_client_b: {
+    userId: "usr_client_b",
+    name: "박의뢰",
+    companyName: null,
+    profileImageUrl: null,
+    averageRating: 4.2,
+    reviewCount: 3,
+  },
+};
+
+export function toClientProfile(clientId: string): ClientPublicProfile {
+  return (
+    CLIENT_PROFILES[clientId] ?? {
+      userId: clientId,
+      name: "알 수 없음",
+      companyName: null,
+      profileImageUrl: null,
+      averageRating: 0,
+      reviewCount: 0,
+    }
+  );
 }
