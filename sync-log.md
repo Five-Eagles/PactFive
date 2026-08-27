@@ -5,3 +5,5 @@
 
 | 날짜 | 반영 기능 | 반영된 커밋 (prototype 기준) | 비고 |
 |---|---|---|---|
+| 2026-08-27 | user-management | 41d7f4b | auth 통합 반영 |
+| 2026-08-27 | contracts-payments | c63d410 | server 계약 반영(controller/repository/routes 신규 작성, web 미통합) |

@@ -1,11 +1,15 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { APP_ROUTES } from './shared/routes';
 import { setUnauthorizedHandler } from './shared/http';
+import { NotIntegratedPage } from './shared/NotIntegratedPage';
+import { authRoutes, AUTH_ROUTES } from './features/user-management/auth.routes';
 
 // 401을 받으면 로그인 화면으로 보낸다.
 // shared/http.ts가 라우터를 직접 import하지 않도록 여기서 주입한다.
+// 로그인 경로는 user-management 소유이므로 그 기능의 routes.tsx에서 가져온다
+// (app/web/AGENTS.md — 특정 기능에 속하는 경로는 shared/routes.ts에 두지 않는다).
 setUnauthorizedHandler(() => {
-  window.location.assign(APP_ROUTES.login);
+  window.location.assign(AUTH_ROUTES.login);
 });
 
 function HomePage() {
@@ -14,11 +18,25 @@ function HomePage() {
       <h1>PactFive</h1>
       <p>통합 애플리케이션 스캐폴드입니다. 기능은 아직 등록되지 않았습니다.</p>
       <p>
-        <Link to={APP_ROUTES.login}>로그인</Link>
+        <Link to={AUTH_ROUTES.login}>로그인</Link>
       </p>
     </main>
   );
 }
+
+/**
+ * 아직 설계/통합되지 않은 기능 라우트 — 경로 slug는 각 기능 폴더명을 그대로 kebab-case로 쓴다.
+ * 실제 화면 구현이 생기면 이 배열에서 빼고 해당 기능의 `{도메인}.routes.tsx`로 옮긴다.
+ */
+const NOT_INTEGRATED_ROUTES: Array<{ path: string; featureName: string }> = [
+  { path: '/project-management', featureName: 'project-management' },
+  { path: '/applications', featureName: 'applications' },
+  { path: '/ai-pricing', featureName: 'ai-pricing' },
+  { path: '/reviews', featureName: 'reviews' },
+  { path: '/engagement', featureName: 'engagement' },
+  { path: '/notifications', featureName: 'notifications' },
+  { path: '/contracts-payments', featureName: 'contracts-payments' },
+];
 
 function NotFoundPage() {
   return (
@@ -48,6 +66,10 @@ export default function App() {
       <Routes>
         <Route path={APP_ROUTES.home} element={<HomePage />} />
         {/* 기능별 라우트를 여기에 등록한다 */}
+        {authRoutes}
+        {NOT_INTEGRATED_ROUTES.map(({ path, featureName }) => (
+          <Route key={path} path={path} element={<NotIntegratedPage featureName={featureName} />} />
+        ))}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
