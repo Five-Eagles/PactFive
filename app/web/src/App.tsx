@@ -1,0 +1,55 @@
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { APP_ROUTES } from './shared/routes';
+import { setUnauthorizedHandler } from './shared/http';
+
+// 401을 받으면 로그인 화면으로 보낸다.
+// shared/http.ts가 라우터를 직접 import하지 않도록 여기서 주입한다.
+setUnauthorizedHandler(() => {
+  window.location.assign(APP_ROUTES.login);
+});
+
+function HomePage() {
+  return (
+    <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem' }}>
+      <h1>PactFive</h1>
+      <p>통합 애플리케이션 스캐폴드입니다. 기능은 아직 등록되지 않았습니다.</p>
+      <p>
+        <Link to={APP_ROUTES.login}>로그인</Link>
+      </p>
+    </main>
+  );
+}
+
+function NotFoundPage() {
+  return (
+    <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem' }}>
+      <h1>404</h1>
+      <p>없는 페이지입니다.</p>
+      <Link to={APP_ROUTES.home}>홈으로</Link>
+    </main>
+  );
+}
+
+/**
+ * 라우터 조립 지점 — 기능별 라우트를 등록하는 곳은 여기 한 곳뿐이다
+ * (app/server/src/app.ts가 백엔드 라우트를 한 곳에서 조립하는 것과 대칭).
+ *
+ * 기능을 통합할 때 아래처럼 그 기능의 routes를 가져와 펼친다:
+ *
+ *   import { authRoutes } from './features/user-management/auth.routes';
+ *   ...
+ *   {authRoutes}
+ *
+ * 다른 기능 폴더의 파일을 직접 import하지 않는다 (app/web/AGENTS.md).
+ */
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path={APP_ROUTES.home} element={<HomePage />} />
+        {/* 기능별 라우트를 여기에 등록한다 */}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
