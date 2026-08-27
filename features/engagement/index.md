@@ -11,8 +11,8 @@
 - design/ 구성: `_tokens.css`(project-management 와 같은 사본) ·
   `high-fi-bookmarks.html`(SCR-B08 · SCR-B09). **필수 요소 목록 9개**, 전부 PRD 정본과 대조함.
   8개는 §14 문구표, 1개(`추천 프로젝트`)는 §7.2 화면 이름이라 근거 열을 따로 뒀다.
-- prototype/ 구성: 데이터 계층 + 서비스 4종까지 작성됨. `run.tsx` **PASS 69 · FAIL 0**.
-  화면은 이어지는 커밋에서 채운다 (run.tsx 6절 자리 표시).
+- prototype/ 구성: **완료** — 데이터 계층 · 서비스 4종 · 화면 3종.
+  `run.tsx` **PASS 88 · FAIL 0**. 결과는 `test-report.md`.
 
 ## 이 기능의 전제 — 읽기 전용
 
@@ -33,9 +33,11 @@
 토글 UI 는 더블클릭과 재시도가 잦다. 두 동작 모두 몇 번을 불러도 결과가 같아야 한다.
 
 ## 프론트엔드 (prototype/web/)
-- 주요 컴포넌트: 작성 예정 (북마크 아이콘 · 내 북마크 목록 · 추천 섹션)
-- 공용 조각: 프로젝트 카드는 `features/project-management/prototype/web/ui.tsx` 와
-  같은 모양이어야 한다. 통합 시 공용으로 뺄 후보
+- 주요 컴포넌트: `BookmarkButton`(보는 사람별 4상태) · `MyBookmarks`(SCR-B08) ·
+  `RecommendationSection`(SCR-B09 · 후보 0건이면 렌더링 자체를 안 함)
+- 공용 조각: `web/ui.tsx` — Button · Badge · RecruitmentBadge · Money · Chip · EmptyState.
+  `features/project-management/prototype/web/ui.tsx` 와 거의 같지만 **직접 import 하지 않는다**
+  (기능 폴더 간 직접 import 금지 · 2026-08-28 팀 표준). 통합 시 `app/web/src/shared/` 로 뺄 후보
 - Mock 계약 상태: 화면은 서버 응답을 그대로 받는다. `canApply` 도 서버가 판정한다 (규칙 14)
 
 ## 백엔드 (prototype/server/)
@@ -78,3 +80,4 @@
 | 2026-08-27 | 최초 작성 — spec.md 규칙 34개 · api-contract.md 4종 · CR-0001 |
 | 2026-08-27 | design/ high-fi 추가 — SCR-B08 · SCR-B09 · 필수 요소 9개 |
 | 2026-08-28 | prototype 데이터 계층 + 서비스 4종 — run.tsx PASS 69 |
+| 2026-08-28 | 화면 3종 + test-report.md — run.tsx PASS 88 · 필수 요소 9개 전부 · **SDD 산출물 4종 완료** |

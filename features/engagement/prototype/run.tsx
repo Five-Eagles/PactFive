@@ -335,7 +335,142 @@ async function main() {
     check(anon.status === 200, "규칙 16: 비로그인도 추천을 볼 수 있다");
   }
 
-  /* ═══════════ 6. 화면 필수 요소 9개 — 다음 라운드에서 추가 ═══════════ */
+  /* ═══════════ 6. 화면 필수 요소 9개 ═══════════ */
+  section("화면 필수 요소 — high-fi-bookmarks.html");
+
+  const React = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { MyBookmarks } = await import("./web/MyBookmarks");
+  const { RecommendationSection } = await import("./web/RecommendationSection");
+  const { BookmarkButton } = await import("./web/BookmarkButton");
+
+  /**
+   * `design/high-fi-bookmarks.html` 의 "필수 요소 목록" 9개를 그대로 옮긴 것이다.
+   * 8개는 PRD §14 문구표, 1개(`추천 프로젝트`)는 §7.2 화면 이름이다.
+   * **이 목록에 없는 문구를 여기 넣지 않는다** — 넣는 순간 정본과 갈라진다.
+   */
+  const REQUIRED = [
+    "북마크 해제",
+    "지원하기",
+    "모집이 마감되었습니다",
+    "모집 중",
+    "모집 마감",
+    "저장한 프로젝트가 없습니다",
+    "관심 있는 프로젝트를 북마크해 두면 여기에 모여요.",
+    "프로젝트 둘러보기",
+    "추천 프로젝트",
+  ];
+
+  const card = (o: {
+    id: string;
+    title: string;
+    status: "OPEN" | "CLOSED";
+    canApply: boolean;
+    savedAt: string;
+  }) => ({
+    bookmarkId: `bkm_${o.id}`,
+    bookmarkedAt: o.savedAt,
+    canApply: o.canApply,
+    project: {
+      projectId: o.id,
+      title: o.title,
+      category: { category: "DESIGN", displayName: "디자인" },
+      budgetAmount: 3_400_000,
+      recruitmentDeadlineAt: "2026-09-16T14:59:59Z",
+      recruitmentStatus: o.status,
+      skills: [{ skillId: "FIGMA", displayName: "Figma" }],
+      applicationCount: 0,
+    },
+  });
+
+  // 시안의 기본 렌더링과 같은 구성 — 모집 중 하나, 마감 하나.
+  const listHtml = renderToStaticMarkup(
+    React.createElement(MyBookmarks, {
+      items: [
+        card({ id: "prj_a", title: "배달 앱 UI 개선", status: "OPEN", canApply: true, savedAt: "2026-08-25T10:00:00Z" }),
+        card({ id: "prj_b", title: "쇼핑몰 웹사이트 구축", status: "CLOSED", canApply: false, savedAt: "2026-08-20T09:00:00Z" }),
+      ],
+    }),
+  );
+  const emptyHtml = renderToStaticMarkup(React.createElement(MyBookmarks, {}));
+  const recoHtml = renderToStaticMarkup(
+    React.createElement(RecommendationSection, {
+      items: [
+        {
+          projectId: "prj_r1",
+          title: "랜딩 페이지 제작",
+          category: { category: "DESIGN", displayName: "디자인" },
+          budgetAmount: 2_800_000,
+          recruitmentDeadlineAt: "2026-09-20T14:59:59Z",
+          recruitmentStatus: "OPEN" as const,
+          skills: [{ skillId: "REACT", displayName: "React" }],
+          applicationCount: 1,
+        },
+      ],
+    }),
+  );
+
+  function decode(html: string): string {
+    return html
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">");
+  }
+
+  const allHtml = decode([listHtml, emptyHtml, recoHtml].join("\n"));
+  for (const text of REQUIRED) {
+    check(allHtml.includes(text), `"${text}"`);
+  }
+  check(REQUIRED.length === 9, `필수 요소 합계 9개 (실제 ${REQUIRED.length}개)`);
+  check(!/#[0-9A-Fa-f]{6}/.test(allHtml), "화면에 원시 색상값(#RRGGBB)이 박혀 있지 않다");
+
+  /* --- 화면 규칙 --- */
+  section("화면 규칙");
+  {
+    // 규칙 24 — 후보가 없으면 섹션 자체를 그리지 않는다.
+    const hidden = renderToStaticMarkup(React.createElement(RecommendationSection, {}));
+    check(hidden === "", "규칙 24: 추천 후보가 없으면 섹션을 렌더링하지 않는다");
+    check(
+      !hidden.includes("추천"),
+      "규칙 24: 빈 상태 안내 문구도 남기지 않는다 (내 북마크와 다르다)",
+    );
+
+    // 규칙 28 — 순위값이 화면에 나오지 않는다.
+    check(
+      !recoHtml.includes("1순위") && !recoHtml.includes("tier") && !recoHtml.includes("score"),
+      "규칙 28: 순위·점수를 화면에 쓰지 않는다",
+    );
+
+    // 규칙 30 — 의뢰인에게는 아이콘 자체를 그리지 않는다.
+    const forClient = renderToStaticMarkup(
+      React.createElement(BookmarkButton, { projectId: "prj_a", viewer: { role: "CLIENT" } }),
+    );
+    check(forClient === "", "규칙 30: 의뢰인에게는 북마크 아이콘을 표시하지 않는다");
+
+    const forAnon = renderToStaticMarkup(
+      React.createElement(BookmarkButton, { projectId: "prj_a", viewer: null }),
+    );
+    check(forAnon.includes("<button"), "규칙 30: 비로그인에게는 표시한다 (누르면 로그인 유도)");
+
+    const forFree = renderToStaticMarkup(
+      React.createElement(BookmarkButton, {
+        projectId: "prj_a",
+        viewer: { role: "FREELANCER" },
+        initialBookmarked: true,
+      }),
+    );
+    check(forFree.includes('aria-pressed="true"'), "규칙 30: 프리랜서는 저장 상태가 반영된다");
+
+    // 규칙 13 — 마감된 것이 목록에 남아 있다.
+    check(
+      listHtml.includes("쇼핑몰 웹사이트 구축"),
+      "규칙 13: 마감된 프로젝트도 목록에 남는다",
+    );
+    // 규칙 14 — 지원만 막힌다.
+    check(listHtml.includes("disabled"), "규칙 14: 마감된 항목은 지원 버튼이 비활성이다");
+  }
 
   section("결과");
   console.log(`PASS ${passCount} · FAIL ${failCount}`);
