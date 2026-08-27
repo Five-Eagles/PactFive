@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>함수별 필수 정의 확인 — 최윤석</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; font-size: 11px; line-height: 1.4; color: #1a1a1a; margin: 0; }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  h2 { font-size: 13px; margin: 14px 0 6px; border-bottom: 1px solid #222; padding-bottom: 2px; }
+  h3 { font-size: 11.5px; margin: 10px 0 4px; }
+  .meta { color: #555; font-size: 10.5px; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 10.5px; }
+  th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 9.5px; }
+  .check { width: 12px; height: 12px; border: 1.5px solid #333; display: inline-block; }
+  .note { color: #444; font-size: 10.5px; }
+</style>
+</head>
+<body>
+<h1>함수별 필수 정의 확인 요청 — 최윤석</h1>
+<p class="meta">수신: <strong>최윤석</strong> (applications) · 발신: 조준영 (contracts-payments) · 2026-08-25<br>
+정본: PRD v6.4 §5.4 · ERD v1.4 · spec.md · start·restore만 답해 주세요.</p>
+
+<h2>해당 없음</h2>
+<table>
+<tr><th>함수</th><th>이유</th></tr>
+<tr><td><code>completeProjectTransaction</code></td><td>납품·정산 후 완료. 조준영 → 유동우</td></tr>
+<tr><td><code>markPaymentPending</code></td><td>PG 직전 결제 시작 통보. 조준영 → 유동우</td></tr>
+</table>
+
+<h2>1. startProjectTransaction</h2>
+<p>반드시 확정: 호출 주체, 수락된 지원 ID, 프로젝트 시작 상태</p>
+<p class="note">최윤석은 이 함수를 구현·호출하지 않습니다. 수락된 지원 ID가 프로젝트에 심긴 뒤에만 조준영이 계약 흐름에 들어갑니다.</p>
+<table>
+<tr><th>항목</th><th>현재 초안</th></tr>
+<tr><td>호출 주체</td><td>조준영 → 유동우. 최윤석은 호출하지 않음</td></tr>
+<tr><td>수락된 지원 ID</td><td>C-01이 <code>accepted_application_id</code>에 기록. start 요청에 applicationId를 다시 실지 않음</td></tr>
+<tr><td>시작 상태</td><td>수락 직후 CLOSED + CONTRACT_PENDING. 이후 서명·결제 후 IN_PROGRESS</td></tr>
+<tr><td>순서</td><td>accept 성공 → 나머지 거절 → 알림. 그 다음 금액합의/start</td></tr>
+</table>
+<table>
+<tr><th>#</th><th>질문</th><th>예</th><th>아니오</th><th>대안</th></tr>
+<tr><td>A1</td><td>accept 성공 → 나머지 거절 → 알림 후에야 조준영이 계약 흐름에 들어가는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>A2</td><td>C-01이 acceptedApplicationId를 심는 것으로 충분하고 start에 applicationId를 다시 안 실어도 되는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>A3</td><td>수락 전 acceptedApplicationId가 null이면 조준영이 계약 흐름을 시작하지 않는다고 가정해도 되는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>A4</td><td>한 프로젝트의 수락 지원은 최대 1건인가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+</table>
+
+<h2>2. restorePreContractProject</h2>
+<p>반드시 확정: 복원 대상 상태, 합의·계약 취소와의 관계 (지원에 닿는 부분)</p>
+<table>
+<tr><th>항목</th><th>현재 초안</th></tr>
+<tr><td>복원 대상</td><td>거래 NONE. 조건부 모집 OPEN. 거절된 지원을 되살리지 않음</td></tr>
+<tr><td>합의·계약</td><td>조준영 테이블. restore는 프로젝트만. 대기 지원이 남으면 rejectPendingApplications 재요청</td></tr>
+<tr><td>대기 지원 잔존</td><td>200, reopened false, notReopenedReason PENDING_APPLICATIONS_REMAIN</td></tr>
+<tr><td>재개 성공</td><td>새 지원은 기존 PENDING 규칙</td></tr>
+</table>
+<table>
+<tr><th>#</th><th>질문</th><th>예</th><th>아니오</th><th>대안</th></tr>
+<tr><td>B1</td><td>restore가 자동 거절된 지원자를 되살리지 않는 전제를 Mock이 지키는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>B2</td><td>PENDING_APPLICATIONS_REMAIN일 때 rejectPendingApplications 재요청을 다시 받을 수 있는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>B3</td><td>재개된 프로젝트의 새 지원은 기존 PENDING 규칙인가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>B4</td><td>프로젝트 취소와 합의 최종 거절을 지원 거절 사유에서 구분하는가</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+</table>
+
+<h2>기존 확인 3문항</h2>
+<table>
+<tr><th>#</th><th>질문</th><th>예</th><th>아니오</th><th>메모</th></tr>
+<tr><td>1</td><td>accept 성공 → 나머지 거절 → 알림 후에 start 흐름 (A1과 같음)</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>2</td><td>restore 중 rejectPendingApplications 재요청 수신 (B2와 같음)</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+<tr><td>3</td><td>재개 후 새 지원 = 기존 PENDING (B3와 같음)</td><td><span class="check"></span></td><td><span class="check"></span></td><td></td></tr>
+</table>
+<p class="note">결제·완료 함수는 유동우 문서에서만 다룹니다.</p>
+</body>
+</html>

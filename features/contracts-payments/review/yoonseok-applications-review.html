@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>지원 수락 이후 계약 흐름 확인 요청 — 최윤석 (applications)</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 11.5px; line-height: 1.45; color: #1a1a1a; margin: 0;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 13px; margin: 18px 0 8px; border-bottom: 1px solid #222; padding-bottom: 3px; }
+  h3 { font-size: 12px; margin: 14px 0 6px; }
+  .meta { color: #555; font-size: 11px; margin-bottom: 14px; }
+  .badge { display: inline-block; background: #eee; border: 1px solid #ccc; padding: 1px 6px; font-size: 10px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 11px; }
+  th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; }
+  code, pre { font-family: ui-monospace, Menlo, monospace; font-size: 10px; }
+  pre { background: #f7f7f7; border: 1px solid #ddd; padding: 8px; overflow: hidden; white-space: pre-wrap; }
+  .check { width: 14px; height: 14px; border: 1.5px solid #333; display: inline-block; vertical-align: middle; margin-right: 4px; }
+  .memo { border-bottom: 1px dotted #999; min-height: 18px; }
+  .note { color: #444; font-size: 11px; }
+  ol.flow { margin: 8px 0 12px; padding-left: 22px; }
+  ol.flow li { margin-bottom: 4px; }
+  .you { background: #eef6ff; }
+  .them { background: #f7f7f7; }
+</style>
+</head>
+<body>
+
+<h1>지원 수락 이후 계약 흐름 확인 요청</h1>
+<p class="meta">
+  수신: <strong>최윤석</strong> (applications · notifications) ·
+  발신: 조준영 (contracts-payments) · 2026-08-25<br>
+  출처: <code>features/contracts-payments/spec.md</code> 규칙 3 · 5 · 7 ·
+  정본 PRD v6.4 §5.4 C-01 호출 순서 · D-43<br>
+  <span class="badge">작업 가설</span> 합의되면 spec·API 계약을 확정본으로 올린다.
+</p>
+<p>이 문서는 applications Mock이 <strong>계약 흐름과 맞물리는 지점만</strong> 확인하기 위한 것이다.
+결제·완료 REST(<code>markPaymentPending</code>, <code>completeProjectTransaction</code>)는 넣지 않았다.
+조준영이 유동우에게 부르는 출발점은 <code>startProjectTransaction</code>이며, 그 선행이 최윤석의 지원 수락이다.</p>
+
+<h2>확인 체크리스트</h2>
+<p class="note">해당 칸에 표시하고, 다르면 메모에 대안을 적어 주세요.</p>
+<table>
+  <thead>
+    <tr><th style="width:6%">#</th><th>확인 항목</th><th style="width:12%">예</th><th style="width:12%">아니오</th><th style="width:28%">메모</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td><code>acceptProjectApplication</code> 성공 → 나머지 지원 거절 → 알림 순서가 끝난 뒤에야 조준영이 <code>startProjectTransaction</code> 흐름(금액합의·서명)에 들어가는 것을 applications Mock에 반영하는가. (PRD §0.2 #6)</td>
+      <td><span class="check"></span></td>
+      <td><span class="check"></span></td>
+      <td class="memo"></td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><code>restorePreContractProject</code> 중 유동우가 <code>rejectPendingApplications</code>를 재요청하면 applications Mock이 다시 받을 수 있는가. (D-43 · 일괄 거절 부분 실패로 대기 지원이 남은 경우)</td>
+      <td><span class="check"></span></td>
+      <td><span class="check"></span></td>
+      <td class="memo"></td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>합의 최종 거절 후 재개된 프로젝트(<code>reopened: true</code>, 모집 <code>OPEN</code>)의 새 지원은 기존과 같은 <code>PENDING</code> 규칙인가.</td>
+      <td><span class="check"></span></td>
+      <td><span class="check"></span></td>
+      <td class="memo"></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>왜 startProjectTransaction이 최윤석과 연결되는가</h2>
+<p><code>startProjectTransaction</code>은 조준영 → 유동우 호출이다. 그러나 실행 전 상태는
+반드시 <code>CONTRACT_PENDING</code>이어야 하고, 그 상태로 만드는 함수가 최윤석의
+<code>acceptProjectApplication</code>이다. 수락이 끝나기 전에 조준영이 금액합의·서명을 시작하면
+프로젝트 상태가 아직 <code>NONE</code>이라 이후 <code>start</code>가 409가 된다.</p>
+<p>PRD가 정한 수락 순서: ① <code>acceptProjectApplication</code> 성공 → ② 나머지 지원 거절 → ③ 알림.
+이 세 단계가 Mock에서 끝난 뒤에만 조준영 흐름이 시작된다고 가정한다.</p>
+
+<h2>해피패스 호출 순서 (spec 규칙 7)</h2>
+<ol class="flow">
+  <li class="you"><strong>최윤석</strong> <code>acceptProjectApplication</code> 성공 → <code>recruitmentStatus: CLOSED</code>, <code>transactionStatus: CONTRACT_PENDING</code></li>
+  <li class="you"><strong>최윤석</strong> 나머지 대기 지원 거절 + 알림</li>
+  <li>조준영 금액합의 · 계약 서명</li>
+  <li>조준영 <code>markPaymentPending</code> → PG → <code>SIGNED</code> ∧ <code>PAID</code></li>
+  <li>조준영 <code>startProjectTransaction</code> → <code>IN_PROGRESS</code></li>
+  <li>작업 · 납품 <code>APPROVED</code> ∧ 정산 <code>RELEASED</code> → <code>completeProjectTransaction</code></li>
+</ol>
+<p>최종 거절 시에만 조준영이 <code>restorePreContractProject</code>를 부른다. 재제안·제안 철회·프로젝트 취소 때는 부르지 않는다.</p>
+
+<h2>startProjectTransaction 요약 (최윤석이 알면 되는 범위)</h2>
+<table>
+  <tr><th>항목</th><th>내용</th></tr>
+  <tr><td>호출</td><td>조준영 → 유동우. 최윤석은 이 함수를 직접 부르지 않는다.</td></tr>
+  <tr><td>선행 상태</td><td>최윤석 수락으로 만든 <code>CONTRACT_PENDING</code></td></tr>
+  <tr><td>호출 조건</td><td>계약 <code>SIGNED</code> <strong>그리고</strong> 결제 <code>PAID</code> (둘 다)</td></tr>
+  <tr><td>실행 후</td><td><code>IN_PROGRESS</code>. 모집은 <code>CLOSED</code> 유지.</td></tr>
+  <tr><td>최윤석 영향</td><td>이 시점 이후 새 지원은 받지 않는다 (이미 마감).</td></tr>
+</table>
+
+<h2>restorePreContractProject와 지원 도메인 (D-43)</h2>
+<p>조준영이 최신 제안의 최종 거절 때 유동우에게 복원을 요청한다.
+유동우가 <code>projects</code>만 되돌리고, 이미 자동 거절된 지원자는 복구하지 않는다.</p>
+<table>
+  <tr><th>조건</th><th>프로젝트 결과</th><th>최윤석에게</th></tr>
+  <tr>
+    <td>마감일 남음 + 대기 지원 0건</td>
+    <td><code>OPEN</code> + <code>reopened: true</code> + <code>transactionStatus: NONE</code></td>
+    <td>새 지원을 기존 <code>PENDING</code> 규칙으로 받을 수 있음 (체크리스트 3)</td>
+  </tr>
+  <tr>
+    <td>마감일 지남 + 대기 지원 0건</td>
+    <td><code>CLOSED</code> + <code>reopened: false</code></td>
+    <td>재모집은 의뢰인 확인 화면. 당장 새 지원 없음</td>
+  </tr>
+  <tr>
+    <td>대기 지원이 남아 있음 (수락 시 일괄 거절 부분 실패)</td>
+    <td><code>CLOSED</code> + <code>reopened: false</code> + HTTP 200 (OPEN 보류)</td>
+    <td>유동우가 <code>rejectPendingApplications</code>를 <strong>재요청</strong>. Mock이 이 두 번째 호출을 받아야 함 (체크리스트 2)</td>
+  </tr>
+</table>
+<p>같은 <code>negotiationId</code>로 restore가 다시 오면 유동우는 최초 결과를 그대로 돌려준다.
+그 사이에 새 지원자가 수락된 뒤 지연된 이전 restore가 도착하면
+<code>409 PROJECT_ALREADY_RESTORED</code>로 거부되어 새 계약 대기가 유지된다 (PM-55).</p>
+
+<pre>{ "projectId": "prj_123", "negotiationId": "ngt_123",
+  "recruitmentStatus": "OPEN", "transactionStatus": "NONE",
+  "reopened": true,
+  "restoredFields": ["recruitmentStatus", "transactionStatus"],
+  "alreadyProcessed": false, "projectVersion": 8 }</pre>
+<p class="note">위는 재개 성공 예시이다. 대기 지원 잔존이면 <code>recruitmentStatus: "CLOSED"</code>, <code>reopened: false</code>.</p>
+
+<h2>하지 않는 일</h2>
+<ul>
+  <li>조준영/유동우가 <code>applications</code> 테이블을 직접 UPDATE하지 않는다.</li>
+  <li>restore가 이미 자동 거절된 지원자를 되살리지 않는다.</li>
+  <li>최윤석이 <code>startProjectTransaction</code>을 구현하거나 호출하지 않는다.</li>
+</ul>
+
+</body>
+</html>
