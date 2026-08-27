@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { APP_ROUTES } from './shared/routes';
 import { setUnauthorizedHandler } from './shared/http';
+import { NotIntegratedPage } from './shared/NotIntegratedPage';
 
 // 401을 받으면 로그인 화면으로 보낸다.
 // shared/http.ts가 라우터를 직접 import하지 않도록 여기서 주입한다.
@@ -19,6 +20,20 @@ function HomePage() {
     </main>
   );
 }
+
+/**
+ * 아직 설계/통합되지 않은 기능 라우트 — 경로 slug는 각 기능 폴더명을 그대로 kebab-case로 쓴다.
+ * 실제 화면 구현이 생기면 이 배열에서 빼고 해당 기능의 `{도메인}.routes.tsx`로 옮긴다.
+ */
+const NOT_INTEGRATED_ROUTES: Array<{ path: string; featureName: string }> = [
+  { path: '/project-management', featureName: 'project-management' },
+  { path: '/applications', featureName: 'applications' },
+  { path: '/ai-pricing', featureName: 'ai-pricing' },
+  { path: '/reviews', featureName: 'reviews' },
+  { path: '/engagement', featureName: 'engagement' },
+  { path: '/notifications', featureName: 'notifications' },
+  { path: '/contracts-payments', featureName: 'contracts-payments' },
+];
 
 function NotFoundPage() {
   return (
@@ -48,6 +63,9 @@ export default function App() {
       <Routes>
         <Route path={APP_ROUTES.home} element={<HomePage />} />
         {/* 기능별 라우트를 여기에 등록한다 */}
+        {NOT_INTEGRATED_ROUTES.map(({ path, featureName }) => (
+          <Route key={path} path={path} element={<NotIntegratedPage featureName={featureName} />} />
+        ))}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
