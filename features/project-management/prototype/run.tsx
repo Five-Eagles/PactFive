@@ -515,6 +515,16 @@ async function main() {
       "대기 지원이 남으면 사유 PENDING_APPLICATIONS_REMAIN",
     );
     check(pend.recruitmentStatus === "CLOSED", "이 경우 모집은 CLOSED 를 유지한다");
+
+    // 규칙 31 — CANCELED 는 다른 거래 상태로 되돌아가지 않는다.
+    // start·complete 는 위에서 봤고, 복원도 막혀야 한다.
+    await expectError("취소된 프로젝트 복원", 409, "PROJECT_TRANSITION_CONFLICT", () =>
+      svc.restorePreContractProject("prj_canceled", {
+        ...envelope(IDEMPOTENCY_KEY.restorePreContract("ngt_5")),
+        negotiationId: "ngt_5",
+        reason: "CLIENT_REJECTED",
+      }),
+    );
   }
 
   /* --- 5-7. applyPricingAnalysisBudget (규칙 40) --- */
@@ -947,6 +957,18 @@ async function main() {
       api.closeRecruitment(CLIENT_A, "prj_canceled"),
     );
   }
+  {
+    // 규칙 25 — deadlineNotifiedAt 이 이미 있으면 후처리를 다시 요청하지 않는다.
+    // 배치가 마감 시각 경과를 이미 알렸는데 의뢰인이 수동 마감을 누른 경우다.
+    const { api, repo: r, ext: e } = newApi();
+    r.update("prj_open_locked", { deadlineNotifiedAt: "2026-08-25T00:00:00Z" });
+    const res = await api.closeRecruitment(CLIENT_A, "prj_open_locked");
+    check(res.body.recruitmentStatus === "CLOSED", "규칙 25: 마감 자체는 된다");
+    check(
+      e.calls.rejectPendingApplications.length === 0,
+      "규칙 25: 이미 알린 뒤면 일괄 거절을 다시 요청하지 않는다",
+    );
+  }
 
   /* --- 6-7. 취소 (규칙 26~31) --- */
   section("공개 API — 취소");
@@ -1087,7 +1109,154 @@ async function main() {
     );
   }
 
-  /* ═══════════ 7. 화면 필수 요소 43개 — 다음 라운드에서 추가 ═══════════ */
+  /* ═══════════ 7. 화면 필수 요소 43개 ═══════════ */
+
+  const React = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { ProjectRegisterForm } = await import("./web/ProjectRegisterForm");
+  const { ProjectBrowse, ProjectDetail } = await import("./web/ProjectBrowse");
+  const { MyProjectList, ProjectEditForm, ReopenRecruitmentDialog } = await import(
+    "./web/ProjectManage"
+  );
+
+  /**
+   * 아래 목록은 `design/high-fi-*.html` 의 "필수 요소 목록" 을 그대로 옮긴 것이고,
+   * 그 목록은 PRD §14 문구 정본을 옮긴 것이다.
+   * **이 목록에 없는 문구를 여기 넣지 않는다** — 넣는 순간 정본과 갈라진다.
+   */
+  const REQUIRED = {
+    "high-fi-register.html": [
+      // SCR-B03
+      "프로젝트 제목",
+      "예) 쇼핑몰 웹사이트 구축",
+      "5자 이상 100자 이하로 입력해 주세요.",
+      "프로젝트 설명",
+      "어떤 작업이 필요한지 구체적으로 적어 주세요.",
+      "20자 이상 적어 주시면 AI 단가 분석을 더 정확하게 받을 수 있습니다.",
+      "카테고리",
+      "다음",
+      // SCR-B04
+      "모집 시작일 (선택)",
+      "비워두면 바로 모집을 시작합니다",
+      "모집 마감일",
+      "모집 기간은 7일 이상을 권장합니다. 최대 1년까지 설정할 수 있습니다.",
+      "예산",
+      "예) 5,000,000",
+      "단위는 원입니다. 나중에 지원자가 생기면 변경할 수 없습니다.",
+      // SCR-B05
+      "필요한 기술",
+      "최소 1개, 최대 10개까지 선택할 수 있습니다.",
+      "입력한 내용을 확인해 주세요",
+      "수정",
+      "등록하기",
+    ],
+    "high-fi-browse.html": [
+      // SCR-B01
+      "프로젝트를 검색해 보세요",
+      "필터",
+      "최신순",
+      "마감임박순",
+      "예산 높은순",
+      "모집 중",
+      // SCR-B02
+      "예산",
+      "필요한 기술",
+      "지원하기",
+    ],
+    "high-fi-manage.html": [
+      // SCR-B07
+      "내 프로젝트",
+      "프로젝트 등록",
+      "수정",
+      "모집 마감",
+      "지원자 관리",
+      // SCR-B06
+      "프로젝트 수정",
+      "프로젝트 제목",
+      "프로젝트 설명",
+      "저장",
+      "취소",
+      // SCR-B10
+      "협상이 마무리되는 사이에 모집 마감일이 지났습니다. 마감일을 새로 정하면 다시 모집할 수 있습니다.",
+      "모집 마감일",
+      "다시 모집하기",
+      "그만두기",
+    ],
+  } as const;
+
+  const sampleItem = {
+    projectId: "prj_open_free",
+    title: "배달 앱 UI 개선",
+    category: { category: "DESIGN", displayName: "디자인" },
+    budgetAmount: 3_400_000,
+    recruitmentDeadlineAt: "2026-09-16T14:59:59Z",
+    recruitmentStatus: "OPEN" as const,
+    skills: [{ skillId: "FIGMA", displayName: "Figma" }],
+    applicationCount: 0,
+    client: { name: "김의뢰", companyName: "스튜디오 A" },
+  };
+
+  const manageItem = {
+    projectId: "prj_open_locked",
+    title: "쇼핑몰 웹사이트 구축",
+    budgetAmount: 5_000_000,
+    recruitmentDeadlineAt: "2026-09-16T14:59:59Z",
+    recruitmentStatus: "OPEN" as const,
+    pendingApplicationCount: 3,
+    editableFields: ["title", "description", "category", "skillIds"],
+    availableActions: ["EDIT", "CLOSE_RECRUITMENT", "CANCEL"],
+  };
+
+  // 기본 렌더링에서 나와야 한다. 조건부로만 뜨는 요소는 목록에서 이미 제외돼 있다.
+  const rendered = {
+    "high-fi-register.html": renderToStaticMarkup(
+      React.createElement(ProjectRegisterForm, {}),
+    ),
+    "high-fi-browse.html": [
+      renderToStaticMarkup(React.createElement(ProjectBrowse, { items: [sampleItem] })),
+      renderToStaticMarkup(
+        React.createElement(ProjectDetail, {
+          project: { ...sampleItem, description: "설명", recruitmentStartAt: null, canApply: true },
+        }),
+      ),
+    ].join("\n"),
+    "high-fi-manage.html": [
+      renderToStaticMarkup(React.createElement(MyProjectList, { items: [manageItem] })),
+      renderToStaticMarkup(
+        React.createElement(ProjectEditForm, {
+          project: { ...manageItem, description: "설명" },
+        }),
+      ),
+      renderToStaticMarkup(React.createElement(ReopenRecruitmentDialog, {})),
+    ].join("\n"),
+  };
+
+  /** HTML 엔티티를 되돌린다. renderToStaticMarkup 이 따옴표·괄호를 바꿔놓는다 */
+  function decode(html: string): string {
+    return html
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">");
+  }
+
+  let requiredTotal = 0;
+  for (const [file, texts] of Object.entries(REQUIRED)) {
+    section(`화면 필수 요소 — ${file}`);
+    const html = decode(rendered[file as keyof typeof rendered]);
+    for (const text of texts) {
+      requiredTotal += 1;
+      check(html.includes(text), `"${text}"`);
+    }
+  }
+  check(requiredTotal === 43, `필수 요소 합계 43개 (실제 ${requiredTotal}개)`);
+
+  // 원시 토큰을 화면이 직접 쓰면 디자인 시스템이 갈라진다.
+  // 색은 design/_tokens.css 의 CSS 변수로만 들어가야 한다.
+  const allHtml = Object.values(rendered).join("\n");
+  check(!/#[0-9A-Fa-f]{6}/.test(allHtml), "화면에 원시 색상값(#RRGGBB)이 박혀 있지 않다");
+  check(!allHtml.includes("workMode"), "workMode 는 쓰지 않는다 (CR-0004 — ERD 에 없는 필드)");
 
   section("결과");
   console.log(`PASS ${passCount} · FAIL ${failCount}`);
