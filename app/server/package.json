@@ -1,0 +1,22 @@
+{
+  "name": "pactfive-server",
+  "private": true,
+  "type": "module",
+  "description": "PactFive 백엔드. Vercel 프로젝트의 Root Directory로 이 폴더를 지정한다 (ADR-0007). 구조 규칙은 app/server/AGENTS.md.",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

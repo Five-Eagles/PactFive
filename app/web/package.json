@@ -1,0 +1,24 @@
+{
+  "name": "pactfive-web",
+  "private": true,
+  "type": "module",
+  "description": "PactFive 프론트엔드. Vercel 프로젝트의 Root Directory로 이 폴더를 지정한다 (ADR-0007). 구조 규칙은 app/web/AGENTS.md.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^6.3.5"
+  }
+}
