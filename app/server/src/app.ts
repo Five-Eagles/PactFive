@@ -9,6 +9,10 @@ import { authenticateMockAuthorization } from './features/user-management/auth.m
 import type { AuthProvider } from './features/user-management/auth.port';
 import type { AuthRepositories } from './features/user-management/auth.repository';
 import { createRequireAuth } from './shared/require-auth';
+import { createRequireServiceToken } from './shared/require-service-token';
+import { createContractsPaymentsRouter } from './features/contracts-payments/project-transaction.routes';
+import { createInMemoryProjectTransactionAdapter } from './features/contracts-payments/in-memory-project-transaction.adapter';
+import { InMemoryProjectTransactionCallLogRepository } from './features/contracts-payments/in-memory-project-transaction-call-log.repository';
 
 /**
  * Express 앱 — 순수 모듈. 여기서 `app.listen()`을 호출하지 않는다.
@@ -113,6 +117,21 @@ export const requireAuth = createRequireAuth(async (accessToken) => {
   const context = await authService.getCurrentContext(accessToken);
   return { userId: context.userId, role: context.role };
 });
+
+// contracts-payments — server만 이번에 반영한다(웹 화면 없음, feedback_loop 참고).
+// 이 라우트가 서빙하는 `/internal/v1/projects/:projectId/...`의 원래 구현자는
+// project-management(유동우)다 — 아직 통합 전이라 contracts-payments가 인메모리 어댑터로
+// 잠정 대신한다(in-memory-project-transaction.adapter.ts 상단 주석 참고). 인증은 사용자 토큰이
+// 아니라 서버 간 토큰이다(api-contract.md 규칙 1, J1) — `requireAuth`가 아니라
+// `requireServiceToken`을 쓴다.
+const requireServiceToken = createRequireServiceToken(process.env.INTERNAL_SERVICE_TOKEN);
+app.use(
+  createContractsPaymentsRouter(
+    createInMemoryProjectTransactionAdapter(),
+    new InMemoryProjectTransactionCallLogRepository(),
+    requireServiceToken,
+  ),
+);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ message: 'Not Found' });
