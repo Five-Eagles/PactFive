@@ -8,18 +8,19 @@
 | 정본 | `features/contracts-payments/api-contract.md` · `prototype/` |
 
 4함수 Mock 스텁을 붙였습니다. 정본은 API 계약 문서이고, Mock은 그 계약의 스탠드인입니다.
-`features/{기능}/prototype/` 기준 상대 경로입니다. 한 단계 더 깊으면 `../`를 하나 더 붙입니다.
+`features/{기능}/prototype/` 기준 상대 경로입니다. **`prototype/index.ts`만 import**하세요.
 
 ```ts
-import { createProjectTransactionMock } from "../../contracts-payments/prototype/mock/project-transaction.mock";
-import type { ProjectTransactionPort } from "../../contracts-payments/prototype/server/project-transaction.port";
 import {
+  createProjectTransactionMock,
+  MOCK_INTERNAL_SERVICE_TOKEN,
   DomainContractError,
   isDomainContractError,
-} from "../../contracts-payments/prototype/server/project-transaction.types";
+} from "../../contracts-payments/prototype";
+import type { ProjectTransactionPort } from "../../contracts-payments/prototype";
 ```
 
-검증: 리포 루트에서 `npx tsx features/contracts-payments/prototype/run.tsx` → PASS 24.
+검증: 리포 루트에서 `npx tsx features/contracts-payments/prototype/run.tsx` → PASS 28.
 
 ---
 
@@ -27,7 +28,8 @@ import {
 
 - 브라우저 공개 API가 아닙니다. 서버 간 `/internal/v1/projects/:projectId/...` 입니다.
 - 함수명이 정본입니다 (D-48). REST 경로는 Mock용입니다.
-- 헤더: `Authorization: Bearer mock-internal-service-token`. **비밀이 아닙니다.** 현재 Mock은 토큰 문자열을 검사하지 않지만, 호출 측은 헤더를 맞춰 주세요.
+- 헤더: `Authorization: Bearer mock-internal-service-token` (`MOCK_INTERNAL_SERVICE_TOKEN`).
+  **비밀이 아닙니다.** 값이 다르면 Mock이 `422 VALIDATION_ERROR`로 거부합니다.
 - 4xx는 `DomainContractError`를 throw합니다. `err.body.error.code`로 구분합니다.
 - 멱등: 같은 `idempotencyKey`면 최초 응답을 그대로 줍니다. 키에서 ID를 파싱하지 않습니다.
 
@@ -57,8 +59,10 @@ import {
 이 Mock은 **조준영이 호출을 붙이기 위한 스탠드인**입니다. 실제 구현은 project-management 쪽에 두시면 됩니다. 타입만 맞춰 주시면 포트를 갈아끼울 수 있습니다.
 
 ```ts
-import { createProjectTransactionMock } from "../../contracts-payments/prototype/mock/project-transaction.mock";
-import type { ProjectTransactionPort } from "../../contracts-payments/prototype/server/project-transaction.port";
+import {
+  createProjectTransactionMock,
+  type ProjectTransactionPort,
+} from "../../contracts-payments/prototype";
 
 const port: ProjectTransactionPort = createProjectTransactionMock();
 const ctx = await port.getProjectNegotiationContext("prj_alive");

@@ -1,3 +1,4 @@
+import { MOCK_INTERNAL_SERVICE_TOKEN } from "../server/project-transaction.constants";
 import type { ProjectTransactionPort } from "../server/project-transaction.port";
 import {
   DomainContractError,
@@ -108,11 +109,19 @@ function idempotencyKeyOf(projectId: string, key: string): string {
   return `${projectId}:${key}`;
 }
 
-/** 테스트마다 새 저장소를 만든다. */
-export function createProjectTransactionMock(nowIso: string = MOCK_NOW): ProjectTransactionPort & {
+export type ProjectTransactionMockOptions = {
+  serviceToken?: string;
+};
+
+/** 테스트마다 새 저장소를 만든다. 토큰이 다르면 모든 메서드를 거부한다. */
+export function createProjectTransactionMock(
+  nowIso: string = MOCK_NOW,
+  options: ProjectTransactionMockOptions = {},
+): ProjectTransactionPort & {
   getRecruitmentStartAt(projectId: string): string | null;
   getCallCounts(): Record<string, number>;
 } {
+  const serviceToken = options.serviceToken ?? MOCK_INTERNAL_SERVICE_TOKEN;
   const projects = seedProjects();
   const idempotency: IdempotencyStore = new Map();
   const callCounts = {
@@ -122,6 +131,14 @@ export function createProjectTransactionMock(nowIso: string = MOCK_NOW): Project
     completeProjectTransaction: 0,
     restorePreContractProject: 0,
   };
+
+  function assertServiceToken(): void {
+    if (serviceToken !== MOCK_INTERNAL_SERVICE_TOKEN) {
+      throw new DomainContractError("VALIDATION_ERROR", "서버 간 토큰이 올바르지 않습니다.", [
+        { field: "authorization", reason: "invalid" },
+      ]);
+    }
+  }
 
   function findAlive(projectId: string): ProjectRecord {
     const row = projects.get(projectId);
@@ -161,11 +178,13 @@ export function createProjectTransactionMock(nowIso: string = MOCK_NOW): Project
     },
 
     async getProjectNegotiationContext(projectId: string) {
+      assertServiceToken();
       callCounts.getProjectNegotiationContext += 1;
       return toContext(findAlive(projectId));
     },
 
     async markPaymentPending(projectId: string, input: MarkPaymentPendingInput) {
+      assertServiceToken();
       callCounts.markPaymentPending += 1;
       requireEnvelope(input);
       if (!input.contractId) {
@@ -208,6 +227,7 @@ export function createProjectTransactionMock(nowIso: string = MOCK_NOW): Project
     },
 
     async startProjectTransaction(projectId: string, input: StartProjectTransactionInput) {
+      assertServiceToken();
       callCounts.startProjectTransaction += 1;
       requireEnvelope(input);
       if (input.expectedProjectVersion === undefined || input.expectedProjectVersion === null) {
@@ -256,6 +276,7 @@ export function createProjectTransactionMock(nowIso: string = MOCK_NOW): Project
     },
 
     async completeProjectTransaction(projectId: string, input: CompleteProjectTransactionInput) {
+      assertServiceToken();
       callCounts.completeProjectTransaction += 1;
       requireEnvelope(input);
       if (input.expectedProjectVersion === undefined || input.expectedProjectVersion === null) {
@@ -298,6 +319,7 @@ export function createProjectTransactionMock(nowIso: string = MOCK_NOW): Project
     },
 
     async restorePreContractProject(projectId: string, input: RestorePreContractProjectInput) {
+      assertServiceToken();
       callCounts.restorePreContractProject += 1;
       requireEnvelope(input);
       const details: Array<{ field: string; reason: string }> = [];
