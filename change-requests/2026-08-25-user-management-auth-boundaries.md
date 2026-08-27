@@ -342,9 +342,9 @@ NOT NULL` 순서로 한다. 신규 데이터는 첫 배포부터 값을 필수�
 ## 이번 요청과 별개로 남는 OPEN
 
 - 앱 세션 절대 수명 제안값 7일을 승인하거나 대체값을 지정해야 한다.
-- `EmailRegistrationIntent`/OAuth intent의 환경 변수 이름·키 rotation·성공 후 metadata 정리 절차는
-  구현 상세 검토에서 확정한다. 장기 보존이나 운영 조회가 필요해지면 그때 `pending_registrations`
-  테이블을 별도 변경으로 검토한다.
+- `RegistrationIntentRepository`/OAuth intent의 환경 변수 이름·키 rotation·성공 후 조건부 제거와
+  만료 정리 절차는 구현 상세 검토에서 확정한다. 운영 구현은 별도 `pending_registrations` 테이블
+  또는 동등한 durable 저장소를 사용하되 공급자 metadata를 권한 근거로 되돌리지 않는다.
 - `/login`, `/sign-up`, `/auth/confirm`, `/terms`, `/privacy` 라우트의 팀 공통 소유자를 확정해야 한다.
 - 실제 Google/Kakao 왕복과 Refresh 동시성 테스트는 키·Redirect URL과 구현이 준비된 뒤 수행한다.
 

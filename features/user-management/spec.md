@@ -374,7 +374,7 @@ Supabase OAuth callback은 웹 라우트가 아니라 BFF의
    허용·기기·폐기·감사 기록으로 책임을 분리한다.
 4. 서버/BFF가 Refresh Token 쿠키와 갱신을 독점하고 브라우저 Supabase Auth 세션 지속을 끈다.
 
-### 8월 27일 구현 범위 — 2026-08-26 현재
+### 8월 27일 구현 범위 — 2026-08-27 현재
 
 - [x] `EmailRegistrationIntent`를 `AuthProvider`에서 분리해 앱의
   `RegistrationIntentRepository` 책임으로 계약했다. 공급자 `app_metadata`와 Admin `listUsers`
@@ -442,7 +442,7 @@ Supabase OAuth callback은 웹 라우트가 아니라 BFF의
 
 이 문서는 오늘의 SPEC과 로컬 구현 초안의 정본이다. API 계약, 인터랙티브 high-fi HTML, Q-02용
 Mock 인증, 포트/서비스/인메모리 저장소/웹 훅 초안과 `prototype/run.tsx`를 같은 규칙으로 작성했고,
-2026-08-26 기준으로 로컬 자동 검증 37/37과 scoped TypeScript 검사를 통과했다. 정확한 검증 범위와
+2026-08-27 기준으로 로컬 자동 검증 37/37과 scoped TypeScript 검사를 통과했다. 정확한 검증 범위와
 미검증 항목은 `test-report.md`를 따른다.
 
 `@supabase/supabase-js` 2.112.4 기반 `supabase-auth.adapter.ts` 구현 초안과 결정적 fake-client PKCE

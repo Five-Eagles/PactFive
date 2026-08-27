@@ -580,7 +580,9 @@ HttpOnly 쿠키 때문에 로그아웃이 막혀서는 안 된다.
   "email": "user@example.com",
   "name": "홍길동",
   "role": "CLIENT",
-  "profileImageUrl": null
+  "profileImageUrl": null,
+  "authenticated": true,
+  "accessTokenExpiresAt": "2026-08-27T01:00:00.000Z"
 }
 ```
 
@@ -665,7 +667,10 @@ type CreateOAuthAuthorizationResponse = { authorizationUrl: string; expiresAt: s
 
 type RefreshAuthSessionInput = { refreshToken: string };
 type RefreshAuthSessionResponse = { accessToken: string; accessTokenExpiresAt: string };
-type GetCurrentAuthContextResponse = UserAuthSummary;
+type GetCurrentAuthContextResponse = UserAuthSummary & {
+  authenticated: true;
+  accessTokenExpiresAt: string;
+};
 
 type ErrorDetail = { field: string; reason: string };
 type ErrorResponse = {
