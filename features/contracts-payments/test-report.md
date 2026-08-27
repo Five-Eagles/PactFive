@@ -28,7 +28,11 @@
 | 15 취소 무효화 | spec 규칙만 | 안 함 |
 | 16 공개 API 경로 | 문서 초안 | 안 함 |
 | 17 라우트·UX | 문서 초안. design/ 없음 | 안 함 |
-| 18 Increment 1 테스트 목록 | 목록만 적음. 구현은 다음 스프린트 | 안 함 |
+| 18 Increment 1 테스트 목록 | 규칙 22로 이동 | 안 함 |
+| 19 계약·결제 전이표 | spec 규칙만 | 안 함 (설계) |
+| 20 수락 시 계약 필드 | spec 규칙만 | 안 함 (설계) |
+| 21 FAILED 재시도·웹훅 | spec 규칙만. paymentId 조회·같은 행 재시도 | 안 함 (설계) |
+| 22 Increment 1 백로그 | 목록만 적음. 구현은 다음 스프린트 | 안 함 (설계) |
 | UI(design/web) | 다음 스프린트 | 안 함 |
 
 규칙 4의 I-30은 호출자 검증이다. `completeProjectTransactionIfSettled`가 APPROVED∧RELEASED 전에는 포트를 부르지 않는다.
@@ -41,7 +45,7 @@
 - `prototype/`은 유동우 포트 스탠드인 Mock이다. 실제 HTTP·DB는 없다.
 - `design/`·`prototype/web/` 없음. Increment 1 화면은 다음 스프린트.
 - Toss sandbox 실호출은 `PG_SECRET_KEY`가 있을 때만. 지금은 해당 없음.
-- 규칙 10~18은 설계 확정이다. `run.tsx` 추가는 다음 스프린트.
+- 규칙 10~22는 설계 확정이다. `run.tsx` 추가는 다음 스프린트.
 
 ## 팀장에게 물어봐야 하는 것
 
