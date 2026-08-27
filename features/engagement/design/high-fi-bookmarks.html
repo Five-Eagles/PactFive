@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>engagement — 내 북마크 · 추천 (high-fi)</title>
+<link rel="stylesheet" href="_tokens.css" />
+<style>
+  .pcard { border:1px solid var(--border); border-radius:var(--card-radius); padding:var(--card-pad);
+    background:var(--surface); display:flex; flex-direction:column; gap:10px; }
+  .pcard:hover { border-color:var(--border-focus); }
+  .pcard .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .pcard h3 { font-size:16px; font-weight:600; margin:0; line-height:24px; }
+  .pcard .budget { font-size:20px; font-weight:700; letter-spacing:-.2px; }
+  .pcard .skills { display:flex; gap:6px; flex-wrap:wrap; }
+  .pcard .foot { display:flex; justify-content:space-between; align-items:center; gap:10px;
+    font-size:12px; color:var(--content-tertiary); border-top:1px solid var(--border-subtle);
+    padding-top:10px; margin-top:2px; }
+  .pcard.dim { background:var(--surface-muted); }
+  .saved-at { font-size:12px; color:var(--content-tertiary); }
+  .bookmark { width:40px; height:40px; border:1px solid var(--border); border-radius:var(--btn-radius);
+    background:var(--surface); cursor:pointer; font-size:18px; line-height:1; }
+  .bookmark.on { border-color:var(--action); color:var(--action); background:var(--surface-selected); }
+  .reco { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; }
+  .reco .pcard { padding:14px; gap:8px; }
+  .reco .pcard h3 { font-size:14px; line-height:20px; }
+  .reco .pcard .budget { font-size:16px; }
+  .pager { display:flex; gap:6px; justify-content:center; margin-top:20px; }
+  .pager button { width:36px; height:36px; border:1px solid var(--border); background:var(--surface);
+    border-radius:var(--btn-radius); font:inherit; font-size:14px; cursor:pointer; }
+  .pager button.on { background:var(--action); color:var(--action-text); border-color:var(--action); }
+  .hidden-note { border:1px dashed var(--border); border-radius:var(--card-radius);
+    padding:20px; text-align:center; color:var(--content-tertiary); font-size:14px; }
+  /* _tokens.css 에 없는 것만 여기서 정의한다. 색은 반드시 변수를 쓴다 */
+  .who { font-size:12px; font-weight:500; color:var(--content-tertiary); margin-left:8px; }
+  .lead { font-size:14px; line-height:22px; color:var(--content-secondary); margin:0 0 16px; }
+  ul.grid { list-style:none; padding:0; margin:0; }
+  .notice + .notice { margin-top:8px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; margin-bottom:16px; }
+  th, td { text-align:left; padding:10px; border-bottom:1px solid var(--border-subtle); vertical-align:middle; }
+  th { background:var(--surface-subtle); font-size:12px; font-weight:600; color:var(--content-secondary); }
+</style>
+</head>
+<body>
+
+<div class="meta">
+  <h1>내 북마크 · 추천 프로젝트</h1>
+  <p>SCR-B08 · SCR-B09 · design-system v1.0 적용 · 문구는 PRD §14 정본</p>
+  <span class="fi">high-fi</span>
+</div>
+
+<!-- ═══════════════ SCR-B08 : 내 북마크 ═══════════════ -->
+<section class="screen">
+  <h2>SCR-B08 내 북마크 <span class="who">프리랜서 본인만</span></h2>
+
+  <p class="lead">저장한 프로젝트가 <strong>최근 저장순</strong>으로 쌓인다. 프로젝트 등록순이 아니다.
+  마감된 것도 남는다 — 공개 목록(SCR-B01)과 반대다.</p>
+
+  <ul class="grid">
+    <li class="pcard">
+      <div class="top">
+        <h3>배달 앱 UI 개선</h3>
+        <span class="badge open">모집 중</span>
+      </div>
+      <p class="budget">3,400,000원</p>
+      <p class="skills"><span class="chip">Figma</span></p>
+      <div class="foot">
+        <span class="saved-at">2026.08.25 저장</span>
+        <span class="btn-row">
+          <button class="btn quiet">북마크 해제</button>
+          <button class="btn primary">지원하기</button>
+        </span>
+      </div>
+    </li>
+
+    <li class="pcard dim">
+      <div class="top">
+        <h3>쇼핑몰 웹사이트 구축</h3>
+        <span class="badge closed">모집 마감</span>
+      </div>
+      <p class="budget">5,000,000원</p>
+      <p class="skills"><span class="chip">React</span><span class="chip">Node.js</span></p>
+      <div class="foot">
+        <span class="saved-at">2026.08.20 저장</span>
+        <span class="btn-row">
+          <button class="btn quiet">북마크 해제</button>
+          <button class="btn primary" disabled>모집이 마감되었습니다</button>
+        </span>
+      </div>
+    </li>
+  </ul>
+
+  <div class="pager">
+    <button class="on">1</button><button>2</button>
+  </div>
+
+  <div class="notice info">
+    <strong>마감된 항목을 지우지 않는 이유</strong> — 프리랜서가 "이런 조건의 프로젝트가 있었지"를
+    참고하려고 담아둔 경우가 있다. 자동으로 지우면 의도하지 않은 데이터 소실이다.
+    카드는 정상 표시하되 <strong>지원하기만 비활성</strong>한다. 상세 이동과 북마크 해제는 계속 된다.
+    (<code>spec.md</code> 규칙 8·13·14)
+  </div>
+
+  <div class="notice info">
+    <strong>삭제된 프로젝트는 빠진다</strong> — 북마크 행 자체는 남기고 목록에서만 뺀다 (규칙 12).
+    화면에는 "삭제된 프로젝트입니다" 같은 자리표시를 두지 않는다. 사용자가 할 수 있는 것이 없다.
+  </div>
+</section>
+
+<!-- ═══════════════ SCR-B08 : 빈 상태 ═══════════════ -->
+<section class="screen">
+  <h2>SCR-B08 내 북마크 — 빈 상태 <span class="who">프리랜서</span></h2>
+
+  <div class="empty">
+    <h3>저장한 프로젝트가 없습니다</h3>
+    <p>관심 있는 프로젝트를 북마크해 두면 여기에 모여요.</p>
+    <button class="btn primary">프로젝트 둘러보기</button>
+  </div>
+
+  <div class="notice info">
+    <strong>오류가 아니다</strong> — <code>200</code> 에 빈 목록이다 (규칙 15).
+    행동 버튼이 있어야 한다. 빈 화면만 두면 사용자가 다음에 무엇을 할지 알 수 없다.
+  </div>
+</section>
+
+<!-- ═══════════════ 북마크 아이콘 3상태 ═══════════════ -->
+<section class="screen">
+  <h2>북마크 아이콘 <span class="who">SCR-B02 상세 · SCR-B01 카드</span></h2>
+
+  <p class="lead">보는 사람에 따라 다르게 나온다 (규칙 30).</p>
+
+  <table>
+    <thead><tr><th style="width:130px">보는 사람</th><th style="width:90px">아이콘</th><th>동작</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>프리랜서 (저장 안 됨)</td>
+        <td><button class="bookmark" aria-pressed="false" aria-label="북마크 저장">☆</button></td>
+        <td>누르면 저장. 아이콘만 바뀌고 토스트는 띄우지 않는다</td>
+      </tr>
+      <tr>
+        <td>프리랜서 (저장됨)</td>
+        <td><button class="bookmark on" aria-pressed="true" aria-label="북마크 해제">★</button></td>
+        <td>누르면 해제</td>
+      </tr>
+      <tr>
+        <td>비로그인</td>
+        <td><button class="bookmark" aria-pressed="false" aria-label="북마크 저장">☆</button></td>
+        <td><strong>표시하되</strong> 누르면 로그인 유도. 로그인 후 원래 프로젝트로 돌아온다</td>
+      </tr>
+      <tr>
+        <td>의뢰인</td>
+        <td><span class="helper">—</span></td>
+        <td><strong>표시하지 않는다.</strong> 의뢰인은 북마크 대상이 아니다</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="notice info">
+    <strong>토스트를 띄우지 않는다</strong> (PRD D-27) — 자주 누르는 동작이라 매번 토스트가 뜨면
+    방해가 된다. 아이콘 변화만으로 충분하다.
+  </div>
+
+  <div class="notice info">
+    <strong>낙관적 반영을 쓴다면 실패 시 반드시 되돌린다</strong> (규칙 31) —
+    아이콘을 먼저 바꾸고 요청을 보내는 방식은 반응이 빠르지만, 실패가 눈에 띄지 않으면
+    사용자는 저장됐다고 믿는다. 원래 상태와 <strong>이유</strong>를 함께 되돌린다.
+  </div>
+</section>
+
+<!-- ═══════════════ SCR-B09 : 추천 프로젝트 ═══════════════ -->
+<section class="screen">
+  <h2>SCR-B09 추천 프로젝트 <span class="who">누구나 · SCR-B02 하단</span></h2>
+
+  <p class="lead">프로젝트 상세 하단의 보조 섹션이다. <strong>정확히 4건</strong>이고
+  파라미터로 조정할 수 없다.</p>
+
+  <h3 class="h3">추천 프로젝트</h3>
+  <div class="reco">
+    <div class="pcard">
+      <h3>랜딩 페이지 제작</h3>
+      <p class="budget">2,800,000원</p>
+      <p class="skills"><span class="chip">React</span></p>
+      <span class="badge open">모집 중</span>
+    </div>
+    <div class="pcard">
+      <h3>사내 관리 시스템 리뉴얼</h3>
+      <p class="budget">8,200,000원</p>
+      <p class="skills"><span class="chip">TypeScript</span></p>
+      <span class="badge open">모집 중</span>
+    </div>
+    <div class="pcard">
+      <h3>물류 관리 도구 개발</h3>
+      <p class="budget">6,100,000원</p>
+      <p class="skills"><span class="chip">Node.js</span></p>
+      <span class="badge open">모집 중</span>
+    </div>
+    <div class="pcard">
+      <h3>예약 시스템 구축</h3>
+      <p class="budget">4,500,000원</p>
+      <p class="skills"><span class="chip">SQL</span></p>
+      <span class="badge open">모집 중</span>
+    </div>
+  </div>
+
+  <div class="notice info">
+    <strong>상태 배지가 항상 "모집 중"이다</strong> — 후보 조건이 <code>OPEN</code> 뿐이라
+    다른 값이 나올 수 없다 (규칙 18). 그래도 배지를 두는 것은 카드가 내 북마크·목록과
+    같은 컴포넌트이기 때문이다.
+  </div>
+
+  <div class="notice info">
+    <strong>순위를 화면에 쓰지 않는다</strong> (규칙 28) — 1순위·2순위 같은 표시도,
+    내부 점수도 없다. 순서만으로 표현한다. 값을 내보내면 화면이 그것으로 다시 정렬하려 들고,
+    나중에 계산 방식을 바꿀 수 없게 된다.
+  </div>
+
+  <div class="notice info">
+    <strong>4건보다 적으면 있는 만큼만</strong> (규칙 23). 빈 칸을 두지 않고,
+    채우려고 조건을 완화하지도 않는다.
+  </div>
+</section>
+
+<!-- ═══════════════ SCR-B09 : 후보 없음 ═══════════════ -->
+<section class="screen">
+  <h2>SCR-B09 추천 프로젝트 — 후보 없음</h2>
+
+  <div class="hidden-note">섹션 자체가 렌더링되지 않는다</div>
+
+  <div class="notice info">
+    <strong>빈 상태 안내를 두지 않는다</strong> (규칙 24 · PRD §14.8) —
+    내 북마크와 다르다. 북마크는 사용자가 담은 것이라 "없다"는 사실이 정보지만,
+    추천은 보조 섹션이라 "추천할 것이 없습니다"가 화면에 남으면 소음이 된다.
+    <code>200</code> 에 빈 목록이고 오류가 아니다.
+  </div>
+</section>
+
+<!-- ═══════════════ 필수 요소 목록 ═══════════════ -->
+<section class="required">
+  <h2>필수 요소 목록</h2>
+  <p class="lead">기본 렌더링 시 화면에 반드시 보여야 하는 <strong>정확한 텍스트</strong>다.
+  <code>prototype/run.tsx</code>가 컴포넌트를 렌더링해 이 목록이 전부 나타나는지 기계적으로 확인한다.</p>
+
+  <table>
+    <thead><tr><th style="width:100px">화면</th><th style="width:80px">종류</th><th>텍스트</th><th style="width:90px">근거</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="7">SCR-B08</td><td>버튼</td><td>북마크 해제</td><td>§14.7</td></tr>
+      <tr><td>버튼</td><td>지원하기</td><td>§14.7</td></tr>
+      <tr><td>비활성</td><td>모집이 마감되었습니다</td><td>§14.7</td></tr>
+      <tr><td>배지</td><td>모집 중</td><td>design-tokens</td></tr>
+      <tr><td>배지</td><td>모집 마감</td><td>design-tokens</td></tr>
+      <tr><td>빈 상태 제목</td><td>저장한 프로젝트가 없습니다</td><td>§14.8</td></tr>
+      <tr><td>빈 상태 본문</td><td>관심 있는 프로젝트를 북마크해 두면 여기에 모여요.</td><td>§14.8</td></tr>
+
+      <tr><td>SCR-B08</td><td>빈 상태 버튼</td><td>프로젝트 둘러보기</td><td>§14.8</td></tr>
+
+      <tr><td rowspan="2">SCR-B09</td><td>섹션 제목</td><td>추천 프로젝트</td><td>§7.2 화면명</td></tr>
+      <tr><td>배지</td><td>모집 중</td><td>design-tokens</td></tr>
+    </tbody>
+  </table>
+
+  <p class="helper" style="margin-top:14px"><strong>합계 9개</strong> —
+  <code>모집 중</code>은 두 화면에 나오지만 문구가 같아 1개로 센다.</p>
+
+  <p class="helper" style="margin-top:8px"><strong>이 목록에서 제외한 것</strong> —
+  조건부로만 나타나는 요소는 기본 렌더링에 없으므로 세지 않는다.
+  북마크 아이콘(문자가 아니라 상태), 저장 일시(데이터), 페이지 번호가 그 대상이다.
+  <strong>토스트 문구도 제외한다</strong> — §14.9에 문구가 있지만 D-27이 "북마크는 토스트 없이
+  아이콘 변화만"으로 정했다.</p>
+
+  <p class="helper" style="margin-top:8px"><strong>근거 열을 둔 이유</strong> —
+  project-management 시안은 필수 요소가 전부 §14 정본이었다. 여기서는
+  <code>추천 프로젝트</code>가 §14 문구표에 없고 §7.2의 화면 이름이다. 출처가 섞이므로
+  어느 문서에서 왔는지 칸으로 남긴다. 정본이 바뀌면 그 칸을 보고 찾아간다.</p>
+</section>
+
+</body>
+</html>

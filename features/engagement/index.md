@@ -8,7 +8,9 @@
   북마크 토글 · 내 북마크 목록 · 추천 프로젝트. 번호 규칙 34개. **미확정 0건.**
   프로젝트의 등록·수정·상태 변경은 `features/project-management/`.
 - api-contract.md: 공개 API 4종(`/api/v1`). **내부 계약 없음** — 아무의 상태도 바꾸지 않는다.
-- design/ 구성: 작성 예정
+- design/ 구성: `_tokens.css`(project-management 와 같은 사본) ·
+  `high-fi-bookmarks.html`(SCR-B08 · SCR-B09). **필수 요소 목록 9개**, 전부 PRD 정본과 대조함.
+  8개는 §14 문구표, 1개(`추천 프로젝트`)는 §7.2 화면 이름이라 근거 열을 따로 뒀다.
 - prototype/ 구성: 작성 예정
 
 ## 이 기능의 전제 — 읽기 전용
@@ -68,3 +70,4 @@
 | 날짜 | 변경 |
 |---|---|
 | 2026-08-27 | 최초 작성 — spec.md 규칙 34개 · api-contract.md 4종 · CR-0001 |
+| 2026-08-27 | design/ high-fi 추가 — SCR-B08 · SCR-B09 · 필수 요소 9개 |
