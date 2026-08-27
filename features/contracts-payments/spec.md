@@ -1,37 +1,32 @@
 # contracts-payments — SPEC
 
-이번 세션 범위는 **계약 연동 함수 4개의 호출 계약**과 **PG 승인 포트**다.
-화면·서명 UI·위젯 체크아웃은 포함하지 않는다.
-정본: PRD v6.4 §5.4 · ERD v1.4. 함수명으로만 지칭한다 (D-48). `C-nn`은 목차 번호다.
-경로·필드 확정: 유동우 회신 `review/yudong-function-defs-reply.md` (2026-08-25).
+이번 세션 범위는 **합의·서명·결제 설계 확정**이다. 다음 스프린트에서 구현한다.
+규칙 1~9(4함수·PG 포트)는 FACT다. 정본: PRD v6.4 · ERD v1.4 · `review/spec-design-eval.md`.
+함수명으로만 지칭한다 (D-48). `C-nn`은 목차 번호다.
 
 ## 목적
 
-조준영(contracts-payments)이 유동우(project-management)에게 넘기는 상태 전이 호출을,
-유동우·최윤석이 **추가 설명 없이 Mock으로 구현·호출**할 수 있게 고정한다.
-출발점은 `startProjectTransaction`이다. 최윤석의 지원 수락(`acceptProjectApplication`) 이후
-프로젝트·계약 흐름이 여기서 시작된다.
+조준영 도메인(합의·계약·서명·결제)의 상태·API·화면 계약을 고정한다.
+유동우 4함수 호출 계약은 규칙 1~8, PG 승인은 규칙 9다.
 
 ## 범위
 
-- 포함: 아래 4함수의 호출 주체·시점, 입력, 반환, 전후 상태, 오류 코드, 중복 호출.
-  호출 전 조회 `getProjectNegotiationContext`는 4함수의 전제라서 같이 적는다.
-  PG 승인 포트 `PaymentGateway.confirmPayment` (화면·위젯 없음).
-- 제외: 금액 합의·서명·PG 결제 화면, `acceptProjectApplication` 구현,
-  `rejectPendingApplications`/`invalidateAgreementAndContract` 시그니처 확정,
-  `projects` 테이블 직접 UPDATE.
+- 포함: 4함수 호출 계약, `PaymentGateway.confirmPayment`, 금액 합의·계약 서명·샌드박스 결제
+  설계(상태·API·라우트·UX·Increment 1 테스트 목록).
+- 제외: 위젯 구현, 에스크로·지급대행·실정산, PG 환불, 납품·리뷰, `acceptProjectApplication` 구현,
+  `projects` 테이블 직접 UPDATE. 제안 철회는 Increment 1 제외.
 
 ## 관련 엔티티 (근거: `docs/domain/erd.md`)
 
-호출자가 읽고 쓰는 것은 조준영 테이블이다: `agreements.status`, `negotiation_offer`,
-`contracts.status`, `payments.status`, `deliveries.status`.
-호출 대상은 유동우 테이블 `projects`의 `recruitment_status`, `transaction_status`,
-`payment_pending_at`, `project_version`, `canceled_at`, `deleted_at`,
-`recruitment_deadline_at`, `pending_application_count`, `accepted_application_id`다.
+조준영: `agreements`, `negotiation_offer`, `contracts`, `contract_signature_audits`, `payments`.
+유동우: `projects`의 `recruitment_status`, `transaction_status`, `payment_pending_at`,
+`project_version`, `canceled_at`, `deleted_at`, `recruitment_deadline_at`,
+`pending_application_count`, `accepted_application_id`.
 
-저장 enum 정본: `recruitment_status` = `SCHEDULED` · `OPEN` · `CLOSED`.
+저장 enum: `agreement_status` = `PROPOSED` · `ACCEPTED` · `REJECTED`.
+`contract_status` = `DRAFT` · `SIGNING` · `SIGNED` · `CANCELED`.
+`payment_status` = `READY` · `PENDING` · `PAID` · `FAILED` · `RELEASED` (`REFUNDED`는 MVP 미구현).
 `project_transaction_status` = `NONE` · `CONTRACT_PENDING` · `IN_PROGRESS` · `COMPLETED` · `CANCELED`.
-`contract_status` `SIGNED`, `payment_status` `PAID`/`RELEASED`, `delivery_status` `APPROVED`.
 
 ## 규칙
 
@@ -161,6 +156,56 @@
    실제 sandbox는 `PG_SECRET_KEY`가 있을 때만 `toss-payments.adapter.ts`가 호출한다.
    키 이름: `PG_CLIENT_KEY`(위젯), `PG_SECRET_KEY`(서버). 값은 `.env`만. 깃에 넣지 않는다.
 
+10. **금액 합의는 다회차 도메인이다.** `negotiation_offer.round`가 라운드다. 활성 제안은 최신
+    round 1건. 저장 enum은 `PROPOSED`·`ACCEPTED`·`REJECTED`만 (D-81). 2차 설계서 `PENDING`은
+    `PROPOSED`, `SUPERSEDED`는 이전 round다. 제안 철회는 Increment 1에서 하지 않는다.
+    Increment 1 화면: 의뢰인 최초 제안 → 프리랜서 수락 또는 최종 거절 (프론트 AGR-01).
+    재제안 API는 계약에 두되 Increment 1 테스트 범위 밖이다. 진입은 규칙 7과 같다
+    (`CONTRACT_PENDING` + 수락 지원 1건).
+
+11. **수락은 합의 확정과 계약 `DRAFT` 생성을 한 트랜잭션에서 한다.** `acceptNegotiationOffer`.
+    최신 round의 수신자만. 성공 후 `agreements.status = ACCEPTED`, `contracts.status = DRAFT`.
+    프론트 `CREATED`/`READY`는 `DRAFT`의 화면 별칭이며 API에 쓰지 않는다. 최종 거절은
+    `rejectNegotiationOffer` 후 규칙 5 `restorePreContractProject`만.
+
+12. **계약 상태.** `DRAFT` → 첫 서명 성공 시 `SIGNING` → 양쪽 서명 시 `SIGNED`.
+    `signed_at`은 양쪽이 채워진 순간에만 찍는다. 무효화·프로젝트 취소 경로는 `CANCELED`.
+
+13. **`signContract`.** 계약 당사자만. 멱등 키 `contract-sign-{contractId}-{signerId}`.
+    같은 계약·같은 서명자 감사는 1건 (I-19). 재호출은 200, `client_signed_at` /
+    `freelancer_signed_at`은 **최초값 유지**. `canceledAt`이 있으면 거부 (D-04, PM-45).
+    취소 후에도 `contract_signature_audits`는 삭제하지 않는다 (D-11). IP·user-agent는 ERD 컬럼.
+
+14. **샌드박스 결제는 승인까지다.** 준비 → 위젯/리다이렉트 → 규칙 9 `confirmPayment` → 웹훅은
+    조회 API로 재검증 → `PAID` → 규칙 3 `startProjectTransaction`. 규칙 6은 PG 요청 직전.
+    에스크로·지급대행·실정산·PG 환불은 제외. `RELEASED`는 정산 설계서(다음 스프린트).
+    「결제 취소」는 계약 취소 설계서의 환불 경로이지 Toss MVP가 아니다.
+
+15. **프로젝트 취소 경로**는 `invalidateAgreementAndContract`다 (합의 `REJECTED`, 계약
+    `CANCELED`, 서명 감사 보존). restore와 반대 방향이다 (규칙 5). `paymentPendingAt`이 있으면
+    일반 취소는 `409 PROJECT_CANCEL_AFTER_PAYMENT` (규칙 6).
+
+16. **공개 API 경로 (함수명이 정본).** Increment 1 REST:
+    `POST /api/v1/projects/:projectId/negotiation-offers` (`proposeNegotiationOffer`),
+    `GET /api/v1/projects/:projectId/negotiation-offers/current`,
+    `POST .../negotiation-offers/:offerId/accept` (`acceptNegotiationOffer`),
+    `POST .../negotiation-offers/:offerId/reject` (`rejectNegotiationOffer`),
+    `POST /api/v1/contracts/:contractId/sign` (`signContract`),
+    `POST /api/v1/payments` (준비), `POST /api/v1/payments/confirm` (규칙 9).
+    프론트 설계서 `/agreements` 5종은 **폐기**한다. 내부 4함수는 `/internal/v1/...` (규칙 1).
+
+17. **프론트 라우트 초안.** `/projects/:projectId/agreements` (생성 모드),
+    `/projects/:projectId/agreements/:agreementId` (AGR-01 상세),
+    `/projects/:projectId/contracts/:contractId` (CTR-01 서명),
+    `/projects/:projectId/payments/:paymentId` (체크아웃).
+    UX: 로딩, 빈 생성 모드, `LOAD_FAILED` 재시도, `STALE`/409 후 재조회, 프로젝트 취소 시
+    변경 버튼 숨김 (프론트 v2.0). 서명·결제도 같은 패턴. 취소된 프로젝트 서명은
+    "프로젝트가 취소되었습니다".
+
+18. **Increment 1 테스트 (다음 스프린트).** 프론트 AGR-S01~S12, `signContract` 멱등·최초 시각
+    2케이스, 결제 Mock 성공/실패(규칙 9, 이미 있음), restore(규칙 5, 이미 있음).
+    재제안·철회·에스크로·환불은 이 Increment 밖이다.
+
 ## 크기 기준
 
 같은 엔티티(`projects` 거래 상태)의 생애주기라 한 파일로 유지한다.
@@ -180,7 +225,7 @@ applications 범위 밖. restore 시 기존 `REJECTED`는 되살리지 않음. �
 ## 비고
 
 멱등 키·버전 비증가·내부 경로·`notReopenedReason`·start/complete 버전 필수·최윤석 호출 순서는
-FACT다. 교차 담당 확인 대기는 없다.
+FACT다. 합의·서명·결제 정본은 `review/spec-design-eval.md` 최적안이다.
 
 추가 제안 2건 — **조준영 동의.**
 1. `CONTRACT_PENDING` ⇒ `accepted_application_id` 존재. 유동우가 PRD 다음 개정에서 불변식으로

@@ -1,7 +1,7 @@
 # contracts-payments 테스트 결과
 
-담당자: 조준영            테스트 날짜: 2026-08-26
-테스트한 커밋: 커밋 전
+담당자: 조준영            테스트 날짜: 2026-08-27
+테스트한 커밋: 3f14de0 이후 작업 중
 
 ## 자동 검증
 
@@ -20,7 +20,16 @@
 | 7 호출 순서 | `run.tsx` markPaymentPending → start → complete (시드는 이미 CONTRACT_PENDING) | 통과 |
 | 8 오류 코드 | `run.tsx` 5종 코드·에러 봉투만 사용 | 통과 |
 | 9 PaymentGateway | `run.tsx` Mock 승인 성공·금액 불일치. sandbox는 키 없으면 해당 없음 | 통과 |
-| UI(design/web) | 이번 spec 범위 밖 (화면·서명·위젯 제외) | 안 함 (해당 없음) |
+| 10 금액 합의 | spec 규칙만. Mock 없음 | 안 함 |
+| 11 수락→계약 DRAFT | spec 규칙만 | 안 함 |
+| 12 계약 상태 전이 | spec 규칙만 | 안 함 |
+| 13 signContract | spec 규칙만 | 안 함 |
+| 14 샌드박스 결제 범위 | 규칙 9 Mock. 준비·웹훅 E2E 없음 | 안 함 (해당 없음) |
+| 15 취소 무효화 | spec 규칙만 | 안 함 |
+| 16 공개 API 경로 | 문서 초안 | 안 함 |
+| 17 라우트·UX | 문서 초안. design/ 없음 | 안 함 |
+| 18 Increment 1 테스트 목록 | 목록만 적음. 구현은 다음 스프린트 | 안 함 |
+| UI(design/web) | 다음 스프린트 | 안 함 |
 
 규칙 4의 I-30은 호출자 검증이다. `completeProjectTransactionIfSettled`가 APPROVED∧RELEASED 전에는 포트를 부르지 않는다.
 
@@ -30,8 +39,9 @@
 ## 아직 안 되는 것 (Known Issues)
 
 - `prototype/`은 유동우 포트 스탠드인 Mock이다. 실제 HTTP·DB는 없다.
-- `design/`·`prototype/web/` 없음. 다음 증분(합의·서명·PG 화면).
+- `design/`·`prototype/web/` 없음. Increment 1 화면은 다음 스프린트.
 - Toss sandbox 실호출은 `PG_SECRET_KEY`가 있을 때만. 지금은 해당 없음.
+- 규칙 10~18은 설계 확정이다. `run.tsx` 추가는 다음 스프린트.
 
 ## 팀장에게 물어봐야 하는 것
 

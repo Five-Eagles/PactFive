@@ -1,8 +1,8 @@
-# contracts-payments — API 계약 (도메인 연동 4함수)
+# contracts-payments — API 계약
 
-형식은 `docs/naming-convention.md` §6·§7. **브라우저 공개 API가 아니다.** 조준영 서버 →
-유동우 `project-management` 내부 계약. 함수명이 정본(D-48).
-경로 `/internal/v1/projects/:projectId/...` (FACT, J1). 서버 간 토큰만.
+형식은 `docs/naming-convention.md` §6·§7. 함수명이 정본(D-48).
+내부 4함수는 `/internal/v1/projects/:projectId/...` (FACT, J1), 서버 간 토큰.
+공개 API는 `/api/v1/...`, 사용자 Bearer. 프론트 설계서 `/agreements` 5종은 **폐기**.
 `Authorization: Bearer <serviceToken>`. Mock 고정값은 `MOCK_INTERNAL_SERVICE_TOKEN`.
 불일치면 422 `VALIDATION_ERROR`. 공개 입구 `prototype/index.ts`.
 
@@ -197,6 +197,50 @@
 
 ---
 
+## 공개 API 초안 (규칙 16, Increment 1)
+
+브라우저. `Authorization: Bearer <accessToken>`. 상태 변경 POST는 `Idempotency-Key` 필수.
+컨트롤러 구현은 다음 스프린트.
+
+### POST /api/v1/projects/:projectId/negotiation-offers — `proposeNegotiationOffer`
+
+의뢰인 최초 제안. 본문 `{ "amount": 900000, "currency": "KRW" }`.
+멱등 키 클라이언트가 생성. 성공: `PROPOSED` offer, round 1.
+Increment 1에서는 의뢰인만. 재제안은 계약에만 있고 이 Increment 테스트 밖.
+
+### GET /api/v1/projects/:projectId/negotiation-offers/current
+
+당사자. 최신 round + 합의 상태 + 있으면 `contractId`·`contractStatus`.
+
+### POST /api/v1/projects/:projectId/negotiation-offers/:offerId/accept — `acceptNegotiationOffer`
+
+최신 round 수신자. 본문 `{ "expectedRound": 1 }`. 규칙 11: 합의 `ACCEPTED` + 계약 `DRAFT`.
+멱등 키 `negotiation-accept-{offerId}`.
+
+### POST /api/v1/projects/:projectId/negotiation-offers/:offerId/reject — `rejectNegotiationOffer`
+
+최신 round 수신자 최종 거절. 본문 `{ "reasonCode": "PRICE_NOT_ACCEPTABLE" }`.
+서버가 규칙 5 restore를 호출한다. 멱등 키 `negotiation-reject-{negotiationId}`.
+
+### POST /api/v1/contracts/:contractId/sign — `signContract`
+
+규칙 13. 당사자. 멱등 키 `contract-sign-{contractId}-{signerId}`.
+응답: `status` (`SIGNING` \| `SIGNED`), `clientSignedAt`, `freelancerSignedAt`, `signedAt`.
+
+### POST /api/v1/payments — 결제 준비
+
+규칙 6 이후. 계약 `SIGNED`. 서버가 `contracts.agreed_amount`를 복사해 주문 생성.
+응답: `orderId`, `amount`, 위젯용 `clientKey`는 서버 시크릿이 아님.
+
+### POST /api/v1/payments/confirm — `confirmPayment`
+
+규칙 9. 본문 `{ "orderId", "amount", "paymentKey" }`. 성공 `PAID` 후 규칙 3 start.
+
+에러(공개): 401/403, 404, 409 상태 충돌, 422. 결제 금액 불일치는 `PAYMENT_AMOUNT_MISMATCH`.
+프로젝트 취소 후 서명은 409 `PROJECT_TRANSITION_CONFLICT` (화면: 취소 안내).
+
+---
+
 ## DTO
 
 ```ts
@@ -272,6 +316,29 @@ type RestorePreContractProjectResponse = DomainContractEnvelopeResponse & {
   reopened: boolean;
   notReopenedReason: NotReopenedReason | null;
   restoredFields: ['recruitmentStatus', 'transactionStatus'];
+};
+
+type AgreementStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED';
+type ContractStatus = 'DRAFT' | 'SIGNING' | 'SIGNED' | 'CANCELED';
+
+type ProposeNegotiationOfferInput = { amount: number; currency: 'KRW' };
+type AcceptNegotiationOfferInput = { expectedRound: number };
+type RejectNegotiationOfferInput = { reasonCode: string; reason?: string };
+type SignContractInput = { contractId: string };
+type SignContractResponse = {
+  contractId: string;
+  status: 'SIGNING' | 'SIGNED';
+  clientSignedAt: string | null;
+  freelancerSignedAt: string | null;
+  signedAt: string | null;
+  alreadyProcessed: boolean;
+};
+type ConfirmPaymentInput = { orderId: string; amount: number; paymentKey: string };
+type ConfirmPaymentResponse = {
+  orderId: string;
+  amount: number;
+  paymentKey: string;
+  status: 'PAID';
 };
 
 type DomainContractErrorBody = {

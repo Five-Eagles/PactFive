@@ -4,15 +4,14 @@
 - 조준영 (contracts-payments · reviews)
 
 ## 스펙 (features/contracts-payments/)
-- spec.md: 계약 연동 함수 4개 호출 계약
-  (`startProjectTransaction` · `completeProjectTransaction` ·
-  `restorePreContractProject` · `markPaymentPending`)와 PG 승인 포트.
-  화면·서명 UI·위젯은 아직 범위 밖.
-- api-contract.md: 위 4함수 + 호출 전 조회 `getProjectNegotiationContext`.
-  경로 `/internal/v1/...`. 유동우 Mock이 구현하고 조준영 Mock이 호출한다.
+- spec.md: 합의·서명·샌드박스 결제 설계 확정 + 4함수·PG 포트 FACT.
+  정본 고정은 `review/spec-design-eval.md`.
+- api-contract.md: 내부 4함수 + 공개 API 초안 (`negotiation-offers`, `signContract`, 결제).
+  프론트 `/agreements` 5종은 폐기.
 - review/: 교차 담당 확인 요청·회신.
   Mock import 안내는 `review/mock-stub-import-guide.md` (유동우·최윤석 공유).
   팀장 sandbox 키 요청은 `review/teamlead-pg-sandbox-keys.md`.
+  8/27 설계서 평가·최적안은 `review/spec-design-eval.md`.
 - prototype/: 유동우 포트 스탠드인 Mock + 조준영 호출 서비스 + `PaymentGateway` Mock.
   다른 기능은 `prototype/index.ts`만 import한다.
   `npx tsx prototype/run.tsx`로 spec 규칙 1~9를 확인한다.
@@ -33,7 +32,8 @@
 | `prj_completed` | complete 멱등 200 |
 | `prj_deadline` | restore `DEADLINE_PASSED` |
 | `prj_pending_apps` | restore `PENDING_APPLICATIONS_REMAIN` |
-- design/: 없음. 화면은 다음 증분.
+
+- design/: 없음. Increment 1 화면은 다음 스프린트.
 
 ## 교차 담당
 - 유동우 (project-management): 4함수 제공자. 2026-08-25 함수별 정의 회신 반영 완료
@@ -53,3 +53,4 @@
 | 2026-08-26 | PaymentGateway 포트·Mock. sandbox는 키 있을 때만 |
 | 2026-08-26 | 팀장 sandbox 키 요청 (`review/teamlead-pg-sandbox-keys.md`) |
 | 2026-08-26 | Mock 공개 입구 `prototype/index.ts`. 토큰 불일치 422 |
+| 2026-08-27 | `origin/develop` merge (`6f6f71c`). SPEC 합의·서명·결제 규칙 10~18 |
