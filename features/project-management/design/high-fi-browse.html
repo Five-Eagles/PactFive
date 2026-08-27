@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>project-management — 목록 · 상세 (high-fi)</title>
+<link rel="stylesheet" href="_tokens.css" />
+<style>
+  .toolbar { display:flex; gap:12px; align-items:center; margin-bottom:20px; flex-wrap:wrap; }
+  .toolbar .search { flex:1; min-width:260px; }
+  .sorts { display:flex; gap:4px; }
+  .sorts button { height:36px; padding:0 12px; border:1px solid var(--border); background:var(--surface);
+    border-radius:var(--btn-radius); font:inherit; font-size:14px; color:var(--content-secondary); cursor:pointer; }
+  .sorts button.on { background:var(--surface-selected); border-color:var(--action); color:var(--action); font-weight:600; }
+  .pcard { border:1px solid var(--border); border-radius:var(--card-radius); padding:var(--card-pad);
+    background:var(--surface); display:flex; flex-direction:column; gap:10px; cursor:pointer; }
+  .pcard:hover { border-color:var(--border-focus); }
+  .pcard .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .pcard h3 { font-size:16px; font-weight:600; margin:0; line-height:24px; }
+  .pcard .budget { font-size:20px; font-weight:700; letter-spacing:-.2px; }
+  .pcard .skills { display:flex; gap:6px; flex-wrap:wrap; }
+  .pcard .foot { display:flex; justify-content:space-between; font-size:12px; color:var(--content-tertiary); }
+  .pager { display:flex; gap:6px; justify-content:center; margin-top:20px; }
+  .pager button { width:36px; height:36px; border:1px solid var(--border); background:var(--surface);
+    border-radius:var(--btn-radius); font:inherit; font-size:14px; cursor:pointer; }
+  .pager button.on { background:var(--action); color:var(--action-text); border-color:var(--action); }
+  .detail { display:grid; grid-template-columns: 1fr 320px; gap:24px; }
+  .kv { display:flex; padding:12px 0; border-bottom:1px solid var(--border-subtle); font-size:14px; }
+  .kv:last-child { border-bottom:0; }
+  .kv .k { width:120px; color:var(--content-secondary); font-weight:600; }
+  .side { position:sticky; top:20px; align-self:start; }
+  .bookmark { width:44px; height:44px; border:1px solid var(--border); border-radius:var(--btn-radius);
+    background:var(--surface); cursor:pointer; font-size:18px; line-height:1; }
+  .bookmark.on { border-color:var(--action); color:var(--action); background:var(--surface-selected); }
+</style>
+</head>
+<body>
+
+<div class="meta">
+  <h1>프로젝트 목록 · 상세</h1>
+  <p>SCR-B01 · SCR-B02 · design-system v1.0 적용 · 문구는 PRD §14 정본</p>
+  <span class="fi">high-fi</span>
+</div>
+
+<!-- ═══════════════ SCR-B01 : 프로젝트 목록 ═══════════════ -->
+<section class="screen">
+  <div class="id">SCR-B01 · 프로젝트 목록 (누구나)</div>
+  <div class="frame">
+    <header>
+      <span class="logo">PactFive</span>
+      <nav><span>프로젝트 찾기</span><span>내 프로젝트</span></nav>
+    </header>
+    <div class="body-pad">
+
+      <div class="toolbar">
+        <input class="field search" placeholder="프로젝트를 검색해 보세요" />
+        <button class="btn secondary">필터</button>
+        <div class="sorts">
+          <button class="on">최신순</button><button>마감임박순</button><button>예산 높은순</button>
+        </div>
+      </div>
+
+      <div class="grid cols3">
+        <article class="pcard">
+          <div class="top">
+            <h3>쇼핑몰 웹사이트 구축</h3>
+            <span class="badge open">모집 중</span>
+          </div>
+          <p class="caption" style="margin:0">웹 개발</p>
+          <p class="budget">5,000,000원</p>
+          <div class="skills"><span class="chip">React</span><span class="chip">Node.js</span><span class="chip">SQL</span></div>
+          <div class="foot"><span>지원 3건</span><span>마감 5일 전</span></div>
+        </article>
+
+        <article class="pcard">
+          <div class="top">
+            <h3>사내 관리 시스템 리뉴얼</h3>
+            <span class="badge scheduled">모집 예정</span>
+          </div>
+          <p class="caption" style="margin:0">웹 개발</p>
+          <p class="budget">8,200,000원</p>
+          <div class="skills"><span class="chip">TypeScript</span><span class="chip">Spring</span></div>
+          <div class="foot"><span>지원 0건</span><span>9. 1. 모집 시작</span></div>
+        </article>
+
+        <article class="pcard">
+          <div class="top">
+            <h3>배달 앱 UI 개선</h3>
+            <span class="badge open">모집 중</span>
+          </div>
+          <p class="caption" style="margin:0">디자인</p>
+          <p class="budget">3,400,000원</p>
+          <div class="skills"><span class="chip">Figma</span></div>
+          <div class="foot"><span>지원 7건</span><span>오늘 마감</span></div>
+        </article>
+      </div>
+
+      <div class="pager">
+        <button class="on">1</button><button>2</button><button>3</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SCR-B01 : 빈 상태 ═══════════════ -->
+<section class="screen">
+  <div class="id">SCR-B01 · 검색 결과 없음 (조건부)</div>
+  <div class="frame">
+    <div class="body-pad">
+      <div class="toolbar">
+        <input class="field search" placeholder="프로젝트를 검색해 보세요" value="블록체인" />
+        <button class="btn secondary">필터</button>
+      </div>
+      <div class="empty">
+        <p class="title" style="margin-bottom:4px">조건에 맞는 프로젝트가 없습니다</p>
+        <p style="margin:0 0 16px">검색어나 필터를 조정해 보세요.</p>
+        <button class="btn secondary">필터 초기화</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SCR-B02 : 프로젝트 상세 ═══════════════ -->
+<section class="screen">
+  <div class="id">SCR-B02 · 프로젝트 상세 (프리랜서가 볼 때)</div>
+  <div class="frame">
+    <header>
+      <span class="logo">PactFive</span>
+      <nav><span>프로젝트 찾기</span><span>내 지원 현황</span></nav>
+    </header>
+    <div class="body-pad">
+      <div class="detail">
+
+        <div>
+          <span class="badge open" style="margin-bottom:10px">모집 중</span>
+          <h2 class="h2">쇼핑몰 웹사이트 구축</h2>
+          <p class="caption" style="margin:0 0 20px">웹 개발 · 마감 5일 전</p>
+
+          <div class="card" style="margin-bottom:20px">
+            <p style="margin:0; line-height:26px">자사 브랜드 온라인 스토어를 새로 만들려고 합니다.
+            상품 등록과 결제 연동이 필요합니다. 디자인 시안은 준비되어 있고, 프론트엔드와
+            백엔드를 함께 맡아주실 분을 찾습니다.</p>
+          </div>
+
+          <h3 class="title">모집 정보</h3>
+          <div class="card">
+            <div class="kv"><span class="k">예산</span><span>5,000,000원</span></div>
+            <div class="kv"><span class="k">모집 기간</span><span>즉시 시작 — 2026. 9. 16.</span></div>
+            <div class="kv"><span class="k">필요한 기술</span>
+              <span class="skills"><span class="chip">React</span><span class="chip">Node.js</span><span class="chip">SQL</span></span></div>
+            <div class="kv"><span class="k">지원 현황</span><span>지원 3건</span></div>
+          </div>
+        </div>
+
+        <aside class="side">
+          <div class="card" style="margin-bottom:16px">
+            <p class="caption" style="margin:0 0 10px">의뢰인</p>
+            <p class="body-strong" style="margin:0 0 2px">브릿지컴퍼니</p>
+            <p class="caption" style="margin:0">평점 4.6 · 리뷰 12건</p>
+          </div>
+
+          <div class="btn-row" style="margin-bottom:12px">
+            <button class="btn primary" style="flex:1">지원하기</button>
+            <button class="bookmark" aria-label="북마크">☆</button>
+          </div>
+          <p class="caption" style="text-align:center; margin:0">지원서는 의뢰인에게 바로 전달됩니다</p>
+        </aside>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SCR-B02 : 상태별 CTA (조건부) ═══════════════ -->
+<section class="screen">
+  <div class="id">SCR-B02 · 상태별 CTA 변형 (조건부 — 필수 요소 목록에서 제외)</div>
+  <div class="frame">
+    <div class="body-pad">
+      <div class="grid cols2">
+        <div class="card">
+          <p class="caption" style="margin:0 0 8px">마감된 프로젝트 · 프리랜서</p>
+          <button class="btn primary" disabled style="width:100%; margin-bottom:8px">모집이 마감되었습니다</button>
+          <p class="notice warning" style="margin:0">모집이 마감되어 지원할 수 없습니다.</p>
+        </div>
+        <div class="card">
+          <p class="caption" style="margin:0 0 8px">모집 예정 · 프리랜서</p>
+          <button class="btn primary" disabled style="width:100%; margin-bottom:8px">지원하기</button>
+          <p class="notice info" style="margin:0">2026. 9. 1.부터 지원할 수 있습니다.</p>
+        </div>
+        <div class="card">
+          <p class="caption" style="margin:0 0 8px">이미 지원함</p>
+          <button class="btn secondary" style="width:100%">내 지원 현황 보기</button>
+        </div>
+        <div class="card">
+          <p class="caption" style="margin:0 0 8px">비로그인</p>
+          <button class="btn primary" style="width:100%">로그인하고 지원하기</button>
+        </div>
+      </div>
+      <p class="helper">등록 의뢰인이 볼 때는 <code>수정</code> · <code>모집 마감</code> ·
+      <code>프로젝트 취소</code> · <code>삭제</code> · <code>지원자 관리</code>가 대신 나온다 (SCR-B07 참고).
+      거래 상태는 <strong>등록 의뢰인에게만</strong> 보인다 (spec.md 규칙 9).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ 필수 요소 목록 ═══════════════ -->
+<section class="required">
+  <h2>필수 요소 목록</h2>
+  <p class="lead">기본 렌더링 시 화면에 반드시 보여야 하는 <strong>정확한 텍스트</strong>다.
+  <code>prototype/run.tsx</code>가 컴포넌트를 렌더링해 이 목록이 전부 나타나는지 확인한다.</p>
+
+  <table>
+    <thead><tr><th style="width:110px">화면</th><th style="width:90px">종류</th><th>텍스트</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="6">SCR-B01</td><td>placeholder</td><td>프로젝트를 검색해 보세요</td></tr>
+      <tr><td>버튼</td><td>필터</td></tr>
+      <tr><td>정렬</td><td>최신순</td></tr>
+      <tr><td>정렬</td><td>마감임박순</td></tr>
+      <tr><td>정렬</td><td>예산 높은순</td></tr>
+      <tr><td>배지</td><td>모집 중</td></tr>
+
+      <tr><td rowspan="3">SCR-B02</td><td>항목명</td><td>예산</td></tr>
+      <tr><td>항목명</td><td>필요한 기술</td></tr>
+      <tr><td>버튼</td><td>지원하기</td></tr>
+    </tbody>
+  </table>
+
+  <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
+  조건부로만 나타나는 요소는 기본 렌더링에 없으므로 세지 않는다.
+  빈 상태(<code>조건에 맞는 프로젝트가 없습니다</code>), 상태별 CTA 변형 4종,
+  마감 임박 문구(<code>마감 5일 전</code> · <code>오늘 마감</code>),
+  <code>모집 예정</code> · <code>모집 마감</code> 배지가 그 대상이다.
+  섹션 제목 <code>모집 정보</code>는 레이아웃 라벨이고 §14 문구 정본이 아니라 제외했다 —
+  <strong>이 목록은 §14에 있는 문구만 담는다.</strong> 그래야 <code>run.tsx</code> 통과가 곧 PRD 준수가 된다.</p>
+
+  <p class="helper" style="margin-top:8px"><strong>근거</strong> — 문구는 PRD §14.2(상태 배지) ·
+  §14.4(버튼·CTA) · §14.8(빈 상태) · §14.9(안내) 정본. 화면 구성은 §7.2 SCR-B01·B02,
+  표시 규칙은 <code>spec.md</code> 규칙 9~14다.</p>
+</section>
+
+<script>
+  // 정렬 토글
+  document.querySelectorAll('.sorts').forEach((group) => {
+    group.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      group.querySelectorAll('button').forEach((b) => b.classList.remove('on'));
+      btn.classList.add('on');
+    });
+  });
+
+  // 북마크 토글 — engagement 기능이지만 상세 화면에 붙으므로 시안에 포함
+  document.querySelectorAll('.bookmark').forEach((b) => {
+    b.addEventListener('click', () => {
+      b.classList.toggle('on');
+      b.textContent = b.classList.contains('on') ? '★' : '☆';
+    });
+  });
+
+  // 페이지 전환
+  document.querySelectorAll('.pager').forEach((p) => {
+    p.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      p.querySelectorAll('button').forEach((b) => b.classList.remove('on'));
+      btn.classList.add('on');
+    });
+  });
+</script>
+
+</body>
+</html>
