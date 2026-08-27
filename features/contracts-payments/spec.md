@@ -1,6 +1,7 @@
 # contracts-payments — SPEC
 
-이번 세션 범위는 **계약 연동 함수 4개의 호출 계약**이다. 화면·PG·서명 UI는 포함하지 않는다.
+이번 세션 범위는 **계약 연동 함수 4개의 호출 계약**과 **PG 승인 포트**다.
+화면·서명 UI·위젯 체크아웃은 포함하지 않는다.
 정본: PRD v6.4 §5.4 · ERD v1.4. 함수명으로만 지칭한다 (D-48). `C-nn`은 목차 번호다.
 경로·필드 확정: 유동우 회신 `review/yudong-function-defs-reply.md` (2026-08-25).
 
@@ -15,7 +16,8 @@
 
 - 포함: 아래 4함수의 호출 주체·시점, 입력, 반환, 전후 상태, 오류 코드, 중복 호출.
   호출 전 조회 `getProjectNegotiationContext`는 4함수의 전제라서 같이 적는다.
-- 제외: 금액 합의·서명·PG·납품·정산·리뷰 화면, `acceptProjectApplication` 구현,
+  PG 승인 포트 `PaymentGateway.confirmPayment` (화면·위젯 없음).
+- 제외: 금액 합의·서명·PG 결제 화면, `acceptProjectApplication` 구현,
   `rejectPendingApplications`/`invalidateAgreementAndContract` 시그니처 확정,
   `projects` 테이블 직접 UPDATE.
 
@@ -43,6 +45,7 @@
    `projectVersion`은 **거래/모집 상태 전이 성공 시에만 +1** (ERD E-23).
    `markPaymentPending`은 상태를 안 바꾸므로 **버전을 올리지 않는다** (FACT, 유동우 예).
    경로는 `/internal/v1/projects/:projectId/...` 만. 서버 간 토큰. 브라우저·사용자 토큰 거부 (J1).
+   Mock 고정값은 `MOCK_INTERNAL_SERVICE_TOKEN`. 공개 입구는 `prototype/index.ts`. 불일치면 422.
 
 2. **`startProjectTransaction`·`completeProjectTransaction` 호출 전에** 조준영은
    `getProjectNegotiationContext`로 프로젝트가 살아 있는지 확인한다 (D-44). 확인 없이 부르면
@@ -151,6 +154,12 @@
    `{ error: { code, message, details } }`. `CANCELED`와 "상태 불일치"는 같은
    `PROJECT_TRANSITION_CONFLICT`다. 화면 분기가 필요하면 409 후 `getProjectNegotiationContext`를
    다시 읽는다. `PROJECT_ALREADY_CANCELED`는 제거된 코드다 (D-31).
+
+9. **결제 승인은 `PaymentGateway.confirmPayment`만 통한다** (ADR-0009). 서비스는 토스 SDK를
+   직접 import하지 않는다. 입력: `orderId`, `amount`, `paymentKey`. 성공 시 `status: PAID`.
+   Mock은 `pay_mock_ok` + 금액 100000만 성공하고, 아니면 `PAYMENT_AMOUNT_MISMATCH`다.
+   실제 sandbox는 `PG_SECRET_KEY`가 있을 때만 `toss-payments.adapter.ts`가 호출한다.
+   키 이름: `PG_CLIENT_KEY`(위젯), `PG_SECRET_KEY`(서버). 값은 `.env`만. 깃에 넣지 않는다.
 
 ## 크기 기준
 

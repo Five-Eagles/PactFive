@@ -3,7 +3,8 @@
 형식은 `docs/naming-convention.md` §6·§7. **브라우저 공개 API가 아니다.** 조준영 서버 →
 유동우 `project-management` 내부 계약. 함수명이 정본(D-48).
 경로 `/internal/v1/projects/:projectId/...` (FACT, J1). 서버 간 토큰만.
-`Authorization: Bearer <serviceToken>`. Mock은 검증을 생략해도 헤더는 맞춘다.
+`Authorization: Bearer <serviceToken>`. Mock 고정값은 `MOCK_INTERNAL_SERVICE_TOKEN`.
+불일치면 422 `VALIDATION_ERROR`. 공개 입구 `prototype/index.ts`.
 
 시각 ISO 8601 UTC `Z`. 성공·멱등 재처리 모두 **200**. 4xx는 아래 에러 봉투.
 
