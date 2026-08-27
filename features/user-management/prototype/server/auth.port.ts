@@ -1,9 +1,9 @@
 import type {
   OAuthProvider,
+  ProviderSessionCredential,
   ProviderSession,
   ProviderUser,
-  RefreshResult,
-  RegistrationIntent,
+  VerifiedAccessSession,
 } from "./auth.types";
 
 export type ProviderErrorCode =
@@ -31,14 +31,11 @@ export class ProviderAuthError extends Error {
 export interface AuthProvider {
   registerEmail(input: { email: string; password: string }): Promise<{
     user: ProviderUser;
+    // 보상 삭제 힌트일 뿐 소유권 증거가 아니다. 서비스는 값과 무관하게 비밀번호 소유권을 검증한다.
     created: boolean;
     unexpectedSession?: ProviderSession;
   }>;
   verifyPendingRegistrationOwnership(email: string, password: string): Promise<boolean>;
-  saveRegistrationIntent(intent: RegistrationIntent): Promise<void>;
-  getRegistrationIntent(authUserId: string): Promise<RegistrationIntent | null>;
-  findRegistrationIntentByEmail(email: string): Promise<RegistrationIntent | null>;
-  clearRegistrationIntent(authUserId: string, nonce: string): Promise<void>;
   deleteUnconfirmedUser(authUserId: string): Promise<void>;
   requestEmailConfirmation(email: string): Promise<void>;
   verifyEmail(tokenHash: string): Promise<ProviderSession>;
@@ -48,9 +45,12 @@ export interface AuthProvider {
     redirectTo: string;
   }): Promise<{ authorizationUrl: string; providerFlowState: string }>;
   exchangeOAuthCode(code: string, providerFlowState: string): Promise<ProviderSession>;
-  refreshSession(refreshToken: string): Promise<RefreshResult>;
-  verifyAccessToken(accessToken: string): Promise<ProviderSession>;
-  signOut(providerSessionId: string): Promise<void>;
+  refreshSession(input: {
+    refreshToken: string;
+    expectedProviderSessionId: string;
+  }): Promise<ProviderSession>;
+  verifyAccessToken(accessToken: string): Promise<VerifiedAccessSession>;
+  revokeSession(credential: ProviderSessionCredential): Promise<void>;
 }
 
 // Supabase SDK는 통합 단계의 supabase-auth.adapter.ts 한 곳에서만 이 포트를 구현한다.

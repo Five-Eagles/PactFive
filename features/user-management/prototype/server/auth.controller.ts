@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { AuthProblem, RegistrationCompletionRequiredProblem, requireAllowedOrigin } from "./auth.service";
-import type { AuthSessionService, InternalRefreshResult, InternalSessionResult } from "./auth.service";
+import type { AllowedOrigins, AuthSessionService, InternalRefreshResult, InternalSessionResult } from "./auth.service";
 
 export const REFRESH_COOKIE_NAME = "__Host-pactfiveRefreshToken";
 export const OAUTH_INTENT_COOKIE_NAME = "__Host-pactfiveOAuthIntent";
@@ -100,8 +100,8 @@ function sendProblem(res: Response, error: unknown): void {
   });
 }
 
-export function createAuthController(service: AuthSessionService, allowedOrigin: string) {
-  const requireMutationOrigin = (req: Request) => requireAllowedOrigin(req.header("origin"), allowedOrigin);
+export function createAuthController(service: AuthSessionService, allowedOrigins: AllowedOrigins) {
+  const requireMutationOrigin = (req: Request) => requireAllowedOrigin(req.header("origin"), allowedOrigins);
 
   return {
     register: async (req: Request, res: Response) => {

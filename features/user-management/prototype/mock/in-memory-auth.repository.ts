@@ -1,5 +1,5 @@
 import type { AuthRepositories } from "../server/auth.repository";
-import type { AuthSessionRecord, UserRecord } from "../server/auth.types";
+import type { AuthSessionRecord, RegistrationIntent, UserRecord } from "../server/auth.types";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -8,7 +8,13 @@ function normalizeEmail(email: string): string {
 export class InMemoryAuthRepository implements AuthRepositories {
   private readonly users = new Map<string, UserRecord>();
   private readonly sessions = new Map<string, AuthSessionRecord>();
+  private readonly registrationIntents = new Map<string, RegistrationIntent>();
   private readonly consumedOAuthNonces = new Map<string, Date>();
+  private failRegistrationIntentSave = false;
+
+  failNextRegistrationIntentSave(): void {
+    this.failRegistrationIntentSave = true;
+  }
 
   seedUser(user: UserRecord): void {
     this.users.set(user.id, { ...user });
@@ -24,6 +30,32 @@ export class InMemoryAuthRepository implements AuthRepositories {
 
   getSessions(): AuthSessionRecord[] {
     return [...this.sessions.values()].map((session) => ({ ...session }));
+  }
+
+  async saveRegistrationIntent(intent: RegistrationIntent): Promise<void> {
+    if (this.failRegistrationIntentSave) {
+      this.failRegistrationIntentSave = false;
+      throw new Error("REGISTRATION_INTENT_STORE_UNAVAILABLE");
+    }
+    this.registrationIntents.set(intent.authUserId, { ...intent });
+  }
+
+  async findRegistrationIntentByAuthUserId(authUserId: string): Promise<RegistrationIntent | null> {
+    const intent = this.registrationIntents.get(authUserId);
+    return intent ? { ...intent } : null;
+  }
+
+  async findRegistrationIntentByEmail(email: string): Promise<RegistrationIntent | null> {
+    const normalized = normalizeEmail(email);
+    const intent = [...this.registrationIntents.values()].find(
+      (candidate) => normalizeEmail(candidate.email) === normalized,
+    );
+    return intent ? { ...intent } : null;
+  }
+
+  async clearRegistrationIntent(authUserId: string, nonce: string): Promise<void> {
+    const current = this.registrationIntents.get(authUserId);
+    if (current?.nonce === nonce) this.registrationIntents.delete(authUserId);
   }
 
   async findByAuthUserId(authUserId: string): Promise<UserRecord | null> {

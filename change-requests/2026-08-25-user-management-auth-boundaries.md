@@ -283,10 +283,12 @@ NOT NULL` 순서로 한다. 신규 데이터는 첫 배포부터 값을 필수�
 - Confirm signup 템플릿은 기본 세션 fragment 대신 앱 소유 확인 화면에 `TokenHash`를 전달한다.
 - 이메일 링크의 GET은 상태를 바꾸지 않는다. 화면에서 사용자가 확인 버튼을 누를 때
   `POST /api/v1/auth/email-confirmations`가 고정 `type='email'`로 `verifyOtp`를 호출한다.
-- 가입 요청의 Supabase 사용자 UUID·정규화 이메일·이름·역할·검증된 `returnTo`·nonce·발급/만료 시각은 서버가 인증 암호화한
-  `EmailRegistrationIntent`로 공급자 사용자의 서버 소유 `app_metadata`에 연결한다. 저장 실패 시 이
-  요청에서 새로 만든 미확인 공급자 사용자를 보상 삭제한다. 일반 `user_metadata` 원문을 권한 근거로
-  신뢰하지 않으며, 확인 성공 때 검증된 intent로 `users`를 만든다.
+- 가입 요청의 Supabase 사용자 UUID·정규화 이메일·이름·역할·검증된 `returnTo`·nonce·발급/만료 시각은
+  애플리케이션 소유 `RegistrationIntentRepository`에 저장한다. 공급자 `app_metadata`나 일반
+  `user_metadata` 원문을 권한 근거로 신뢰하지 않으며, 확인 성공 때 공급자 UUID·이메일과 일치하는
+  intent로만 `users`를 만든다. 저장 실패 시 공급자 어댑터가 이 요청에서 새로 만든 사용자임을 신뢰할
+  수 있게 보장하는 경우에만 미확인 공급자 사용자를 보상 삭제한다. Supabase 공개 `signUp` 응답만으로는
+  신규 생성 여부를 판정하지 않으므로 소유권 검증을 생략하거나 기존 계정을 삭제하지 않는다.
 - intent direct-completion TTL은 발급·정상 재전송부터 24시간이며 최신 nonce만 유효하다. 별도 30일
   recovery proof 만료를 같은 서명에 넣어 “PactFive가 시작한 가입” 증거로만 사용한다. 재전송은 유효
   intent의 만료를 회전할 수 있지만, intent가 없거나 만료되면 이메일만으로 이름·역할·`returnTo`를
@@ -340,9 +342,9 @@ NOT NULL` 순서로 한다. 신규 데이터는 첫 배포부터 값을 필수�
 ## 이번 요청과 별개로 남는 OPEN
 
 - 앱 세션 절대 수명 제안값 7일을 승인하거나 대체값을 지정해야 한다.
-- `EmailRegistrationIntent`/OAuth intent의 환경 변수 이름·키 rotation·성공 후 metadata 정리 절차는
-  구현 상세 검토에서 확정한다. 장기 보존이나 운영 조회가 필요해지면 그때 `pending_registrations`
-  테이블을 별도 변경으로 검토한다.
+- `RegistrationIntentRepository`/OAuth intent의 환경 변수 이름·키 rotation·성공 후 조건부 제거와
+  만료 정리 절차는 구현 상세 검토에서 확정한다. 운영 구현은 별도 `pending_registrations` 테이블
+  또는 동등한 durable 저장소를 사용하되 공급자 metadata를 권한 근거로 되돌리지 않는다.
 - `/login`, `/sign-up`, `/auth/confirm`, `/terms`, `/privacy` 라우트의 팀 공통 소유자를 확정해야 한다.
 - 실제 Google/Kakao 왕복과 Refresh 동시성 테스트는 키·Redirect URL과 구현이 준비된 뒤 수행한다.
 
