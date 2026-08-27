@@ -54,6 +54,18 @@ else
   echo "[daily-session-finish] 경고: 검증 대상(run.tsx 경로)이 지정되지 않았습니다 — 검증 없이 진행합니다." >&2
 fi
 
+# app/ 을 건드렸다면(= 팀장의 통합 작업) feedback_loop 기록이 빠지지 않았는지 확인한다.
+# 통합 절차에서 유일하게 자동화되지 않는 단계라 바쁠 때 가장 먼저 빠진다
+# (sdd-framework/integration-workflow.md 4단계, feedback_loop/README.md).
+if git diff --name-only "origin/${PR_BASE}...HEAD" 2>/dev/null | grep -q "^app/"; then
+  if ! git diff --name-only "origin/${PR_BASE}...HEAD" 2>/dev/null | grep -q "^feedback_loop/"; then
+    echo "[daily-session-finish] 경고: app/ 변경이 있는데 feedback_loop/ 기록이 없습니다." >&2
+    echo "                       원본에 없던 공백을 채웠거나 기능 간 충돌을 조정했다면" >&2
+    echo "                       feedback_loop/\$(date +%F)/{기능}.md 에 남겨야 합니다." >&2
+    echo "                       정말 아무것도 채우지 않았다면 이 경고는 무시해도 됩니다." >&2
+  fi
+fi
+
 echo "[daily-session-finish] push: origin/${CURRENT}"
 git push -u origin "${CURRENT}"
 
