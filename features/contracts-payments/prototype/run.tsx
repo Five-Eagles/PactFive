@@ -22,7 +22,7 @@ import {
   markPaymentPendingIfAlive,
   restorePreContractProjectAfterReject,
   startProjectTransactionIfAccepted,
-} from "./server/contract-transaction.service";
+} from "./server/project-transaction.service";
 import { PaymentGatewayError } from "./server/payment.port";
 import { createTossPaymentsAdapter, hasPgSecretKey } from "./server/toss-payments.adapter";
 

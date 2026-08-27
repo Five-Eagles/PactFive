@@ -60,3 +60,4 @@
 | 2026-08-27 | `negotiationId`=`agreements.id`, propose 시 agreements NOT NULL 필드 |
 | 2026-08-28 | 금주 wrap. reviews SPEC은 `features/reviews/` |
 | 2026-08-28 | P2: 규칙 3·4 전이 409 + FAILED 재시도 Mock. PASS 34. 취소·환불 제외 |
+| 2026-08-28 | feedback_loop 3항목 반영완료. `project-transaction.service.ts` 통일 |

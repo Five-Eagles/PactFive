@@ -123,7 +123,7 @@ restore 때 알아 두실 것:
 I-30 때문에 complete는 납품 `APPROVED` ∧ 정산 `RELEASED`가 아니면 **포트를 부르지 않습니다.** 다른 도메인이 이 가드를 쓸 필요는 없습니다.
 
 ```ts
-import { completeProjectTransactionIfSettled } from "../../contracts-payments/prototype/server/contract-transaction.service";
+import { completeProjectTransactionIfSettled } from "../../contracts-payments/prototype/server/project-transaction.service";
 ```
 
 ---
