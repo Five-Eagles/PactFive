@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>함수별 필수 정의 확인 회신 — 최윤석</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+                 "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-size: 11px;
+    line-height: 1.45;
+    color: #1a1a1a;
+    margin: 0;
+    background: #f5f6f8;
+  }
+
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 20px auto;
+    padding: 14mm 12mm;
+    background: #fff;
+    box-shadow: 0 2px 16px rgba(0,0,0,.08);
+  }
+
+  h1 {
+    font-size: 17px;
+    margin: 0 0 5px;
+    letter-spacing: -0.3px;
+  }
+
+  h2 {
+    font-size: 13px;
+    margin: 15px 0 7px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #222;
+  }
+
+  .meta {
+    color: #555;
+    font-size: 10.5px;
+    margin-bottom: 10px;
+  }
+
+  .summary {
+    border: 1px solid #d7dbe0;
+    background: #f8f9fb;
+    padding: 9px 11px;
+    margin: 10px 0 12px;
+    border-radius: 4px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6px 0 11px;
+    font-size: 10.3px;
+  }
+
+  th, td {
+    border: 1px solid #cfd3d8;
+    padding: 5px 6px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background: #f3f4f6;
+    font-weight: 700;
+  }
+
+  .col-no { width: 42px; text-align: center; }
+  .col-answer { width: 60px; text-align: center; }
+  .col-note { width: 38%; }
+
+  .yes {
+    font-weight: 700;
+    color: #0b6e3b;
+  }
+
+  .check {
+    display: inline-block;
+    width: 13px;
+    height: 13px;
+    line-height: 11px;
+    border: 1.5px solid #333;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    margin-right: 3px;
+    vertical-align: -1px;
+  }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 9.5px;
+    background: #f5f5f5;
+    padding: 1px 3px;
+    border-radius: 2px;
+  }
+
+  .note {
+    color: #444;
+    font-size: 10.2px;
+  }
+
+  .flow {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: #fafafa;
+    border: 1px solid #ddd;
+    padding: 7px 9px;
+    margin: 6px 0 10px;
+    line-height: 1.55;
+  }
+
+  .final {
+    margin-top: 12px;
+    padding: 9px 11px;
+    border-left: 3px solid #222;
+    background: #fafafa;
+  }
+
+  .muted { color: #666; }
+
+  @media print {
+    body { background: #fff; }
+    .page {
+      margin: 0;
+      box-shadow: none;
+      width: auto;
+      min-height: auto;
+      padding: 0;
+    }
+  }
+</style>
+</head>
+
+<body>
+<div class="page">
+  <h1>함수별 필수 정의 확인 회신 — 최윤석</h1>
+
+  <p class="meta">
+    수신: <strong>조준영</strong> (contracts-payments) ·
+    회신: <strong>최윤석</strong> (applications · notifications) ·
+    2026-08-26<br>
+    검토 기준: PRD v6.4 §5.4 · ERD v1.4 ·
+    <code>features/contracts-payments/spec.md</code> ·
+    전달받은 start / restore 확인 문서
+  </p>
+
+  <div class="summary">
+    <strong>검토 결과</strong><br>
+    전달받은 현재 초안의 호출 순서와 applications 경계에 동의합니다.
+    <strong>A1~A4, B1~B4 및 기존 확인 1~3까지 총 11개 항목을 모두 “예”로 확인</strong>합니다.
+  </div>
+
+  <h2>1. <code>startProjectTransaction</code> 연계 확인</h2>
+
+  <p class="note">
+    <code>startProjectTransaction</code> 자체는 최윤석 담당 함수가 아니며,
+    applications에서는 계약 흐름 진입 전에 필요한 지원 수락 상태와 호출 순서만 보장하는 것으로 확인합니다.
+  </p>
+
+  <div class="flow">
+    acceptProjectApplication 성공
+    → 나머지 PENDING 지원 거절
+    → 알림 처리
+    → 계약·금액합의 흐름 진입
+  </div>
+
+  <table>
+    <tr>
+      <th class="col-no">#</th>
+      <th>확인 항목</th>
+      <th class="col-answer">답변</th>
+      <th class="col-note">검토 메모</th>
+    </tr>
+    <tr>
+      <td class="col-no"><strong>A1</strong></td>
+      <td><code>acceptProjectApplication</code> 성공 → 나머지 지원 거절 → 알림 완료 후 계약 흐름으로 진입하는가</td>
+      <td class="col-answer yes"><span class="check">✓</span>예</td>
+      <td>수락 처리와 후속 거절·알림이 먼저 완료된 뒤 계약 단계로 넘어가는 순서로 반영합니다.</td>
+    </tr>
+    <tr>
+      <td class="col-no"><strong>A2</strong></td>
+      <td>C-01에서 <code>acceptedApplicationId</code>를 기록하면 start 요청에 applicationId를 다시 전달하지 않아도 되는가</td>
+      <td class="col-answer yes"><span class="check">✓</span>예</td>
+      <td>프로젝트에 기록된 <code>acceptedApplicationId</code>를 기준으로 연결하며, start 요청에서 중복 전달하지 않는 구조에 동의합니다.</td>
+    </tr>
+    <tr>
+      <td class="col-no"><strong>A3</strong></td>
+      <td>수락 전 <code>acceptedApplicationId = null</code> 상태에서는 계약 흐름을 시작하지 않는다고 가정해도 되는가</td>
+      <td class="col-answer yes"><span class="check">✓</span>예</td>
+      <td>수락된 지원자가 확정되지 않은 상태에서는 계약 선행조건이 충족되지 않은 것으로 봅니다.</td>
+    </tr>
+    <tr>
+      <td class="col-no"><strong>A4</strong></td>
+      <td>한 프로젝트의 최종 수락 지원은 최대 1건인가</td>
+      <td class="col-answer yes"><span class="check">✓</span>예</td>
+      <td>프로젝트당 <code>acceptedApplicationId</code>는 1건만 유지하는 기준으로 정리합니다.</td>
+    </tr>
+  </table>
+
+  <h2>2. <code>restorePreContractProject</code> 연계 확인</h2>
+
+  <p class="note">
+    restore는 프로젝트 상태 복원에 해당하며,
+    applications에서는 기존 자동 거절 지원자의 상태 유지,
+    남은 PENDING 처리, 재개 후 신규 지원 규칙을 보장하는 것으로 확인합니다.
+  </p>
+
+  <table>
+    <tr>
+      <th class="col-no">#</th>
+      <th>확인 항목</th>
+      <th class="col-answer">답변</th>
+      <th class="col-note">검토 메모</th>
+    </tr>
+    <tr>
+      <td class="col-no"><strong>B1</strong></td>
+      <td>restore가 이미 자동 거절된 지원자를 다시 되살리지 않는 전제를 applications Mock이 유지하는가</td>
+      <td class="col-answer yes"><span class="check">✓</span>예</td>
+      <td>기존 <code>REJECTED</code> 지원은 그대로 유지하며, 프로젝트 재개만으로 이전 지원 상태를 복구하지 않습니다.</td>
+    </tr>
+    <tr>
+      <td class="col-no"><strong>B2</strong></td>
+      <td><code>PENDING_APPLICATIONS_REMAIN</code> 발생 시 <code>rejectPendingApplications</code> 재요청을 다시 받을 수 있는가</td>
+      <td class="col-answer yes"><span class="check">✓</span>예</td>
+      <td>일괄 거절의 부분 실패 등으로 PENDING이 남은 경우, 동일 목적의 재요청을 applications 측에서 다시 처리할 수 있도록 합니다.</td>
+    </tr>
+    <tr>
+      <td class="col-no"><strong>B3</strong></td>
+      <td>재개된 프로젝트(<code>reopened: true</code>, 모집 <code>OPEN</code>)의 새 지원은 기존과 같은 <code>PENDING</code> 규칙인가</td>
+      <td class="col-answer yes"><span class="check">✓</span>예</td>
+      <td>재모집 이후 들어오는 신규 지원은 기존 지원 생성 규칙과 동일하게 <code>PENDING</code>으로 처리합니다.</td>
+    </tr>
+    <tr>
+      <td class="col-no"><strong>B4</strong></td>
+      <td>프로젝트 취소와 합의 최종 거절을 지원 거절 사유에서 구분하는가 (<code>PROJECT_CANCELED</code> vs <code>AGREEMENT_DECLINED</code> 등)</td>
+      <td class="col-answer yes"><span class="check">✓</span>예</td>
+      <td>프로젝트 자체 취소와 계약·합의 결렬은 발생 원인이 다르므로 applications에서도 별도 거절 사유로 구분하는 기준에 동의합니다.</td>
+    </tr>
+  </table>
+
+  <h2>3. 기존 확인 3문항</h2>
+
+  <p class="note">
+    원본 문서의 기존 확인 항목은 A1, B2, B3와 동일한 내용으로 확인되며,
+    중복 여부와 관계없이 회신 형식상 각각 별도로 답변합니다.
+  </p>
+
+  <table>
+    <tr>
+      <th class="col-no">#</th>
+      <th>확인 항목</th>
+      <th class="col-answer">답변</th>
+      <th class="col-note">검토 메모</th>
+    </tr>
+    <tr>
+      <td class="col-no"><strong>1</strong></td>
+      <td>accept 성공 → 나머지 거절 → 알림 후에 <code>start</code> 흐름으로 진입하는가</td>
+      <td class="col-answer yes"><span class="check">✓</span>예</td>
+      <td>A1과 동일하게 확인합니다.</td>
+    </tr>
+    <tr>
+      <td class="col-no"><strong>2</strong></td>
+      <td>restore 중 <code>rejectPendingApplications</code> 재요청을 applications Mock이 다시 받을 수 있는가</td>
+      <td class="col-answer yes"><span class="check">✓</span>예</td>
+      <td>B2와 동일하게 확인합니다.</td>
+    </tr>
+    <tr>
+      <td class="col-no"><strong>3</strong></td>
+      <td>재개 후 새 지원은 기존과 동일한 <code>PENDING</code> 규칙을 적용하는가</td>
+      <td class="col-answer yes"><span class="check">✓</span>예</td>
+      <td>B3와 동일하게 확인합니다.</td>
+    </tr>
+  </table>
+
+  <h2>4. 최종 정리</h2>
+
+  <div class="final">
+    <strong>총 11개 확인 항목 전체를 “예”로 회신합니다.</strong><br>
+    applications 측은
+    <strong>수락 → 잔여 지원 거절 → 알림 → 계약 진입</strong> 순서를 유지하고,
+    restore 시에는 <strong>기존 거절 지원을 복구하지 않으며</strong>,
+    재개 프로젝트의 신규 지원은 기존과 동일한 <code>PENDING</code> 규칙으로 처리하는 방향에 동의합니다.<br><br>
+    <span class="muted">
+      ※ <code>markPaymentPending</code>, <code>completeProjectTransaction</code>,
+      <code>startProjectTransaction</code>의 직접 구현·호출은 applications 담당 범위에서 제외합니다.
+    </span>
+  </div>
+</div>
+</body>
+</html>
