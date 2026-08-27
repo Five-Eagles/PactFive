@@ -289,7 +289,7 @@ async function main() {
     assertEqual(confirmedAfterLogout.body.user.email, "confirm-conflict@example.com", "충돌 검사 전에 token hash가 소비됨");
 
     const compensated = createFixture();
-    compensated.provider.failNextIntentSave();
+    compensated.repository.failNextRegistrationIntentSave();
     await expectProblem(
       () => compensated.service.register({
         email: "compensate@example.com",
@@ -298,7 +298,7 @@ async function main() {
         role: "CLIENT",
         returnTo: "/",
       }),
-      { status: 503, code: "AUTH_PROVIDER_UNAVAILABLE" },
+      { status: 503, code: "AUTH_REGISTRATION_SYNC_FAILED" },
     );
     assert(!compensated.provider.hasAccount("compensate@example.com"), "intent 저장 실패 시 신규 공급자 사용자 미삭제");
 
@@ -458,6 +458,55 @@ async function main() {
     assertEqual(expiredRecoveryProblem.recoveryCookie, undefined, "30일 만료 뒤 복구 쿠키 발급");
   });
 
+  await test("R01", "live 가입 응답을 소유권 증거로 신뢰하지 않고 확인 type을 고정한다", async () => {
+    let confirmationType: string | undefined;
+    const adapter = createSupabaseAuthAdapter({
+      supabaseUrl: "https://unit.supabase.co",
+      publishableKey: "unit-publishable-key",
+      serviceRoleKey: "unit-service-role-key",
+      emailConfirmationRedirectTo: "https://app.pactfive.test/auth/email-confirmation",
+      clientFactory: (_url, _key, options) => {
+        assertEqual(options.auth?.persistSession, false, "이메일 signUp이 세션을 지속함");
+        return {
+          auth: {
+            signUp: async () => ({
+              data: {
+                user: {
+                  id: "33333333-3333-4333-8333-333333333333",
+                  email: "pending-live@example.com",
+                  identities: [{ id: "existing-unconfirmed-identity" }],
+                  email_confirmed_at: null,
+                  confirmed_at: null,
+                },
+                session: null,
+              },
+              error: null,
+            }),
+            verifyOtp: async (input: { type: string }) => {
+              confirmationType = input.type;
+              return {
+                data: { session: null, user: null },
+                error: { code: "otp_expired", message: "expired" },
+              };
+            },
+          },
+        } as any;
+      },
+    });
+
+    const registration = await adapter.registerEmail({
+      email: "pending-live@example.com",
+      password: "attacker-password",
+    });
+    assertEqual(registration.created, false, "기존 미확인 identity를 신규 사용자로 오판함");
+    try {
+      await adapter.verifyEmail("unit-token-hash");
+    } catch {
+      // 이 검사는 공급자 결과가 아니라 adapter가 SDK에 전달한 고정 type만 확인한다.
+    }
+    assertEqual(confirmationType, "email", "이메일 확인 token hash type 불일치");
+  });
+
   await test("R02", "활성 이메일 중복 가입은 같은 202를 반환하고 기존 사용자를 바꾸지 않는다", async () => {
     const f = createFixture();
     const before = JSON.stringify(f.repository.getUsers().find((user) => user.id === "usr_client"));
@@ -483,10 +532,16 @@ async function main() {
       role: "CLIENT",
       returnTo: "/projects/new",
     });
-    const originalIntent = await pending.provider.findRegistrationIntentByEmail("pending@example.com");
+    const originalIntent = await pending.repository.findRegistrationIntentByEmail("pending@example.com");
     const originalToken = pending.provider.getConfirmationToken("pending@example.com");
     assert(originalIntent && originalToken, "확인 대기 fixture 준비 실패");
 
+    const originalRegisterEmail = pending.provider.registerEmail.bind(pending.provider);
+    pending.provider.registerEmail = async (input) => ({
+      ...(await originalRegisterEmail(input)),
+      // 실제 Supabase의 기존 미확인 identity 오판을 재현한다. 서비스는 이 힌트를 신뢰하면 안 된다.
+      created: true,
+    });
     const attackerResponse = await pending.service.register({
       email: "pending@example.com",
       password: "attacker-password",
@@ -494,14 +549,15 @@ async function main() {
       role: "FREELANCER",
       returnTo: "/",
     });
-    const afterAttack = await pending.provider.findRegistrationIntentByEmail("pending@example.com");
+    const afterAttack = await pending.repository.findRegistrationIntentByEmail("pending@example.com");
     assertEqual(attackerResponse.status, "EMAIL_VERIFICATION_REQUIRED", "공격 시에도 동일 202");
     assertEqual(afterAttack?.nonce, originalIntent.nonce, "소유권 없이 pending intent nonce 덮어씀");
     assertEqual(afterAttack?.role, "CLIENT", "소유권 없이 pending 역할 덮어씀");
+    pending.provider.registerEmail = originalRegisterEmail;
 
     pending.advance(60 * 60 * 1000);
     const resendResponse = await pending.service.requestEmailConfirmation("pending@example.com");
-    const afterResend = await pending.provider.findRegistrationIntentByEmail("pending@example.com");
+    const afterResend = await pending.repository.findRegistrationIntentByEmail("pending@example.com");
     const resentToken = pending.provider.getConfirmationToken("pending@example.com");
     assertEqual(resendResponse.status, "EMAIL_CONFIRMATION_REQUEST_ACCEPTED", "재전송 동일 응답");
     assert(afterResend && afterResend.nonce !== originalIntent.nonce, "정상 재전송에서 최신 nonce 미회전");
@@ -509,11 +565,11 @@ async function main() {
     assert(resentToken !== originalToken, "Mock 확인 token hash 미회전");
 
     pending.advance(25 * 60 * 60 * 1000);
-    const expiredNonce = (await pending.provider.findRegistrationIntentByEmail("pending@example.com"))?.nonce;
+    const expiredNonce = (await pending.repository.findRegistrationIntentByEmail("pending@example.com"))?.nonce;
     const expiredToken = pending.provider.getConfirmationToken("pending@example.com");
     await pending.service.requestEmailConfirmation("pending@example.com");
     assertEqual(
-      (await pending.provider.findRegistrationIntentByEmail("pending@example.com"))?.nonce,
+      (await pending.repository.findRegistrationIntentByEmail("pending@example.com"))?.nonce,
       expiredNonce,
       "만료 intent를 이메일-only 재전송으로 교체함",
     );
@@ -530,7 +586,7 @@ async function main() {
       role: "FREELANCER",
       returnTo: "/",
     });
-    const replacedByOwner = await pending.provider.findRegistrationIntentByEmail("pending@example.com");
+    const replacedByOwner = await pending.repository.findRegistrationIntentByEmail("pending@example.com");
     assert(replacedByOwner?.nonce !== expiredNonce, "전체 가입 폼+소유권 확인 후 만료 intent 미교체");
     assertEqual(replacedByOwner?.role, "FREELANCER", "소유자 재접수 역할 미반영");
   });
@@ -640,6 +696,123 @@ async function main() {
     assertEqual(f.provider.getCallNames().filter((name) => name === "createOAuthAuthorization").length, 2, "포트 호출 수");
     const serviceSource = readFileSync(path.join(here, "server", "auth.service.ts"), "utf8");
     assert(!serviceSource.includes("@supabase/supabase-js"), "서비스가 Supabase SDK에 직접 결합됨");
+  });
+
+  await test("R08", "live 어댑터가 flowId별 PKCE 상태를 요청 단위 저장소로 복원한다", async () => {
+    const flowId = "0123456789abcdef0123456789abcdef";
+    const verifier = "v".repeat(56);
+    const storedVerifier = JSON.stringify(verifier);
+    const verifierStorageKey = `sb-unit-auth-token-flow-${flowId}-code-verifier`;
+    const authUserId = "11111111-1111-4111-8111-111111111111";
+    const providerSessionId = "22222222-2222-4222-8222-222222222222";
+    const accessToken = [
+      Buffer.from(JSON.stringify({ alg: "none" }), "utf8").toString("base64url"),
+      Buffer.from(JSON.stringify({
+        sub: authUserId,
+        session_id: providerSessionId,
+        exp: Math.floor(Date.now() / 1_000) + 3_600,
+      }), "utf8").toString("base64url"),
+      "test-signature",
+    ].join(".");
+    const providerUser = {
+      id: authUserId,
+      email: "live-oauth@example.com",
+      email_confirmed_at: "2026-08-26T00:00:00.000Z",
+      confirmed_at: "2026-08-26T00:00:00.000Z",
+    };
+    let clientSequence = 0;
+
+    const adapter = createSupabaseAuthAdapter({
+      supabaseUrl: "https://unit.supabase.co",
+      publishableKey: "unit-publishable-key",
+      serviceRoleKey: "unit-service-role-key",
+      emailConfirmationRedirectTo: "https://app.pactfive.test/auth/email-confirmation",
+      clientFactory: (_url, _key, options) => {
+        const authOptions = options.auth as any;
+        const storage = authOptions.storage as {
+          getItem(key: string): string | null | Promise<string | null>;
+          setItem(key: string, value: string): void | Promise<void>;
+        };
+        assertEqual(authOptions.persistSession, true, "OAuth 요청 단위 PKCE 저장소가 SDK에서 비활성화됨");
+        clientSequence += 1;
+
+        if (clientSequence === 1) {
+          return {
+            auth: {
+              signInWithOAuth: async (input: any) => {
+                assertEqual(input.provider, "google", "Google 공급자 매핑");
+                await storage.setItem(verifierStorageKey, storedVerifier);
+                return {
+                  data: {
+                    provider: "google",
+                    url: "https://accounts.google.test/oauth?state=provider-owned",
+                    flowId,
+                  },
+                  error: null,
+                };
+              },
+            },
+          } as any;
+        }
+
+        if (clientSequence === 2) {
+          return {
+            auth: {
+              exchangeCodeForSession: async (code: string, exchangeOptions: { flowId?: string }) => {
+                assertEqual(code, "oauth-code", "OAuth code 전달");
+                assertEqual(exchangeOptions.flowId, flowId, "callback flowId 복원");
+                assertEqual(await storage.getItem(verifierStorageKey), storedVerifier, "callback PKCE verifier 복원");
+                return {
+                  data: {
+                    session: {
+                      access_token: accessToken,
+                      refresh_token: "unit-refresh-token",
+                      expires_in: 3_600,
+                      expires_at: Math.floor(Date.now() / 1_000) + 3_600,
+                      token_type: "bearer",
+                      user: providerUser,
+                    },
+                    user: providerUser,
+                  },
+                  error: null,
+                };
+              },
+            },
+          } as any;
+        }
+
+        throw new Error("예상하지 않은 Supabase client 생성");
+      },
+    });
+
+    let started: Awaited<ReturnType<typeof adapter.createOAuthAuthorization>>;
+    try {
+      started = await adapter.createOAuthAuthorization({
+        provider: "GOOGLE",
+        redirectTo: "https://app.pactfive.test/api/v1/auth/oauth/callback",
+      });
+    } catch (error) {
+      throw new Error(`live OAuth 시작 실패: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    assert(started.authorizationUrl.includes("state=provider-owned"), "공급자 OAuth URL 손실");
+    assert(!started.providerFlowState.includes(verifier), "PKCE verifier가 providerFlowState 평문에 노출됨");
+    let exchanged: Awaited<ReturnType<typeof adapter.exchangeOAuthCode>>;
+    try {
+      exchanged = await adapter.exchangeOAuthCode("oauth-code", started.providerFlowState);
+    } catch (error) {
+      throw new Error(`live OAuth callback 실패: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    assertEqual(exchanged.providerSessionId, providerSessionId, "JWT session_id 매핑");
+    assertEqual(exchanged.user.authUserId, authUserId, "JWT sub 사용자 매핑");
+    assertEqual(exchanged.refreshToken, "unit-refresh-token", "OAuth Refresh Token 매핑");
+
+    let tamperedRejected = false;
+    try {
+      await adapter.exchangeOAuthCode("oauth-code", `${started.providerFlowState}!`);
+    } catch (error) {
+      tamperedRejected = (error as { code?: string }).code === "INVALID_CREDENTIALS";
+    }
+    assert(tamperedRejected, "변조된 PKCE snapshot 허용");
   });
 
   await test("R09", "OAuth 사용자는 이메일 문자열이 아니라 authUserId로 매핑한다", async () => {
@@ -1184,6 +1357,7 @@ async function main() {
     const expiredLogin = await loginClient(expiredBearer);
     await expiredBearer.service.logout(expiredLogin.refreshToken, undefined);
     assertEqual(expiredBearer.repository.getSessions()[0].revokedReason, "LOGOUT", "Bearer 없이 쿠키 세션 미폐기");
+    assert(expiredBearer.provider.getCallNames().includes("signOut"), "Bearer 없이 Refresh credential 공급자 폐기 미요청");
 
     const queue = createAuthMutationQueue();
     const order: string[] = [];

@@ -283,10 +283,12 @@ NOT NULL` 순서로 한다. 신규 데이터는 첫 배포부터 값을 필수�
 - Confirm signup 템플릿은 기본 세션 fragment 대신 앱 소유 확인 화면에 `TokenHash`를 전달한다.
 - 이메일 링크의 GET은 상태를 바꾸지 않는다. 화면에서 사용자가 확인 버튼을 누를 때
   `POST /api/v1/auth/email-confirmations`가 고정 `type='email'`로 `verifyOtp`를 호출한다.
-- 가입 요청의 Supabase 사용자 UUID·정규화 이메일·이름·역할·검증된 `returnTo`·nonce·발급/만료 시각은 서버가 인증 암호화한
-  `EmailRegistrationIntent`로 공급자 사용자의 서버 소유 `app_metadata`에 연결한다. 저장 실패 시 이
-  요청에서 새로 만든 미확인 공급자 사용자를 보상 삭제한다. 일반 `user_metadata` 원문을 권한 근거로
-  신뢰하지 않으며, 확인 성공 때 검증된 intent로 `users`를 만든다.
+- 가입 요청의 Supabase 사용자 UUID·정규화 이메일·이름·역할·검증된 `returnTo`·nonce·발급/만료 시각은
+  애플리케이션 소유 `RegistrationIntentRepository`에 저장한다. 공급자 `app_metadata`나 일반
+  `user_metadata` 원문을 권한 근거로 신뢰하지 않으며, 확인 성공 때 공급자 UUID·이메일과 일치하는
+  intent로만 `users`를 만든다. 저장 실패 시 공급자 어댑터가 이 요청에서 새로 만든 사용자임을 신뢰할
+  수 있게 보장하는 경우에만 미확인 공급자 사용자를 보상 삭제한다. Supabase 공개 `signUp` 응답만으로는
+  신규 생성 여부를 판정하지 않으므로 소유권 검증을 생략하거나 기존 계정을 삭제하지 않는다.
 - intent direct-completion TTL은 발급·정상 재전송부터 24시간이며 최신 nonce만 유효하다. 별도 30일
   recovery proof 만료를 같은 서명에 넣어 “PactFive가 시작한 가입” 증거로만 사용한다. 재전송은 유효
   intent의 만료를 회전할 수 있지만, intent가 없거나 만료되면 이메일만으로 이름·역할·`returnTo`를

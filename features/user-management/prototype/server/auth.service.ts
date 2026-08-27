@@ -12,6 +12,7 @@ import type {
   CreateOAuthAuthorizationInput,
   CreateOAuthAuthorizationResponse,
   OAuthIntent,
+  ProviderSessionCredential,
   ProviderSession,
   RegisterInput,
   RegisterResponse,
@@ -256,22 +257,22 @@ export class AuthSessionService {
       throw this.mapRegistrationProviderError(error);
     }
     if (registration.unexpectedSession) {
-      await this.safeProviderSignOut(registration.unexpectedSession.providerSessionId);
+      await this.safeProviderRevoke(this.accessCredential(registration.unexpectedSession));
       throw new AuthProblem(
         503,
         "AUTH_CONFIGURATION_INVALID",
         "이메일 확인 설정을 점검해 주세요.",
       );
     }
-    if (!registration.created) {
-      let ownsPendingRegistration = false;
-      try {
-        ownsPendingRegistration = await this.provider.verifyPendingRegistrationOwnership(email, input.password);
-      } catch {
-        return this.registrationAccepted();
-      }
-      if (!ownsPendingRegistration) return this.registrationAccepted();
+    // Supabase signUp의 identities는 기존 미확인 계정에도 존재할 수 있으므로 생성 여부를
+    // 소유권 증거로 쓰지 않는다. 모든 sessionless 결과에서 비밀번호 소유권을 다시 확인한다.
+    let ownsPendingRegistration = false;
+    try {
+      ownsPendingRegistration = await this.provider.verifyPendingRegistrationOwnership(email, input.password);
+    } catch {
+      return this.registrationAccepted();
     }
+    if (!ownsPendingRegistration) return this.registrationAccepted();
     const issuedAt = this.now();
     const intent: RegistrationIntent = {
       authUserId: registration.user.authUserId,
@@ -286,12 +287,9 @@ export class AuthSessionService {
     };
 
     try {
-      await this.provider.saveRegistrationIntent(intent);
+      await this.repositories.saveRegistrationIntent(intent);
     } catch (error) {
       if (registration.created) await this.provider.deleteUnconfirmedUser(registration.user.authUserId);
-      if (error instanceof ProviderAuthError && error.code === "PROVIDER_UNAVAILABLE") {
-        throw this.mapProviderAvailability(error);
-      }
       throw new AuthProblem(503, "AUTH_REGISTRATION_SYNC_FAILED", "가입 정보를 연결하지 못했습니다.");
     }
     return this.registrationAccepted();
@@ -306,10 +304,10 @@ export class AuthSessionService {
     }
     try {
       const normalized = this.normalizeEmail(email);
-      const current = await this.provider.findRegistrationIntentByEmail(normalized);
+      const current = await this.repositories.findRegistrationIntentByEmail(normalized);
       const issuedAt = this.now();
       if (current && current.expiresAt.getTime() > issuedAt.getTime()) {
-        await this.provider.saveRegistrationIntent({
+        await this.repositories.saveRegistrationIntent({
           ...current,
           nonce: this.nonce(),
           issuedAt,
@@ -363,7 +361,7 @@ export class AuthSessionService {
     }
 
     try {
-      const intent = await this.provider.getRegistrationIntent(providerSession.user.authUserId);
+      const intent = await this.repositories.findRegistrationIntentByAuthUserId(providerSession.user.authUserId);
       if (!intent || intent.expiresAt.getTime() <= this.now().getTime()) {
         throw new AuthProblem(409, "REGISTRATION_COMPLETION_REQUIRED", "가입 정보를 다시 확인해 주세요.");
       }
@@ -372,7 +370,7 @@ export class AuthSessionService {
       await this.safeClearRegistrationIntent(intent.authUserId, intent.nonce);
       return result;
     } catch (error) {
-      await this.safeProviderSignOut(providerSession.providerSessionId);
+      await this.safeProviderRevoke(this.accessCredential(providerSession));
       if (error instanceof AuthProblem && error.code === "AUTH_SESSION_SYNC_FAILED") throw error;
       if (error instanceof AuthProblem && error.code === "REGISTRATION_COMPLETION_REQUIRED") throw error;
       if (error instanceof AuthProblem) {
@@ -416,7 +414,7 @@ export class AuthSessionService {
       let user = await this.repositories.findByAuthUserId(providerSession.user.authUserId);
       let completedIntent: RegistrationIntent | null = null;
       if (!user) {
-        const intent = await this.provider.getRegistrationIntent(providerSession.user.authUserId);
+        const intent = await this.repositories.findRegistrationIntentByAuthUserId(providerSession.user.authUserId);
         if (intent && intent.expiresAt.getTime() > this.now().getTime()) {
           user = await this.resolveOrCreateIntentUser(providerSession.user, intent);
           completedIntent = intent;
@@ -451,7 +449,7 @@ export class AuthSessionService {
       }
       return result;
     } catch (error) {
-      await this.safeProviderSignOut(providerSession.providerSessionId);
+      await this.safeProviderRevoke(this.accessCredential(providerSession));
       throw error;
     }
   }
@@ -503,7 +501,7 @@ export class AuthSessionService {
 
     let createdUser: UserRecord | null = null;
     try {
-      const intent = await this.provider.getRegistrationIntent(providerSession.user.authUserId);
+      const intent = await this.repositories.findRegistrationIntentByAuthUserId(providerSession.user.authUserId);
       const proofMatches =
         providerSession.user.emailVerified &&
         proof.authUserId === providerSession.user.authUserId &&
@@ -555,7 +553,7 @@ export class AuthSessionService {
       await this.safeClearRegistrationIntent(intent.authUserId, intent.nonce);
       return result;
     } catch (error) {
-      await this.safeProviderSignOut(providerSession.providerSessionId);
+      await this.safeProviderRevoke(this.accessCredential(providerSession));
       if (createdUser) {
         await this.repositories.deleteUserIfUninitialized(createdUser.id, createdUser.authUserId);
       }
@@ -670,7 +668,7 @@ export class AuthSessionService {
 
       return await this.synchronizeSession(user, providerSession, returnTo, deviceLabel);
     } catch (error) {
-      await this.safeProviderSignOut(providerSession.providerSessionId);
+      await this.safeProviderRevoke(this.accessCredential(providerSession));
       if (error instanceof AuthProblem) throw error;
       throw new AuthProblem(403, "OAUTH_ACCOUNT_NOT_AVAILABLE", "소셜 로그인을 완료할 수 없습니다.");
     }
@@ -685,13 +683,20 @@ export class AuthSessionService {
     }
     if (candidate.session.expiresAt.getTime() <= now.getTime()) {
       await this.repositories.invalidateSession(candidate.session.id, now);
-      await this.safeProviderSignOut(candidate.session.providerSessionId);
+      await this.safeProviderRevoke({
+        kind: "REFRESH_TOKEN",
+        providerSessionId: candidate.session.providerSessionId,
+        refreshToken,
+      });
       throw new AuthProblem(401, "AUTH_SESSION_INVALID", "세션이 만료되었습니다.", true);
     }
 
-    let providerResult;
+    let providerSession: ProviderSession;
     try {
-      providerResult = await this.provider.refreshSession(refreshToken);
+      providerSession = await this.provider.refreshSession({
+        refreshToken,
+        expectedProviderSessionId: candidate.session.providerSessionId,
+      });
     } catch (error) {
       if (error instanceof ProviderAuthError && error.code === "REFRESH_TOKEN_ALREADY_USED") {
         if (error.providerSessionId === candidate.session.providerSessionId) {
@@ -704,39 +709,29 @@ export class AuthSessionService {
         await this.repositories.invalidateSession(candidate.session.id, now);
         throw new AuthProblem(401, "AUTH_SESSION_INVALID", "세션이 만료되었습니다.", true);
       }
+      if (error instanceof ProviderAuthError && error.code === "INVALID_CREDENTIALS") {
+        throw new AuthProblem(503, "AUTH_SESSION_SYNC_FAILED", "세션 동기화에 실패했습니다.");
+      }
       throw new AuthProblem(503, "AUTH_PROVIDER_UNAVAILABLE", "인증 서버에 잠시 연결할 수 없습니다.");
     }
 
-    if (providerResult.session.providerSessionId !== candidate.session.providerSessionId) {
-      await this.safeProviderSignOut(providerResult.session.providerSessionId);
+    if (providerSession.providerSessionId !== candidate.session.providerSessionId) {
+      await this.safeProviderRevoke(this.accessCredential(providerSession));
       throw new AuthProblem(503, "AUTH_SESSION_SYNC_FAILED", "세션 동기화에 실패했습니다.");
     }
 
-    const mappedUser = await this.repositories.findByAuthUserId(providerResult.session.user.authUserId);
+    const mappedUser = await this.repositories.findByAuthUserId(providerSession.user.authUserId);
     if (!mappedUser || mappedUser.id !== candidate.session.userId || mappedUser.deletedAt) {
       try {
         await this.repositories.invalidateSession(candidate.session.id, now);
       } finally {
-        await this.safeProviderSignOut(providerResult.session.providerSessionId);
+        await this.safeProviderRevoke(this.accessCredential(providerSession));
       }
       throw new AuthProblem(401, "AUTH_SESSION_INVALID", "세션이 만료되었습니다.", true);
     }
 
-    const nextFingerprint = fingerprintRefreshToken(providerResult.session.refreshToken, this.refreshFingerprintKey);
-    if (providerResult.outcome === "ROTATED") {
-      if (candidate.matched !== "CURRENT") {
-        throw new AuthProblem(503, "AUTH_SESSION_SYNC_FAILED", "세션 동기화에 실패했습니다.");
-      }
-      const rotated = await this.repositories.rotateSession({
-        sessionId: candidate.session.id,
-        expectedCurrentFingerprint: candidate.session.refreshTokenFingerprint,
-        nextFingerprint,
-        usedAt: now,
-      });
-      if (!rotated) {
-        await this.throwRefreshPersistenceConflict(candidate.session, providerResult.session.providerSessionId, now);
-      }
-    } else if (candidate.matched === "PREVIOUS") {
+    const nextFingerprint = fingerprintRefreshToken(providerSession.refreshToken, this.refreshFingerprintKey);
+    if (candidate.matched === "PREVIOUS") {
       if (nextFingerprint !== candidate.session.refreshTokenFingerprint) {
         throw new AuthProblem(503, "AUTH_SESSION_SYNC_FAILED", "세션 동기화에 실패했습니다.");
       }
@@ -746,7 +741,7 @@ export class AuthSessionService {
         usedAt: now,
       });
       if (!touched) {
-        await this.throwRefreshPersistenceConflict(candidate.session, providerResult.session.providerSessionId, now);
+        await this.throwRefreshPersistenceConflict(candidate.session, providerSession, now);
       }
     } else if (nextFingerprint === candidate.session.refreshTokenFingerprint) {
       const touched = await this.repositories.touchSession({
@@ -755,28 +750,26 @@ export class AuthSessionService {
         usedAt: now,
       });
       if (!touched) {
-        await this.throwRefreshPersistenceConflict(candidate.session, providerResult.session.providerSessionId, now);
+        await this.throwRefreshPersistenceConflict(candidate.session, providerSession, now);
       }
     } else {
-      // 공급자 rotation은 성공했지만 직전 DB CAS가 실패한 경우, parent-token 복구 결과 B를
-      // 현재 DB fingerprint A에서 B로 수렴시킨다.
-      const converged = await this.repositories.rotateSession({
+      const rotated = await this.repositories.rotateSession({
         sessionId: candidate.session.id,
         expectedCurrentFingerprint: candidate.session.refreshTokenFingerprint,
         nextFingerprint,
         usedAt: now,
       });
-      if (!converged) {
-        await this.throwRefreshPersistenceConflict(candidate.session, providerResult.session.providerSessionId, now);
+      if (!rotated) {
+        await this.throwRefreshPersistenceConflict(candidate.session, providerSession, now);
       }
     }
 
     return {
       body: {
-        accessToken: providerResult.session.accessToken,
-        accessTokenExpiresAt: providerResult.session.accessTokenExpiresAt.toISOString(),
+        accessToken: providerSession.accessToken,
+        accessTokenExpiresAt: providerSession.accessTokenExpiresAt.toISOString(),
       },
-      refreshToken: providerResult.session.refreshToken,
+      refreshToken: providerSession.refreshToken,
       sessionExpiresAt: candidate.session.expiresAt,
     };
   }
@@ -798,7 +791,7 @@ export class AuthSessionService {
   }
 
   async getCurrentContext(accessToken: string): Promise<AuthContext> {
-    let providerSession: ProviderSession;
+    let providerSession: Awaited<ReturnType<AuthProvider["verifyAccessToken"]>>;
     try {
       providerSession = await this.provider.verifyAccessToken(accessToken);
     } catch (error) {
@@ -815,7 +808,7 @@ export class AuthSessionService {
       try {
         await this.repositories.invalidateSession(localSession.id, this.now());
       } finally {
-        await this.safeProviderSignOut(providerSession.providerSessionId);
+        await this.safeProviderRevoke(this.accessCredential(providerSession));
       }
       throw new AuthProblem(401, "AUTH_REQUIRED", "로그인이 필요합니다.");
     }
@@ -824,7 +817,7 @@ export class AuthSessionService {
       try {
         await this.repositories.invalidateSession(localSession.id, this.now());
       } finally {
-        await this.safeProviderSignOut(providerSession.providerSessionId);
+        await this.safeProviderRevoke(this.accessCredential(providerSession));
       }
       throw new AuthProblem(401, "AUTH_REQUIRED", "로그인이 필요합니다.");
     }
@@ -852,14 +845,24 @@ export class AuthSessionService {
       throw new AuthProblem(503, "AUTH_LOGOUT_SYNC_FAILED", "로그아웃 상태를 확정하지 못했습니다.");
     }
 
-    if (!bearerAccessToken) return;
-    try {
-      const providerSession = await this.provider.verifyAccessToken(bearerAccessToken);
-      if (providerSession.providerSessionId === candidate.session.providerSessionId) {
-        await this.provider.signOut(candidate.session.providerSessionId);
+    let revokedWithAccessToken = false;
+    if (bearerAccessToken) {
+      try {
+        const providerSession = await this.provider.verifyAccessToken(bearerAccessToken);
+        if (providerSession.providerSessionId === candidate.session.providerSessionId) {
+          await this.provider.revokeSession(this.accessCredential(providerSession));
+          revokedWithAccessToken = true;
+        }
+      } catch {
+        // 공급자 오류나 만료 Bearer는 로컬 로그아웃 결과를 되돌리지 않는다.
       }
-    } catch {
-      // 공급자 오류나 만료 Bearer는 로컬 로그아웃 결과를 되돌리지 않는다.
+    }
+    if (!revokedWithAccessToken) {
+      await this.safeProviderRevoke({
+        kind: "REFRESH_TOKEN",
+        providerSessionId: candidate.session.providerSessionId,
+        refreshToken,
+      });
     }
   }
 
@@ -891,7 +894,7 @@ export class AuthSessionService {
       await this.repositories.updateLastLoginAt(user.id, now);
     } catch {
       if (sessionCreated) await this.repositories.revokeSession(sessionId, "LOGOUT", now);
-      await this.safeProviderSignOut(providerSession.providerSessionId);
+      await this.safeProviderRevoke(this.accessCredential(providerSession));
       throw new AuthProblem(503, "AUTH_SESSION_SYNC_FAILED", "세션 동기화에 실패했습니다.");
     }
 
@@ -1027,17 +1030,27 @@ export class AuthSessionService {
     return new AuthProblem(503, "AUTH_PROVIDER_UNAVAILABLE", "인증 서버에 잠시 연결할 수 없습니다.");
   }
 
-  private async safeProviderSignOut(providerSessionId: string): Promise<void> {
+  private accessCredential(
+    session: Pick<ProviderSession, "providerSessionId" | "accessToken">,
+  ): ProviderSessionCredential {
+    return {
+      kind: "ACCESS_TOKEN",
+      providerSessionId: session.providerSessionId,
+      accessToken: session.accessToken,
+    };
+  }
+
+  private async safeProviderRevoke(credential: ProviderSessionCredential): Promise<void> {
     try {
-      await this.provider.signOut(providerSessionId);
+      await this.provider.revokeSession(credential);
     } catch {
-      // 앱 인증 실패를 공급자 오류로 되돌리지 않는다. 통합 구현은 식별자만 감사 로그에 남긴다.
+      // 앱 인증 실패를 공급자 오류로 되돌리지 않는다. 통합 구현은 비밀값 없이 식별자만 감사한다.
     }
   }
 
   private async throwRefreshPersistenceConflict(
     candidate: AuthSessionRecord,
-    providerSessionId: string,
+    providerSession: ProviderSession,
     now: Date,
   ): Promise<never> {
     let latest: Awaited<ReturnType<AuthRepositories["findSessionById"]>>;
@@ -1052,7 +1065,7 @@ export class AuthSessionService {
       latest.revokedAt !== null ||
       latest.expiresAt.getTime() <= now.getTime()
     ) {
-      await this.safeProviderSignOut(providerSessionId);
+      await this.safeProviderRevoke(this.accessCredential(providerSession));
       throw new AuthProblem(401, "AUTH_SESSION_INVALID", "세션이 만료되었습니다.", true);
     }
     throw new AuthProblem(503, "AUTH_SESSION_SYNC_FAILED", "세션 동기화에 실패했습니다.");
@@ -1060,7 +1073,7 @@ export class AuthSessionService {
 
   private async safeClearRegistrationIntent(authUserId: string, nonce: string): Promise<void> {
     try {
-      await this.provider.clearRegistrationIntent(authUserId, nonce);
+      await this.repositories.clearRegistrationIntent(authUserId, nonce);
     } catch {
       // 사용자는 이미 앱 역할과 세션에 고정됐다. stale intent는 기존 사용자 검사로 재사용되지 않으며,
       // 통합 구현은 정리 재시도 대상만 식별자 기반으로 기록한다.
