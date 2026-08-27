@@ -11,7 +11,8 @@
 - design/ 구성: `_tokens.css`(project-management 와 같은 사본) ·
   `high-fi-bookmarks.html`(SCR-B08 · SCR-B09). **필수 요소 목록 9개**, 전부 PRD 정본과 대조함.
   8개는 §14 문구표, 1개(`추천 프로젝트`)는 §7.2 화면 이름이라 근거 열을 따로 뒀다.
-- prototype/ 구성: 작성 예정
+- prototype/ 구성: 데이터 계층 + 서비스 4종까지 작성됨. `run.tsx` **PASS 69 · FAIL 0**.
+  화면은 이어지는 커밋에서 채운다 (run.tsx 6절 자리 표시).
 
 ## 이 기능의 전제 — 읽기 전용
 
@@ -35,10 +36,15 @@
 - 주요 컴포넌트: 작성 예정 (북마크 아이콘 · 내 북마크 목록 · 추천 섹션)
 - 공용 조각: 프로젝트 카드는 `features/project-management/prototype/web/ui.tsx` 와
   같은 모양이어야 한다. 통합 시 공용으로 뺄 후보
-- Mock 계약 상태: 작성 예정
+- Mock 계약 상태: 화면은 서버 응답을 그대로 받는다. `canApply` 도 서버가 판정한다 (규칙 14)
 
 ## 백엔드 (prototype/server/)
-- 계층 구성: 작성 예정
+- 계층 구성: service → repository. controller 는 팀장 통합 영역이다
+  - `bookmark.types.ts` — 도메인 타입 · DTO · `EngagementError`(오류 코드 4종)
+  - `ports/project-read.port.ts` — project-management · user-management 읽기 3+1종
+  - `mock/bookmark.mock.ts` — 저장소 Mock. **UNIQUE 제약을 흉내 낸다**
+  - `mock/project-read.mock.ts` — 프로젝트 조회 어댑터. 시드 id 는 project-management 와 맞췄다
+  - `bookmark.service.ts` — 공개 API 4종
 - 주요 API 엔드포인트: `PUT /projects/:projectId/bookmarks` ·
   `DELETE /projects/:projectId/bookmarks` · `GET /bookmarks` ·
   `GET /projects/:projectId/recommendations`
@@ -71,3 +77,4 @@
 |---|---|
 | 2026-08-27 | 최초 작성 — spec.md 규칙 34개 · api-contract.md 4종 · CR-0001 |
 | 2026-08-27 | design/ high-fi 추가 — SCR-B08 · SCR-B09 · 필수 요소 9개 |
+| 2026-08-28 | prototype 데이터 계층 + 서비스 4종 — run.tsx PASS 69 |
