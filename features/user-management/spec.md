@@ -272,6 +272,7 @@ Supabase가 같은 사용자의 Google·Kakao identity를 복수로 연결할 �
 | `RegistrationIntentRepository` | 가입 이름·역할·`returnTo`의 앱 소유 저장, UUID/email 조회, `authUserId + nonce` 조건부 제거 |
 | controller | Refresh/OAuth intent 쿠키 읽기·설정·삭제, `Cache-Control: private, no-store` 응답 |
 | 브라우저 | Access Token 메모리 보관, PactFive API 호출, 갱신 단일화. Refresh Token과 Supabase 세션은 소유하지 않음 |
+| 보호 API 인증 미들웨어 | 주입된 `AccessTokenVerifier`로 공급자 Access Token과 활성 로컬 `auth_sessions`를 함께 검증한 뒤 `{ userId, role }`만 요청에 주입. 벤더 SDK와 토큰 원문을 다른 기능에 노출하지 않음 |
 
 로그인·OAuth 콜백은 앱 사용자 검사와 `provider_session_id`를 포함한 `auth_sessions` 생성까지
 성공한 뒤에만 토큰과 쿠키를
@@ -319,14 +320,17 @@ Refresh 쿠키가 가리키는 `auth_sessions`를 Bearer Token 만료 여부와 
 
 ## 웹 라우트 목록
 
-현재 `app/web`에는 라우터 구현이 없으므로 아래 경로는 오늘의 디자인·API 계약을 맞추기 위한
-**ASSUMPTION**이다. 팀이 경로를 확정하기 전에는 `app/`에 반영하지 않는다.
+`/login`은 high-fi 시안과 prototype 구현이 있다. `/sign-up`과 `/auth/confirm`은 서버 계약과 링크만
+있고 high-fi 시안·prototype 라우트는 아직 없다. 디자인 계약 없이 화면을 임의로 만들지 않으며,
+두 화면은 실제 이메일 가입·확인 E2E를 시작하기 전 user-management의 다음 UI 작업 묶음에서
+완성해야 한다. 그 전까지 `/sign-up` 링크와 이메일 확인 템플릿은 운영 준비 완료로 판정하지 않는다.
+나머지 공통 경로는 팀 확정 전 **ASSUMPTION**이다.
 
 | 라우트 | 상태 | 책임 |
 |---|---|---|
-| `/login` | ASSUMPTION | 이메일 로그인, Google/Kakao 로그인 시작, `returnTo` 수신 |
-| `/sign-up` | ASSUMPTION | 이메일/OAuth 가입, 고립 계정 복구, `CLIENT`/`FREELANCER` 역할 선택, `returnTo` 수신 |
-| `/auth/confirm` | ASSUMPTION | 이메일 링크의 token hash를 주소에서 제거하고, 사용자의 명시적 확인 뒤 서버 POST 검증 |
+| `/login` | FACT — 시안·prototype 있음 | 이메일 로그인, Google/Kakao 로그인 시작, `returnTo` 수신 |
+| `/sign-up` | OPEN — 화면 미구현 | 이메일/OAuth 가입, 고립 계정 복구, `CLIENT`/`FREELANCER` 역할 선택, `returnTo` 수신 |
+| `/auth/confirm` | OPEN — 화면 미구현 | 이메일 링크의 token hash를 주소에서 제거하고, 사용자의 명시적 확인 뒤 서버 POST 검증 |
 | `/terms` | ASSUMPTION | 이용약관 읽기 전용 화면. 실제 소유 기능은 팀 통합 시 확정 |
 | `/privacy` | ASSUMPTION | 개인정보 처리방침 읽기 전용 화면. 실제 소유 기능은 팀 통합 시 확정 |
 | `/` | ASSUMPTION | 유효한 `returnTo`가 없을 때의 안전한 기본 복귀 경로 |
@@ -337,6 +341,15 @@ Refresh 쿠키가 가리키는 `auth_sessions`를 Bearer Token 만료 여부와 
 
 Supabase OAuth callback은 웹 라우트가 아니라 BFF의
 `GET /api/v1/auth/oauth-callbacks`가 소유한다. 웹은 BFF의 최종 302 성공·오류 결과만 표시한다.
+
+### 배포 패키지의 DTO 경계
+
+ADR-0007에 따라 `app/web`과 `app/server`는 독립 배포 패키지이며 현재 npm workspace나 공용 타입
+패키지를 만들지 않는다. 필드 계약의 정본은 `api-contract.md`이고, 통합 앱의 TypeScript 사본
+중에서는 서버 DTO를 기준으로 웹에 실제 소비 필드만 임시로 중복한다.
+API 요청·응답 필드를 바꾸는 PR은 두 패키지의 DTO와 이 계약을 같은 변경에서 함께 갱신한다. 중복
+불일치가 반복되면 임의 상대 경로 import를 추가하지 않고 `change-requests/`에서 공용 패키지를
+재검토한다.
 
 ## 외부 계정·키 준비 상태
 
@@ -407,6 +420,10 @@ Supabase OAuth callback은 웹 라우트가 아니라 BFF의
 7. 앱 세션 절대 수명 제안값 7일의 승인 또는 대체값 확정
 8. 서로 다른 탭에서 인증 성공 응답이 교차하는 경우의 서버측 흐름 잠금·세대 번호 또는 OAuth
    same-site 2단계 확정 방식 선택. 이 항목은 실제 OAuth/세션 통합 전 차단 조건이다.
+9. 운영 웹·API의 Origin 토폴로지와 API base path 확정. `SameSite=Strict` Refresh 쿠키를 유지하려면
+   같은 Origin의 `/api` rewrite/BFF 또는 같은 schemeful site의 커스텀 웹·API 도메인을 사용해야
+   한다. 서로 다른 `*.vercel.app` 프로젝트를 직접 연결하는 구성은 라이브 E2E 전에 제거하며,
+   직접 API host를 쓰는 경우 base URL의 `/api` 포함 여부도 서버의 `/api/v1` 라우트와 맞춘다.
 9. `auth_sessions` 저장소 장애 중 로그아웃 요청을 durable하게 수렴시킬 fingerprint tombstone/outbox
    또는 동등한 별도 폐기 경계. 브라우저 쿠키 삭제만으로 서버측 즉시 폐기를 완료 처리하지 않는다.
 

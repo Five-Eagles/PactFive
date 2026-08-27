@@ -1338,7 +1338,9 @@ async function main() {
   await test("R17", "로그아웃은 Origin 확인 후 로컬 세션을 멱등 폐기하고 잔여 JWT를 즉시 차단한다", async () => {
     const f = createFixture();
     const login = await loginClient(f);
-    await expectProblem(() => requireAllowedOrigin("https://evil.test", "https://app.pactfive.test"), {
+    const allowedOrigins = ["https://app.pactfive.test", "https://staging.pactfive.test"] as const;
+    requireAllowedOrigin("https://staging.pactfive.test", allowedOrigins);
+    await expectProblem(() => requireAllowedOrigin("https://evil.test", allowedOrigins), {
       status: 403,
       code: "ORIGIN_NOT_ALLOWED",
     });
@@ -1489,11 +1491,11 @@ async function main() {
     const controllerFailure = createFixture();
     const controllerLogin = await loginClient(controllerFailure);
     controllerFailure.repository.findByRefreshFingerprint = async () => { throw new Error("simulated DB outage"); };
-    const logoutController = createAuthController(controllerFailure.service, "https://app.pactfive.test");
+    const logoutController = createAuthController(controllerFailure.service, allowedOrigins);
     const failedResponse = createResponseHarness();
     await logoutController.deleteCurrentSession(
       createRequestHarness({
-        origin: "https://app.pactfive.test",
+        origin: "https://staging.pactfive.test",
         cookie: `${REFRESH_COOKIE_NAME}=${encodeURIComponent(controllerLogin.refreshToken)}`,
       }),
       failedResponse.response,

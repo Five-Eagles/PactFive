@@ -40,7 +40,7 @@ HTTP 서버와 실브라우저 연동을 통과했다는 의미는 아니다. sc
 | 14 | `R14` — 앱 시작 restore 호출 지점, 같은 epoch의 restore와 보호 API 401 경로가 공유하는 Refresh single-flight, 로그아웃 뒤 새 epoch가 outer restore와 underlying Refresh 모두 이전 Promise에 합류하지 않음, 완료 전 인증 상태 미공개를 확인 | 통과 (훅·웹 유틸·Mock) |
 | 15 | `R15` — HMAC fingerprint rotation, `provider_session_id` 일치, CAS 실패 후 parent 수렴, Refresh/로그아웃 경합의 조건부 touch 실패, 매핑 소실 정리, 상관 가능한 reuse만 폐기, `not_found` 분리를 확인 | 통과 (Mock·인메모리 CAS) |
 | 16 | `R16` — Refresh와 보호 컨텍스트에서 확정 401/공급자 일시 503 분리, 보호 API 401 뒤 1회 Refresh·1회 재시도, `returnTo` 보존, 동시 요청 single-flight를 확인 | 통과 (웹 유틸·Mock) |
-| 17 | `R17` — Origin 선검사, Refresh 쿠키 기준 멱등 로그아웃, Bearer 없이 로컬 세션 폐기와 Refresh credential 공급자 폐기 요청, 저장소 오류를 명시적 503으로 분류하면서 모든 인증 쿠키 제거, Origin 거부 전 무변경, 동일 탭 mutation 직렬화, 확정 401의 epoch 무효화와 epoch 뒤 지연 Restore/최초 보호 응답/Refresh/재시도/401 결과 미게시·미이동을 확인 | 부분 통과 (Mock·인메모리·controller·웹 유틸), durable 장애 복구 제외 |
+| 17 | `R17` — 복수 허용 Origin의 완전 일치와 비허용 Origin 선거부, Refresh 쿠키 기준 멱등 로그아웃, Bearer 없이 로컬 세션 폐기와 Refresh credential 공급자 폐기 요청, 저장소 오류를 명시적 503으로 분류하면서 모든 인증 쿠키 제거, Origin 거부 전 무변경, 동일 탭 mutation 직렬화, 확정 401의 epoch 무효화와 epoch 뒤 지연 Restore/최초 보호 응답/Refresh/재시도/401 결과 미게시·미이동을 확인 | 부분 통과 (Mock·인메모리·controller·웹 유틸), durable 장애 복구 제외 |
 | 18 | `R18` — `__Host-` Refresh 쿠키 속성, 브라우저 영속 저장소/Supabase SDK 미사용, Refresh 및 보호 API에서 절대 수명 불연장·7일 제안 TTL 만료·공급자 정리를 확인 | 통과 (제안값·Mock·정적 검사) |
 | 19 | `R19` — 이메일 로그인 결과의 안전한 `returnTo` 보존, 한 번만 이동하는 navigator와 앱 restore 성공 시 검증된 로그인 화면 입력만 사용하는 복귀 지점을 확인 | 통과 (Mock·웹 유틸·정적 검사) |
 | 20 | `R20` — 서버·웹이 공유하는 허용 규칙으로 외부 URL·이중 슬래시·역슬래시·fragment·제어문자·비허용 경로를 거부하고 `/`로 안전 복귀함을 확인 | 통과 (단위 검사) |

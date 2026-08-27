@@ -20,10 +20,17 @@
   `Max-Age`는 `auth_sessions.expires_at`까지 남은 시간이고 Refresh 때 수명을 임의 연장하지 않는다.
 - 웹은 인증 API를 브라우저 기준 동일 출처의 `/api/v1`으로 호출하고 `credentials: 'include'`를
   사용한다. 가입·가입 복구·확인 메일 재전송·이메일 확인·로그인·OAuth 시작·Refresh·로그아웃처럼 세션 또는
-  인증 쿠키를 만들거나 바꾸는 동일 출처 `POST | DELETE` 요청은 허용 Origin을 문자열로 정확히
-  비교하고, 누락되거나 다른 Origin이면 상태 변경 전에 거부한다. 공급자에서 돌아오는 OAuth `GET`
+  인증 쿠키를 만들거나 바꾸는 `POST | DELETE` 요청은 환경에 설정된 허용 Origin 목록의 각 완전한
+  문자열과 정확히 비교한다. wildcard·접두사·접미사 비교는 허용하지 않으며, Origin이 누락되거나
+  목록의 어느 값과도 일치하지 않으면 상태 변경 전에 거부한다. 공급자에서 돌아오는 OAuth `GET`
   콜백은 cross-site navigation이므로 Origin 대신 PKCE와 일회용 OAuth intent를 검증한다. 모든 인증
   응답에는 `Cache-Control: private, no-store`를 설정한다.
+- 운영 배포는 웹 Origin에서 `/api`를 서버로 rewrite/BFF 하거나 웹·API를 같은 schemeful site의
+  커스텀 도메인에 둔다. 서로 다른 `*.vercel.app` 프로젝트를 직접 연결하면 `SameSite=Strict`
+  Refresh 쿠키 전제와 맞지 않으므로 허용하지 않는다. 직접 API host를 설정하는 방식을 채택하면
+  base URL에 `/api`를 포함해 아래 `/v1/...` 클라이언트 경로가 서버 `/api/v1/...`와 정확히
+  일치해야 한다. 다른 cross-site 쿠키 정책은 CSRF 경계를 다시 설계하는 팀 change request 없이는
+  도입하지 않는다.
 - 브라우저 Supabase Auth SDK의 세션 지속과 자동 갱신은 사용하지 않는다. 서버의
   `supabase-auth.adapter.ts`만 요청 단위 SDK 인스턴스로 명시적 로그인·PKCE code 교환·Refresh·
   현재 세션 로그아웃을 수행한다. 모든 클라이언트는 `autoRefreshToken: false`,
@@ -39,6 +46,10 @@
   두고 `expires_at`을 만들며 Refresh로 연장하지 않는다. 승인자가 다른 값을 선택하면 SPEC·이 계약·
   환경 변수 예시를 같은 변경으로 갱신한다.
 - 오류 응답 형식은 다음과 같다.
+
+  이 envelope는 user-management의 작업 계약이다. `docs/naming-convention.md`의 프로젝트 공통 오류
+  형식이 확정되기 전에는 다른 기능의 전역 표준으로 간주하지 않으며, 공통화는 팀장과 관련 기능
+  담당자의 change request 승인 뒤 별도 변경으로 수행한다.
 
 ```json
 {
@@ -60,6 +71,12 @@
 | `RegistrationIntentRepository` | 앱 소유 가입 이름·역할·`returnTo` 저장, UUID/email 조회, `authUserId + nonce` 조건부 제거 |
 | `supabase-auth.adapter.ts` | Supabase SDK 호출과 공급자 결과·오류의 도메인 타입 변환 |
 | 브라우저 | Access Token 메모리 보관, 같은 탭 인증 mutation 직렬화, epoch별 Refresh single-flight와 로그아웃 epoch. Refresh Token·Supabase 세션은 소유하지 않음 |
+| 보호 API 인증 미들웨어 | composition root가 주입한 `AccessTokenVerifier`로 공급자 토큰과 활성 로컬 세션을 모두 검증하고 `{ userId, role }`만 주입. 다른 기능은 Supabase SDK나 Refresh Token을 직접 참조하지 않음 |
+
+ADR-0007의 독립 배포 구조에서 필드 계약 정본은 이 `api-contract.md`다. 통합 앱의 TypeScript
+사본 중에는 `app/server` DTO를 기준으로 두고 `app/web`에는 실제 소비 필드만 임시로 중복한다.
+요청·응답 필드가 바뀌면 서버·웹 DTO를 같은 변경에서 함께 갱신한다. 공용 타입 패키지는 불일치가
+반복될 때 change request로 재검토한다.
 
 이메일 가입 요청은 Confirm Email 활성화로 공급자 세션이 발급되지 않으므로 `users`·`auth_sessions`를
 만들지 않고 Refresh 쿠키·Access Token을 반환하지 않는다. 이메일 확인 완료·로그인·OAuth 콜백은
@@ -562,7 +579,8 @@ HttpOnly 쿠키 때문에 로그아웃이 막혀서는 안 된다.
 
 에러:
 
-- 403 `ORIGIN_NOT_ALLOWED` — Origin이 누락됐거나 허용 Origin과 정확히 일치하지 않는다. 이 경우에는
+- 403 `ORIGIN_NOT_ALLOWED` — Origin이 누락됐거나 설정된 허용 Origin 목록의 어느 완전한 문자열과도
+  정확히 일치하지 않는다. 이 경우에는
   CSRF 로그아웃을 막기 위해 세션·쿠키를 바꾸지 않는다.
 - 503 `AUTH_LOGOUT_SYNC_FAILED` — 로컬 `auth_sessions` 조회·폐기를 확정하지 못했다. 브라우저의
   메모리 컨텍스트와 세 인증 쿠키는 제거하지만 서버측 즉시 폐기는 보장하지 못하므로, 운영 구현은

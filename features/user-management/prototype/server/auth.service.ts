@@ -93,8 +93,11 @@ export function requireSafeReturnTo(value: string): string {
   return safe;
 }
 
-export function requireAllowedOrigin(origin: string | undefined, allowedOrigin: string): void {
-  if (!origin || origin !== allowedOrigin) {
+export type AllowedOrigins = string | readonly string[];
+
+export function requireAllowedOrigin(origin: string | undefined, allowedOrigins: AllowedOrigins): void {
+  const exactAllowedOrigins = typeof allowedOrigins === "string" ? [allowedOrigins] : allowedOrigins;
+  if (!origin || !exactAllowedOrigins.includes(origin)) {
     throw new AuthProblem(403, "ORIGIN_NOT_ALLOWED", "요청 출처를 확인할 수 없습니다.");
   }
 }

@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { createAuthController } from "./auth.controller";
-import type { AuthSessionService } from "./auth.service";
+import type { AllowedOrigins, AuthSessionService } from "./auth.service";
 
-export function createAuthRouter(service: AuthSessionService, allowedOrigin: string): Router {
+export function createAuthRouter(service: AuthSessionService, allowedOrigins: AllowedOrigins): Router {
   const router = Router();
-  const controller = createAuthController(service, allowedOrigin);
+  const controller = createAuthController(service, allowedOrigins);
 
   router.post("/api/v1/auth/registrations", controller.register);
   router.post("/api/v1/auth/email-confirmation-requests", controller.requestEmailConfirmation);
