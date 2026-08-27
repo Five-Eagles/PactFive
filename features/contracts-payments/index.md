@@ -12,6 +12,7 @@
   Mock import 안내는 `review/mock-stub-import-guide.md` (유동우·최윤석 공유).
   팀장 sandbox 키 요청은 `review/teamlead-pg-sandbox-keys.md`.
   8/27 설계서 평가·최적안은 `review/spec-design-eval.md`.
+  금주 마감은 `review/week-wrap-2026-08-28.md`.
 - prototype/: 유동우 포트 스탠드인 Mock + 조준영 호출 서비스 + `PaymentGateway` Mock.
   다른 기능은 `prototype/index.ts`만 import한다.
   `npx tsx prototype/run.tsx`로 spec 규칙 1~9를 확인한다.
@@ -57,3 +58,4 @@
 | 2026-08-27 | SPEC 규칙 19~22: 전이표·계약 필드·FAILED 재시도·Increment 1 백로그 |
 | 2026-08-27 | 잔여 3건: `paymentId` 조회, I-17 같은 행 재시도·수수료, propose 시 agreements |
 | 2026-08-27 | `negotiationId`=`agreements.id`, propose 시 agreements NOT NULL 필드 |
+| 2026-08-28 | 금주 wrap. reviews SPEC은 `features/reviews/` |
