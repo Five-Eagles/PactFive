@@ -16,8 +16,9 @@
   `high-fi-register.html`(SCR-B03~B05) · `high-fi-browse.html`(SCR-B01·B02) ·
   `high-fi-manage.html`(SCR-B06·B07·B10). **필수 요소 목록 합계 43개**,
   전부 PRD §14 문구 정본과 일치하는 것까지 기계 대조함.
-- prototype/ 구성: 데이터 계층 · 계약 함수 7종 · 공개 API 9종 · **화면 6종까지 완료**.
-  `run.tsx` **PASS 242 · FAIL 0**. 결과는 `test-report.md`.
+- prototype/ 구성: **완료** — 데이터 계층 · 계약 함수 7종 · 공개 API 9종 ·
+  engagement 제공 읽기 3종 · 화면 6종.
+  `run.tsx` **PASS 257 · FAIL 0**. 결과는 `test-report.md`.
 
 ## 상태 모델 — 이 기능의 핵심
 
@@ -44,6 +45,7 @@ transaction_status      NONE · CONTRACT_PENDING ·
   - `mock/seeds.ts` — 시드 18종(공유 10 + 전용 8) · `mock/project.mock.ts` · `mock/external.mock.ts`
   - `project-contract.service.ts` — 계약 함수 7종 구현.
     나머지 1종 `cancelProject`는 의뢰인 요청이라 공개 API(A-07)에 있다
+  - `project-read.service.ts` — 다른 도메인에 제공하는 읽기 3종. HTTP 가 아니라 함수 호출이다
   - `project.service.ts` — 공개 API 9종 구현. 잠금 계산(`editableFields` · `availableActions`)은
     서버가 하고 화면은 받아 쓰기만 한다 (규칙 13)
 - 주요 API 엔드포인트: `POST /projects` · `GET /projects` · `GET /projects/:projectId` ·
@@ -72,3 +74,4 @@ transaction_status      NONE · CONTRACT_PENDING ·
 | 2026-08-26 | 계약 함수 7종 구현 — run.tsx PASS 86 · 변경 요청 CR-0002 · CR-0003 |
 | 2026-08-26 | 공개 API 9종 구현 — run.tsx PASS 193 · 시드 `prj_closed_pending` 추가 |
 | 2026-08-26 | 화면 6종 + test-report.md — run.tsx PASS 242 · 필수 요소 43개 전부 · CR-0004 |
+| 2026-08-28 | engagement 제공 읽기 3종 (CR-0001) — run.tsx PASS 257 |

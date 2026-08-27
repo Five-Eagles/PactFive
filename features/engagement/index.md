@@ -57,12 +57,14 @@
 
 | 함수 | 제공 | 상태 |
 |---|---|---|
-| `getProjectCardData` | 유동우 (project-management) | ⏳ 미구현 (CR-0001) |
-| `getProjectCardDataBulk` | 유동우 | ⏳ 미구현 (CR-0001) |
-| `findRecommendationCandidates` | 유동우 | ⏳ 미구현 (CR-0001) |
+| `getProjectCardData` | 유동우 (project-management) | ✅ 구현됨 (2026-08-28 · CR-0001) |
+| `getProjectCardDataBulk` | 유동우 | ✅ 구현됨 (2026-08-28 · CR-0001) |
+| `findRecommendationCandidates` | 유동우 | ✅ 구현됨 (2026-08-28 · CR-0001) |
 | `getUserRole` | 오민혁 | ⏳ 확인 필요 |
 
-셋은 **같은 사람이 만들 것**이지만 경계를 남기려고 변경 요청으로 기록했다.
+셋은 `features/project-management/prototype/server/project-read.service.ts` 에 있다.
+**아직 이쪽에서 부르지는 않는다** — 기능 폴더 간 직접 import 가 금지돼 있어
+`mock/project-read.mock.ts` 가 대신하고, 실제 연결은 통합 단계에서 이뤄진다.
 
 ## 동시 요청 — 이 기능의 함정
 
@@ -81,3 +83,4 @@
 | 2026-08-27 | design/ high-fi 추가 — SCR-B08 · SCR-B09 · 필수 요소 9개 |
 | 2026-08-28 | prototype 데이터 계층 + 서비스 4종 — run.tsx PASS 69 |
 | 2026-08-28 | 화면 3종 + test-report.md — run.tsx PASS 88 · 필수 요소 9개 전부 · **SDD 산출물 4종 완료** |
+| 2026-08-28 | CR-0001 3종을 project-management 에 구현 — 통합 시 어댑터만 교체하면 된다 |

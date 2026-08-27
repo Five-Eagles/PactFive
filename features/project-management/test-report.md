@@ -1,12 +1,12 @@
 # project-management 테스트 결과
 
 담당자: 유동우
-테스트 날짜: 2026-08-26
-테스트한 커밋: `938b50f` 다음 (화면 커밋 포함)
+테스트 날짜: 2026-08-28
+테스트한 커밋: `218540e` 다음 (engagement 제공 읽기 3종 포함)
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 242 · FAIL 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 257 · FAIL 0)
 - [x] `npx tsc --noEmit --strict` 통과
 
 ```text
@@ -16,9 +16,10 @@
 4. 다른 도메인 Mock        11건
 5. 계약 함수 7종           52건
 6. 공개 API 9종           110건
+   engagement 제공 읽기 3종  15건
 7. 화면 필수 요소 43개     45건
 ──────────────────────────────
-                          242건
+                          257건
 ```
 
 ## spec.md 규칙별 확인

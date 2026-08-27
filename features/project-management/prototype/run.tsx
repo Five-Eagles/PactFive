@@ -1109,6 +1109,67 @@ async function main() {
     );
   }
 
+  /* ═══════════ 6-10. engagement 에 제공하는 읽기 3종 ═══════════ */
+  section("공개 API — engagement 제공 읽기 3종");
+  {
+    const { createProjectReadService } = await import("./server/project-read.service");
+    const r = createProjectRepositoryMock(createFixedClock(AT));
+    const read = createProjectReadService({ repo: r, now: () => AT });
+
+    const one = await read.getProjectCardData("prj_open_free");
+    check(one !== null, "카드 1장 조회");
+    check(one !== null && !("transactionStatus" in one), "거래 상태를 주지 않는다");
+    check(one !== null && !("deletedAt" in one), "삭제 여부를 값으로 주지 않는다");
+    check(one?.createdAt !== undefined, "동점 정렬용 createdAt 은 포함한다");
+
+    check(
+      (await read.getProjectCardData("prj_deleted")) === null,
+      "삭제된 프로젝트는 null",
+    );
+    check(
+      (await read.getProjectCardData("prj_closed")) !== null,
+      "마감된 것은 정상적으로 준다 (engagement 규칙 7·13)",
+    );
+
+    const bulk = await read.getProjectCardDataBulk([
+      "prj_open_free",
+      "prj_deleted",
+      "prj_closed",
+    ]);
+    check(bulk.size === 2, "묶음 조회에서 삭제된 id 는 빠진다");
+    check(!bulk.has("prj_deleted"), "빠진 id 를 보고 부르는 쪽이 걸러낸다");
+
+    const candidates = await read.findRecommendationCandidates({
+      excludeProjectId: "prj_open_free",
+      category: "DESIGN",
+      skillIds: ["FIGMA"],
+    });
+    check(
+      !candidates.some((c) => c.projectId === "prj_open_free"),
+      "자기 자신을 후보에 넣지 않는다",
+    );
+    check(
+      candidates.every((c) => c.recruitmentStatus === "OPEN"),
+      "OPEN 인 것만 후보다",
+    );
+    check(
+      !candidates.some((c) => c.projectId === "prj_deleted"),
+      "삭제된 것은 후보가 아니다",
+    );
+
+    // 규칙 14 의 계산이 project.service.ts 와 어긋나지 않는지 대조한다.
+    // 두 파일에 같은 계산이 있어서, 한쪽만 고치면 여기서 걸린다.
+    const { api: svc } = newApi();
+    for (const id of ["prj_scheduled", "prj_open_free", "prj_closed", "prj_reopenable"]) {
+      const viaRead = await read.getProjectCardData(id);
+      const viaPublic = svc.getProject(null, id);
+      check(
+        viaRead?.recruitmentStatus === viaPublic.body.recruitmentStatus,
+        `규칙 14 계산 일치 — ${id}`,
+      );
+    }
+  }
+
   /* ═══════════ 7. 화면 필수 요소 43개 ═══════════ */
 
   const React = await import("react");
