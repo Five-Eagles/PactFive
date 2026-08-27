@@ -15,7 +15,7 @@
   금주 마감은 `review/week-wrap-2026-08-28.md`.
 - prototype/: 유동우 포트 스탠드인 Mock + 조준영 호출 서비스 + `PaymentGateway` Mock.
   다른 기능은 `prototype/index.ts`만 import한다.
-  `npx tsx prototype/run.tsx`로 spec 규칙 1~9를 확인한다.
+  `npx tsx prototype/run.tsx`로 spec 규칙 1~9와 19·21 Mock을 확인한다.
 
 ### Mock 시드 (성공·실패 재현)
 
@@ -59,3 +59,4 @@
 | 2026-08-27 | 잔여 3건: `paymentId` 조회, I-17 같은 행 재시도·수수료, propose 시 agreements |
 | 2026-08-27 | `negotiationId`=`agreements.id`, propose 시 agreements NOT NULL 필드 |
 | 2026-08-28 | 금주 wrap. reviews SPEC은 `features/reviews/` |
+| 2026-08-28 | P2: 규칙 3·4 전이 409 + FAILED 재시도 Mock. PASS 34. 취소·환불 제외 |
