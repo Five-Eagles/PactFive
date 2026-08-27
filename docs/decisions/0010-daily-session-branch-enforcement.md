@@ -107,3 +107,25 @@ request before merging"과 "Restrict who can push to matching branches"를 켠�
 
 - `scripts/daily-session-start.sh`, `scripts/daily-session-finish.sh` 신규 작성.
 - 루트 `AGENTS.md`에 두 스크립트와 이 ADR을 가리키는 한 줄 추가.
+
+## 7. 브랜치명 정정 — 구현 기록 (참고용, 결정 내용 아님, 2026-08-25 추가)
+
+> 아래는 §4 결정을 실행하는 과정에서 발견한 사실 오류를 바로잡은 기록이다. §4의 "로컬 스크립트
+> + GitHub 서버 보호 병행"이라는 결정 자체는 바뀌지 않았다 — 결정을 적용할 때 쓴 구체적인
+> 브랜치 이름 두 곳이 실제 팀 결정과 달랐던 것을 뒤늦게 확인해 고쳤다.
+
+작성 당시 이 문서와 두 스크립트는 보호 브랜치를 `main`·`develop`·`release`로, PR 대상을
+`main`으로 가정했다. 이후 다음 두 가지 기존 사실을 확인했다.
+
+- `scripts/git-hooks/pre-push`(실제로 이미 존재하고 `scripts/ensure-deps.js`가
+  `core.hooksPath`로 자동 연결하는 로컬 훅)가 막는 브랜치는 `main`·`develop`·`production`이다
+  — `release`가 아니다.
+- `docs/domain/reference/prd-v6.4.md` §0.5 T4(팀 결정, 2026-08-17)가 "`develop` 통합 브랜치 ·
+  담당자별 브랜치 · 매일 1회 통합"을 이미 확정해뒀다 — 담당자 브랜치는 `main`이 아니라
+  `develop`을 기준으로 만들고, PR도 `develop`을 향해야 한다.
+
+두 스크립트를 다음과 같이 고쳤다.
+
+- `PROTECTED` 목록: `main develop release` → `main develop production`
+- `daily-session-start.sh`의 기준 브랜치: `main` → `develop` (3번째 인자로 재정의 가능)
+- `daily-session-finish.sh`의 PR 대상: `main` → `develop` (2번째 인자로 재정의 가능)
