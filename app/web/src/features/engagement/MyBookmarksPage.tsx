@@ -1,12 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Button,
-  Chip,
-  EmptyState,
-  Money,
-  RecruitmentBadge,
-} from '../../shared/ui/primitives';
+import { PageBody } from '../../shared/ui/AppShell';
+import { Button, Chip, EmptyState, Money, RecruitmentBadge } from '../../shared/ui/primitives';
 import { ApiError } from '../../shared/http';
 import { removeBookmark } from './api/bookmark';
 import { useMyBookmarks } from './useBookmark';
@@ -14,12 +9,15 @@ import { useMyBookmarks } from './useBookmark';
 /**
  * SCR-B08 — 내 북마크
  *
- * 원본: features/engagement/prototype/web/MyBookmarks.tsx (3e4977e)
- * 문구는 `design/high-fi-bookmarks.html` 의 "필수 요소 목록"을 그대로 쓴다.
+ * 구조 정본: `features/engagement/design/high-fi-bookmarks.html` SCR-B08
+ *
+ * 시안 구조: `.pcard` 목록. 카드마다 `.pcard__top`(제목 + 배지) → 예산 → 기술 →
+ * `.pcard__foot`(저장 시각 · 해제/지원 버튼). 마감된 카드는 `.pcard--dim`.
  *
  * **마감된 항목을 지우지 않는다** (규칙 13). 공개 목록과 반대다 —
  * 공개 목록은 "찾는 곳"이라 지원 가능한 것만 보여주고,
  * 내 북마크는 "내가 담아둔 것"이라 내가 지우기 전엔 남는다.
+ * 카드는 정상 표시하되 **지원하기만 비활성**한다 (규칙 14).
  *
  * "프로젝트 둘러보기" 링크 경로는 project-management 소유다. 그쪽 폴더를 import 할 수 없어
  * (app/web/AGENTS.md "폴더 간 접점") 호출부에서 주입받는다.
@@ -56,20 +54,18 @@ export function MyBookmarksPage({ isFreelancer, browseHref, detailHref }: MyBook
 
   if (!isFreelancer) {
     return (
-      <main className="page">
+      <PageBody>
         <EmptyState
           title="프리랜서만 사용할 수 있습니다"
           body="북마크는 프리랜서가 관심 있는 프로젝트를 담아두는 기능입니다."
         />
-      </main>
+      </PageBody>
     );
   }
 
   return (
-    <main className="page">
-      <div className="page__head">
-        <h1>내 북마크</h1>
-      </div>
+    <PageBody>
+      <h1 className="h3">내 북마크</h1>
 
       {loading && (
         <p className="status-line" role="status">
@@ -97,43 +93,46 @@ export function MyBookmarksPage({ isFreelancer, browseHref, detailHref }: MyBook
       )}
 
       {data && data.length > 0 && (
-        <ul className="list">
+        <ul className="grid">
           {data.map((item) => (
             <li
               key={item.bookmarkId}
-              className={`card${item.canApply ? '' : ' card--dim'}`}
+              className={`pcard${item.canApply ? '' : ' pcard--dim'}`}
             >
-              <div className="page__head">
+              <div className="pcard__top">
                 <h3>
                   <Link to={detailHref(item.project.projectId)}>{item.project.title}</Link>
                 </h3>
                 <RecruitmentBadge status={item.project.recruitmentStatus} />
               </div>
 
-              <p className="card__meta">
+              <p className="pcard__budget">
                 <Money amount={item.project.budgetAmount} />
               </p>
-              <p className="card__meta">
+
+              <p className="pcard__skills">
                 {item.project.skills.map((skill) => (
                   <Chip key={skill.skillId} label={skill.displayName} />
                 ))}
               </p>
 
-              <p className="card__meta">{formatSavedAt(item.bookmarkedAt)}</p>
-              <div className="actions">
-                <Button variant="quiet" onClick={() => void handleRemove(item.project.projectId)}>
-                  북마크 해제
-                </Button>
-                {/* 마감된 것은 지원만 막는다. 문구도 이유를 말한다 —
-                    회색 버튼만 두면 왜 못 누르는지 알 수 없다. */}
-                <Button variant="primary" disabled={!item.canApply}>
-                  {item.canApply ? '지원하기' : '모집이 마감되었습니다'}
-                </Button>
+              <div className="pcard__foot">
+                <span className="saved-at">{formatSavedAt(item.bookmarkedAt)}</span>
+                <span className="btn-row">
+                  <Button variant="quiet" size="sm" onClick={() => void handleRemove(item.project.projectId)}>
+                    북마크 해제
+                  </Button>
+                  {/* 마감된 것은 지원만 막는다. 문구도 이유를 말한다 —
+                      회색 버튼만 두면 왜 못 누르는지 알 수 없다. */}
+                  <Button variant="primary" size="sm" disabled={!item.canApply}>
+                    {item.canApply ? '지원하기' : '모집이 마감되었습니다'}
+                  </Button>
+                </span>
               </div>
             </li>
           ))}
         </ul>
       )}
-    </main>
+    </PageBody>
   );
 }

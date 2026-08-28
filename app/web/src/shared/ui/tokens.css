@@ -1,12 +1,19 @@
-/* PactFive 디자인 토큰 — app/web 정본 사본
+/* PactFive 디자인 토큰 · 공용 클래스 — app/web 정본 사본
  *
- * 값의 정본은 `design-system/design-tokens.md` 의 TS 블록이다. 이 파일은 담당자 시안이 쓰던
- * `features/{기능}/design/_tokens.css` 를 app/web 으로 옮긴 것이며, 두 기능(project-management ·
- * engagement)이 같은 파일을 각자 들고 있었으므로 통합하면서 `shared/ui/` 로 한 벌만 남겼다
- * (app/web/AGENTS.md — 같은 것이 두 번째로 필요해질 때 shared/ 로 올린다).
+ * 값의 정본은 `design-system/design-tokens.md` 의 TS 블록이고, 화면이 쓰는 클래스의 정본은
+ * `features/{기능}/design/_tokens.css` 와 각 `design/high-fi-*.html` 의 <style> 블록이다
+ * (app/web/AGENTS.md "무엇이 무엇의 정본인가").
+ *
+ * 두 기능(project-management · engagement)이 같은 `_tokens.css` 를 각자 들고 있었으므로
+ * 통합하면서 여기 한 벌만 남겼다.
+ *
+ * ## 이름 규칙
+ *
+ * 시안은 변형을 두 클래스로 쓰고(`.btn.primary`), app/web 은 BEM 으로 쓴다(`.btn--primary`) —
+ * `docs/naming-convention.md` §5. 구조 클래스(`.pcard` · `.kv` · `.frame`)는 시안 이름을
+ * 그대로 두어 대조하기 쉽게 했다. 누락 여부는 `npm run check:design` 이 확인한다.
  *
  * primitive 값은 여기서만 쓴다. 화면 코드는 semantic·component 토큰만 참조한다.
- * 토큰이 바뀌면 이 파일 한 곳만 고친다.
  */
 
 :root {
@@ -80,6 +87,8 @@ body {
   background: var(--canvas);
   color: var(--content);
   margin: 0;
+  font-size: 16px;
+  line-height: 24px;
 }
 
 /* 화면에는 안 보이지만 보조 기술에는 읽히는 텍스트 (§10 접근성) */
@@ -95,42 +104,129 @@ body {
   border: 0;
 }
 
-/* ── 레이아웃 ─────────────────────────────────────── */
+/* ═══════════ 앱 셸 ═══════════
+ * 시안의 `.frame > header` 를 실제 앱의 고정 헤더로 옮긴 것이다. 시안에서는 화면 하나하나를
+ * 감싸는 액자였지만, 실제 앱에서는 라우트가 바뀌어도 헤더가 남아야 하므로 body 레벨에 둔다.
+ */
 
-.page {
-  max-width: 960px;
+.frame {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.frame > header {
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 32px 20px 64px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 0 24px;
+}
+
+.frame > header .logo {
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--content);
+  text-decoration: none;
+}
+
+.frame > header nav {
+  display: flex;
+  gap: 24px;
+  font-size: 14px;
+  color: var(--content-secondary);
+}
+
+.frame > header nav a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.frame > header nav a:hover,
+.frame > header nav a[aria-current='page'] {
+  color: var(--action);
+  font-weight: 600;
+}
+
+.body-pad {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px;
 }
 
 /* 폼 한 개만 있는 화면(로그인 등). 넓으면 입력 칸이 화면 폭만큼 늘어나 읽기 나쁘다 */
-.page--narrow {
-  max-width: 520px;
+.body-pad--narrow {
+  max-width: 620px;
 }
 
-.page__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
+/* ═══════════ 타이포 ═══════════ */
+
+.h2 {
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  margin: 0 0 4px;
 }
 
-.page__head h1 {
-  margin: 0;
+.h3 {
   font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  margin: 0 0 12px;
 }
 
-/* ── Button ───────────────────────────────────────── */
+.title {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  margin: 0 0 8px;
+}
+
+.body-strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.label {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.helper {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--content-tertiary);
+  margin: 6px 0 0;
+}
+
+.caption {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--content-tertiary);
+}
+
+/* ═══════════ Button ═══════════ */
 
 .btn {
-  min-height: var(--btn-h);
+  height: var(--btn-h);
   padding: 0 var(--btn-pad);
   border-radius: var(--btn-radius);
   border: 1px solid transparent;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .btn:focus-visible {
@@ -149,7 +245,7 @@ body {
 .btn--secondary {
   background: var(--surface);
   color: var(--action-secondary-text);
-  border-color: var(--border);
+  border-color: var(--action);
 }
 
 .btn--quiet {
@@ -164,11 +260,12 @@ body {
 }
 
 .btn--sm {
-  min-height: 36px;
+  height: 36px;
   padding: 0 12px;
+  font-size: 14px;
 }
 .btn--lg {
-  min-height: 52px;
+  height: 52px;
   padding: 0 24px;
 }
 .btn--full {
@@ -182,25 +279,22 @@ body {
   cursor: not-allowed;
 }
 
-/* ── Field ────────────────────────────────────────── */
+.btn-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
 
-.field {
+/* ═══════════ Field ═══════════ */
+
+.field-row {
   margin-bottom: 20px;
 }
 
-.field__label {
-  display: block;
-  margin-bottom: 6px;
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.field input,
-.field select,
-.field textarea {
+.field {
+  height: var(--field-h);
   width: 100%;
-  min-height: var(--field-h);
-  padding: 10px var(--field-pad);
+  padding: 0 var(--field-pad);
   border: 1px solid var(--border);
   border-radius: var(--field-radius);
   background: var(--surface);
@@ -208,192 +302,430 @@ body {
   font: inherit;
 }
 
-.field textarea {
-  min-height: auto;
-}
-
-.field input:focus-visible,
-.field select:focus-visible,
-.field textarea:focus-visible {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 1px;
-}
-
-.field--error input,
-.field--error select,
-.field--error textarea {
-  border-color: var(--danger);
-}
-
-.field--readOnly input,
-.field--readOnly textarea {
-  background: var(--surface-subtle);
-  color: var(--content-secondary);
-}
-
-.field__help {
-  margin: 6px 0 0;
-  font-size: 13px;
+.field::placeholder {
   color: var(--content-tertiary);
 }
 
+.field:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -1px;
+}
+
+.field[disabled],
+.field[readonly] {
+  background: var(--surface-subtle);
+  color: var(--content-disabled);
+}
+
+textarea.field {
+  height: auto;
+  min-height: 120px;
+  padding: 12px var(--field-pad);
+  resize: vertical;
+  line-height: 24px;
+}
+
+select.field {
+  padding-right: 8px;
+}
+
+.field-row--error .field {
+  border-color: var(--danger);
+}
+
 /* 색 하나로만 구분하지 않는다 (§12) — 문구와 role="alert" 를 함께 쓴다 */
-.field__error {
+.field-error {
   margin: 6px 0 0;
   font-size: 13px;
   color: var(--danger);
   font-weight: 600;
 }
 
-/* ── Badge · Chip ─────────────────────────────────── */
+/* ═══════════ Badge · Chip ═══════════ */
 
-.badge,
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: var(--chip-h);
+  padding: 0 var(--chip-pad);
+  border-radius: var(--chip-radius);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 모집 축 */
+.badge--open {
+  background: var(--success-surface);
+  color: var(--success);
+}
+.badge--scheduled {
+  background: var(--info-surface);
+  color: var(--info);
+}
+.badge--closed {
+  background: var(--surface-subtle);
+  color: var(--content-tertiary);
+}
+/* 거래 축 — 이 배지는 내 프로젝트·내 지원 현황에만 나온다 (spec.md 규칙 9) */
+.badge--canceled {
+  background: var(--danger-surface);
+  color: var(--danger);
+}
+.badge--reopen {
+  background: var(--warning-surface);
+  color: var(--warning);
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
   height: var(--chip-h);
   padding: 0 var(--chip-pad);
   border-radius: var(--chip-radius);
-  font-size: 13px;
+  border: 1px solid var(--border);
+  font-size: 12px;
   font-weight: 600;
-  margin-right: 6px;
+  color: var(--content-secondary);
+  background: var(--surface);
 }
 
-.badge--neutral,
-.chip {
-  background: var(--surface-subtle);
-  color: var(--content-secondary);
-  border: 1px solid var(--border-subtle);
-  font-weight: 500;
+/* ═══════════ 카드 · 그리드 ═══════════ */
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: var(--card-pad);
+  background: var(--surface);
 }
-.badge--info {
+
+.grid {
+  display: grid;
+  gap: 16px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.grid--cols3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.grid--cols2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* 프로젝트 카드 — 비교에 필요한 항목을 늘 같은 순서로 둔다 (도메인 패턴 ProjectCard) */
+.pcard {
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: var(--card-pad);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+}
+
+.pcard:hover {
+  border-color: var(--border-focus);
+}
+
+.pcard__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.pcard h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  line-height: 24px;
+}
+
+.pcard h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+.pcard h3 a:hover {
+  text-decoration: underline;
+}
+
+.pcard__budget {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  margin: 0;
+}
+
+.pcard__skills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.pcard__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--content-tertiary);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 10px;
+  margin-top: 2px;
+}
+
+/* 마감돼 지원할 수 없는 카드. 지우지 않고 흐리게만 둔다 (engagement 규칙 13·14) */
+.pcard--dim {
+  background: var(--surface-subtle);
+}
+
+/* ═══════════ 목록 행 (내 프로젝트) ═══════════ */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.row:last-child {
+  border-bottom: 0;
+}
+.row__main {
+  flex: 1;
+  min-width: 0;
+}
+.row h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.row h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+.row h3 a:hover {
+  text-decoration: underline;
+}
+.row__sub {
+  font-size: 12px;
+  color: var(--content-tertiary);
+}
+.row__badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.row__acts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+/* ═══════════ 상세 (SCR-B02) ═══════════ */
+
+.detail {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+}
+
+.kv {
+  display: flex;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 14px;
+}
+.kv:last-child {
+  border-bottom: 0;
+}
+.kv__k {
+  width: 120px;
+  flex: none;
+  color: var(--content-secondary);
+  font-weight: 600;
+}
+
+.side {
+  position: sticky;
+  top: 20px;
+  align-self: start;
+}
+
+/* ═══════════ 검색 툴바 · 정렬 · 페이지 ═══════════ */
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.toolbar .field {
+  flex: 1;
+  min-width: 260px;
+}
+
+.sorts {
+  display: flex;
+  gap: 4px;
+}
+.sorts button {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--btn-radius);
+  font: inherit;
+  font-size: 14px;
+  color: var(--content-secondary);
+  cursor: pointer;
+}
+.sorts button.on {
+  background: var(--surface-selected);
+  border-color: var(--action);
+  color: var(--action);
+  font-weight: 600;
+}
+
+.pager {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 20px;
+}
+.pager button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--btn-radius);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.pager button.on {
+  background: var(--action);
+  color: var(--action-text);
+  border-color: var(--action);
+}
+.pager button:disabled {
+  color: var(--content-disabled);
+  cursor: not-allowed;
+}
+
+/* ═══════════ 추천 (SCR-B09) ═══════════ */
+
+.reco {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.reco .pcard {
+  padding: 14px;
+  gap: 8px;
+}
+.reco .pcard h3 {
+  font-size: 14px;
+  line-height: 20px;
+}
+.reco .pcard .pcard__budget {
+  font-size: 16px;
+}
+
+.saved-at {
+  font-size: 12px;
+  color: var(--content-tertiary);
+}
+
+/* ═══════════ 안내 배너 ═══════════ */
+
+.notice {
+  border-radius: var(--btn-radius);
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 20px;
+}
+.notice--info {
   background: var(--info-surface);
   color: var(--info);
 }
-.badge--success {
-  background: var(--success-surface);
-  color: var(--success);
-}
-.badge--warning {
+.notice--warning {
   background: var(--warning-surface);
   color: var(--warning);
 }
-.badge--danger {
+.notice--danger {
   background: var(--danger-surface);
   color: var(--danger);
 }
 
-/* ── Card ─────────────────────────────────────────── */
+/* ═══════════ 등록 단계 표시 (SCR-B03~B05) ═══════════ */
 
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--card-radius);
-  padding: var(--card-pad);
-  margin-bottom: 12px;
-  list-style: none;
-}
-
-.card__title,
-.card h3 {
-  margin: 0 0 8px;
-  font-size: 17px;
-}
-
-.card__meta {
-  color: var(--content-secondary);
+.steps {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 24px;
   font-size: 14px;
-  margin: 0 0 8px;
 }
-
-/* 마감돼 지원할 수 없는 카드. 지우지 않고 흐리게만 둔다 (engagement 규칙 13·14) */
-.card--dim {
-  background: var(--surface-subtle);
-}
-
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-/* ── 금액·마감 ────────────────────────────────────── */
-
-/* 예산은 비교 대상이라 자릿수를 맞춘다 (§11) */
-.money {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-
-.deadline__date {
+.steps .step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--content-tertiary);
-  font-variant-numeric: tabular-nums;
 }
-
-/* ── EmptyState ───────────────────────────────────── */
-
-.empty {
-  background: var(--surface);
-  border: 1px dashed var(--border);
-  border-radius: var(--card-radius);
-  padding: 40px 24px;
-  text-align: center;
-  color: var(--content-secondary);
+.steps .step.on {
+  color: var(--action);
+  font-weight: 600;
 }
-
-.empty h2 {
-  margin: 0 0 8px;
-  font-size: 17px;
-  color: var(--content);
-}
-
-.empty p {
-  margin: 0 0 16px;
-}
-
-/* ── PermissionAwareActions ───────────────────────── */
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.actions__item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* 막힌 행동은 숨기지 않고 이유를 붙인다 */
-.actions__reason {
+.steps .num {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
   font-size: 12px;
+  font-weight: 700;
+  background: var(--surface-subtle);
   color: var(--content-tertiary);
-  max-width: 200px;
+}
+.steps .step.on .num {
+  background: var(--action);
+  color: var(--action-text);
+}
+.steps .sep {
+  width: 24px;
+  height: 1px;
+  background: var(--border);
 }
 
-/* ── 북마크 토글 ──────────────────────────────────── */
+/* ═══════════ 북마크 토글 ═══════════ */
 
 .bookmark {
-  background: none;
-  border: none;
-  font-size: 22px;
-  line-height: 1;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--btn-radius);
+  background: var(--surface);
   cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
   color: var(--content-tertiary);
-  padding: 4px;
+  flex: none;
 }
-
 .bookmark.on {
+  border-color: var(--action);
   color: var(--action);
+  background: var(--surface-selected);
 }
-
 .bookmark:focus-visible {
   outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
-
 .bookmark-error {
   display: block;
   font-size: 12px;
@@ -401,42 +733,52 @@ body {
   font-weight: 600;
 }
 
-/* ── 검색 바 · 추천 ───────────────────────────────── */
+/* ═══════════ 빈 상태 ═══════════ */
 
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.toolbar input,
-.toolbar select {
-  min-height: var(--btn-h);
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--field-radius);
+.empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--content-tertiary);
+  border: 1px dashed var(--border);
+  border-radius: var(--card-radius);
   background: var(--surface);
-  font: inherit;
+}
+.empty .title {
+  color: var(--content);
+  margin-bottom: 4px;
+}
+.empty p {
+  margin: 0 0 16px;
 }
 
-.toolbar input[type='search'] {
-  flex: 1 1 240px;
-}
-
-.reco {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-}
+/* ═══════════ 상태 줄 ═══════════ */
 
 .status-line {
   color: var(--content-secondary);
   margin: 0 0 16px;
 }
-
 .error-line {
   color: var(--danger);
   font-weight: 600;
+}
+
+/* ═══════════ 좁은 화면 ═══════════ */
+
+@media (max-width: 900px) {
+  .grid--cols3,
+  .grid--cols2 {
+    grid-template-columns: 1fr;
+  }
+  .detail {
+    grid-template-columns: 1fr;
+  }
+  .side {
+    position: static;
+  }
+  .reco {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .row {
+    flex-wrap: wrap;
+  }
 }

@@ -4,6 +4,8 @@ import './shared/ui/tokens.css';
 import { APP_ROUTES } from './shared/routes';
 import { setUnauthorizedHandler } from './shared/http';
 import { NotIntegratedPage } from './shared/NotIntegratedPage';
+import { AppShell, PageBody } from './shared/ui/AppShell';
+import { Button, EmptyState } from './shared/ui/primitives';
 import { authRoutes, AUTH_ROUTES } from './features/user-management/auth.routes';
 import { useAuth } from './features/user-management/useAuth';
 import { projectRoutes, PROJECT_ROUTES } from './features/project-management/project.routes';
@@ -21,33 +23,26 @@ setUnauthorizedHandler(() => {
 
 function HomePage() {
   return (
-    <main className="page">
-      <h1>PactFive</h1>
-      <p>프리랜서와 의뢰인을 잇는 프로젝트 거래 플랫폼입니다.</p>
-      <ul className="list">
-        <li>
-          <Link to={PROJECT_ROUTES.browse}>프로젝트 찾기</Link>
-        </li>
-        <li>
-          <Link to={PROJECT_ROUTES.manage}>내 프로젝트</Link>
-        </li>
-        <li>
-          <Link to={ENGAGEMENT_ROUTES.myBookmarks}>내 북마크</Link>
-        </li>
-        <li>
-          <Link to={AUTH_ROUTES.login}>로그인</Link>
-        </li>
-      </ul>
-    </main>
+    <PageBody>
+      <h1 className="h2">프리랜서와 의뢰인을 잇습니다</h1>
+      <p className="helper" style={{ marginBottom: 24 }}>
+        프로젝트를 등록하고 지원자를 만나거나, 관심 있는 프로젝트를 찾아 지원해 보세요.
+      </p>
+      <div className="btn-row">
+        <Link to={PROJECT_ROUTES.browse}>
+          <Button variant="primary">프로젝트 찾기</Button>
+        </Link>
+        <Link to={PROJECT_ROUTES.register}>
+          <Button variant="secondary">프로젝트 등록</Button>
+        </Link>
+      </div>
+    </PageBody>
   );
 }
 
 /**
  * 아직 설계/통합되지 않은 기능 라우트 — 경로 slug는 각 기능 폴더명을 그대로 kebab-case로 쓴다.
  * 실제 화면 구현이 생기면 이 배열에서 빼고 해당 기능의 `{도메인}.routes.tsx`로 옮긴다.
- *
- * 2026-08-28 통합에서 project-management · engagement를 뺐다 — 두 기능은 이제 자기
- * routes 파일을 갖는다. contracts-payments는 원본에 `prototype/web/`이 없어 그대로 둔다.
  */
 const NOT_INTEGRATED_ROUTES: Array<{ path: string; featureName: string }> = [
   { path: '/applications', featureName: 'applications' },
@@ -59,11 +54,17 @@ const NOT_INTEGRATED_ROUTES: Array<{ path: string; featureName: string }> = [
 
 function NotFoundPage() {
   return (
-    <main className="page">
-      <h1>404</h1>
-      <p>없는 페이지입니다.</p>
-      <Link to={APP_ROUTES.home}>홈으로</Link>
-    </main>
+    <PageBody>
+      <EmptyState
+        title="없는 페이지입니다"
+        body="주소를 다시 확인해 주세요."
+        action={
+          <Link to={APP_ROUTES.home}>
+            <Button variant="secondary">홈으로</Button>
+          </Link>
+        }
+      />
+    </PageBody>
   );
 }
 
@@ -75,7 +76,10 @@ function NotFoundPage() {
  * project-management 화면 안에 붙지만, 두 기능 폴더는 서로를 import하지 않는다
  * (app/web/AGENTS.md "폴더 간 접점"). 그래서 project-management는 슬롯(render prop)만 열어두고
  * 실제 컴포넌트를 여기서 끼운다 — 서버의 app.ts가 engagement 서비스에 project-read 어댑터를
- * 주입하는 것과 같은 방식이다. feedback_loop/2026-08-28/engagement.md 항목 3 참고.
+ * 주입하는 것과 같은 방식이다.
+ *
+ * 앱 셸(로고 + nav)도 여기서 두른다. nav가 가리키는 경로는 기능 소유라 `shared/ui/AppShell`이
+ * 직접 알 수 없어 props로 넣는다.
  */
 function AppRoutes() {
   const navigate = useNavigate();
@@ -90,6 +94,15 @@ function AppRoutes() {
 
   const viewer = state.status === 'authenticated' ? state.session.user : null;
 
+  // 시안의 nav는 "프로젝트 찾기 · 내 프로젝트" 두 개다. 프리랜서에게는 "내 프로젝트"가
+  // 의뢰인 전용이라 대신 "내 북마크"를 둔다 — 누를 수 없는 메뉴를 두지 않는다.
+  const navItems = [
+    { label: '프로젝트 찾기', to: PROJECT_ROUTES.browse },
+    viewer?.role === 'FREELANCER'
+      ? { label: '내 북마크', to: ENGAGEMENT_ROUTES.myBookmarks }
+      : { label: '내 프로젝트', to: PROJECT_ROUTES.manage },
+  ];
+
   const renderBookmark = (projectId: string) => (
     <BookmarkButton
       projectId={projectId}
@@ -103,29 +116,31 @@ function AppRoutes() {
   );
 
   return (
-    <Routes>
-      <Route path={APP_ROUTES.home} element={<HomePage />} />
+    <AppShell items={navItems} homeHref={APP_ROUTES.home}>
+      <Routes>
+        <Route path={APP_ROUTES.home} element={<HomePage />} />
 
-      {authRoutes}
+        {authRoutes}
 
-      {projectRoutes({
-        // 내 프로젝트 목록은 의뢰인 것만 의미가 있다.
-        clientId: viewer?.role === 'CLIENT' ? viewer.userId : null,
-        renderBookmark,
-        renderRecommendations,
-      })}
+        {projectRoutes({
+          // 내 프로젝트 목록은 의뢰인 것만 의미가 있다.
+          clientId: viewer?.role === 'CLIENT' ? viewer.userId : null,
+          renderBookmark,
+          renderRecommendations,
+        })}
 
-      {engagementRoutes({
-        isFreelancer: viewer?.role === 'FREELANCER',
-        browseHref: PROJECT_ROUTES.browse,
-        detailHref: PROJECT_ROUTES.detail,
-      })}
+        {engagementRoutes({
+          isFreelancer: viewer?.role === 'FREELANCER',
+          browseHref: PROJECT_ROUTES.browse,
+          detailHref: PROJECT_ROUTES.detail,
+        })}
 
-      {NOT_INTEGRATED_ROUTES.map(({ path, featureName }) => (
-        <Route key={path} path={path} element={<NotIntegratedPage featureName={featureName} />} />
-      ))}
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+        {NOT_INTEGRATED_ROUTES.map(({ path, featureName }) => (
+          <Route key={path} path={path} element={<NotIntegratedPage featureName={featureName} />} />
+        ))}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </AppShell>
   );
 }
 

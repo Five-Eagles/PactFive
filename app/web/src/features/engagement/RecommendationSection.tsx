@@ -14,6 +14,9 @@ import { useRecommendations } from './useBookmark';
  * **순위를 화면에 쓰지 않는다** (규칙 28). 1순위·2순위 표시도, 내부 점수도 없다.
  * 배열 순서가 곧 순위다.
  *
+ * 구조 정본: `features/engagement/design/high-fi-bookmarks.html` SCR-B09 —
+ * `.reco` 4열 그리드에 축소한 `.pcard` 를 넣는다 (본문 목록보다 글자·여백이 작다).
+ *
  * 상세 경로는 project-management 소유라 호출부에서 주입받는다.
  */
 
@@ -28,27 +31,31 @@ export function RecommendationSection({ projectId, detailHref }: RecommendationS
   if (items.length === 0) return null;
 
   return (
-    <section aria-labelledby="reco-heading">
-      <h2 id="reco-heading">추천 프로젝트</h2>
+    <section aria-labelledby="reco-heading" style={{ marginTop: 32 }}>
+      <h2 id="reco-heading" className="title">
+        추천 프로젝트
+      </h2>
 
       {/* 4건보다 적으면 있는 만큼만. 빈 칸을 두지 않는다 (규칙 23) */}
       <div className="reco">
         {items.map((project) => (
-          <article key={project.projectId} className="card">
-            <h3>
-              <Link to={detailHref(project.projectId)}>{project.title}</Link>
-            </h3>
-            <p className="card__meta">
+          <article key={project.projectId} className="pcard">
+            <div className="pcard__top">
+              <h3>
+                <Link to={detailHref(project.projectId)}>{project.title}</Link>
+              </h3>
+              {/* 후보 조건이 OPEN 뿐이라 항상 "모집 중"이다 (규칙 18).
+                  그래도 배지를 두는 것은 카드가 다른 목록과 같은 모양이어야 해서다. */}
+              <RecruitmentBadge status={project.recruitmentStatus} />
+            </div>
+            <p className="pcard__budget">
               <Money amount={project.budgetAmount} />
             </p>
-            <p className="card__meta">
+            <p className="pcard__skills">
               {project.skills.map((skill) => (
                 <Chip key={skill.skillId} label={skill.displayName} />
               ))}
             </p>
-            {/* 후보 조건이 OPEN 뿐이라 항상 "모집 중"이다 (규칙 18).
-                그래도 배지를 두는 것은 카드가 다른 목록과 같은 모양이어야 해서다. */}
-            <RecruitmentBadge status={project.recruitmentStatus} />
           </article>
         ))}
       </div>

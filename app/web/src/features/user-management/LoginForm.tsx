@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { PageBody } from '../../shared/ui/AppShell';
 import { Button, Field } from '../../shared/ui/primitives';
 import { AUTH_ROUTES } from './auth.routes';
 import { safeReturnToOrRoot } from './return-to';
@@ -73,14 +74,15 @@ export function LoginForm({ returnTo = '/', onNavigate = () => undefined }: Logi
   };
 
   return (
-    <main className="page page--narrow" aria-labelledby="login-title">
+    <PageBody narrow>
+      <div aria-labelledby="login-title">
       <header>
-        <p className="card__meta" aria-label="로그인 후 계속할 작업">
+        <p className="caption" aria-label="로그인 후 계속할 작업">
           로그인 후 계속할 작업
         </p>
-        <h1 id="login-title">로그인</h1>
+        <h1 id="login-title" className="h3">로그인</h1>
         {/* ux-philosophy §6 "작업 보호" — 인증 때문에 입력이 날아가지 않는다는 것을 먼저 알린다 */}
-        <p className="card__meta">
+        <p className="helper">
           <strong>작성 내용 보존됨</strong> · 인증이 끝나면 이전 화면으로 돌아갑니다.
         </p>
       </header>
@@ -95,6 +97,7 @@ export function LoginForm({ returnTo = '/', onNavigate = () => undefined }: Logi
         <Field id="login-email" label="이메일" required>
           <input
             id="login-email"
+            className="field"
             name="email"
             type="email"
             autoComplete="email"
@@ -109,6 +112,7 @@ export function LoginForm({ returnTo = '/', onNavigate = () => undefined }: Logi
         <Field id="login-password" label="비밀번호" required helperText="8자 이상 입력해 주세요.">
           <input
             id="login-password"
+            className="field"
             name="password"
             type="password"
             autoComplete="current-password"
@@ -126,8 +130,10 @@ export function LoginForm({ returnTo = '/', onNavigate = () => undefined }: Logi
         </Button>
       </form>
 
-      <div className="actions" aria-label="소셜 로그인">
-        <p className="card__meta">또는</p>
+      <div className="btn-row" style={{ flexWrap: 'wrap', marginTop: 16 }} aria-label="소셜 로그인">
+        <p className="caption" style={{ margin: 0 }}>
+          또는
+        </p>
         <Button variant="secondary" disabled={isBusy} onClick={() => void handleOAuth('GOOGLE')}>
           Google로 계속하기
         </Button>
@@ -136,7 +142,7 @@ export function LoginForm({ returnTo = '/', onNavigate = () => undefined }: Logi
         </Button>
       </div>
 
-      <p className="card__meta">
+      <p className="helper">
         처음이신가요?{' '}
         <a href={`${AUTH_ROUTES.signUp}?returnTo=${encodeURIComponent(safeReturnTo)}`}>회원가입</a>
       </p>
@@ -156,6 +162,7 @@ export function LoginForm({ returnTo = '/', onNavigate = () => undefined }: Logi
           다시 시도
         </Button>
       )}
-    </main>
+      </div>
+    </PageBody>
   );
 }

@@ -1,3 +1,4 @@
+import { PageBody } from './ui/AppShell';
 import { EmptyState } from './ui/primitives';
 
 /**
@@ -18,11 +19,11 @@ type NotIntegratedPageProps = {
 
 export function NotIntegratedPage({ featureName }: NotIntegratedPageProps) {
   return (
-    <main className="page">
+    <PageBody>
       <EmptyState
         title={featureName}
         body={`${featureName}은 설계되지 않았거나 통합되지 않았습니다. 팀장에게 문의하세요.`}
       />
-    </main>
+    </PageBody>
   );
 }

@@ -15,6 +15,9 @@ import { addBookmark, removeBookmark } from './api/bookmark';
  * | 의뢰인 | **표시하지 않는다** |
  *
  * 토스트를 띄우지 않는다 (PRD D-27). 자주 누르는 동작이라 매번 뜨면 방해가 된다.
+ *
+ * 구조 정본: `features/engagement/design/high-fi-bookmarks.html` 의 `.bookmark` —
+ * 40×40 테두리 버튼이고, 저장 상태면 `.on` 으로 테두리·글자·배경이 강조된다.
  */
 
 export type Viewer = { role: 'CLIENT' | 'FREELANCER' } | null;

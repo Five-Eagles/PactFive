@@ -1,19 +1,16 @@
 /**
- * 공용 UI 조각 — `design-system/design-tokens.md` 가 정본이다.
+ * 공용 UI 조각 — 시안(`features/{기능}/design/`)의 클래스를 그대로 쓴다.
  *
  * 원본: features/project-management/prototype/web/ui.tsx ·
  *       features/engagement/prototype/web/ui.tsx (3e4977e)
+ *       그리고 두 기능의 design/_tokens.css · high-fi-*.html
  *
- * 두 기능이 거의 같은 파일을 각자 들고 있었다. 통합하면서 `shared/ui/` 로 한 벌만 남겼다 —
- * 기능 폴더끼리 서로 import 하지 못하므로(app/web/AGENTS.md "폴더 간 접점") 공유하려면
- * 여기로 올려야 한다. 두 원본의 차이는 아래처럼 정리했다:
+ * 2026-08-28 2차: 1차 반영에서 프로토타입 컴포넌트만 보고 자체 클래스를 만들어 시안과
+ * 갈라졌다. 시안이 화면 구조의 정본이므로(app/web/AGENTS.md "무엇이 무엇의 정본인가")
+ * 클래스 이름과 마크업을 시안에 맞춰 다시 짰다. 변형만 BEM 으로 바꿨다
+ * (`.btn.primary` → `.btn--primary`, docs/naming-convention.md §5).
  *
- * - `EmptyState` — engagement 쪽이 title·body·action 3분할로 더 자세하다. 그쪽을 택했다.
- *   project-management 쪽 한 줄짜리 호출은 title 만 넘기면 그대로 동작한다.
- * - `Chip` — engagement 에만 있었다. 기술 태그 표시에 두 기능 모두 쓰므로 가져왔다.
- *
- * 값은 `tokens.css` 의 CSS 변수를 쓴다. 원시 값(#0B132B 같은 것)을 여기 적지 않는다.
- * feedback_loop/2026-08-28/engagement.md 항목 2 참고.
+ * 값은 `tokens.css` 의 CSS 변수를 쓴다. 원시 값을 여기 적지 않는다.
  */
 
 import type { ReactNode } from 'react';
@@ -22,7 +19,6 @@ import type { ReactNode } from 'react';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
-export type FeedbackTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 export type FieldState = 'default' | 'filled' | 'error' | 'success' | 'disabled' | 'readOnly';
 
 export type ButtonProps = {
@@ -47,10 +43,11 @@ export function Button({
   onClick,
   children,
 }: ButtonProps) {
+  const sizeClass = size === 'md' ? '' : ` btn--${size}`;
   return (
     <button
       type={type}
-      className={`btn btn--${variant} btn--${size}${fullWidth ? ' btn--full' : ''}`}
+      className={`btn btn--${variant}${sizeClass}${fullWidth ? ' btn--full' : ''}`}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       onClick={onClick}
@@ -60,6 +57,12 @@ export function Button({
   );
 }
 
+/**
+ * 라벨 + 입력 한 벌. 시안의 `.field-row` > `.label` + `.field` 구조를 따른다.
+ *
+ * 입력 요소에 `className="field"` 를 붙이는 것은 호출부의 몫이다 — input·textarea·select 를
+ * 자유롭게 쓰되 클래스만 맞추면 된다.
+ */
 export type FieldProps = {
   label: string;
   /** 라벨과 입력을 잇는다. 접근성 기준상 필수다 (design-tokens.md §10) */
@@ -88,20 +91,20 @@ export function Field({
     .join(' ');
 
   return (
-    <div className={`field field--${state}`}>
-      <label className="field__label" htmlFor={id}>
+    <div className={`field-row${state === 'error' ? ' field-row--error' : ''}`}>
+      <label className="label" htmlFor={id}>
         {label}
         {required && <span aria-hidden="true"> *</span>}
       </label>
       <div aria-describedby={describedBy || undefined}>{children}</div>
       {helperText && (
-        <p className="field__help" id={`${id}-help`}>
+        <p className="helper" id={`${id}-help`}>
           {helperText}
         </p>
       )}
       {state === 'error' && errorMessage && (
         // 색 하나로만 구분하지 않는다 (§12 금지 패턴). 문구와 role 을 함께 쓴다.
-        <p className="field__error" id={`${id}-error`} role="alert">
+        <p className="field-error" id={`${id}-error`} role="alert">
           {errorMessage}
         </p>
       )}
@@ -109,56 +112,110 @@ export function Field({
   );
 }
 
-export type BadgeProps = { tone: FeedbackTone; label: string };
-
-export function Badge({ tone, label }: BadgeProps) {
-  return <span className={`badge badge--${tone}`}>{label}</span>;
-}
-
-/** 기술 태그처럼 상태가 아닌 값을 나열할 때 쓴다 — 상태 배지와 섞이지 않게 모양을 나눈다 */
-export function Chip({ label }: { label: string }) {
-  return <span className="chip">{label}</span>;
-}
+/* ─────────────── 배지 ─────────────── */
 
 /**
- * 모집 상태 배지. 라벨과 색조는 design-tokens.md 의 `statusPresentation` 을 따른다.
+ * 모집 상태 배지. 라벨과 색조는 시안의 `.badge.open|scheduled|closed` 를 따른다.
  * 화면마다 다르게 부르면 같은 상태가 다른 말로 보인다.
  */
 const RECRUITMENT_PRESENTATION = {
-  SCHEDULED: { label: '모집 예정', tone: 'info' },
-  OPEN: { label: '모집 중', tone: 'success' },
-  CLOSED: { label: '모집 마감', tone: 'neutral' },
+  SCHEDULED: { label: '모집 예정', modifier: 'scheduled' },
+  OPEN: { label: '모집 중', modifier: 'open' },
+  CLOSED: { label: '모집 마감', modifier: 'closed' },
 } as const;
 
 export type RecruitmentStatus = keyof typeof RECRUITMENT_PRESENTATION;
 
 export function RecruitmentBadge({ status }: { status: RecruitmentStatus }) {
   const presentation = RECRUITMENT_PRESENTATION[status];
-  return <Badge tone={presentation.tone} label={presentation.label} />;
+  return <span className={`badge badge--${presentation.modifier}`}>{presentation.label}</span>;
 }
+
+/**
+ * 거래 상태 배지.
+ *
+ * **이 배지는 내 프로젝트(SCR-B07)·내 지원 현황에만 나온다.** 공개 목록·상세에는 나오지
+ * 않는다 (spec.md 규칙 9 · design/high-fi-manage.html 의 주석). `NONE` 은 보여줄 것이 없어
+ * 아무것도 그리지 않는다.
+ */
+const TRANSACTION_PRESENTATION = {
+  CONTRACT_PENDING: { label: '계약 대기', modifier: 'reopen' },
+  IN_PROGRESS: { label: '작업 중', modifier: 'scheduled' },
+  COMPLETED: { label: '완료', modifier: 'open' },
+  CANCELED: { label: '취소됨', modifier: 'canceled' },
+} as const;
+
+export type TransactionStatus = keyof typeof TRANSACTION_PRESENTATION | 'NONE';
+
+export function TransactionBadge({ status }: { status: TransactionStatus }) {
+  if (status === 'NONE') return null;
+  const presentation = TRANSACTION_PRESENTATION[status];
+  return <span className={`badge badge--${presentation.modifier}`}>{presentation.label}</span>;
+}
+
+/** 재모집 가능 배지 — 시안 SCR-B07 의 `.badge.reopen` */
+export function ReopenBadge() {
+  return <span className="badge badge--reopen">재모집 가능</span>;
+}
+
+/** 기술 태그처럼 상태가 아닌 값을 나열할 때 쓴다 — 상태 배지와 모양을 나눈다 */
+export function Chip({ label }: { label: string }) {
+  return <span className="chip">{label}</span>;
+}
+
+/* ─────────────── 값 표시 ─────────────── */
 
 /**
  * 마감까지 남은 기간. **절대 날짜와 상대 기한을 함께 준다** (도메인 패턴 DeadlineIndicator).
  * 상대 표기만 있으면 "5일 전"이 언제인지 알 수 없다.
+ *
+ * 카드 하단(`.pcard__foot`)처럼 좁은 자리에서는 `compact` 로 상대 표기만 쓴다 — 시안이
+ * 그 자리에 "마감 5일 전" 한 덩이만 두었다.
  */
-export function DeadlineIndicator({ deadlineAt, now }: { deadlineAt: string; now?: string }) {
+export function DeadlineIndicator({
+  deadlineAt,
+  now,
+  compact = false,
+}: {
+  deadlineAt: string;
+  now?: string;
+  compact?: boolean;
+}) {
   const reference = now ? new Date(now).getTime() : Date.now();
   const days = Math.ceil((new Date(deadlineAt).getTime() - reference) / (24 * 60 * 60 * 1000));
   const relative = days <= 0 ? '오늘 마감' : `마감 ${days}일 전`;
+  if (compact) return <span>{relative}</span>;
+
   const absolute = deadlineAt.slice(0, 10).replace(/-/g, '.');
   return (
-    <span className="deadline">
-      <strong>{relative}</strong> <span className="deadline__date">{absolute}</span>
+    <span>
+      <strong>{relative}</strong> <span className="caption">{absolute}</span>
     </span>
   );
 }
 
 export function Money({ amount }: { amount: number }) {
-  // tabular 숫자로 자릿수를 맞춘다 (§11 — 예산은 비교 대상이다)
-  return <span className="money">{amount.toLocaleString('ko-KR')}원</span>;
+  // 예산은 비교 대상이라 자릿수를 맞춘다 (§11)
+  return <span style={{ fontVariantNumeric: 'tabular-nums' }}>{amount.toLocaleString('ko-KR')}원</span>;
 }
 
-/** 결과가 0건일 때. 빈 화면을 그냥 두지 않는다 (Foundation: EmptyState) */
+/* ─────────────── 안내 · 빈 상태 ─────────────── */
+
+export type NoticeTone = 'info' | 'warning' | 'danger';
+
+/** 화면 위쪽에 까는 안내 배너. 시안의 `.notice.info|warning|danger` */
+export function Notice({ tone, children }: { tone: NoticeTone; children: ReactNode }) {
+  return (
+    <p className={`notice notice--${tone}`} role={tone === 'info' ? 'status' : 'alert'}>
+      {children}
+    </p>
+  );
+}
+
+/**
+ * 결과가 0건일 때. 빈 화면을 그냥 두지 않는다.
+ * 시안(SCR-B01·B07·B08)이 전부 제목 + 설명 + 행동 하나 구조다.
+ */
 export function EmptyState({
   title,
   body,
@@ -170,16 +227,21 @@ export function EmptyState({
 }) {
   return (
     <div className="empty" role="status">
-      <h2>{title}</h2>
+      <p className="title">{title}</p>
       {body && <p>{body}</p>}
       {action}
     </div>
   );
 }
 
+/* ─────────────── 행동 ─────────────── */
+
 /**
  * 서버가 허용한 행동만 보여준다 (도메인 패턴 PermissionAwareActions).
+ *
  * **막힌 행동은 숨기지 않고 이유를 붙인다** — 버튼이 사라지면 왜 못 하는지 알 수 없다.
+ * 시안 SCR-B07 은 행 오른쪽에 버튼만 늘어놓지만, 그건 "허용된 것만" 그린 상태다.
+ * 이유는 `title` 로 붙여 좁은 행에서도 레이아웃을 깨지 않게 한다.
  */
 export type ActionSpec = {
   id: string;
@@ -192,19 +254,17 @@ export type ActionSpec = {
 
 export function PermissionAwareActions({ actions }: { actions: ActionSpec[] }) {
   return (
-    <div className="actions">
+    <div className="row__acts">
       {actions.map((action) => (
-        <span key={action.id} className="actions__item">
+        <span key={action.id} title={!action.available ? action.blockedReason : undefined}>
           <Button
             variant={action.variant ?? 'secondary'}
+            size="sm"
             disabled={!action.available}
             onClick={action.onClick}
           >
             {action.label}
           </Button>
-          {!action.available && action.blockedReason && (
-            <span className="actions__reason">{action.blockedReason}</span>
-          )}
         </span>
       ))}
     </div>
