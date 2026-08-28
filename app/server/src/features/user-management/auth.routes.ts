@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createAuthController } from "./auth.controller";
-import type { AuthSessionService } from "./auth.service";
+import type { AllowedOrigins, AuthSessionService } from "./auth.service";
 
 /**
  * user-management(인증) 라우터 — 팀장 통합 반영.
@@ -14,10 +14,15 @@ import type { AuthSessionService } from "./auth.service";
  * 경로는 `docs/naming-convention.md` §7과 원본 api-contract.md를 그대로 따른다 — 전부
  * `/api/v1/auth/...` 절대 경로이므로 app.ts는 `app.use(createAuthRouter(...))`처럼 prefix 없이
  * 마운트한다.
+ *
+ * 2026-08-28 통합: 두 번째 인자가 `string`에서 `AllowedOrigins`(문자열 또는 문자열 배열)로
+ * 넓어졌다. 2026-08-27 반영에서 팀장이 "CORS는 여러 오리진을 허용하는데 Origin 검증은 첫
+ * 오리진만 본다"고 잠정 처리했던 지점을, 담당자가 원본에서 직접 해결해 왔다 —
+ * feedback_loop/2026-08-28/user-management.md 항목 1.
  */
-export function createAuthRouter(service: AuthSessionService, allowedOrigin: string): Router {
+export function createAuthRouter(service: AuthSessionService, allowedOrigins: AllowedOrigins): Router {
   const router = Router();
-  const controller = createAuthController(service, allowedOrigin);
+  const controller = createAuthController(service, allowedOrigins);
 
   router.post("/api/v1/auth/registrations", controller.register);
   router.post("/api/v1/auth/email-confirmation-requests", controller.requestEmailConfirmation);

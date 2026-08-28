@@ -60,6 +60,14 @@ export type MarkPaymentPendingResponse = DomainContractEnvelopeResponse & {
 };
 
 export type StartProjectTransactionInput = DomainContractEnvelopeInput & {
+  /**
+   * 2026-08-28 통합에서 추가. project-management 의 api-contract.md 가
+   * `POST /internal/v1/projects/:projectId/start-transaction` 의 필수 필드로 이미 고정해 둔
+   * 값인데, 이쪽 호출자 타입에는 빠져 있어 요청이 422 로 거절됐다. 상태의 주인이 함수 모양을
+   * 정한다(PRD §5.1 원칙 1)는 규칙에 따라 제공자 쪽 계약에 맞췄다 —
+   * feedback_loop/2026-08-28/contracts-payments.md 항목 1.
+   */
+  contractId: string;
   expectedProjectVersion: number;
 };
 
@@ -70,6 +78,8 @@ export type StartProjectTransactionResponse = DomainContractEnvelopeResponse & {
 };
 
 export type CompleteProjectTransactionInput = DomainContractEnvelopeInput & {
+  /** start-transaction 과 같은 이유로 추가 (feedback_loop/2026-08-28/contracts-payments.md 항목 1) */
+  contractId: string;
   expectedProjectVersion: number;
 };
 
