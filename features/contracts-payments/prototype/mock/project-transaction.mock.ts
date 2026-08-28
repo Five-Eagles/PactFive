@@ -230,6 +230,11 @@ export function createProjectTransactionMock(
       assertServiceToken();
       callCounts.startProjectTransaction += 1;
       requireEnvelope(input);
+      if (!input.contractId) {
+        throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
+          { field: "contractId", reason: "required" },
+        ]);
+      }
       if (input.expectedProjectVersion === undefined || input.expectedProjectVersion === null) {
         throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
           { field: "expectedProjectVersion", reason: "required" },
@@ -279,6 +284,11 @@ export function createProjectTransactionMock(
       assertServiceToken();
       callCounts.completeProjectTransaction += 1;
       requireEnvelope(input);
+      if (!input.contractId) {
+        throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
+          { field: "contractId", reason: "required" },
+        ]);
+      }
       if (input.expectedProjectVersion === undefined || input.expectedProjectVersion === null) {
         throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
           { field: "expectedProjectVersion", reason: "required" },

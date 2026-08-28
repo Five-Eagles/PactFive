@@ -102,7 +102,9 @@
      §5.7의 `agreementId` 표기는 D-55로 폐기(필드명만 `negotiationId`).
    - **반환:** 봉투 + `projectId`, `negotiationId`, `recruitmentStatus`, `transactionStatus`,
      `reopened`, `notReopenedReason` (`null` \| `DEADLINE_PASSED` \| `PENDING_APPLICATIONS_REMAIN`,
-     J2), `restoredFields`. `restoredFields`는 항상 `["recruitmentStatus", "transactionStatus"]`다.
+     J2), `restoredFields`. `restoredFields`는 제공자(PM)가 실제로 비운 필드명 배열이다
+     (`string[]`, CR-0002). 최소 `transactionStatus`·`acceptedApplicationId`, 재개 시
+     `recruitmentStatus`, 결제 대기 이력이 있으면 `paymentPendingAt`이 포함될 수 있다.
      `recruitment_start_at`은 **건드리지 않는다.** 그 값을 새로 찍는 것은 A-13 재모집뿐이다 (D-85).
      계약·합의 금액은 `projects`에 없으므로 되돌리지 않는다. 협상 중 수정된 제목·설명·첨부는 보존한다.
    - **실행 전 허용:** `transactionStatus = CONTRACT_PENDING`.

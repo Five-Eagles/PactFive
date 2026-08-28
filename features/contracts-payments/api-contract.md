@@ -354,7 +354,7 @@ type RestorePreContractProjectResponse = DomainContractEnvelopeResponse & {
   transactionStatus: 'NONE';
   reopened: boolean;
   notReopenedReason: NotReopenedReason | null;
-  restoredFields: ['recruitmentStatus', 'transactionStatus'];
+  restoredFields: string[];
 };
 
 type AgreementStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED';

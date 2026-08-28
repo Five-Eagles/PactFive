@@ -175,6 +175,7 @@ async function main() {
       mock,
       "prj_alive",
       {
+        contractId: "ctr_123",
         requestId: "req_start_01",
         idempotencyKey: "transaction-start-ctr_123",
         occurredAt: "2026-08-25T05:01:00Z",
@@ -193,6 +194,7 @@ async function main() {
       fail("규칙 3: CONTRACT_PENDING → IN_PROGRESS", started);
     }
     const again = await mock.startProjectTransaction("prj_alive", {
+      contractId: "ctr_123",
       requestId: "req_start_02",
       idempotencyKey: "transaction-start-ctr_123-again",
       occurredAt: "2026-08-25T05:02:00Z",
@@ -205,6 +207,7 @@ async function main() {
     }
     await expectCode("규칙 3: 취소 프로젝트 409", "PROJECT_TRANSITION_CONFLICT", () =>
       mock.startProjectTransaction("prj_canceled", {
+        contractId: "ctr_canceled",
         requestId: "req_start_c",
         idempotencyKey: "transaction-start-canceled",
         occurredAt: "2026-08-25T05:01:00Z",
@@ -213,6 +216,7 @@ async function main() {
     );
     await expectCode("규칙 3: 수락 지원 null 409", "PROJECT_TRANSITION_CONFLICT", () =>
       mock.startProjectTransaction("prj_null_accept", {
+        contractId: "ctr_null",
         requestId: "req_start_null",
         idempotencyKey: "transaction-start-null",
         occurredAt: "2026-08-25T05:01:00Z",
@@ -221,6 +225,7 @@ async function main() {
     );
     await expectCode("규칙 3: COMPLETED에서 start 409", "PROJECT_TRANSITION_CONFLICT", () =>
       mock.startProjectTransaction("prj_completed", {
+        contractId: "ctr_completed",
         requestId: "req_start_completed",
         idempotencyKey: "transaction-start-completed",
         occurredAt: "2026-08-25T05:01:00Z",
@@ -235,6 +240,7 @@ async function main() {
         mock,
         "prj_seq",
         {
+          contractId: "ctr_mismatch",
           requestId: "req_start_mismatch",
           idempotencyKey: "transaction-start-mismatch",
           occurredAt: "2026-08-25T05:01:00Z",
@@ -262,6 +268,7 @@ async function main() {
         mock,
         "prj_in_progress",
         {
+          contractId: "ctr_block",
           requestId: "req_complete_block",
           idempotencyKey: "transaction-complete-block",
           occurredAt: "2026-08-25T06:00:00Z",
@@ -283,6 +290,7 @@ async function main() {
       mock,
       "prj_in_progress",
       {
+        contractId: "ctr_123",
         requestId: "req_complete_01",
         idempotencyKey: "transaction-complete-ctr_123",
         occurredAt: "2026-08-25T06:00:00Z",
@@ -297,6 +305,7 @@ async function main() {
       fail("규칙 4: IN_PROGRESS → COMPLETED", done);
     }
     const idempotent = await mock.completeProjectTransaction("prj_completed", {
+      contractId: "ctr_done",
       requestId: "req_complete_done",
       idempotencyKey: "transaction-complete-already",
       occurredAt: "2026-08-25T06:01:00Z",
@@ -309,6 +318,7 @@ async function main() {
     }
     await expectCode("규칙 4: CANCELED에서 complete 409", "PROJECT_TRANSITION_CONFLICT", () =>
       mock.completeProjectTransaction("prj_canceled", {
+        contractId: "ctr_canceled",
         requestId: "req_complete_c",
         idempotencyKey: "transaction-complete-canceled",
         occurredAt: "2026-08-25T06:00:00Z",
@@ -317,6 +327,7 @@ async function main() {
     );
     await expectCode("규칙 4: CONTRACT_PENDING에서 complete 409", "PROJECT_TRANSITION_CONFLICT", () =>
       mock.completeProjectTransaction("prj_alive", {
+        contractId: "ctr_pending",
         requestId: "req_complete_pending",
         idempotencyKey: "transaction-complete-pending",
         occurredAt: "2026-08-25T06:00:00Z",
@@ -409,6 +420,7 @@ async function main() {
     const mock = createProjectTransactionMock();
     await expectCode("규칙 1: start 버전 불일치 409", "PROJECT_VERSION_CONFLICT", () =>
       mock.startProjectTransaction("prj_alive", {
+        contractId: "ctr_ver",
         requestId: "req_ver",
         idempotencyKey: "transaction-start-ver",
         occurredAt: "2026-08-25T05:01:00Z",
@@ -434,6 +446,7 @@ async function main() {
       mock,
       "prj_seq",
       {
+        contractId: "ctr_seq",
         requestId: "req_seq_start",
         idempotencyKey: "transaction-start-ctr_seq",
         occurredAt: "2026-08-25T05:01:00Z",
@@ -445,6 +458,7 @@ async function main() {
       mock,
       "prj_seq",
       {
+        contractId: "ctr_seq",
         requestId: "req_seq_complete",
         idempotencyKey: "transaction-complete-ctr_seq",
         occurredAt: "2026-08-25T06:00:00Z",
@@ -470,6 +484,7 @@ async function main() {
         "conflict",
         () =>
           mock.startProjectTransaction("prj_canceled", {
+            contractId: "ctr_c",
             requestId: "r",
             idempotencyKey: "k-conflict",
             occurredAt: MOCK_AT,
@@ -480,6 +495,7 @@ async function main() {
         "version",
         () =>
           mock.startProjectTransaction("prj_alive", {
+            contractId: "ctr_v",
             requestId: "r",
             idempotencyKey: "k-version",
             occurredAt: MOCK_AT,
