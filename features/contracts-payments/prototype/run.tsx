@@ -1,20 +1,51 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createProjectTransactionMock } from "./mock/project-transaction.mock";
+import {
+  createProjectTransactionMock,
+  DomainContractError,
+  isDomainContractError,
+  MOCK_NOW,
+  type DomainContractErrorCode,
+} from "./index";
+import { createPaymentRecordMock } from "./mock/payment-record.mock";
+import {
+  createPaymentGatewayMock,
+  MOCK_CONFIRMED_AMOUNT,
+  MOCK_FAIL_PAYMENT_KEY,
+  MOCK_OK_PAYMENT_KEY,
+} from "./mock/payment.mock";
 import {
   CallerGuardError,
   completeProjectTransactionIfSettled,
   markPaymentPendingIfAlive,
   restorePreContractProjectAfterReject,
   startProjectTransactionIfAccepted,
-} from "./server/contract-transaction.service";
-import {
-  DomainContractError,
-  isDomainContractError,
-  type DomainContractErrorCode,
-} from "./server/project-transaction.types";
+} from "./server/project-transaction.service";
+import { PaymentGatewayError } from "./server/payment.port";
+import { createTossPaymentsAdapter, hasPgSecretKey } from "./server/toss-payments.adapter";
+
+/** 기능 폴더 `.env`만 읽는다. 값은 로그에 남기지 않는다. */
+function loadFeatureEnv(): void {
+  const envPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".env");
+  if (!existsSync(envPath)) return;
+  for (const rawLine of readFileSync(envPath, "utf8").split("\n")) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+}
 
 function ensurePackagesInstalled(): void {
   const here = path.dirname(fileURLToPath(import.meta.url));
@@ -69,6 +100,7 @@ async function expectCode(
 
 async function main() {
   ensurePackagesInstalled();
+  loadFeatureEnv();
   console.log("=== contracts-payments prototype 로컬 실행 ===");
 
   // 규칙 2 — 호출 전 조회
@@ -187,6 +219,14 @@ async function main() {
         expectedProjectVersion: 7,
       }),
     );
+    await expectCode("규칙 3: COMPLETED에서 start 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      mock.startProjectTransaction("prj_completed", {
+        requestId: "req_start_completed",
+        idempotencyKey: "transaction-start-completed",
+        occurredAt: "2026-08-25T05:01:00Z",
+        expectedProjectVersion: 9,
+      }),
+    );
   }
   {
     const mock = createProjectTransactionMock();
@@ -271,6 +311,14 @@ async function main() {
       mock.completeProjectTransaction("prj_canceled", {
         requestId: "req_complete_c",
         idempotencyKey: "transaction-complete-canceled",
+        occurredAt: "2026-08-25T06:00:00Z",
+        expectedProjectVersion: 7,
+      }),
+    );
+    await expectCode("규칙 4: CONTRACT_PENDING에서 complete 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      mock.completeProjectTransaction("prj_alive", {
+        requestId: "req_complete_pending",
+        idempotencyKey: "transaction-complete-pending",
         occurredAt: "2026-08-25T06:00:00Z",
         expectedProjectVersion: 7,
       }),
@@ -366,6 +414,10 @@ async function main() {
         occurredAt: "2026-08-25T05:01:00Z",
         expectedProjectVersion: 1,
       }),
+    );
+    const denied = createProjectTransactionMock(MOCK_NOW, { serviceToken: "wrong-token" });
+    await expectCode("규칙 1: 토큰 불일치 422", "VALIDATION_ERROR", () =>
+      denied.getProjectNegotiationContext("prj_alive"),
     );
   }
 
@@ -483,6 +535,111 @@ async function main() {
       }
     }
     if (allAllowed) pass("규칙 8: 오류 코드 5종·봉투만 사용");
+  }
+
+  // 규칙 9 — PaymentGateway Mock (키 불필요)
+  {
+    const gateway = createPaymentGatewayMock();
+    const paid = await gateway.confirmPayment({
+      orderId: "ord_mock_01",
+      amount: MOCK_CONFIRMED_AMOUNT,
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+    });
+    if (paid.status === "PAID" && paid.amount === MOCK_CONFIRMED_AMOUNT) {
+      pass("규칙 9: Mock 결제 승인 성공");
+    } else {
+      fail("규칙 9: Mock 결제 승인 성공", paid);
+    }
+    try {
+      await gateway.confirmPayment({
+        orderId: "ord_mock_01",
+        amount: 1,
+        paymentKey: MOCK_OK_PAYMENT_KEY,
+      });
+      fail("규칙 9: Mock 금액 불일치 거부", "오류가 나지 않았습니다");
+    } catch (err) {
+      if (err instanceof PaymentGatewayError && err.code === "PAYMENT_AMOUNT_MISMATCH") {
+        pass("규칙 9: Mock 금액 불일치 거부");
+      } else {
+        fail("규칙 9: Mock 금액 불일치 거부", err);
+      }
+    }
+  }
+
+  // 규칙 19·21 — 결제 행 FAILED 재시도 (I-17)
+  {
+    const records = createPaymentRecordMock();
+    const prepared = records.preparePayment(MOCK_CONFIRMED_AMOUNT);
+    try {
+      await records.confirmPayment({
+        orderId: prepared.orderId,
+        amount: MOCK_CONFIRMED_AMOUNT,
+        paymentKey: MOCK_FAIL_PAYMENT_KEY,
+      });
+      fail("규칙 19: PG 실패 키면 FAILED", "오류가 나지 않았습니다");
+    } catch (err) {
+      const row = records.getPayment(prepared.paymentId);
+      if (
+        err instanceof PaymentGatewayError &&
+        err.code === "PAYMENT_CONFIRM_FAILED" &&
+        row.status === "FAILED" &&
+        row.orderId === prepared.orderId
+      ) {
+        pass("규칙 19: PG 실패 키면 FAILED");
+      } else {
+        fail("규칙 19: PG 실패 키면 FAILED", { err, row });
+      }
+    }
+    const oldOrderId = prepared.orderId;
+    const retried = records.retryPayment(prepared.paymentId);
+    if (
+      retried.paymentId === prepared.paymentId &&
+      retried.orderId !== oldOrderId &&
+      retried.status === "READY"
+    ) {
+      pass("규칙 21: FAILED 재시도 같은 paymentId 새 orderId READY");
+    } else {
+      fail("규칙 21: FAILED 재시도 같은 paymentId 새 orderId READY", retried);
+    }
+    await expectCode("규칙 21: 옛 orderId confirm 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      records.confirmPayment({
+        orderId: oldOrderId,
+        amount: MOCK_CONFIRMED_AMOUNT,
+        paymentKey: MOCK_OK_PAYMENT_KEY,
+      }),
+    );
+    const paid = await records.confirmPayment({
+      orderId: retried.orderId,
+      amount: MOCK_CONFIRMED_AMOUNT,
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+    });
+    const row = records.getPayment(prepared.paymentId);
+    if (paid.status === "PAID" && row.status === "PAID" && row.orderId === retried.orderId) {
+      pass("규칙 19: 재시도 후 승인 성공 PAID");
+    } else {
+      fail("규칙 19: 재시도 후 승인 성공 PAID", { paid, row });
+    }
+  }
+
+  // sandbox 실호출 — 시크릿이 없으면 해당 없음
+  if (!hasPgSecretKey()) {
+    pass("규칙 9: PG sandbox 실호출 해당 없음 (PG_SECRET_KEY 없음)");
+  } else {
+    try {
+      const adapter = createTossPaymentsAdapter();
+      await adapter.confirmPayment({
+        orderId: "ord_sandbox_probe",
+        amount: 100,
+        paymentKey: "pay_invalid_probe",
+      });
+      fail("규칙 9: sandbox 잘못된 키는 4xx", "승인이 성공했습니다");
+    } catch (err) {
+      if (err instanceof PaymentGatewayError && err.code === "PAYMENT_CONFIRM_FAILED") {
+        pass("규칙 9: sandbox 잘못된 키는 승인 실패");
+      } else {
+        fail("규칙 9: sandbox 잘못된 키는 승인 실패", err);
+      }
+    }
   }
 
   console.log(`PASS ${passCount} / FAIL ${failCount}`);

@@ -10,7 +10,7 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
 
 ## 항목 1 — 파일명 불일치: `project-transaction.*` vs `contract-transaction.service.ts`
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - 원본 `prototype/server/`에 `project-transaction.port.ts`, `project-transaction.types.ts`는
@@ -29,15 +29,14 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
   따랐다.
 
 **담당자 메모**
-- 원본 리포(`features/contracts-payments/prototype/server/contract-transaction.service.ts`)의
-  파일명도 `project-transaction.service.ts`로 맞춰서 다음 통합부터는 diff에 이 차이가 안 보이게
-  해 달라.
+- 원본을 `prototype/server/project-transaction.service.ts`로 rename했다. `run.tsx`·
+  `mock-stub-import-guide.md` import도 맞췄다.
 
 ---
 
 ## 항목 2 — controller/repository/routes를 새로 작성했다 (원본에 없었음)
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - 원본 `prototype/server/`에는 `port.ts`(인터페이스)·`types.ts`·`service.ts`(호출자측 가드
@@ -84,16 +83,14 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
   contracts-payments는 순수 호출자(어댑터)로 되돌리는 걸 검토해야 한다.
 
 **담당자 메모**
-- 이 설계가 맞는지 확인해 달라: (1) project-management 통합 전까지 이 잠정 대행 방식이
-  괜찮은지, (2) `req.user` 대신 서비스 토큰으로 처리한 인증 방식에 동의하는지, (3) 캐일러측
-  가드(수락 지원서 대조, I-30)를 언제 연결할지 — `contracts`/`agreements` 테이블이 Prisma에
-  생기는 시점에 맞추면 되는지.
+- 잠정 대행·서비스 토큰(J1)에 동의한다. 캐일러 가드는 Prisma에 `contracts`/`agreements`가
+  생긴 뒤 연결한다. 소유권 이관은 유동우·팀장과 다음 통합에서 맞춘다.
 
 ---
 
 ## 항목 3 — 웹 화면은 만들지 않았다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - `features/contracts-payments/prototype/`에 `web/` 폴더 자체가 없다. 와이어프레임·디자인
@@ -109,8 +106,6 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
   범위를 제한했다. 근거 없이 화면을 새로 지어내는 과도한 gap-filling을 피했다.
 
 **담당자 메모**
-- 애초에 이 기능은 화면·PG·서명 UI가 spec.md 범위 밖("이번 세션 범위는 계약 연동 함수 4개의
-  호출 계약이다")이었다 — 화면 설계(금액 합의·서명·PG·납품·정산·리뷰)는 다음 스프린트 항목으로
-  별도 spec.md/api-contract.md/design을 작성해야 실제 웹 통합이 가능하다.
+- 웹/`design/`은 Increment 다음 스프린트다. wrap·규칙 22 백로그와 같다.
 
 ---

@@ -70,6 +70,22 @@ export type ProviderSession = {
   user: ProviderUser;
 };
 
+// Access Token 검증만으로는 Refresh Token을 얻을 수 없다. 전체 ProviderSession과 분리해
+// 실연동 어댑터가 존재하지 않는 Refresh Token을 빈 문자열로 위조하지 못하게 한다.
+export type VerifiedAccessSession = Omit<ProviderSession, "refreshToken">;
+
+export type ProviderSessionCredential =
+  | {
+      kind: "ACCESS_TOKEN";
+      providerSessionId: string;
+      accessToken: string;
+    }
+  | {
+      kind: "REFRESH_TOKEN";
+      providerSessionId: string;
+      refreshToken: string;
+    };
+
 export type UserRecord = {
   id: string;
   authUserId: string;
@@ -123,11 +139,6 @@ export type RegistrationRecoveryProof = {
   intentNonce: string;
   issuedAt: Date;
   expiresAt: Date;
-};
-
-export type RefreshResult = {
-  session: ProviderSession;
-  outcome: "ROTATED" | "PARENT_RECOVERED";
 };
 
 export type AuthContext = UserAuthSummary & {
