@@ -29,8 +29,9 @@ import type { ClientProjectDetail } from './project.types';
  *
  * **잠금을 여기서 계산하지 않는다.** 서버가 준 `availableActions` 를 그대로 따른다 (규칙 13).
  *
- * 원본의 `ProjectEditForm`(SCR-B06)·`ReopenRecruitmentDialog`(SCR-B10)는 아직 화면이 없다 —
- * feedback_loop/2026-08-28/project-management.md 항목 5.
+ * 원본의 `ProjectEditForm`(SCR-B06)·`ReopenRecruitmentDialog`(SCR-B10)는 아직 화면이 없다.
+ * 담당자 원본에는 두 컴포넌트가 이미 있고 팀장이 통합 범위에서 뺀 것이라, 반영 범위는
+ * `sync-log.md` 비고에 적혀 있다. `수정`·`다시 모집하기` 버튼은 아직 동작하지 않는다.
  */
 
 /** 서버 행동 코드 → 화면 문구. 코드가 그대로 노출되면 안 된다 */

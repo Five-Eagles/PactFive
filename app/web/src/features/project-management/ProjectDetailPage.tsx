@@ -21,7 +21,7 @@ import { isClientDetail, useProject } from './useProject';
  *   우: `.side`(sticky) 의뢰인 카드 + 지원하기/북마크 + 안내 문구
  *
  * 1차 반영에서 이 구조가 통째로 빠져 `<dl>` 한 덩이였다 —
- * feedback_loop/2026-08-28/project-management.md 항목 6.
+ * feedback_loop/2026-08-28/project-management.md 항목 5.
  *
  * **지원 가능 여부를 여기서 계산하지 않는다.** 서버가 준 `canApply` 를 그대로 따른다 —
  * 화면이 모집 상태로 다시 판정하면 규칙이 두 곳에 생긴다 (규칙 13).

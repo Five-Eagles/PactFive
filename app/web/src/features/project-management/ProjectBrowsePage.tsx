@@ -90,7 +90,7 @@ export function ProjectBrowsePage({ renderBookmark }: ProjectBrowsePageProps) {
           onChange={(event) => setKeyword(event.target.value)}
         />
         {/* 시안의 "필터" 버튼. 필터 화면은 아직 없어 검색 제출로 동작한다 —
-            feedback_loop/2026-08-28/project-management.md 항목 7 */}
+            feedback_loop/2026-08-28/project-management.md 항목 6 */}
         <Button variant="secondary" type="submit">
           필터
         </Button>

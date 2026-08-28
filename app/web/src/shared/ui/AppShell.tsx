@@ -9,7 +9,7 @@ import { NavLink } from 'react-router-dom';
  * 액자였지만 실제 앱에서는 라우트가 바뀌어도 남아야 하므로 라우터 안쪽 최상단에 둔다.
  *
  * 1차 반영에서 이 셸이 통째로 빠져 있었다 —
- * feedback_loop/2026-08-28/project-management.md 항목 6.
+ * feedback_loop/2026-08-28/project-management.md 항목 5.
  *
  * ## 경로를 props 로 받는 이유
  *

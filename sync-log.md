@@ -7,7 +7,7 @@
 |---|---|---|---|
 | 2026-08-27 | user-management | 41d7f4b | auth 통합 반영 |
 | 2026-08-27 | contracts-payments | c63d410 | server 계약 반영(controller/repository/routes 신규 작성, web 미통합) |
-| 2026-08-28 | project-management | 3e4977e | 공개 API 9종·내부 계약 7종 server 반영 + web 4화면(B01·B02·B03~05·B07). /internal/v1 소유권 이관 |
-| 2026-08-28 | engagement | 3e4977e | 북마크 3종·추천 server 반영 + web(내 북마크·북마크 버튼·추천 섹션) |
+| 2026-08-28 | project-management | 3e4977e | 공개 API 9종·내부 계약 7종 server 반영. web은 SCR-B01·B02·B03~B05·B07 반영, **SCR-B06(수정)·B10(재모집)은 미반영**(담당자 prototype에는 있음 — 다음 통합 대상). /internal/v1 소유권 이관 |
+| 2026-08-28 | engagement | 3e4977e | 북마크 3종·추천 server 반영. web은 SCR-B08·B09 반영(북마크 버튼 포함) |
 | 2026-08-28 | user-management | 8db808b | 실 Supabase 어댑터·RegistrationIntent·다중 Origin 검증 델타 반영 |
 | 2026-08-28 | contracts-payments | 47c7760 | 결제 포트·토스 어댑터 반영, /internal/v1 서빙 책임 이관(순수 호출자로 전환) |
