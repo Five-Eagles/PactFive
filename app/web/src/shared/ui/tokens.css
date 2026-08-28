@@ -103,6 +103,11 @@ body {
   padding: 32px 20px 64px;
 }
 
+/* 폼 한 개만 있는 화면(로그인 등). 넓으면 입력 칸이 화면 폭만큼 늘어나 읽기 나쁘다 */
+.page--narrow {
+  max-width: 520px;
+}
+
 .page__head {
   display: flex;
   align-items: center;

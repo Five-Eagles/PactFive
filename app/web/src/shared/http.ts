@@ -62,6 +62,18 @@ type RequestOptions = {
    * 지정하면 provider 호출을 건너뛰고 이 값을 그대로 쓴다.
    */
   authToken?: string;
+  /**
+   * 401을 받아도 `setUnauthorizedHandler`로 등록된 처리(보통 로그인 화면으로 이동)를
+   * 실행하지 않는다. `ApiError`는 그대로 던지므로 호출부가 직접 판단한다.
+   *
+   * **세션 복원 요청에만 쓴다.** 앱이 뜰 때 "로그인 상태가 남아 있나" 물어보는 호출은,
+   * 실패해도 그건 "로그인한 적이 없다"는 정상적인 답이다. 이걸 만료로 취급해 로그인 화면으로
+   * 보내면 무한 리로드가 된다 — 이동 → 앱 재마운트 → 다시 복원 시도 → 401 → 이동.
+   * 공개 화면(프로젝트 탐색·상세)을 비로그인이 못 보게 되는 문제도 함께 생긴다.
+   *
+   * 사용자가 명시적으로 요청한 보호 API가 401을 받는 경우(진짜 만료)에는 이 옵션을 쓰지 않는다.
+   */
+  skipUnauthorizedHandler?: boolean;
   signal?: AbortSignal;
 };
 
@@ -107,7 +119,7 @@ async function request<T>(
   });
 
   if (response.status === 401) {
-    onUnauthorized?.();
+    if (!options.skipUnauthorizedHandler) onUnauthorized?.();
     const payload = await parseBody(response);
     throw new ApiError(401, extractMessage(payload, '인증이 필요합니다.'), payload, extractCode(payload));
   }

@@ -57,8 +57,15 @@ export function createAuthSession(input: CreateAuthSessionInput): Promise<Authen
   return runAuthMutation(() => http.post<AuthenticatedSessionResponse>('/v1/auth/sessions', input));
 }
 
+// `skipUnauthorizedHandler` — 이 호출의 401은 "세션이 만료됐다"가 아니라 대개 "로그인한 적이
+// 없다"이다. 전역 401 처리(로그인 화면으로 이동)를 태우면 앱 시작 시의 세션 복원이 무한
+// 리로드가 된다. 호출부(useAuth)가 ApiError를 받아 anonymous로 처리한다.
 const coordinatedRefreshAuthSession = createRefreshCoordinator(() =>
-  runAuthMutation(() => http.post<RefreshAuthSessionResponse>('/v1/auth/sessions/refresh', {})),
+  runAuthMutation(() =>
+    http.post<RefreshAuthSessionResponse>('/v1/auth/sessions/refresh', {}, {
+      skipUnauthorizedHandler: true,
+    }),
+  ),
 );
 
 export function refreshAuthSession(authFlowKey: unknown = 'default'): Promise<RefreshAuthSessionResponse> {
@@ -68,7 +75,13 @@ export function refreshAuthSession(authFlowKey: unknown = 'default'): Promise<Re
 export function getCurrentAuthContext(accessToken: string): Promise<AuthContext> {
   // 세션 복원 직후에는 shared/http.ts의 토큰 provider가 아직 새 토큰을 모를 수 있어
   // authToken override로 명시적으로 넘긴다 (provider는 useAuth.ts가 별도로 갱신한다).
-  return http.get<AuthContext>('/v1/auth/contexts/current', { authToken: accessToken });
+  //
+  // refresh와 짝을 이루는 복원 흐름의 두 번째 호출이라 401 전역 처리도 함께 건너뛴다 —
+  // 방금 받은 토큰이 거부되면 그것도 "로그인 상태가 아니다"라는 답이다.
+  return http.get<AuthContext>('/v1/auth/contexts/current', {
+    authToken: accessToken,
+    skipUnauthorizedHandler: true,
+  });
 }
 
 export function requestEmailConfirmation(email: string): Promise<RequestEmailConfirmationResponse> {
