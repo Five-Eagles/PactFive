@@ -5,6 +5,7 @@
   "scripts": {
     "predev": "node scripts/ensure-app-deps.js",
     "dev": "concurrently --names server,web --prefix-colors cyan,magenta --kill-others-on-fail \"npm --prefix app/server run dev\" \"npm --prefix app/web run dev\"",
+    "check:design": "node scripts/check-design-drift.js",
     "sample:login": "tsx features/sample-login/prototype/run.tsx",
     "prepreview:dev": "node scripts/ensure-deps.js",
     "preview:dev": "vite",
