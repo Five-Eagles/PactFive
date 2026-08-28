@@ -5,16 +5,17 @@
 
 ## 스펙 (features/contracts-payments/)
 - spec.md: 합의·서명·샌드박스 결제 설계 확정 + 4함수·PG 포트 FACT.
-  정본 고정은 `review/spec-design-eval.md`.
+  정본 고정은 `review/spec-design-eval.md`. 규칙 19~22는 전이표·필드·FAILED·백로그.
 - api-contract.md: 내부 4함수 + 공개 API 초안 (`negotiation-offers`, `signContract`, 결제).
   프론트 `/agreements` 5종은 폐기.
 - review/: 교차 담당 확인 요청·회신.
   Mock import 안내는 `review/mock-stub-import-guide.md` (유동우·최윤석 공유).
   팀장 sandbox 키 요청은 `review/teamlead-pg-sandbox-keys.md`.
   8/27 설계서 평가·최적안은 `review/spec-design-eval.md`.
+  금주 마감은 `review/week-wrap-2026-08-28.md`.
 - prototype/: 유동우 포트 스탠드인 Mock + 조준영 호출 서비스 + `PaymentGateway` Mock.
   다른 기능은 `prototype/index.ts`만 import한다.
-  `npx tsx prototype/run.tsx`로 spec 규칙 1~9를 확인한다.
+  `npx tsx prototype/run.tsx`로 spec 규칙 1~9와 19·21 Mock을 확인한다.
 
 ### Mock 시드 (성공·실패 재현)
 
@@ -54,3 +55,9 @@
 | 2026-08-26 | 팀장 sandbox 키 요청 (`review/teamlead-pg-sandbox-keys.md`) |
 | 2026-08-26 | Mock 공개 입구 `prototype/index.ts`. 토큰 불일치 422 |
 | 2026-08-27 | `origin/develop` merge (`6f6f71c`). SPEC 합의·서명·결제 규칙 10~18 |
+| 2026-08-27 | SPEC 규칙 19~22: 전이표·계약 필드·FAILED 재시도·Increment 1 백로그 |
+| 2026-08-27 | 잔여 3건: `paymentId` 조회, I-17 같은 행 재시도·수수료, propose 시 agreements |
+| 2026-08-27 | `negotiationId`=`agreements.id`, propose 시 agreements NOT NULL 필드 |
+| 2026-08-28 | 금주 wrap. reviews SPEC은 `features/reviews/` |
+| 2026-08-28 | P2: 규칙 3·4 전이 409 + FAILED 재시도 Mock. PASS 34. 취소·환불 제외 |
+| 2026-08-28 | feedback_loop 3항목 반영완료. `project-transaction.service.ts` 통일 |

@@ -9,14 +9,20 @@ import {
   MOCK_NOW,
   type DomainContractErrorCode,
 } from "./index";
-import { createPaymentGatewayMock, MOCK_CONFIRMED_AMOUNT, MOCK_OK_PAYMENT_KEY } from "./mock/payment.mock";
+import { createPaymentRecordMock } from "./mock/payment-record.mock";
+import {
+  createPaymentGatewayMock,
+  MOCK_CONFIRMED_AMOUNT,
+  MOCK_FAIL_PAYMENT_KEY,
+  MOCK_OK_PAYMENT_KEY,
+} from "./mock/payment.mock";
 import {
   CallerGuardError,
   completeProjectTransactionIfSettled,
   markPaymentPendingIfAlive,
   restorePreContractProjectAfterReject,
   startProjectTransactionIfAccepted,
-} from "./server/contract-transaction.service";
+} from "./server/project-transaction.service";
 import { PaymentGatewayError } from "./server/payment.port";
 import { createTossPaymentsAdapter, hasPgSecretKey } from "./server/toss-payments.adapter";
 
@@ -213,6 +219,14 @@ async function main() {
         expectedProjectVersion: 7,
       }),
     );
+    await expectCode("규칙 3: COMPLETED에서 start 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      mock.startProjectTransaction("prj_completed", {
+        requestId: "req_start_completed",
+        idempotencyKey: "transaction-start-completed",
+        occurredAt: "2026-08-25T05:01:00Z",
+        expectedProjectVersion: 9,
+      }),
+    );
   }
   {
     const mock = createProjectTransactionMock();
@@ -297,6 +311,14 @@ async function main() {
       mock.completeProjectTransaction("prj_canceled", {
         requestId: "req_complete_c",
         idempotencyKey: "transaction-complete-canceled",
+        occurredAt: "2026-08-25T06:00:00Z",
+        expectedProjectVersion: 7,
+      }),
+    );
+    await expectCode("규칙 4: CONTRACT_PENDING에서 complete 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      mock.completeProjectTransaction("prj_alive", {
+        requestId: "req_complete_pending",
+        idempotencyKey: "transaction-complete-pending",
         occurredAt: "2026-08-25T06:00:00Z",
         expectedProjectVersion: 7,
       }),
@@ -541,6 +563,61 @@ async function main() {
       } else {
         fail("규칙 9: Mock 금액 불일치 거부", err);
       }
+    }
+  }
+
+  // 규칙 19·21 — 결제 행 FAILED 재시도 (I-17)
+  {
+    const records = createPaymentRecordMock();
+    const prepared = records.preparePayment(MOCK_CONFIRMED_AMOUNT);
+    try {
+      await records.confirmPayment({
+        orderId: prepared.orderId,
+        amount: MOCK_CONFIRMED_AMOUNT,
+        paymentKey: MOCK_FAIL_PAYMENT_KEY,
+      });
+      fail("규칙 19: PG 실패 키면 FAILED", "오류가 나지 않았습니다");
+    } catch (err) {
+      const row = records.getPayment(prepared.paymentId);
+      if (
+        err instanceof PaymentGatewayError &&
+        err.code === "PAYMENT_CONFIRM_FAILED" &&
+        row.status === "FAILED" &&
+        row.orderId === prepared.orderId
+      ) {
+        pass("규칙 19: PG 실패 키면 FAILED");
+      } else {
+        fail("규칙 19: PG 실패 키면 FAILED", { err, row });
+      }
+    }
+    const oldOrderId = prepared.orderId;
+    const retried = records.retryPayment(prepared.paymentId);
+    if (
+      retried.paymentId === prepared.paymentId &&
+      retried.orderId !== oldOrderId &&
+      retried.status === "READY"
+    ) {
+      pass("규칙 21: FAILED 재시도 같은 paymentId 새 orderId READY");
+    } else {
+      fail("규칙 21: FAILED 재시도 같은 paymentId 새 orderId READY", retried);
+    }
+    await expectCode("규칙 21: 옛 orderId confirm 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      records.confirmPayment({
+        orderId: oldOrderId,
+        amount: MOCK_CONFIRMED_AMOUNT,
+        paymentKey: MOCK_OK_PAYMENT_KEY,
+      }),
+    );
+    const paid = await records.confirmPayment({
+      orderId: retried.orderId,
+      amount: MOCK_CONFIRMED_AMOUNT,
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+    });
+    const row = records.getPayment(prepared.paymentId);
+    if (paid.status === "PAID" && row.status === "PAID" && row.orderId === retried.orderId) {
+      pass("규칙 19: 재시도 후 승인 성공 PAID");
+    } else {
+      fail("규칙 19: 재시도 후 승인 성공 PAID", { paid, row });
     }
   }
 
