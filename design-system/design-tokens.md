@@ -6,6 +6,8 @@
 - 시각 기준: `../../design-concepts/imagegen-kmong-v5/`의 V5 시안 5종
 - UX 원칙: `../ux-philosophy/ux-philosophy.md`
 - 사람용 프리뷰: `design-system-preview.html`
+- 모션·레이아웃 리듬 레퍼런스: `reference-snapshot.html` (project-management 통합 화면 기준
+  스냅샷 — 살아있는 코드가 아니라 특정 시점에 고정된 참고 자료, §13 모션 규칙 참고)
 
 ## 1. 시스템 목적
 
@@ -506,7 +508,56 @@ export type PageTemplate = "discovery" | "stepForm" | "detailAction" | "workspac
 - 한 화면에서 동일한 중요도의 주요 행동을 여러 개 경쟁시키는 구성
 - 마감이나 손실을 과장해 클릭을 유도하는 문구
 
-## 13. 완료 체크리스트
+## 13. 모션 규칙 (2026-08-28 추가)
+
+`primitive.motion.duration`·`primitive.motion.easing`·`semantic.motion.*` 토큰은 §3에 값만
+정의되어 있고 실제로 쓰는 화면이 없었다. 아래는 그 값을 **언제·어떻게** 쓰는지에 대한 규칙이다 —
+정본은 이 문서이고, `reference-snapshot.html`은 이 규칙을 실제로 보여주는 프리뷰일 뿐이다.
+
+### 리스트 등장 애니메이션 (stagger)
+
+- 같은 컴포넌트가 여러 개 나열될 때, 왼쪽→오른쪽·위→아래 순서로 하나씩 나타난다 — 읽기 순서와
+  일치시킨다.
+- 각 항목은 `primitive.space[2]`(8px) 아래에서 시작해 원래 위치로 슬라이드하면서 동시에
+  투명(0)에서 불투명(1)으로 페이드인한다. 시작 지점은 8px를 넘지 않는다 — 멀리서 날아오는
+  느낌은 절제를 벗어난 장식으로 읽힌다(§2 시각 방향, §12 금지 패턴과 같은 이유).
+- 지속시간은 `semantic.motion.transition`(160ms) + `primitive.motion.easing.entrance`를 쓴다.
+- 항목 간 시작 간격(stagger delay)은 40ms를 기본값으로 하되, **처음 8개 항목까지만 순차
+  적용**하고 9번째부터는 지연 없이 즉시 표시한다. 항목이 많을수록 순차 등장이 "아직 로딩
+  중"이라는 오해를 준다(`ux-philosophy.md` 원칙 1 — 추측을 맡기지 않는다).
+- **최초 진입(mount) 시에만** 적용한다. 같은 목록이 필터·정렬·페이지네이션으로 다시 그려질 때는
+  반복하지 않는다 — 조작할 때마다 화면이 느려 보이는 것을 막기 위해서다.
+
+### 퇴장 애니메이션
+
+- 목록에서 항목이 사라질 때(북마크 해제, 필터로 제외 등)는 등장의 대칭으로 처리한다 —
+  `primitive.motion.easing.exit` + `semantic.motion.transition`(160ms)로 페이드아웃하면서 위로
+  8px 이동한다.
+
+### 마이크로 인터랙션 (hover · focus · pressed)
+
+- 버튼·카드 등 상호작용 요소의 상태 전환(§9)은 `semantic.motion.feedback`(100ms, standard
+  easing)을 쓴다. 등장 애니메이션(160~240ms)보다 짧게 유지해 "누르면 바로 반응한다"는 감각을
+  지킨다.
+
+### 오버레이 (모달 · 다이얼로그)
+
+- `semantic.motion.overlay`(240ms, entrance easing)를 쓴다. 배경 딤(`semantic.color.overlay`)과
+  다이얼로그 본체가 함께 페이드인한다.
+
+### 금지 — 카운트업 애니메이션
+
+- 금액·정산액·평점 등 핵심 사실을 숫자가 스르륵 올라가는 방식으로 보여주지 않는다. 이런 값은
+  즉시·정확하게 표시한다 — "정확한 사실보다 친근한 연출을 우선하지 않는다"(§12)는 원칙과 같은
+  이유다.
+
+### 접근성 — `prefers-reduced-motion`
+
+- 위 모든 애니메이션은 `prefers-reduced-motion: reduce`에서 `semantic.motion.reduced`
+  (duration 0)로 대체한다 — 이동 없이 즉시 최종 상태로 나타난다(§10과 동일 요구사항을 모션에
+  한정해 구체화한 것).
+
+## 14. 완료 체크리스트
 
 - [ ] TS 토큰은 `as const`로 고정되어 있고 타입이 토큰에서 추론된다.
 - [ ] HTML 프리뷰의 토큰 값이 이 문서와 일치한다.
@@ -516,3 +567,7 @@ export type PageTemplate = "discovery" | "stepForm" | "detailAction" | "workspac
 - [ ] 금액 종류와 확정 수준이 명확히 구분된다.
 - [ ] 의미 없는 색·이미지·AI 장식이 없다.
 - [ ] 키보드, 대비, 확대, 모바일 폭, 긴 콘텐츠 검수를 통과한다.
+- [ ] 리스트 등장 애니메이션이 최초 진입에만 적용되고, 9번째 항목부터는 지연 없이 즉시
+      표시된다(§13).
+- [ ] 금액 등 핵심 사실에 카운트업 애니메이션을 쓰지 않았다(§13).
+- [ ] `prefers-reduced-motion`에서 애니메이션 없이 즉시 최종 상태로 표시된다(§13).

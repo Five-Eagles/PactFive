@@ -12,7 +12,8 @@
 3. 변경점을 대상 위치에 반영한다. 코드는 diff를 그대로 patch apply 하지 않고 AI가 대상의
    현재 상태·컨벤션에 맞게 다시 구현하며, 문서는 원본 내용을 검토해 사본을 갱신한다.
    - **대상이 `app/`이고 반영 범위에 화면(UI) 코드가 포함되면**, 반영 전에
-     `design-system/design-tokens.md` §13 완료 체크리스트와 `ux-philosophy/ux-philosophy.md` §6
+     `design-system/design-tokens.md` §14 완료 체크리스트(§13 모션 규칙 포함)와
+     `ux-philosophy/ux-philosophy.md` §6
      검증 기준표를 통과하는지 팀장이 직접 확인한다. `features/{기능}/prototype/run.tsx`가
      통과했다는 사실은 이 확인을 대신하지 않는다 — `run.tsx`는 담당자의 자체 점검일 뿐 두 체크리스트
      항목(토큰 사용, 상태 커버리지, 접근성, 5원칙 준수 등)을 검사하지 않는다.
