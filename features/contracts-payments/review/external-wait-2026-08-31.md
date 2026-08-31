@@ -16,7 +16,7 @@
 | Toss sandbox 키 | 팀장 | Mock만. 실호출 없음 | 8/26 요청, 미수신 | 루트 `.env` → 위젯·실호출 |
 | 단독 공개 14일 | 팀장 | 규칙 6 = 14일 구현 | ASSUMPTION | 다른 일수면 상수 1곳 |
 | `REVIEW_CREATED` | 오민혁 | 공개 시점 발행만 | users UPDATE 없음 | 없음. 소비는 오민혁 |
-| 알림 4종 | 최윤석 | 호출 안 함 | 미연동 | 트리거·함수명만 맞춤 |
+| 알림 4종 | 최윤석 | 포트 설계 완료. Mock publish만 | 발송 대기 | 함수명 회신 시 spec 한 줄 |
 
 위젯 실연동, 에스크로·`RELEASED`, PG 환불, 재제안은 키·납품 설계 이후다.
 
@@ -82,28 +82,29 @@ type ReviewCreatedEvent = {
 
 ## 4. 알림 4종 — 최윤석 (notifications)
 
-알림은 최윤석이 만든다 (PRD §5.6). 조준영은 보내지 않는다. 실패해도 결제·납품·완료는
-되돌리지 않는다. 납품 2종은 에스크로 스프린트 이후.
+알림은 최윤석이 만든다 (PRD §5.6). 조준영은 `NotificationTriggerPort`로 **발행만** 한다.
+실패해도 결제·납품·완료는 되돌리지 않는다. 납품 2종은 시그니처만, 에스크로 이후 호출.
+계약 정본: [yoonseok-ports-contract.md](yoonseok-ports-contract.md).
 
 | type | 제안 시점 | 수신 | 이번 Increment |
 |---|---|---|---|
-| `PAYMENT_COMPLETED` | `payments.status → PAID` | 프리랜서 | 호출 안 함 |
+| `PAYMENT_COMPLETED` | `payments.status → PAID` | 프리랜서 | 포트 발행 / 발송 대기 |
 | `DELIVERY_REQUESTED` | `delivery_status → DELIVERY_REQUESTED` | 의뢰인 | 납품 미구현 |
 | `DELIVERY_APPROVED` | `delivery_status → APPROVED` | 프리랜서 | 납품 미구현 |
-| `REVIEW_REQUESTED` | `transactionStatus → COMPLETED` 직후 양쪽 | 당사자 | 호출 안 함 |
+| `REVIEW_REQUESTED` | `transactionStatus → COMPLETED` 직후 양쪽 | 당사자 | 포트 발행 / 발송 대기 |
 
 `REVIEW_REQUESTED`는 **작성 가능 시점**이다. 리뷰 공개·`REVIEW_CREATED`와 다르다.
 
 ### Discord
 
-조준영입니다. 알림 4종(`PAYMENT_COMPLETED` · `DELIVERY_REQUESTED` · `DELIVERY_APPROVED` · `REVIEW_REQUESTED`)은 최윤석이 만듭니다. 이번 Increment에서 조준영은 호출하지 않습니다. 제안 트리거는 `features/contracts-payments/review/external-wait-2026-08-31.md` §4. 납품 2종은 에스크로 이후에 맞춥니다.
+조준영입니다. 알림 4종은 최윤석이 발송합니다. 조준영은 `publishPaymentCompleted` · `publishReviewRequested`를 Mock에서 발행하고, 납품 2종은 시그니처만 둡니다. 맞출 계약은 `features/contracts-payments/review/yoonseok-ports-contract.md`. 포트 throw여도 `PAID`·`COMPLETED`는 유지합니다.
 
 | # | 질문 | 예 | 아니오 | 메모 |
 |---|---|---|---|---|
 | Y1 | `PAYMENT_COMPLETED` = `PAID` 직후, 수신 프리랜서 | | | |
 | Y2 | `DELIVERY_REQUESTED` / `DELIVERY_APPROVED` = 납품 상태 전이 직후 | | | 스프린트는 이후 |
 | Y3 | `REVIEW_REQUESTED` = `COMPLETED` 직후 양쪽 1회. 공개 시점이 아님 | | | |
-| Y4 | 조준영이 `create*Notification`을 호출하는가. 아니면 최윤석이 구독하는가 | | | 함수명 |
+| Y4 | 조준영 `publish*`, 최윤석 `create*Notification` | | | 함수명 |
 | Y5 | 알림 실패는 결제·완료를 되돌리지 않는가 | | | PRD 확정 |
 
 ---
@@ -113,4 +114,4 @@ type ReviewCreatedEvent = {
 1. 키 → 루트 `.env`만. `run.tsx` sandbox 실호출. 위젯은 그 다음.
 2. 14일 변경 → `SOLO_PUBLIC_AFTER_DAYS` + reviews 규칙 6.
 3. 오민혁 회신 → 페이로드 부족분만 규칙 6에 추가. users UPDATE는 여전히 안 한다.
-4. 최윤석 회신 → 함수명·시점을 spec에 한 줄. 발송 코드는 최윤석.
+4. 최윤석 회신 → 함수명만 spec에 한 줄. 포트는 설계 완료. 발송 코드는 최윤석.

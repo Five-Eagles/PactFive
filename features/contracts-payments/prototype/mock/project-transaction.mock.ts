@@ -46,6 +46,7 @@ function seedProjects(): Map<string, ProjectRecord> {
       transactionStatus: "CANCELED",
       canceledAt: "2026-08-24T00:00:00Z",
     },
+    // A3: 수락 전에는 acceptedApplicationId가 null이며 합의에 들어가지 않는다.
     { ...baseProject("prj_null_accept"), acceptedApplicationId: null },
     { ...baseProject("prj_in_progress"), transactionStatus: "IN_PROGRESS", projectVersion: 8 },
     { ...baseProject("prj_completed"), transactionStatus: "COMPLETED", projectVersion: 9 },
@@ -65,6 +66,7 @@ function baseProject(projectId: string): ProjectRecord {
     projectId,
     clientId: "usr_client_a",
     recruitmentStatus: "CLOSED",
+    // A1·A4: 수락·잔여 거절·알림이 끝난 상태. 수락 지원은 1건.
     transactionStatus: "CONTRACT_PENDING",
     acceptedApplicationId: "app_123",
     recruitmentDeadlineAt: "2026-09-16T14:59:59Z",
@@ -255,6 +257,7 @@ export function createProjectTransactionMock(
           "프로젝트 상태가 변경되어 처리할 수 없습니다.",
         );
       }
+      // A3: CONTRACT_PENDING인데 수락 지원이 없으면 start에 들어가지 않는다.
       if (!row.acceptedApplicationId) {
         throw new DomainContractError(
           "PROJECT_TRANSITION_CONFLICT",

@@ -3,10 +3,13 @@ import { execSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  canProposeNegotiationOffer,
+  createNotificationTriggerMock,
   createProjectTransactionMock,
   DomainContractError,
   isDomainContractError,
   MOCK_NOW,
+  toAcceptedApplicationHandoff,
   type DomainContractErrorCode,
 } from "./index";
 import { createPaymentRecordMock } from "./mock/payment-record.mock";
@@ -482,6 +485,107 @@ async function main() {
       pass("규칙 7: markPaymentPending → start → complete");
     } else {
       fail("규칙 7: markPaymentPending → start → complete", { started, completed });
+    }
+  }
+
+  // 규칙 7 — AcceptedApplicationHandoff (A1–A4). propose는 이 손잡이일 때만.
+  {
+    const mock = createProjectTransactionMock();
+    const alive = await mock.getProjectNegotiationContext("prj_alive");
+    const nullAccept = await mock.getProjectNegotiationContext("prj_null_accept");
+    const inProgress = await mock.getProjectNegotiationContext("prj_in_progress");
+    const handoff = toAcceptedApplicationHandoff(alive);
+    if (
+      canProposeNegotiationOffer(alive) &&
+      handoff?.acceptedApplicationId === "app_123" &&
+      handoff.transactionStatus === "CONTRACT_PENDING" &&
+      !canProposeNegotiationOffer(nullAccept) &&
+      !canProposeNegotiationOffer(inProgress)
+    ) {
+      pass("규칙 7: AcceptedApplicationHandoff만 propose 진입");
+    } else {
+      fail("규칙 7: AcceptedApplicationHandoff만 propose 진입", { alive, nullAccept, inProgress });
+    }
+  }
+
+  // 규칙 7 — PAID·COMPLETED 직후 publish. 납품 2종은 호출하지 않는다.
+  {
+    const notifications = createNotificationTriggerMock();
+    const records = createPaymentRecordMock(createPaymentGatewayMock(), {
+      notifications,
+      projectId: "prj_seq",
+      freelancerId: "usr_freelancer_b",
+    });
+    const prepared = records.preparePayment(MOCK_CONFIRMED_AMOUNT);
+    const paid = await records.confirmPayment({
+      orderId: prepared.orderId,
+      amount: MOCK_CONFIRMED_AMOUNT,
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+    });
+    const txn = createProjectTransactionMock();
+    await completeProjectTransactionIfSettled(
+      txn,
+      "prj_in_progress",
+      {
+        requestId: "req_notify_complete",
+        idempotencyKey: "transaction-complete-notify",
+        occurredAt: "2026-08-25T06:00:00Z",
+        expectedProjectVersion: 8,
+      },
+      "APPROVED",
+      "RELEASED",
+      { notifications, freelancerId: "usr_freelancer_b" },
+    );
+    const published = notifications.getPublished();
+    const types = published.map((event) => event.type);
+    if (
+      paid.status === "PAID" &&
+      types.includes("PAYMENT_COMPLETED") &&
+      types.includes("REVIEW_REQUESTED") &&
+      !types.includes("DELIVERY_REQUESTED") &&
+      !types.includes("DELIVERY_APPROVED")
+    ) {
+      pass("규칙 7: PAID·COMPLETED 직후 publish (납품 미호출)");
+    } else {
+      fail("규칙 7: PAID·COMPLETED 직후 publish (납품 미호출)", { paid, published });
+    }
+  }
+
+  // 규칙 7 — 포트 throw여도 PAID·COMPLETED를 되돌리지 않는다.
+  {
+    const notifications = createNotificationTriggerMock({ throwOnPublish: true });
+    const records = createPaymentRecordMock(createPaymentGatewayMock(), { notifications });
+    const prepared = records.preparePayment(MOCK_CONFIRMED_AMOUNT);
+    const paid = await records.confirmPayment({
+      orderId: prepared.orderId,
+      amount: MOCK_CONFIRMED_AMOUNT,
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+    });
+    const row = records.getPayment(prepared.paymentId);
+    const txn = createProjectTransactionMock();
+    const completed = await completeProjectTransactionIfSettled(
+      txn,
+      "prj_in_progress",
+      {
+        requestId: "req_notify_throw",
+        idempotencyKey: "transaction-complete-throw",
+        occurredAt: "2026-08-25T06:00:00Z",
+        expectedProjectVersion: 8,
+      },
+      "APPROVED",
+      "RELEASED",
+      { notifications, freelancerId: "usr_freelancer_b" },
+    );
+    const ctx = await txn.getProjectNegotiationContext("prj_in_progress");
+    if (
+      paid.status === "PAID" &&
+      row.status === "PAID" &&
+      completed.transactionStatus === "COMPLETED" &&
+      ctx.transactionStatus === "COMPLETED"
+    ) {
+      pass("규칙 7: 알림 throw여도 PAID·COMPLETED 유지");
+    } else {
+      fail("규칙 7: 알림 throw여도 PAID·COMPLETED 유지", { paid, row, completed, ctx });
     }
   }
 
