@@ -80,8 +80,9 @@
     `LOAD_FAILED` 재시도, 409 중복·미완료·취소 안내, 공개 전 "상대 리뷰는 아직 없습니다".
     제출 후 수정 버튼 없음.
 
-12. **알림은 이 기능이 보내지 않는다.** `REVIEW_REQUESTED`는 최윤석. 공개·작성과 알림 시점은
-    다음 스프린트에 최윤석과 맞춘다.
+12. **알림은 포트 발행 / 발송은 최윤석.** `REVIEW_REQUESTED`는 COMPLETED 직후
+    contracts-payments가 `publishReviewRequested`로 발행한다. 이 기능은 발송하지 않는다.
+    공개·`REVIEW_CREATED`와 다르다.
 
 13. **Increment 완료 기준** (`prototype/run.tsx`).
     공개 API Mock(규칙 9·7), `design/` high-fi 1화면(규칙 11), 14일 단독 공개 스케줄,
