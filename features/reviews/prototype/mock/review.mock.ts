@@ -2,6 +2,7 @@ import { addDaysIso, MOCK_CLIENT_USER_ID, MOCK_FREELANCER_USER_ID, MOCK_NOW, MOC
 import type { ReviewCreatedEvent, ReviewEventPort } from "../server/review-event.port";
 import {
   createReview,
+  getPublishedRatingAggregate,
   getReviewSummary,
   listProjectReviews,
   publishDueSoloReviews,
@@ -246,6 +247,9 @@ export function createReviewApiMock(nowIso: string = MOCK_NOW) {
     },
     async getReviewSummary(userId: string, actorUserId: string | undefined) {
       return getReviewSummary(deps, userId, actorUserId);
+    },
+    async getPublishedRatingAggregate(revieweeId: string) {
+      return getPublishedRatingAggregate(deps, revieweeId);
     },
     async publishDueSoloReviews() {
       return publishDueSoloReviews(deps);

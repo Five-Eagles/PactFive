@@ -15,5 +15,9 @@ export type {
   ListProjectReviewsResponse,
   ReviewDirection,
 } from "./server/review.types";
+export type {
+  PublishedRatingAggregate,
+  PublishedRatingAggregateReader,
+} from "./server/published-rating.port";
 export { assertReviewWriteMethod } from "./server/review.service";
 export { isReviewMethodAllowed } from "./server/review.routes";

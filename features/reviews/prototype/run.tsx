@@ -203,6 +203,18 @@ async function main() {
     } else {
       fail("규칙 7: users 캐시 미갱신", cache);
     }
+    const emptyAgg = await api.getPublishedRatingAggregate(MOCK_UNREVIEWED_USER_ID);
+    if (emptyAgg.ratingSum === 0 && emptyAgg.reviewCount === 0) {
+      pass("규칙 7: 공개 없으면 합계 0/0");
+    } else {
+      fail("규칙 7: 공개 없으면 합계 0/0", emptyAgg);
+    }
+    const agg = await api.getPublishedRatingAggregate(MOCK_FREELANCER_USER_ID);
+    if (agg.ratingSum === 18 && agg.reviewCount === 4) {
+      pass("규칙 7: 공개분만 ratingSum");
+    } else {
+      fail("규칙 7: 공개분만 ratingSum", agg);
+    }
   }
 
   // 규칙 8 — CANCELED 거부

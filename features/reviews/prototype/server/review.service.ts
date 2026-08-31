@@ -1,5 +1,6 @@
 import { REVIEW_COLLECTION_METHODS, SOLO_PUBLIC_AFTER_DAYS, DAY_MS, tagsForDirection } from "./review.constants";
 import type { ReviewEventPort } from "./review-event.port";
+import type { PublishedRatingAggregate } from "./published-rating.port";
 import {
   ReviewApiError,
   type CreateReviewInput,
@@ -220,6 +221,24 @@ export async function listProjectReviews(
   return { projectId, items };
 }
 
+export async function getPublishedRatingAggregate(
+  deps: ReviewServiceDeps,
+  revieweeId: string,
+): Promise<PublishedRatingAggregate> {
+  // 공개 리뷰만 합산하고 반올림하지 않는다.
+  const nowIso = deps.now();
+  let ratingSum = 0;
+  let reviewCount = 0;
+  for (const row of deps.store.getAllReviews()) {
+    if (row.revieweeId !== revieweeId) continue;
+    const siblings = deps.store.getReviewsByProject(row.projectId);
+    if (!isReviewPublic(row, siblings, nowIso)) continue;
+    ratingSum += row.rating;
+    reviewCount += 1;
+  }
+  return { ratingSum, reviewCount };
+}
+
 export async function getReviewSummary(
   deps: ReviewServiceDeps,
   userId: string,
@@ -229,19 +248,12 @@ export async function getReviewSummary(
   if (!deps.store.userExists(userId)) {
     throw new ReviewApiError("USER_NOT_FOUND", "사용자를 찾을 수 없습니다.");
   }
-  // 평균은 공개 리뷰만 계산하고 users 캐시는 읽지 않는다.
-  const nowIso = deps.now();
-  const publicRatings: number[] = [];
-  for (const row of deps.store.getAllReviews()) {
-    if (row.revieweeId !== userId) continue;
-    const siblings = deps.store.getReviewsByProject(row.projectId);
-    if (isReviewPublic(row, siblings, nowIso)) publicRatings.push(row.rating);
-  }
-  if (publicRatings.length === 0) {
+  // 평균은 공개분 합계에서 나누고 users 캐시는 읽지 않는다.
+  const { ratingSum, reviewCount } = await getPublishedRatingAggregate(deps, userId);
+  if (reviewCount === 0) {
     return { userId, averageRating: null, reviewCount: 0 };
   }
-  const sum = publicRatings.reduce((acc, rating) => acc + rating, 0);
-  return { userId, averageRating: sum / publicRatings.length, reviewCount: publicRatings.length };
+  return { userId, averageRating: ratingSum / reviewCount, reviewCount };
 }
 
 export async function publishDueSoloReviews(deps: ReviewServiceDeps): Promise<void> {

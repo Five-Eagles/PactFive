@@ -54,13 +54,19 @@
 
 6. **단독 공개 (ASSUMPTION).** PRD에 대기 기간이 없다. **첫 리뷰 `created_at` 후 14일**이
    지나고 상대가 없으면 그 1건만 공개한다. 팀 확정 전 가정이다. 비고에 남긴다.
-   `REVIEW_CREATED`는 **공개 시점**에 1회 발행한다. 미공개 INSERT에는 안 보낸다.
+   `REVIEW_CREATED`는 공개 커밋 **이후** 5필드(`reviewId` · `projectId` · `revieweeId` ·
+   `rating` · `publishedAt`)로 발행한다. `publishedAt`은 실제 공개 시각이다. 미공개 INSERT에는
+   안 보낸다. 전달은 at-least-once(같은 `reviewId` 재전송 가능). 발행 실패가 공개를 되돌리지
+   않는다.
 
 7. **평균 별점은 공개된 리뷰만** 산술평균한다. `users.rating_average` / `review_count`는
-   조준영이 직접 UPDATE하지 않는다. 오민혁이 `REVIEW_CREATED`로 갱신한다 (E-13).
-   공개 리뷰가 없으면 `averageRating: null`, `reviewCount: 0`.
-   제공 API: `GET /api/v1/users/:userId/review-summary` (`getReviewSummary`).
-   프로젝트 목록은 이 값을 가공하지 않고 싣는다.
+   조준영이 직접 UPDATE하지 않는다. 오민혁이 `REVIEW_CREATED` 후 증분 계산하지 않고
+   `getPublishedRatingAggregate(revieweeId)`로 재집계한다.
+   `Promise<{ ratingSum: number; reviewCount: number }>`. 공개분만. 0건이면
+   `{ ratingSum: 0, reviewCount: 0 }`.
+   반올림 없음. 브라우저 `GET /api/v1/users/:userId/review-summary` (`getReviewSummary`)는
+   평균을 유지하고, 공개 없으면 `averageRating: null`, `reviewCount: 0`. 내부 포트 합계가
+   정본이다. 프로젝트 목록은 `getReviewSummary` 값을 가공하지 않고 싣는다.
 
 8. **취소·무효 차단.** `transactionStatus = CANCELED` 또는 계약 `CANCELED`면 작성 409.
    COMPLETED가 아니면 규칙 1. 이미 공개된 리뷰는 취소로 지우지 않는다.

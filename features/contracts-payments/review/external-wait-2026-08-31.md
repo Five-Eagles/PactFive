@@ -15,7 +15,7 @@
 |---|---|---|---|---|
 | Toss sandbox 키 | 팀장 | Mock만. 실호출 없음 | 8/26 요청, 미수신 | 루트 `.env` → 위젯·실호출 |
 | 단독 공개 14일 | 팀장 | 규칙 6 = 14일 구현 | ASSUMPTION | 다른 일수면 상수 1곳 |
-| `REVIEW_CREATED` | 오민혁 | 공개 시점 발행만 | users UPDATE 없음 | 없음. 소비는 오민혁 |
+| `REVIEW_CREATED` | 오민혁 | 집계 포트 제공 | 회신 반영 · 소비자 미구현 | 없음. 소비는 오민혁 |
 | 알림 4종 | 최윤석 | 포트 설계 완료. Mock publish만 | 발송 대기 | 함수명 회신 시 spec 한 줄 |
 
 위젯 실연동, 에스크로·`RELEASED`, PG 환불, 재제안은 키·납품 설계 이후다.
@@ -53,6 +53,7 @@ PRD·ERD에 대기 기간이 없다. 첫 리뷰 `created_at` 후 **14일**로 �
 
 조준영은 `users.rating_average` · `users.review_count`를 UPDATE하지 않는다.
 공개 시점에만 1회 발행한다. 미공개 INSERT에는 안 보낸다. 양쪽이 모이면 즉시 2건.
+회신 원문: [ominhyeok-review-created-reply.md](ominhyeok-review-created-reply.md).
 
 ```ts
 type ReviewCreatedEvent = {
@@ -73,10 +74,10 @@ type ReviewCreatedEvent = {
 
 | # | 질문 | 예 | 아니오 | 메모 |
 |---|---|---|---|---|
-| M1 | 공개 시점에만 소비하는가. 미공개 INSERT는 무시 | | | |
-| M2 | 같은 `reviewId`는 멱등. 캐시를 두 번 올리지 않음 | | | |
-| M3 | 위 5필드로 `rating_average`·`review_count` 갱신이 충분한가 | | | |
-| M4 | 평균은 공개분 산술평균인가 | | | |
+| M1 | 공개 시점에만 소비하는가. 미공개 INSERT는 무시 | **예** | | 공개 확정분만. `publishedAt` = 실제 공개 시각 |
+| M2 | 같은 `reviewId`는 멱등. 캐시를 두 번 올리지 않음 | **예** | | 발행은 at-least-once. 멱등 소비는 오민혁 |
+| M3 | 위 5필드로 `rating_average`·`review_count` 갱신이 충분한가 | **조건부 예** | | 트리거·식별은 충분. 집계 조회 포트가 없으면 부족 |
+| M4 | 평균은 공개분 산술평균인가 | **예** | | 가중치 없음. 0건이면 null/0. 반올림·users UPDATE는 오민혁 |
 
 ---
 
@@ -113,5 +114,5 @@ type ReviewCreatedEvent = {
 
 1. 키 → 루트 `.env`만. `run.tsx` sandbox 실호출. 위젯은 그 다음.
 2. 14일 변경 → `SOLO_PUBLIC_AFTER_DAYS` + reviews 규칙 6.
-3. 오민혁 회신 → 페이로드 부족분만 규칙 6에 추가. users UPDATE는 여전히 안 한다.
+3. 오민혁 회신 → 반영 완료. 페이로드는 늘리지 않음. 부족한 것은 읽기 포트(`getPublishedRatingAggregate`). users UPDATE는 여전히 안 한다.
 4. 최윤석 회신 → 함수명만 spec에 한 줄. 포트는 설계 완료. 발송 코드는 최윤석.
