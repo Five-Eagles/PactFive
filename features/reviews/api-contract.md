@@ -2,7 +2,7 @@
 
 형식은 `docs/naming-convention.md` §7(REST API), §6(DTO 패턴)을 따른다.
 브라우저. `Authorization: Bearer <accessToken>`. 상태 변경 POST는 `Idempotency-Key` 필수.
-설계 초안(규칙 9·7). Mock은 다음 스프린트.
+Mock: `prototype/mock/review.mock.ts` (`createReviewApiMock`).
 
 ## POST /api/v1/projects/:projectId/reviews — `createReview`
 
@@ -93,7 +93,7 @@
 
 ---
 
-PATCH/PUT/DELETE `/reviews` 없음 (규칙 4).
+PATCH/PUT/DELETE `/reviews` 없음 (규칙 4). 호출하면 405 `METHOD_NOT_ALLOWED`.
 
 ---
 

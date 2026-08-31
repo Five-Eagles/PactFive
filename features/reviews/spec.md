@@ -1,6 +1,6 @@
 # reviews — SPEC
 
-이번 세션 범위는 **상호 리뷰 설계 확정**이다. Mock·`design/`은 다음 스프린트.
+이번 세션 범위는 **규칙 13 Increment**이다. 공개 API Mock · `design/` low-fi 1화면 · `run.tsx`.
 정본: PRD v6.4 §3.7.1 · I-23 · I-24, ERD v1.4 `reviews`·E-19 태그 10종,
 `docs/domain/erd.md` E-13 `REVIEW_CREATED`. 함수명으로만 지칭한다 (D-48).
 
@@ -10,9 +10,9 @@
 
 ## 범위
 
-- 포함: 작성 조건, 방향·1회 제한, 공개 규칙, 평균, API·권한, UX, Increment 테스트 목록.
-- 제외: Mock·`design/`, 납품 화면(contracts-payments 규칙 14와 같이 Increment 밖),
-  리뷰 수정·삭제, `users` 직접 UPDATE, 알림 발송(최윤석 `REVIEW_REQUESTED`).
+- 포함: 작성 조건, 방향·1회 제한, 공개 규칙, 평균, API·권한, UX,
+  공개 API Mock, `design/` low-fi 1화면, 14일 단독 공개, `REVIEW_CREATED` 발행.
+- 제외: 수정·삭제, 납품 UI, `users` 직접 UPDATE(오민혁), 알림 발송(최윤석 `REVIEW_REQUESTED`).
 
 ## 관련 엔티티 (근거: `docs/domain/erd.md`)
 
@@ -83,9 +83,9 @@
 12. **알림은 이 기능이 보내지 않는다.** `REVIEW_REQUESTED`는 최윤석. 공개·작성과 알림 시점은
     다음 스프린트에 최윤석과 맞춘다.
 
-13. **Increment 백로그·완료 기준** (구현은 다음 스프린트).
-    백로그: 공개 API Mock(규칙 9·7), `design/` low-fi 1화면(규칙 11), 14일 단독 공개 스케줄,
-    `REVIEW_CREATED` 발행.
+13. **Increment 완료 기준** (`prototype/run.tsx`).
+    공개 API Mock(규칙 9·7), `design/` low-fi 1화면(규칙 11), 14일 단독 공개 스케줄,
+    `REVIEW_CREATED` 발행만 (users UPDATE는 오민혁).
     제외: 수정·삭제, 납품 UI, 알림 발송.
     완료 기준: COMPLETED 작성 / 미완료 거부 / 방향당 1회 409 / PATCH 없음 /
     양쪽 즉시 공개 / 14일 단독 공개 / CANCELED 거부 / 공개분만 평균 / 비당사자 공개만 /
