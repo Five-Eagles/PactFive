@@ -238,6 +238,7 @@
 ### GET /api/v1/projects/:projectId/negotiation-offers/current
 
 당사자. 최신 round + 합의 상태 + 있으면 `contractId`·`contractStatus`.
+합의가 없으면 200이고 `offer`·`agreementId`·`contractId`는 `null`(빈 생성).
 
 ### POST /api/v1/projects/:projectId/negotiation-offers/:offerId/accept — `acceptNegotiationOffer`
 
@@ -274,8 +275,9 @@
 
 규칙 9. 본문 `{ "orderId", "amount", "paymentKey" }`. 수신 시 `PENDING`. 성공 `PAID` 후
 규칙 3 start. 같은 `orderId` 재confirm 금지. 폐기된(교체된) `orderId`는 409.
+웹훅 재검증은 `PaymentGateway.retrievePayment(orderId)`.
 
-에러(공개): 401/403, 404, 409 상태 충돌, 422. 결제 금액 불일치는 `PAYMENT_AMOUNT_MISMATCH`.
+에러(공개): 401 `AUTH_REQUIRED` / 403 `PROJECT_FORBIDDEN`, 404, 409 상태 충돌, 422. 결제 금액 불일치는 `PAYMENT_AMOUNT_MISMATCH`.
 프로젝트 취소 후 서명은 409 `PROJECT_TRANSITION_CONFLICT` (화면: 취소 안내).
 
 ---
@@ -361,6 +363,14 @@ type AgreementStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED';
 type ContractStatus = 'DRAFT' | 'SIGNING' | 'SIGNED' | 'CANCELED';
 
 type ProposeNegotiationOfferInput = { amount: number; currency: 'KRW' };
+type CurrentNegotiationOfferResponse = {
+  projectId: string;
+  agreementId: string | null;
+  agreementStatus: AgreementStatus | null;
+  offer: { offerId: string; round: number; amount: number; currency: 'KRW'; offeredByUserId: string } | null;
+  contractId: string | null;
+  contractStatus: ContractStatus | null;
+};
 type AcceptNegotiationOfferInput = { expectedRound: number };
 type RejectNegotiationOfferInput = { reasonCode: string; reason?: string };
 type SignContractInput = { contractId: string };
@@ -380,6 +390,16 @@ type ConfirmPaymentResponse = {
   status: 'PAID';
 };
 type PaymentStatus = 'READY' | 'PENDING' | 'PAID' | 'FAILED';
+type RetrievePaymentResponse = {
+  orderId: string;
+  amount: number;
+  paymentKey: string | null;
+  status: PaymentStatus;
+};
+type PaymentGateway = {
+  confirmPayment(input: ConfirmPaymentInput): Promise<ConfirmPaymentResponse>;
+  retrievePayment(orderId: string): Promise<RetrievePaymentResponse>;
+};
 type GetContractResponse = {
   contractId: string;
   status: ContractStatus;

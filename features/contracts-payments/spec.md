@@ -1,7 +1,7 @@
 # contracts-payments — SPEC
 
-이번 세션 범위는 **합의·서명·결제 설계 확정**이다. 다음 스프린트에서 구현한다.
-규칙 1~9(4함수·PG 포트)는 FACT다. 정본: PRD v6.4 · ERD v1.4 · `review/spec-design-eval.md`.
+이번 세션 범위는 **Increment 1 Mock**이다. 규칙 1~9는 FACT다.
+정본: PRD v6.4 · ERD v1.4 · `review/spec-design-eval.md`.
 함수명으로만 지칭한다 (D-48). `C-nn`은 목차 번호다.
 
 ## 목적
@@ -11,8 +11,8 @@
 
 ## 범위
 
-- 포함: 4함수 호출 계약, `PaymentGateway.confirmPayment`, 금액 합의·계약 서명·샌드박스 결제
-  설계(상태·API·라우트·UX·Increment 1 테스트 목록).
+- 포함: 4함수 호출 계약, `PaymentGateway.confirmPayment`·`retrievePayment`, 금액 합의·계약 서명·
+  샌드박스 결제 Mock, `design/` low-fi 3화면.
 - 제외: 위젯 구현, 에스크로·지급대행·실정산, PG 환불, 납품·리뷰, `acceptProjectApplication` 구현,
   `projects` 테이블 직접 UPDATE. 제안 철회는 Increment 1 제외.
 
@@ -244,12 +244,11 @@
 
 21. **FAILED 재시도·웹훅.** 실패 주문은 재confirm하지 않는다. 재결제는 같은 `paymentId`에
     새 `orderId`(규칙 19, I-17). 토스 웹훅은 브라우저 API가 아니다. 서버가
-    `PaymentGateway`로 재조회한 뒤 `payments`를 맞춘다. 포트 `retrievePayment`는 다음
-    스프린트에 추가한다(지금은 `confirmPayment`만 FACT).
+    `PaymentGateway`로 재조회한 뒤 `payments`를 맞춘다. 포트 `retrievePayment`는 Mock에 있다.
     화면 폴링: `GET /api/v1/payments/:paymentId` → `READY`|`PENDING`|`PAID`|`FAILED`. 당사자만.
     `PAID`인데 start가 실패하면 PG를 되돌리지 않고 규칙 3을 재시도한다 (규칙 7).
 
-22. **Increment 1 백로그·완료 기준** (구현은 다음 스프린트).
+22. **Increment 1 백로그·완료 기준.**
     백로그: 공개 API Mock(규칙 16 + GET contract/payment). `signContract` + 멱등·최초 시각 2.
     `design/` low-fi 3화면(합의·서명·결제, 규칙 17). inbound `invalidateAgreementAndContract`
     (`cancellationId`, `actorUserId`, `reason: PROJECT_CANCELED`, `projectCanceledAt` →
