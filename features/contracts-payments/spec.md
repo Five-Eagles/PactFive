@@ -155,8 +155,10 @@
 9. **결제 승인은 `PaymentGateway.confirmPayment`만 통한다** (ADR-0009). 서비스는 토스 SDK를
    직접 import하지 않는다. 입력: `orderId`, `amount`, `paymentKey`. 성공 시 `status: PAID`.
    Mock은 `pay_mock_ok` + 금액 100000만 성공하고, 아니면 `PAYMENT_AMOUNT_MISMATCH`다.
-   실제 sandbox는 `PG_SECRET_KEY`가 있을 때만 `toss-payments.adapter.ts`가 호출한다.
-   키 이름: `PG_CLIENT_KEY`(위젯), `PG_SECRET_KEY`(서버). 값은 `.env`만. 깃에 넣지 않는다.
+   실제 sandbox는 리포 루트 `.env`의 `PG_SECRET_KEY`가 있을 때만 어댑터를 만든다. 없으면 Mock.
+   키 없이 `createTossPaymentsAdapter()`를 부르면 `PgKeyMissingError` (`field: PG_SECRET_KEY`).
+   키 이름: `PG_CLIENT_KEY`(위젯), `PG_SECRET_KEY`(서버, `VITE_` 금지). 값은 루트 `.env`만.
+   깃에 넣지 않는다. 프론트는 시크릿을 읽지 않고, 키 없음은 `view="keyMissing"`이다.
 
 10. **금액 합의는 다회차 도메인이다.** `negotiation_offer.round`가 라운드다. 활성 제안은 최신
     round 1건. 저장 enum은 `PROPOSED`·`ACCEPTED`·`REJECTED`만 (D-81). 2차 설계서 `PENDING`은
@@ -278,6 +280,7 @@ applications 범위 밖. restore 시 기존 `REJECTED`는 되살리지 않음. �
 
 멱등 키·버전 비증가·내부 경로·`notReopenedReason`·start/complete 버전 필수·최윤석 호출 순서는
 FACT다. 합의·서명·결제 정본은 `review/spec-design-eval.md` 최적안이다.
+sandbox 키·알림 4종은 이번 Increment 밖. 대기 정본은 `review/external-wait-2026-08-31.md`.
 
 추가 제안 2건 — **조준영 동의.**
 1. `CONTRACT_PENDING` ⇒ `accepted_application_id` 존재. 유동우가 PRD 다음 개정에서 불변식으로

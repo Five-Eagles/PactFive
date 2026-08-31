@@ -1,11 +1,11 @@
 # contracts-payments 테스트 결과
 
-담당자: 조준영            테스트 날짜: 2026-08-28
+담당자: 조준영            테스트 날짜: 2026-08-31
 테스트한 커밋: be84c1f
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 34, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 37, FAIL 개수: 0)
 
 ## spec.md 규칙별 확인
 
@@ -19,7 +19,7 @@
 | 6 markPaymentPending | `run.tsx` 최초 기록·시각 유지·취소 409·contractId 누락 422 | 통과 |
 | 7 호출 순서 | `run.tsx` markPaymentPending → start → complete (시드는 이미 CONTRACT_PENDING) | 통과 |
 | 8 오류 코드 | `run.tsx` 5종 코드·에러 봉투만 사용 | 통과 |
-| 9 PaymentGateway | `run.tsx` Mock 승인 성공·금액 불일치. sandbox는 키 없으면 해당 없음 | 통과 |
+| 9 PaymentGateway | `run.tsx` Mock 승인·금액 불일치. 키 없음 Mock 유지·어댑터 PgKeyMissingError·keyMissing UX. sandbox는 키 없으면 해당 없음 | 통과 |
 | 10 금액 합의 | spec 규칙만. Mock 없음 | 안 함 |
 | 11 수락→계약 DRAFT | spec 규칙만 | 안 함 |
 | 12 계약 상태 전이 | spec 규칙만 | 안 함 |
@@ -33,7 +33,7 @@
 | 20 수락 시 계약 필드 | spec 규칙만 | 안 함 (설계) |
 | 21 FAILED 재시도·웹훅 | `run.tsx` 같은 paymentId·새 orderId READY · 옛 orderId confirm 409. 웹훅·retrievePayment 없음 | 통과 (Mock). 웹훅은 해당 없음 |
 | 22 Increment 1 백로그 | 목록만 적음. 구현은 다음 스프린트 | 안 함 (설계) |
-| UI(design/web) | 다음 스프린트 | 안 함 |
+| UI(design/web) | `PaymentPanel` `view="keyMissing"` (결제하기 숨김). 합의·서명 high-fi는 다음 | 통과 (키 없음만) |
 
 규칙 4의 I-30은 호출자 검증이다. `completeProjectTransactionIfSettled`가 APPROVED∧RELEASED 전에는 포트를 부르지 않는다.
 
@@ -43,8 +43,8 @@
 ## 아직 안 되는 것 (Known Issues)
 
 - `prototype/`은 유동우 포트 스탠드인 Mock이다. 실제 HTTP·DB는 없다.
-- `design/`·`prototype/web/` 없음. Increment 1 화면은 다음 스프린트.
-- Toss sandbox 실호출은 `PG_SECRET_KEY`가 있을 때만. 지금은 해당 없음.
+- `design/` 없음. `prototype/web/`은 키 없음 결제 패널만. 합의·서명 화면은 다음 스프린트.
+- Toss sandbox 실호출은 루트 `.env`의 `PG_SECRET_KEY`가 있을 때만. 지금은 해당 없음.
 - 규칙 10~13·15~18·20·22는 설계 확정이다. 공개 API·웹훅·`retrievePayment`는 다음 스프린트.
 
 ## 팀장에게 물어봐야 하는 것
@@ -52,8 +52,10 @@
 요청 전문: `review/teamlead-pg-sandbox-keys.md` (Discord/이슈 한 단락).
 
 1. sandbox 클라이언트 키 / 시크릿 키를 `PG_CLIENT_KEY` · `PG_SECRET_KEY`로 줄 수 있는지
-2. 전달 방법 — 채팅 평문 금지, 로컬 `.env`만
+2. 전달 방법 — 채팅 평문 금지, 루트 `.env`만
 3. sandbox에서 결제 승인·취소가 켜져 있는지
 4. 위젯용 클라이언트 키와 서버 시크릿이 구분되는지
 
 답이 없어도 포트·Mock 골격은 진행한다. 시크릿이 오면 `run.tsx` sandbox 실호출만 이어서 확인.
+2026-08-31 미수신. 14일·오민혁 `REVIEW_CREATED`·최윤석 알림 4종은
+`review/external-wait-2026-08-31.md`.

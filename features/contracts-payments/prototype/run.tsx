@@ -23,12 +23,28 @@ import {
   restorePreContractProjectAfterReject,
   startProjectTransactionIfAccepted,
 } from "./server/project-transaction.service";
-import { PaymentGatewayError } from "./server/payment.port";
-import { createTossPaymentsAdapter, hasPgSecretKey } from "./server/toss-payments.adapter";
+import { PaymentGatewayError, type PaymentGateway } from "./server/payment.port";
+import {
+  createTossPaymentsAdapter,
+  hasPgSecretKey,
+  isPgKeyMissingError,
+} from "./server/toss-payments.adapter";
 
-/** 기능 폴더 `.env`만 읽는다. 값은 로그에 남기지 않는다. */
+function findRepoRoot(startDir: string): string {
+  let dir = startDir;
+  while (!existsSync(path.join(dir, "scripts", "ensure-deps.js"))) {
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      throw new Error("scripts/ensure-deps.js를 찾지 못했습니다. 리포 루트 구조를 확인하세요.");
+    }
+    dir = parent;
+  }
+  return dir;
+}
+
+/** 리포 루트 `.env`만 읽는다. 값은 로그에 남기지 않는다. */
 function loadFeatureEnv(): void {
-  const envPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".env");
+  const envPath = path.join(findRepoRoot(path.dirname(fileURLToPath(import.meta.url))), ".env");
   if (!existsSync(envPath)) return;
   for (const rawLine of readFileSync(envPath, "utf8").split("\n")) {
     const line = rawLine.trim();
@@ -48,16 +64,25 @@ function loadFeatureEnv(): void {
 }
 
 function ensurePackagesInstalled(): void {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  let dir = here;
-  while (!existsSync(path.join(dir, "scripts", "ensure-deps.js"))) {
-    const parent = path.dirname(dir);
-    if (parent === dir) {
-      throw new Error("scripts/ensure-deps.js를 찾지 못했습니다. 리포 루트 구조를 확인하세요.");
-    }
-    dir = parent;
-  }
+  const dir = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
   execSync(`node ${JSON.stringify(path.join(dir, "scripts", "ensure-deps.js"))}`, { stdio: "inherit" });
+}
+
+/** 키 없으면 Mock. 키 있으면 토스 어댑터. */
+function assemblePaymentGateway(): PaymentGateway {
+  if (!hasPgSecretKey()) return createPaymentGatewayMock();
+  return createTossPaymentsAdapter();
+}
+
+async function withClearedPgSecretKey<T>(run: () => Promise<T> | T): Promise<T> {
+  const previous = process.env.PG_SECRET_KEY;
+  delete process.env.PG_SECRET_KEY;
+  try {
+    return await run();
+  } finally {
+    if (previous === undefined) delete process.env.PG_SECRET_KEY;
+    else process.env.PG_SECRET_KEY = previous;
+  }
 }
 
 const ALLOWED_CODES: DomainContractErrorCode[] = [
@@ -618,6 +643,48 @@ async function main() {
       pass("규칙 19: 재시도 후 승인 성공 PAID");
     } else {
       fail("규칙 19: 재시도 후 승인 성공 PAID", { paid, row });
+    }
+  }
+
+  // 규칙 9 — 키 없음이면 어댑터를 만들지 않고 Mock
+  await withClearedPgSecretKey(async () => {
+    const gateway = assemblePaymentGateway();
+    const paid = await gateway.confirmPayment({
+      orderId: "ord_no_key_01",
+      amount: MOCK_CONFIRMED_AMOUNT,
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+    });
+    if (!hasPgSecretKey() && paid.status === "PAID") {
+      pass("규칙 9: 키 없음 → Mock 유지");
+    } else {
+      fail("규칙 9: 키 없음 → Mock 유지", { hasKey: hasPgSecretKey(), paid });
+    }
+    try {
+      createTossPaymentsAdapter();
+      fail("규칙 9: 키 없이 어댑터 생성", "오류가 나지 않았습니다");
+    } catch (err) {
+      if (isPgKeyMissingError(err) && err.field === "PG_SECRET_KEY") {
+        pass("규칙 9: 키 없이 어댑터 생성 → PgKeyMissingError");
+      } else {
+        fail("규칙 9: 키 없이 어댑터 생성 → PgKeyMissingError", err);
+      }
+    }
+  });
+
+  // 규칙 9 — 키 없음 UX. 프론트는 시크릿을 읽지 않는다.
+  {
+    const React = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { PaymentPanel } = await import("./web/PaymentPanel");
+    const missing = renderToStaticMarkup(React.createElement(PaymentPanel, { view: "keyMissing" }));
+    if (
+      missing.includes("연동 준비 중") &&
+      missing.includes("다시 시도") &&
+      !missing.includes("결제하기")
+    ) {
+      pass("규칙 9: 키 없음 UX 결제하기 숨김");
+    } else {
+      fail("규칙 9: 키 없음 UX 결제하기 숨김", missing);
     }
   }
 
