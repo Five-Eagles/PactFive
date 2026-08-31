@@ -5,7 +5,7 @@
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 35, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 36, FAIL 개수: 0)
 
 ## spec.md 규칙별 확인
 
@@ -21,10 +21,10 @@
 | 8 CANCELED 차단 | `run.tsx` 거래 취소 409 · 계약 취소 409 | 통과 |
 | 9 API·권한 | `run.tsx` 비당사자 공개만 · 본인 미공개 · 무인증 401 | 통과 |
 | 10 작성 필드·태그 | `run.tsx` 잘못된 태그 422 · 별점 422 · 서버가 식별자 채움 | 통과 |
-| 11 UX | `run.tsx` 별점·리뷰 작성·빈·로딩·LOAD_FAILED·409 3종·수정 없음 | 통과 |
+| 11 UX | `run.tsx` 별점·리뷰 작성·빈·로딩·LOAD_FAILED·409 3종·수정 없음·원시 색상 없음 | 통과 |
 | 12 알림 비범위 | 최윤석 `REVIEW_REQUESTED`. 이 Increment에서 호출하지 않음 | 안 함 (해당 없음) |
 | 13 Increment 완료 기준 | `run.tsx` 양쪽 공개 시 이벤트 2건 · 없는 프로젝트 404 | 통과 |
-| UI(design/web) | `design/low-fi.html` 필수 요소 3개가 `ReviewPanel` 기본 렌더에 있음 | 통과 |
+| UI(design/web) | `design/high-fi.html` 필수 요소 3개가 `ReviewPanel` 기본 렌더에 있음 | 통과 |
 
 ## 아직 안 되는 것 (Known Issues)
 

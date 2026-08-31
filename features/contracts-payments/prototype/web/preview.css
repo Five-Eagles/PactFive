@@ -1,0 +1,5 @@
+/* preview:dev 하네스가 시안 body 패딩에 밀리지 않게 한다. */
+body {
+  padding: 0;
+  margin: 0;
+}

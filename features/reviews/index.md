@@ -9,7 +9,8 @@
 - api-contract.md: `POST/GET .../reviews`, `GET .../review-summary`. PATCH 없음.
 - prototype/: 공개 API Mock(`createReviewApiMock`) + `run.tsx`.
   `npx tsx prototype/run.tsx` → PASS 35.
-- design/: low-fi 1화면 (`low-fi.html`). 라우트 `/projects/:projectId/reviews`.
+- design/: high-fi 1화면 (`high-fi.html`). 패널만 (앱 셸 없음). 라우트 `/projects/:projectId/reviews`.
+  low-fi는 `low-fi.html`에 남김.
 
 ## 교차 담당
 - 유동우: `transactionStatus` 읽기 (`COMPLETED` · `CANCELED`).
@@ -26,3 +27,4 @@
 | 2026-08-28 | SPEC 규칙 1~13 · API 초안. Mock·design 없음 |
 | 2026-08-31 | 규칙 13 Increment: Mock · low-fi 1화면 · run.tsx PASS 35 |
 | 2026-08-31 | 외부 대기 고정. 14일·REVIEW_CREATED·REVIEW_REQUESTED는 회신 후 |
+| 2026-08-31 | high-fi 리뷰 패널. 앱 셸 없음. 필수 요소·상태 분기 유지 |

@@ -16,7 +16,7 @@
   금주 마감은 `review/week-wrap-2026-08-28.md`.
 - prototype/: 유동우 포트 스탠드인 Mock + 조준영 호출 서비스 + `PaymentGateway` Mock.
   키는 리포 루트 `.env`. 없으면 Mock·`PgKeyMissingError`. 다른 기능은 `prototype/index.ts`만 import한다.
-  `npx tsx prototype/run.tsx`로 spec 규칙 1~9와 19·21 Mock을 확인한다.
+  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·17·19·21 Mock을 확인한다.
 
 ### Mock 시드 (성공·실패 재현)
 
@@ -35,7 +35,9 @@
 | `prj_deadline` | restore `DEADLINE_PASSED` |
 | `prj_pending_apps` | restore `PENDING_APPLICATIONS_REMAIN` |
 
-- design/: 없음. Increment 1 화면은 다음 스프린트. 키 없음 결제 UX는 `prototype/web/PaymentPanel.tsx`.
+- design/: high-fi 3화면 (`agreement.html` · `contract-sign.html` · `payment.html`).
+  패널만 (앱 셸 없음). `_tokens.css`는 design-system v1.0 사본. 키 없음 UX는
+  `prototype/web/PaymentPanel.tsx` `view="keyMissing"`.
 
 ## 교차 담당
 - 유동우 (project-management): 4함수 제공자. 2026-08-25 함수별 정의 회신 반영 완료
@@ -65,3 +67,4 @@
 | 2026-08-28 | feedback_loop 3항목 반영완료. `project-transaction.service.ts` 통일 |
 | 2026-08-31 | 외부 대기 고정 (`review/external-wait-2026-08-31.md`). 키·14일·오민혁·최윤석 |
 | 2026-08-31 | 루트 `.env` 정본. 키 없음 Mock·`PgKeyMissingError`·`view="keyMissing"` |
+| 2026-08-31 | high-fi 패널 3화면 (합의·서명·결제). 앱 셸 없음. 토큰 클래스만 |

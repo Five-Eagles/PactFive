@@ -318,6 +318,12 @@ async function main() {
     } else {
       fail("규칙 11: 제출 후 수정 버튼 없음", submitted);
     }
+    const allHtml = [empty, htmlOf("loading"), htmlOf("loadFailed"), submitted].join("\n");
+    if (!/#[0-9A-Fa-f]{6}/.test(allHtml)) {
+      pass("규칙 11: 화면에 원시 색상값 없음");
+    } else {
+      fail("규칙 11: 화면에 원시 색상값 없음", allHtml);
+    }
   }
 
   console.log(`PASS ${passCount} / FAIL ${failCount}`);

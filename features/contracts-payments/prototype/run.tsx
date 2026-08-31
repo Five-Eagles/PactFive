@@ -688,6 +688,69 @@ async function main() {
     }
   }
 
+  // 규칙 17 — 합의·서명·결제 패널 필수 요소. 앱 셸 없이 상태 분기만.
+  {
+    const React = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { AgreementPanel } = await import("./web/AgreementPanel");
+    const { ContractSignPanel } = await import("./web/ContractSignPanel");
+    const { PaymentPanel } = await import("./web/PaymentPanel");
+
+    function htmlOf(node: React.ReactElement): string {
+      return renderToStaticMarkup(node);
+    }
+    function hasText(name: string, html: string, text: string): void {
+      if (html.includes(text)) pass(name);
+      else fail(name, html);
+    }
+
+    const create = htmlOf(React.createElement(AgreementPanel));
+    hasText("규칙 17: 합의 필수 금액", create, "금액");
+    hasText("규칙 17: 합의 필수 제안하기", create, "제안하기");
+    hasText("규칙 17: 합의 로딩", htmlOf(React.createElement(AgreementPanel, { view: "loading" })), "로딩");
+    const loadFailed = htmlOf(React.createElement(AgreementPanel, { view: "loadFailed" }));
+    hasText("규칙 17: 합의 LOAD_FAILED", loadFailed, "LOAD_FAILED");
+    hasText("규칙 17: 합의 LOAD_FAILED 재시도", loadFailed, "다시 시도");
+    hasText(
+      "규칙 17: 합의 409 재조회",
+      htmlOf(React.createElement(AgreementPanel, { view: "stale" })),
+      "다시 불러오기",
+    );
+    const canceled = htmlOf(React.createElement(AgreementPanel, { view: "canceled" }));
+    hasText("규칙 17: 합의 취소 안내", canceled, "프로젝트가 취소되었습니다");
+    if (!canceled.includes("제안하기") && !canceled.includes("수락하기") && !canceled.includes("거절하기")) {
+      pass("규칙 17: 합의 취소 후 변경 숨김");
+    } else {
+      fail("규칙 17: 합의 취소 후 변경 숨김", canceled);
+    }
+    const respond = htmlOf(React.createElement(AgreementPanel, { view: "respond" }));
+    hasText("규칙 17: 합의 수락하기", respond, "수락하기");
+    hasText("규칙 17: 합의 거절하기", respond, "거절하기");
+
+    const sign = htmlOf(React.createElement(ContractSignPanel));
+    hasText("규칙 17: 서명 프로젝트 제목", sign, "프로젝트 제목");
+    hasText("규칙 17: 서명 합의 금액", sign, "합의 금액");
+    hasText("규칙 17: 서명하기", sign, "서명하기");
+    const signCanceled = htmlOf(React.createElement(ContractSignPanel, { view: "canceled" }));
+    hasText("규칙 17: 서명 취소 안내", signCanceled, "프로젝트가 취소되었습니다");
+    if (!signCanceled.includes("서명하기")) {
+      pass("규칙 17: 서명 취소 후 서명하기 숨김");
+    } else {
+      fail("규칙 17: 서명 취소 후 서명하기 숨김", signCanceled);
+    }
+
+    const checkout = htmlOf(React.createElement(PaymentPanel));
+    hasText("규칙 17: 결제 금액", checkout, "결제 금액");
+    hasText("규칙 17: 결제하기", checkout, "결제하기");
+
+    const allHtml = [create, canceled, respond, sign, signCanceled, checkout].join("\n");
+    if (!/#[0-9A-Fa-f]{6}/.test(allHtml)) {
+      pass("규칙 17: 화면에 원시 색상값 없음");
+    } else {
+      fail("규칙 17: 화면에 원시 색상값 없음", allHtml);
+    }
+  }
+
   // sandbox 실호출 — 시크릿이 없으면 해당 없음
   if (!hasPgSecretKey()) {
     pass("규칙 9: PG sandbox 실호출 해당 없음 (PG_SECRET_KEY 없음)");

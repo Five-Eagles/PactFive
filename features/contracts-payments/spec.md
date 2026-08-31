@@ -251,7 +251,7 @@
 
 22. **Increment 1 백로그·완료 기준** (구현은 다음 스프린트).
     백로그: 공개 API Mock(규칙 16 + GET contract/payment). `signContract` + 멱등·최초 시각 2.
-    `design/` low-fi 3화면(합의·서명·결제, 규칙 17). inbound `invalidateAgreementAndContract`
+    `design/` high-fi 3화면(합의·서명·결제, 규칙 17). inbound `invalidateAgreementAndContract`
     (`cancellationId`, `actorUserId`, `reason: PROJECT_CANCELED`, `projectCanceledAt` →
     `DONE`|`NOT_NEEDED`|`FAILED`, D-89). `PaymentGateway.retrievePayment`(규칙 21).
     제외: 위젯 실연동, 에스크로·`RELEASED`, PG 환불, 재제안·철회.

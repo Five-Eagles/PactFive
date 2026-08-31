@@ -5,7 +5,7 @@
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 37, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 55, FAIL 개수: 0)
 
 ## spec.md 규칙별 확인
 
@@ -27,13 +27,13 @@
 | 14 샌드박스 결제 범위 | 규칙 9 Mock. 준비·웹훅 E2E 없음. 결제 취소·PG 환불은 Toss MVP 아님 | 안 함 (해당 없음) |
 | 15 취소 무효화 | spec 규칙만 | 안 함 |
 | 16 공개 API 경로 | 문서 초안 | 안 함 |
-| 17 라우트·UX | 문서 초안. design/ 없음 | 안 함 |
+| 17 라우트·UX | `run.tsx` 합의 로딩·LOAD_FAILED·409 재조회·취소 후 변경 숨김. 서명 근거·서명하기·취소 안내. 결제 금액·결제하기 | 통과 |
 | 18 Increment 1 테스트 목록 | 규칙 22로 이동 | 안 함 |
 | 19 계약·결제 전이표 | `run.tsx` PG 실패 키면 FAILED · 재시도 후 승인 성공 PAID. 계약 전이표·환불은 Mock 없음 | 통과 (결제 행 Mock) |
 | 20 수락 시 계약 필드 | spec 규칙만 | 안 함 (설계) |
 | 21 FAILED 재시도·웹훅 | `run.tsx` 같은 paymentId·새 orderId READY · 옛 orderId confirm 409. 웹훅·retrievePayment 없음 | 통과 (Mock). 웹훅은 해당 없음 |
 | 22 Increment 1 백로그 | 목록만 적음. 구현은 다음 스프린트 | 안 함 (설계) |
-| UI(design/web) | `PaymentPanel` `view="keyMissing"` (결제하기 숨김). 합의·서명 high-fi는 다음 | 통과 (키 없음만) |
+| UI(design/web) | high-fi 패널 3화면 + `AgreementPanel`·`ContractSignPanel`·`PaymentPanel`. 키 없음은 결제하기 숨김 | 통과 |
 
 규칙 4의 I-30은 호출자 검증이다. `completeProjectTransactionIfSettled`가 APPROVED∧RELEASED 전에는 포트를 부르지 않는다.
 
@@ -43,9 +43,8 @@
 ## 아직 안 되는 것 (Known Issues)
 
 - `prototype/`은 유동우 포트 스탠드인 Mock이다. 실제 HTTP·DB는 없다.
-- `design/` 없음. `prototype/web/`은 키 없음 결제 패널만. 합의·서명 화면은 다음 스프린트.
 - Toss sandbox 실호출은 루트 `.env`의 `PG_SECRET_KEY`가 있을 때만. 지금은 해당 없음.
-- 규칙 10~13·15~18·20·22는 설계 확정이다. 공개 API·웹훅·`retrievePayment`는 다음 스프린트.
+- 규칙 10~13·15·16·18·20·22는 설계 확정이다. 공개 API·웹훅·`retrievePayment`는 다음 스프린트.
 
 ## 팀장에게 물어봐야 하는 것
 
