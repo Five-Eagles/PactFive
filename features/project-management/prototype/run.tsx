@@ -1109,6 +1109,45 @@ async function main() {
     );
   }
 
+  /* ═══════════ 6-9. 환경 변수 주입 ═══════════ */
+  section("환경 변수 주입");
+  {
+    const { loadConfig, resetConfigWarnings, MissingEnvError } = await import("./server/config");
+
+    resetConfigWarnings();
+    const warnings: string[] = [];
+    const dev = loadConfig({ INTERNAL_SERVICE_TOKEN: "real-token-from-env" }, (m) =>
+      warnings.push(m),
+    );
+    check(dev.internalServiceToken === "real-token-from-env", ".env 값을 읽는다");
+    check(warnings.length === 0, "값이 있으면 경고하지 않는다");
+
+    resetConfigWarnings();
+    const warned: string[] = [];
+    const fallback = loadConfig({}, (m) => warned.push(m));
+    check(fallback.internalServiceToken.length > 0, "개발에서는 기본값으로 뜬다");
+    check(warned.length === 1, "다만 경고를 남긴다 — 조용히 넘어가지 않는다");
+    loadConfig({}, (m) => warned.push(m));
+    check(warned.length === 1, "같은 키로 두 번 경고하지 않는다");
+
+    // 운영에서 키가 없으면 **서버가 뜨지 않는다.**
+    // 떠서 요청마다 401 을 뱉는 것보다 배포가 멈추는 쪽이 빨리 발견된다.
+    let threw: unknown = null;
+    try {
+      loadConfig({ NODE_ENV: "production" }, () => {});
+    } catch (e) {
+      threw = e;
+    }
+    check(threw instanceof MissingEnvError, "운영에서 키가 없으면 즉시 실패한다");
+    check(
+      (threw as Error | null)?.message.includes(".env") ?? false,
+      "실패 메시지가 어디에 넣어야 하는지 알려준다",
+    );
+
+    const prod = loadConfig({ NODE_ENV: "production", INTERNAL_SERVICE_TOKEN: "prod-token" });
+    check(prod.internalServiceToken === "prod-token", "운영에서도 값이 있으면 정상");
+  }
+
   /* ═══════════ 6-10. engagement 에 제공하는 읽기 3종 ═══════════ */
   section("공개 API — engagement 제공 읽기 3종");
   {

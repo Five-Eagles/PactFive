@@ -7,7 +7,7 @@
 - spec.md 핵심 요약: 프로젝트 게시물의 일생 — 등록(3단계) · 조회·검색 · 수정(조건부 잠금) ·
   소프트 삭제 · 모집 마감 · 취소 · 재모집. 번호 규칙 48개 + 확정 9건(49~57). **미확정 0건.**
 
-  변경 요청 3건 회신 대기 (CR-0002 조준영 · CR-0003 오민혁 · CR-0004 김락원).
+  변경 요청 4건 회신 대기 (CR-0002 조준영 · CR-0003 오민혁 · CR-0004·CR-0005 김락원).
   셋 다 권장안대로 구현해뒀고, 회신이 다르면 각각 한 곳만 고친다.
   북마크·추천은 `features/engagement/`, 지원서·알림·계약·결제는 다른 기능.
 - api-contract.md: 공개 API 9종(`/api/v1`) + 내부 계약 8종(`/internal/v1`).
@@ -18,7 +18,7 @@
   전부 PRD §14 문구 정본과 일치하는 것까지 기계 대조함.
 - prototype/ 구성: **완료** — 데이터 계층 · 계약 함수 7종 · 공개 API 9종 ·
   engagement 제공 읽기 3종 · 화면 6종.
-  `run.tsx` **PASS 257 · FAIL 0**. 결과는 `test-report.md`.
+  `run.tsx` **PASS 265 · FAIL 0**. 결과는 `test-report.md`.
 
 ## 상태 모델 — 이 기능의 핵심
 
@@ -39,6 +39,7 @@ transaction_status      NONE · CONTRACT_PENDING ·
 
 ## 백엔드 (prototype/server/)
 - 계층 구성: controller → service → repository. 서비스 계층까지 작성됨 (controller 는 팀장 통합 영역)
+  - `config.ts` — 루트 `.env` 에서 설정을 읽는다. 운영에서 키가 없으면 서버가 뜨지 않는다
   - `project.types.ts` — 도메인 타입 · DTO · `ProjectContractError`(오류 코드 24종)
   - `ports/project-transaction.port.ts` — **내가 제공하는** 계약 함수 7종의 인터페이스
   - `ports/external.port.ts` — **내가 호출하는** 다른 도메인 4종
@@ -75,3 +76,4 @@ transaction_status      NONE · CONTRACT_PENDING ·
 | 2026-08-26 | 공개 API 9종 구현 — run.tsx PASS 193 · 시드 `prj_closed_pending` 추가 |
 | 2026-08-26 | 화면 6종 + test-report.md — run.tsx PASS 242 · 필수 요소 43개 전부 · CR-0004 |
 | 2026-08-28 | engagement 제공 읽기 3종 (CR-0001) — run.tsx PASS 257 |
+| 2026-09-01 | 환경 변수 주입 (`config.ts`) — 코드에 박힌 토큰 제거 · run.tsx PASS 265 · CR-0005 |

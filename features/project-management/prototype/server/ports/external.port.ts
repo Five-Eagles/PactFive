@@ -134,12 +134,14 @@ export type AuthContext = { userId: string; role: UserRole };
 
 /**
  * 개발용 고정 토큰 (규칙 54 · 오민혁 확정).
+ *
  * **Mock 어댑터에서만 통한다.** 실제 인증 환경에서는 거부해야 한다.
+ *
+ * 값은 `server/config.ts` 의 `MOCK_LOGIN_TOKENS` 에 있다. 비밀값이 아니라
+ * "이 값이면 이 사용자"라는 팀 약속이라 `.env` 로 옮기지 않았다 —
+ * 팀 전체가 같은 값을 써야 서로 붙여볼 수 있다.
  */
-export const MOCK_TOKENS: Record<string, AuthContext> = {
-  "pactfive-mock-client-01": { userId: "usr_00000000000000000000000001", role: "CLIENT" },
-  "pactfive-mock-freelancer-01": { userId: "usr_00000000000000000000000002", role: "FREELANCER" },
-};
+export type MockTokenTable = Record<string, AuthContext>;
 
 /** 모든 외부 의존을 한 묶음으로 넘긴다 — 서비스가 포트를 직접 import 하지 않게 */
 export type ExternalPorts = {
