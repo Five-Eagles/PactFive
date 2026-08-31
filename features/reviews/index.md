@@ -14,7 +14,10 @@
 ## 교차 담당
 - 유동우: `transactionStatus` 읽기 (`COMPLETED` · `CANCELED`).
 - 오민혁: `REVIEW_CREATED`로 `rating_average` 갱신 (E-13). 조준영은 users를 UPDATE하지 않는다.
+  이벤트 계약·확인 요청: `../contracts-payments/review/external-wait-2026-08-31.md` §3.
 - 최윤석: `REVIEW_REQUESTED` 알림. 이 Increment에서 호출하지 않는다.
+  알림 4종 확인 요청: `../contracts-payments/review/external-wait-2026-08-31.md` §4.
+- 팀장: sandbox 키 · 단독 공개 14일 ASSUMPTION. 같은 파일 §1·§2.
 
 ## 갱신 이력
 
@@ -22,3 +25,4 @@
 |---|---|
 | 2026-08-28 | SPEC 규칙 1~13 · API 초안. Mock·design 없음 |
 | 2026-08-31 | 규칙 13 Increment: Mock · low-fi 1화면 · run.tsx PASS 35 |
+| 2026-08-31 | 외부 대기 고정. 14일·REVIEW_CREATED·REVIEW_REQUESTED는 회신 후 |

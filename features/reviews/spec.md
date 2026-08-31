@@ -98,4 +98,5 @@
 ## 비고
 
 규칙 6의 14일은 **ASSUMPTION**이다. PRD·ERD에 기간이 없다. 팀장이 다른 일수를 정하면
-규칙 6만 고친다.
+규칙 6만 고친다. 외부 대기(키·14일·오민혁 `REVIEW_CREATED`·최윤석 알림) 정본은
+`features/contracts-payments/review/external-wait-2026-08-31.md`.

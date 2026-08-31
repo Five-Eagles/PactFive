@@ -36,3 +36,4 @@
 ## 팀장에게 물어봐야 하는 것
 
 - 규칙 6 단독 공개 14일을 확정할 것인지, 다른 일수인지.
+  Discord·예/아니오: `features/contracts-payments/review/external-wait-2026-08-31.md` §2.
