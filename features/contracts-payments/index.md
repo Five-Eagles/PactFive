@@ -18,7 +18,8 @@
 - prototype/: 유동우 포트 스탠드인 Mock + 조준영 호출 서비스 + `PaymentGateway` Mock.
   키는 리포 루트 `.env`. 없으면 Mock·`PgKeyMissingError`. 다른 기능은 `prototype/index.ts`만 import한다.
   `NotificationTriggerPort`는 publish만. 발송은 최윤석.
-  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·17·19·21 Mock을 확인한다.
+  공개 API 스탠드인은 `createPublicApiMock` (`prototype/mock/public-api.mock.ts`).
+  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~22 Mock을 확인한다.
 
 ### Mock 시드 (성공·실패 재현)
 
@@ -71,3 +72,4 @@
 | 2026-08-31 | 루트 `.env` 정본. 키 없음 Mock·`PgKeyMissingError`·`view="keyMissing"` |
 | 2026-08-31 | high-fi 패널 3화면 (합의·서명·결제). 앱 셸 없음. 토큰 클래스만 |
 | 2026-08-31 | `NotificationTriggerPort` 발행만. `AcceptedApplicationHandoff`. 발송·수락 미구현 |
+| 2026-09-01 | 공개 API Mock 문서 동기화. run.tsx가 규칙 10~13·15·16·20~22까지 확인. 실측 PASS 81 |

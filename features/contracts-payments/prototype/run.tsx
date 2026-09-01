@@ -21,6 +21,7 @@ import {
   MOCK_OUTSIDER_USER_ID,
   MOCK_PROJECT_TITLE,
 } from "./mock/public-api.mock";
+import { isPublicApiError } from "./server/public-api.types";
 import {
   createPaymentGatewayMock,
   MOCK_CONFIRMED_AMOUNT,
@@ -549,6 +550,7 @@ async function main() {
       txn,
       "prj_in_progress",
       {
+        contractId: "ctr_notify",
         requestId: "req_notify_complete",
         idempotencyKey: "transaction-complete-notify",
         occurredAt: "2026-08-25T06:00:00Z",
@@ -589,6 +591,7 @@ async function main() {
       txn,
       "prj_in_progress",
       {
+        contractId: "ctr_notify_throw",
         requestId: "req_notify_throw",
         idempotencyKey: "transaction-complete-throw",
         occurredAt: "2026-08-25T06:00:00Z",
