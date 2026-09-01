@@ -11,11 +11,14 @@
 - review/: 교차 담당 확인 요청·회신.
   Mock import 안내는 `review/mock-stub-import-guide.md` (유동우·최윤석 공유).
   팀장 sandbox 키 요청은 `review/teamlead-pg-sandbox-keys.md`.
+  외부 대기(키·14일·REVIEW_CREATED·알림 4종)는 `review/external-wait-2026-08-31.md`.
+  알림 포트·수락 손잡이 계약은 `review/yoonseok-ports-contract.md`.
   8/27 설계서 평가·최적안은 `review/spec-design-eval.md`.
   금주 마감은 `review/week-wrap-2026-08-28.md`.
 - prototype/: 유동우 포트 스탠드인 Mock + 조준영 호출 서비스 + `PaymentGateway` Mock.
-  다른 기능은 `prototype/index.ts`만 import한다.
-  `npx tsx prototype/run.tsx`로 spec 규칙 1~9와 19·21 Mock을 확인한다.
+  키는 리포 루트 `.env`. 없으면 Mock·`PgKeyMissingError`. 다른 기능은 `prototype/index.ts`만 import한다.
+  `NotificationTriggerPort`는 publish만. 발송은 최윤석.
+  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·17·19·21 Mock을 확인한다.
 
 ### Mock 시드 (성공·실패 재현)
 
@@ -34,13 +37,16 @@
 | `prj_deadline` | restore `DEADLINE_PASSED` |
 | `prj_pending_apps` | restore `PENDING_APPLICATIONS_REMAIN` |
 
-- design/: 없음. Increment 1 화면은 다음 스프린트.
+- design/: high-fi 3화면 (`agreement.html` · `contract-sign.html` · `payment.html`).
+  패널만 (앱 셸 없음). `_tokens.css`는 design-system v1.0 사본. 키 없음 UX는
+  `prototype/web/PaymentPanel.tsx` `view="keyMissing"`.
 
 ## 교차 담당
 - 유동우 (project-management): 4함수 제공자. 2026-08-25 함수별 정의 회신 반영 완료
   (`review/yudong-function-defs-reply.md`).
 - 최윤석 (applications): 지원 수락 선행. 2026-08-26 함수별 정의 11건 전부 예
   (`review/yoonseok-function-defs-response-final.html`).
+  알림 4종은 포트 발행 / 발송 대기. 계약은 `review/yoonseok-ports-contract.md`.
 
 ## 갱신 이력
 
@@ -61,3 +67,7 @@
 | 2026-08-28 | 금주 wrap. reviews SPEC은 `features/reviews/` |
 | 2026-08-28 | P2: 규칙 3·4 전이 409 + FAILED 재시도 Mock. PASS 34. 취소·환불 제외 |
 | 2026-08-28 | feedback_loop 3항목 반영완료. `project-transaction.service.ts` 통일 |
+| 2026-08-31 | 외부 대기 고정 (`review/external-wait-2026-08-31.md`). 키·14일·오민혁·최윤석 |
+| 2026-08-31 | 루트 `.env` 정본. 키 없음 Mock·`PgKeyMissingError`·`view="keyMissing"` |
+| 2026-08-31 | high-fi 패널 3화면 (합의·서명·결제). 앱 셸 없음. 토큰 클래스만 |
+| 2026-08-31 | `NotificationTriggerPort` 발행만. `AcceptedApplicationHandoff`. 발송·수락 미구현 |

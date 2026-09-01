@@ -1,3 +1,4 @@
+import { ignoreNotificationFailure, type NotificationTriggerPort } from "./notification.port";
 import type { ProjectTransactionPort } from "./project-transaction.port";
 import type {
   CompleteProjectTransactionInput,
@@ -34,7 +35,7 @@ export async function markPaymentPendingIfAlive(
   return port.markPaymentPending(projectId, input);
 }
 
-/** 조회 응답의 수락 지원과 계약 지원서를 대조한 뒤에만 start를 부른다. 본문에는 ID를 넣지 않는다. */
+/** 합의 진입은 AcceptedApplicationHandoff. start는 조회 수락 지원과 계약 지원서를 대조한 뒤에만 부른다. */
 export async function startProjectTransactionIfAccepted(
   port: ProjectTransactionPort,
   projectId: string,
@@ -48,6 +49,11 @@ export async function startProjectTransactionIfAccepted(
   return port.startProjectTransaction(projectId, input);
 }
 
+export type CompleteNotifyOptions = {
+  notifications: NotificationTriggerPort;
+  freelancerId: string;
+};
+
 /** I-30: 납품 승인·정산 완료 전에는 complete 포트를 호출하지 않는다. */
 export async function completeProjectTransactionIfSettled(
   port: ProjectTransactionPort,
@@ -55,12 +61,26 @@ export async function completeProjectTransactionIfSettled(
   input: CompleteProjectTransactionInput,
   deliveryStatus: DeliveryStatus,
   paymentStatus: PaymentStatus,
+  notify?: CompleteNotifyOptions,
 ) {
   if (deliveryStatus !== "APPROVED" || paymentStatus !== "RELEASED") {
     throw new CallerGuardError("I30_NOT_SATISFIED");
   }
-  await requireNegotiationContext(port, projectId);
-  return port.completeProjectTransaction(projectId, input);
+  const context = await requireNegotiationContext(port, projectId);
+  const result = await port.completeProjectTransaction(projectId, input);
+  // COMPLETED 전이 성공 뒤에만 발행한다. throw여도 완료를 되돌리지 않는다.
+  if (notify && result.changed) {
+    await ignoreNotificationFailure(() =>
+      notify.notifications.publishReviewRequested({
+        type: "REVIEW_REQUESTED",
+        projectId,
+        clientId: context.clientId,
+        freelancerId: notify.freelancerId,
+        occurredAt: input.occurredAt,
+      }),
+    );
+  }
+  return result;
 }
 
 export async function restorePreContractProjectAfterReject(
