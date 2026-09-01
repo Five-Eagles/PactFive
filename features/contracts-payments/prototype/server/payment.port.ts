@@ -12,6 +12,15 @@ export type ConfirmPaymentResponse = {
   status: "PAID";
 };
 
+export type PgPaymentStatus = "READY" | "PENDING" | "PAID" | "FAILED";
+
+export type RetrievePaymentResponse = {
+  orderId: string;
+  amount: number;
+  paymentKey: string | null;
+  status: PgPaymentStatus;
+};
+
 export type PaymentGatewayErrorCode = "PAYMENT_AMOUNT_MISMATCH" | "PAYMENT_CONFIRM_FAILED";
 
 /** PG 승인 실패. 프로젝트 연동 4함수 오류와 섞지 않는다. */
@@ -25,9 +34,10 @@ export class PaymentGatewayError extends Error {
   }
 }
 
-/** 결제 승인은 이 포트만 본다. 컨트롤러는 토스 SDK를 직접 import하지 않는다. */
+/** 결제 승인과 재조회는 이 포트만 본다. 컨트롤러는 토스 SDK를 직접 import하지 않는다. */
 export type PaymentGateway = {
   confirmPayment(input: ConfirmPaymentInput): Promise<ConfirmPaymentResponse>;
+  retrievePayment(orderId: string): Promise<RetrievePaymentResponse>;
 };
 
 export function isPaymentGatewayError(err: unknown): err is PaymentGatewayError {

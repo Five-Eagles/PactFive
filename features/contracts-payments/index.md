@@ -13,9 +13,10 @@
   팀장 sandbox 키 요청은 `review/teamlead-pg-sandbox-keys.md`.
   8/27 설계서 평가·최적안은 `review/spec-design-eval.md`.
   금주 마감은 `review/week-wrap-2026-08-28.md`.
-- prototype/: 유동우 포트 스탠드인 Mock + 조준영 호출 서비스 + `PaymentGateway` Mock.
+- prototype/: 유동우 포트 스탠드인 Mock + 조준영 호출 서비스 + `PaymentGateway` Mock
+  + 공개 API Mock(`createPublicApiMock`).
   다른 기능은 `prototype/index.ts`만 import한다.
-  `npx tsx prototype/run.tsx`로 spec 규칙 1~9와 19·21 Mock을 확인한다.
+  `npx tsx prototype/run.tsx`로 spec 규칙 1~22 Mock을 확인한다.
 
 ### Mock 시드 (성공·실패 재현)
 
@@ -34,7 +35,8 @@
 | `prj_deadline` | restore `DEADLINE_PASSED` |
 | `prj_pending_apps` | restore `PENDING_APPLICATIONS_REMAIN` |
 
-- design/: 없음. Increment 1 화면은 다음 스프린트.
+- design/: low-fi 3화면 (`agreement-low-fi.html`, `contract-sign-low-fi.html`,
+  `payment-low-fi.html`). 위젯 실연동은 제외.
 
 ## 교차 담당
 - 유동우 (project-management): 4함수 제공자. 2026-08-25 함수별 정의 회신 반영 완료
@@ -61,3 +63,4 @@
 | 2026-08-28 | 금주 wrap. reviews SPEC은 `features/reviews/` |
 | 2026-08-28 | P2: 규칙 3·4 전이 409 + FAILED 재시도 Mock. PASS 34. 취소·환불 제외 |
 | 2026-08-28 | feedback_loop 3항목 반영완료. `project-transaction.service.ts` 통일 |
+| 2026-08-31 | Increment 1 공개 API Mock·signContract·invalidate·retrievePayment·low-fi 3화면. PASS 60 |

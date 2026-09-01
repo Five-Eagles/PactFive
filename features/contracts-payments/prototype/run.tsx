@@ -11,6 +11,14 @@ import {
 } from "./index";
 import { createPaymentRecordMock } from "./mock/payment-record.mock";
 import {
+  createPublicApiMock,
+  MOCK_CLIENT_USER_ID,
+  MOCK_FREELANCER_USER_ID,
+  MOCK_OFFER_AMOUNT,
+  MOCK_OUTSIDER_USER_ID,
+  MOCK_PROJECT_TITLE,
+} from "./mock/public-api.mock";
+import {
   createPaymentGatewayMock,
   MOCK_CONFIRMED_AMOUNT,
   MOCK_FAIL_PAYMENT_KEY,
@@ -24,6 +32,7 @@ import {
   startProjectTransactionIfAccepted,
 } from "./server/project-transaction.service";
 import { PaymentGatewayError } from "./server/payment.port";
+import { isPublicApiError } from "./server/public-api.types";
 import { createTossPaymentsAdapter, hasPgSecretKey } from "./server/toss-payments.adapter";
 
 /** 기능 폴더 `.env`만 읽는다. 값은 로그에 남기지 않는다. */
@@ -175,6 +184,7 @@ async function main() {
       mock,
       "prj_alive",
       {
+        contractId: "ctr_123",
         requestId: "req_start_01",
         idempotencyKey: "transaction-start-ctr_123",
         occurredAt: "2026-08-25T05:01:00Z",
@@ -193,6 +203,7 @@ async function main() {
       fail("규칙 3: CONTRACT_PENDING → IN_PROGRESS", started);
     }
     const again = await mock.startProjectTransaction("prj_alive", {
+      contractId: "ctr_123",
       requestId: "req_start_02",
       idempotencyKey: "transaction-start-ctr_123-again",
       occurredAt: "2026-08-25T05:02:00Z",
@@ -205,6 +216,7 @@ async function main() {
     }
     await expectCode("규칙 3: 취소 프로젝트 409", "PROJECT_TRANSITION_CONFLICT", () =>
       mock.startProjectTransaction("prj_canceled", {
+        contractId: "ctr_canceled",
         requestId: "req_start_c",
         idempotencyKey: "transaction-start-canceled",
         occurredAt: "2026-08-25T05:01:00Z",
@@ -213,6 +225,7 @@ async function main() {
     );
     await expectCode("규칙 3: 수락 지원 null 409", "PROJECT_TRANSITION_CONFLICT", () =>
       mock.startProjectTransaction("prj_null_accept", {
+        contractId: "ctr_null",
         requestId: "req_start_null",
         idempotencyKey: "transaction-start-null",
         occurredAt: "2026-08-25T05:01:00Z",
@@ -221,6 +234,7 @@ async function main() {
     );
     await expectCode("규칙 3: COMPLETED에서 start 409", "PROJECT_TRANSITION_CONFLICT", () =>
       mock.startProjectTransaction("prj_completed", {
+        contractId: "ctr_completed",
         requestId: "req_start_completed",
         idempotencyKey: "transaction-start-completed",
         occurredAt: "2026-08-25T05:01:00Z",
@@ -235,6 +249,7 @@ async function main() {
         mock,
         "prj_seq",
         {
+          contractId: "ctr_mismatch",
           requestId: "req_start_mismatch",
           idempotencyKey: "transaction-start-mismatch",
           occurredAt: "2026-08-25T05:01:00Z",
@@ -262,6 +277,7 @@ async function main() {
         mock,
         "prj_in_progress",
         {
+          contractId: "ctr_block",
           requestId: "req_complete_block",
           idempotencyKey: "transaction-complete-block",
           occurredAt: "2026-08-25T06:00:00Z",
@@ -283,6 +299,7 @@ async function main() {
       mock,
       "prj_in_progress",
       {
+        contractId: "ctr_123",
         requestId: "req_complete_01",
         idempotencyKey: "transaction-complete-ctr_123",
         occurredAt: "2026-08-25T06:00:00Z",
@@ -297,6 +314,7 @@ async function main() {
       fail("규칙 4: IN_PROGRESS → COMPLETED", done);
     }
     const idempotent = await mock.completeProjectTransaction("prj_completed", {
+      contractId: "ctr_done",
       requestId: "req_complete_done",
       idempotencyKey: "transaction-complete-already",
       occurredAt: "2026-08-25T06:01:00Z",
@@ -309,6 +327,7 @@ async function main() {
     }
     await expectCode("규칙 4: CANCELED에서 complete 409", "PROJECT_TRANSITION_CONFLICT", () =>
       mock.completeProjectTransaction("prj_canceled", {
+        contractId: "ctr_canceled",
         requestId: "req_complete_c",
         idempotencyKey: "transaction-complete-canceled",
         occurredAt: "2026-08-25T06:00:00Z",
@@ -317,6 +336,7 @@ async function main() {
     );
     await expectCode("규칙 4: CONTRACT_PENDING에서 complete 409", "PROJECT_TRANSITION_CONFLICT", () =>
       mock.completeProjectTransaction("prj_alive", {
+        contractId: "ctr_pending",
         requestId: "req_complete_pending",
         idempotencyKey: "transaction-complete-pending",
         occurredAt: "2026-08-25T06:00:00Z",
@@ -409,6 +429,7 @@ async function main() {
     const mock = createProjectTransactionMock();
     await expectCode("규칙 1: start 버전 불일치 409", "PROJECT_VERSION_CONFLICT", () =>
       mock.startProjectTransaction("prj_alive", {
+        contractId: "ctr_ver",
         requestId: "req_ver",
         idempotencyKey: "transaction-start-ver",
         occurredAt: "2026-08-25T05:01:00Z",
@@ -434,6 +455,7 @@ async function main() {
       mock,
       "prj_seq",
       {
+        contractId: "ctr_seq",
         requestId: "req_seq_start",
         idempotencyKey: "transaction-start-ctr_seq",
         occurredAt: "2026-08-25T05:01:00Z",
@@ -445,6 +467,7 @@ async function main() {
       mock,
       "prj_seq",
       {
+        contractId: "ctr_seq",
         requestId: "req_seq_complete",
         idempotencyKey: "transaction-complete-ctr_seq",
         occurredAt: "2026-08-25T06:00:00Z",
@@ -470,6 +493,7 @@ async function main() {
         "conflict",
         () =>
           mock.startProjectTransaction("prj_canceled", {
+            contractId: "ctr_c",
             requestId: "r",
             idempotencyKey: "k-conflict",
             occurredAt: MOCK_AT,
@@ -480,6 +504,7 @@ async function main() {
         "version",
         () =>
           mock.startProjectTransaction("prj_alive", {
+            contractId: "ctr_v",
             requestId: "r",
             idempotencyKey: "k-version",
             occurredAt: MOCK_AT,
@@ -640,6 +665,278 @@ async function main() {
         fail("규칙 9: sandbox 잘못된 키는 승인 실패", err);
       }
     }
+  }
+
+  // 규칙 10·16·22 — 빈 생성·의뢰인 제안·현재 조회
+  {
+    const api = createPublicApiMock();
+    const empty = await api.getCurrentNegotiationOffer("prj_alive", MOCK_CLIENT_USER_ID);
+    if (empty.offer === null && empty.agreementId === null && empty.contractId === null) {
+      pass("규칙 22: 빈 생성");
+    } else {
+      fail("규칙 22: 빈 생성", empty);
+    }
+    const proposed = await api.proposeNegotiationOffer("prj_alive", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    if (
+      proposed.agreementStatus === "PROPOSED" &&
+      proposed.offer?.round === 1 &&
+      proposed.offer.amount === MOCK_OFFER_AMOUNT
+    ) {
+      pass("규칙 10: 의뢰인 제안");
+    } else {
+      fail("규칙 10: 의뢰인 제안", proposed);
+    }
+    const current = await api.getCurrentNegotiationOffer("prj_alive", MOCK_FREELANCER_USER_ID);
+    if (current.offer?.offerId === proposed.offer?.offerId && current.agreementId === proposed.agreementId) {
+      pass("규칙 16: 현재 조회");
+    } else {
+      fail("규칙 16: 현재 조회", current);
+    }
+  }
+
+  // 규칙 11·20 — 수락→DRAFT·멱등·계약 필드
+  {
+    const api = createPublicApiMock();
+    const proposed = await api.proposeNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    const offerId = proposed.offer?.offerId ?? "";
+    const accepted = await api.acceptNegotiationOffer("prj_seq", offerId, MOCK_FREELANCER_USER_ID, {
+      expectedRound: 1,
+    });
+    if (accepted.agreementStatus === "ACCEPTED" && accepted.contractStatus === "DRAFT" && accepted.contractId) {
+      pass("규칙 11: 수락→DRAFT");
+    } else {
+      fail("규칙 11: 수락→DRAFT", accepted);
+    }
+    const again = await api.acceptNegotiationOffer("prj_seq", offerId, MOCK_FREELANCER_USER_ID, {
+      expectedRound: 1,
+    });
+    if (again.contractId === accepted.contractId && again.contractStatus === "DRAFT") {
+      pass("규칙 22: 수락 멱등");
+    } else {
+      fail("규칙 22: 수락 멱등", again);
+    }
+    const contract = await api.getContract(accepted.contractId ?? "", MOCK_CLIENT_USER_ID);
+    if (
+      contract.termsSnapshot.schemaVersion === 1 &&
+      contract.termsSnapshot.amount === MOCK_OFFER_AMOUNT &&
+      contract.termsSnapshot.projectTitle === MOCK_PROJECT_TITLE &&
+      contract.status === "DRAFT"
+    ) {
+      pass("규칙 20: 수락 시 계약 필드");
+    } else {
+      fail("규칙 20: 수락 시 계약 필드", contract);
+    }
+  }
+
+  // 규칙 22 — 거절→restore·거절 멱등
+  {
+    const api = createPublicApiMock();
+    const proposed = await api.proposeNegotiationOffer("prj_restore", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    const offerId = proposed.offer?.offerId ?? "";
+    const rejected = await api.rejectNegotiationOffer(
+      "prj_restore",
+      offerId,
+      MOCK_FREELANCER_USER_ID,
+      { reasonCode: "PRICE_NOT_ACCEPTABLE" },
+    );
+    const ctx = await api.projects.getProjectNegotiationContext("prj_restore");
+    if (rejected.agreementStatus === "REJECTED" && ctx.transactionStatus === "NONE") {
+      pass("규칙 22: 거절→restore");
+    } else {
+      fail("규칙 22: 거절→restore", { rejected, ctx });
+    }
+    const again = await api.rejectNegotiationOffer(
+      "prj_restore",
+      offerId,
+      MOCK_FREELANCER_USER_ID,
+      { reasonCode: "PRICE_NOT_ACCEPTABLE" },
+    );
+    if (again.agreementStatus === "REJECTED" && again.agreementId === rejected.agreementId) {
+      pass("규칙 22: 거절 멱등");
+    } else {
+      fail("규칙 22: 거절 멱등", again);
+    }
+  }
+
+  // 규칙 22 — 비당사자 403
+  {
+    const api = createPublicApiMock();
+    try {
+      await api.getCurrentNegotiationOffer("prj_alive", MOCK_OUTSIDER_USER_ID);
+      fail("규칙 22: 비당사자 403", "오류가 나지 않았습니다");
+    } catch (err) {
+      if (isPublicApiError(err) && err.body.error.code === "PROJECT_FORBIDDEN" && err.httpStatus === 403) {
+        pass("규칙 22: 비당사자 403");
+      } else {
+        fail("규칙 22: 비당사자 403", err);
+      }
+    }
+  }
+
+  // 규칙 12·13 — 서명 전이·멱등 최초 시각
+  {
+    const api = createPublicApiMock();
+    const proposed = await api.proposeNegotiationOffer("prj_alive", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    const accepted = await api.acceptNegotiationOffer(
+      "prj_alive",
+      proposed.offer?.offerId ?? "",
+      MOCK_FREELANCER_USER_ID,
+      { expectedRound: 1 },
+    );
+    const contractId = accepted.contractId ?? "";
+    const first = await api.signContract(contractId, MOCK_CLIENT_USER_ID);
+    if (first.status === "SIGNING" && first.clientSignedAt === MOCK_NOW && first.alreadyProcessed === false) {
+      pass("규칙 12: 첫 서명 SIGNING");
+    } else {
+      fail("규칙 12: 첫 서명 SIGNING", first);
+    }
+    const firstAgain = await api.signContract(contractId, MOCK_CLIENT_USER_ID);
+    if (
+      firstAgain.alreadyProcessed === true &&
+      firstAgain.clientSignedAt === first.clientSignedAt
+    ) {
+      pass("규칙 13: 서명 멱등 최초 시각");
+    } else {
+      fail("규칙 13: 서명 멱등 최초 시각", firstAgain);
+    }
+    const both = await api.signContract(contractId, MOCK_FREELANCER_USER_ID);
+    if (both.status === "SIGNED" && both.signedAt === MOCK_NOW && both.freelancerSignedAt === MOCK_NOW) {
+      pass("규칙 12: 양쪽 서명 SIGNED");
+    } else {
+      fail("규칙 12: 양쪽 서명 SIGNED", both);
+    }
+  }
+
+  // 규칙 15 — 무효화 DONE·NOT_NEEDED·멱등
+  {
+    const api = createPublicApiMock();
+    const none = await api.invalidateAgreementAndContract("prj_alive", {
+      cancellationId: "cnl_none",
+      actorUserId: MOCK_CLIENT_USER_ID,
+      reason: "PROJECT_CANCELED",
+      projectCanceledAt: MOCK_NOW,
+      requestId: "req_inv_none",
+      idempotencyKey: "invalidate-cnl_none",
+      occurredAt: MOCK_NOW,
+    });
+    if (none.result === "NOT_NEEDED" && none.alreadyProcessed === false) {
+      pass("규칙 15: 무효화 NOT_NEEDED");
+    } else {
+      fail("규칙 15: 무효화 NOT_NEEDED", none);
+    }
+    await api.proposeNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    const done = await api.invalidateAgreementAndContract("prj_seq", {
+      cancellationId: "cnl_123",
+      actorUserId: MOCK_CLIENT_USER_ID,
+      reason: "PROJECT_CANCELED",
+      projectCanceledAt: MOCK_NOW,
+      requestId: "req_inv_01",
+      idempotencyKey: "invalidate-cnl_123",
+      occurredAt: MOCK_NOW,
+    });
+    if (done.result === "DONE") {
+      pass("규칙 15: 무효화 DONE");
+    } else {
+      fail("규칙 15: 무효화 DONE", done);
+    }
+    const again = await api.invalidateAgreementAndContract("prj_seq", {
+      cancellationId: "cnl_123",
+      actorUserId: MOCK_CLIENT_USER_ID,
+      reason: "PROJECT_CANCELED",
+      projectCanceledAt: MOCK_NOW,
+      requestId: "req_inv_02",
+      idempotencyKey: "invalidate-cnl_123",
+      occurredAt: MOCK_NOW,
+    });
+    if (again.result === "DONE" && again.alreadyProcessed === true) {
+      pass("규칙 15: 무효화 멱등");
+    } else {
+      fail("규칙 15: 무효화 멱등", again);
+    }
+  }
+
+  // 규칙 21 — retrievePayment
+  {
+    const gateway = createPaymentGatewayMock();
+    try {
+      await gateway.confirmPayment({
+        orderId: "ord_retrieve_fail",
+        amount: MOCK_CONFIRMED_AMOUNT,
+        paymentKey: MOCK_FAIL_PAYMENT_KEY,
+      });
+      fail("규칙 21: retrievePayment FAILED", "오류가 나지 않았습니다");
+    } catch (err) {
+      const retrieved = await gateway.retrievePayment("ord_retrieve_fail");
+      if (
+        err instanceof PaymentGatewayError &&
+        retrieved.status === "FAILED" &&
+        retrieved.orderId === "ord_retrieve_fail"
+      ) {
+        pass("규칙 21: retrievePayment FAILED");
+      } else {
+        fail("규칙 21: retrievePayment FAILED", { err, retrieved });
+      }
+    }
+  }
+
+  // 규칙 17·22 — UX 상태와 design 필수 요소
+  {
+    const React = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { AgreementPanel } = await import("./web/AgreementPanel");
+    const { ContractSignPanel } = await import("./web/ContractSignPanel");
+    const { PaymentCheckoutPanel } = await import("./web/PaymentCheckoutPanel");
+
+    function htmlOf(node: React.ReactElement): string {
+      return renderToStaticMarkup(node);
+    }
+    function hasText(name: string, html: string, text: string): void {
+      if (html.includes(text)) pass(name);
+      else fail(name, html);
+    }
+
+    hasText("규칙 17: 합의 필수 제안 금액", htmlOf(React.createElement(AgreementPanel)), "제안 금액");
+    hasText("규칙 17: 합의 필수 제안하기", htmlOf(React.createElement(AgreementPanel)), "제안하기");
+    hasText(
+      "규칙 22: 로딩",
+      htmlOf(React.createElement(AgreementPanel, { view: "loading" })),
+      "로딩",
+    );
+    hasText(
+      "규칙 22: LOAD_FAILED 재시도",
+      htmlOf(React.createElement(AgreementPanel, { view: "loadFailed" })),
+      "다시 시도",
+    );
+    hasText(
+      "규칙 22: 409 재조회",
+      htmlOf(React.createElement(AgreementPanel, { view: "stale" })),
+      "다시 조회",
+    );
+    const canceled = htmlOf(React.createElement(AgreementPanel, { view: "canceled" }));
+    if (canceled.includes("프로젝트가 취소되었습니다") && !canceled.includes("제안하기")) {
+      pass("규칙 22: 취소 후 변경 숨김");
+    } else {
+      fail("규칙 22: 취소 후 변경 숨김", canceled);
+    }
+    hasText("규칙 17: 서명 필수 계약 조건", htmlOf(React.createElement(ContractSignPanel)), "계약 조건");
+    hasText("규칙 17: 서명 필수 서명하기", htmlOf(React.createElement(ContractSignPanel)), "서명하기");
+    hasText("규칙 17: 결제 필수 결제 금액", htmlOf(React.createElement(PaymentCheckoutPanel)), "결제 금액");
+    hasText("규칙 17: 결제 필수 결제하기", htmlOf(React.createElement(PaymentCheckoutPanel)), "결제하기");
   }
 
   console.log(`PASS ${passCount} / FAIL ${failCount}`);
