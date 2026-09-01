@@ -231,9 +231,9 @@ body { font-family: var(--font); background: var(--canvas); color: var(--content
 .overlay-backdrop {
   position: fixed; inset: 0; background: rgba(11, 19, 43, 0.56);
   display: flex; align-items: center; justify-content: center; z-index: 80;
-  opacity: 0; transition: opacity var(--dur-slow) var(--ease-entrance);
+  opacity: 0; pointer-events: none; transition: opacity var(--dur-slow) var(--ease-entrance);
 }
-.overlay-backdrop.open { opacity: 1; }
+.overlay-backdrop.open { opacity: 1; pointer-events: auto; }
 .dialog {
   width: 400px; max-width: calc(100vw - 32px); border-radius: var(--dialog-radius); padding: var(--dialog-pad);
   background: var(--surface); box-shadow: 0 18px 48px rgba(11,19,43,.18);
@@ -345,13 +345,14 @@ html.force-reduced .overlay-backdrop, html.force-reduced .dialog { transition-du
   <p class="caption" style="margin-bottom:16px;">100ms(semantic.motion.feedback) — 등장(160ms)보다 짧게 유지해 "누르면 바로 반응"하는 감각을 줍니다. 버튼을 클릭하거나 Tab으로 포커스를 옮겨 보세요.</p>
 
   <div class="btn-row">
-    <button class="btn btn--primary">주요 행동</button>
-    <button class="btn btn--secondary">보조 행동</button>
-    <button class="btn btn--quiet">조용한 행동</button>
-    <button class="btn btn--danger">위험한 행동</button>
+    <button class="btn btn--primary" data-demo="주요 행동" type="button">주요 행동</button>
+    <button class="btn btn--secondary" data-demo="보조 행동" type="button">보조 행동</button>
+    <button class="btn btn--quiet" data-demo="조용한 행동" type="button">조용한 행동</button>
+    <button class="btn btn--danger" data-demo="위험한 행동" type="button">위험한 행동</button>
     <button class="bookmark" id="microBookmark" type="button" aria-pressed="false" title="북마크">☆</button>
   </div>
-  <p class="snap-source">추출: app/web/src/shared/ui/tokens.css (.btn, .bookmark) — transition 값은 이 스냅샷에서 새로 추가함, 실제 tokens.css에는 아직 없음(다음 반영 대상)</p>
+  <p class="caption" id="microLog" style="margin-top:10px;">아직 클릭한 버튼이 없습니다 — hover만으로는 색이 미묘하게 바뀌는 정도라 놓치기 쉽습니다. 클릭해서 아래 문구가 바뀌는지 확인하세요.</p>
+  <p class="snap-source">추출: app/web/src/shared/ui/tokens.css (.btn, .bookmark) — transition 값은 이 스냅샷에서 새로 추가함, 실제 tokens.css에는 아직 없음(다음 반영 대상). 클릭 로그(microLog)는 이 데모에서만 쓰는 확인용 장치이지 실제 화면 패턴이 아니다.</p>
 </div>
 
 <!-- ═══════════ 오버레이 ═══════════ -->
@@ -492,6 +493,17 @@ html.force-reduced .overlay-backdrop, html.force-reduced .dialog { transition-du
     const on = this.classList.toggle('on');
     this.setAttribute('aria-pressed', String(on));
     this.textContent = on ? '★' : '☆';
+  });
+
+  // 마이크로 인터랙션 — 데모 버튼 클릭 로그
+  // hover 색 변화가 미묘해서(예: teal-700→teal-800) 클릭했을 때 실제로 반응하는지
+  // 눈으로 확인하기 어렵다는 피드백이 있어, 클릭 시 아래 문구가 바뀌도록 확인 장치를 추가했다.
+  const microLog = document.getElementById('microLog');
+  document.querySelectorAll('.btn[data-demo]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const now = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+      microLog.textContent = `클릭됨: "${btn.dataset.demo}" (${now}) — :active 상태에서 100ms 동안 살짝 눌리는 것도 함께 확인하세요.`;
+    });
   });
 
   // 오버레이
