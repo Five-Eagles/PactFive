@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
 import {
   Button,
@@ -15,6 +15,7 @@ import { ApiError } from '../../shared/http';
 import { cancelProject, closeRecruitment, deleteProject } from './api/project';
 import { useMyProjects } from './useProject';
 import { PROJECT_ROUTES } from './project.routes';
+import { ReopenRecruitmentDialog } from './ReopenRecruitmentDialog';
 import type { ClientProjectDetail } from './project.types';
 
 /**
@@ -29,9 +30,9 @@ import type { ClientProjectDetail } from './project.types';
  *
  * **잠금을 여기서 계산하지 않는다.** 서버가 준 `availableActions` 를 그대로 따른다 (규칙 13).
  *
- * 원본의 `ProjectEditForm`(SCR-B06)·`ReopenRecruitmentDialog`(SCR-B10)는 아직 화면이 없다.
- * 담당자 원본에는 두 컴포넌트가 이미 있고 팀장이 통합 범위에서 뺀 것이라, 반영 범위는
- * `sync-log.md` 비고에 적혀 있다. `수정`·`다시 모집하기` 버튼은 아직 동작하지 않는다.
+ * `수정`(SCR-B06)은 `ProjectEditPage`로 이동, `다시 모집하기`(SCR-B10)는
+ * `ReopenRecruitmentDialog` 오버레이로 연결한다(2026-08-29 반영 — sync-log.md 비고에
+ * "다음 통합 대상"으로 남아 있던 것).
  */
 
 /** 서버 행동 코드 → 화면 문구. 코드가 그대로 노출되면 안 된다 */
@@ -85,9 +86,11 @@ export type ProjectManagePageProps = {
 };
 
 export function ProjectManagePage({ clientId }: ProjectManagePageProps) {
+  const navigate = useNavigate();
   const { data, loading, error, reload } = useMyProjects(clientId);
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [reopenTarget, setReopenTarget] = useState<ClientProjectDetail | null>(null);
 
   async function run(action: () => Promise<string | null>) {
     setNotice(null);
@@ -137,7 +140,14 @@ export function ProjectManagePage({ clientId }: ProjectManagePageProps) {
             return '프로젝트를 삭제했습니다.';
           });
         }
-        // EDIT · REOPEN_RECRUITMENT 는 별도 화면(SCR-B06·B10)이 필요해 아직 동작하지 않는다.
+        if (id === 'EDIT') {
+          navigate(PROJECT_ROUTES.edit(project.projectId));
+        }
+        if (id === 'REOPEN_RECRUITMENT') {
+          setNotice(null);
+          setActionError(null);
+          setReopenTarget(project);
+        }
       },
     }));
   }
@@ -221,6 +231,20 @@ export function ProjectManagePage({ clientId }: ProjectManagePageProps) {
             나옵니다. 공개 목록·상세에는 나오지 않습니다.
           </p>
         </>
+      )}
+
+      {reopenTarget && (
+        <ReopenRecruitmentDialog
+          projectId={reopenTarget.projectId}
+          projectTitle={reopenTarget.title}
+          previousDeadlineAt={reopenTarget.recruitmentDeadlineAt}
+          onDismiss={() => setReopenTarget(null)}
+          onReopened={(message) => {
+            setReopenTarget(null);
+            setNotice(message);
+            reload();
+          }}
+        />
       )}
     </PageBody>
   );
