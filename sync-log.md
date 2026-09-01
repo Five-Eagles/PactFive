@@ -11,3 +11,4 @@
 | 2026-08-28 | engagement | 3e4977e | 북마크 3종·추천 server 반영. web은 SCR-B08·B09 반영(북마크 버튼 포함) |
 | 2026-08-28 | user-management | 8db808b | 실 Supabase 어댑터·RegistrationIntent·다중 Origin 검증 델타 반영 |
 | 2026-08-28 | contracts-payments | 47c7760 | 결제 포트·토스 어댑터 반영, /internal/v1 서빙 책임 이관(순수 호출자로 전환) |
+| 2026-09-01 | contracts-payments | 18f10d7 | PaymentGateway.retrievePayment(웹훅 재검증)만 반영. 공개 API 초안(negotiation-offers·contract sign·payments 7종)과 웹 패널 3종(AgreementPanel·ContractSignPanel·PaymentCheckoutPanel)은 app/에 아직 라우팅 연결 전 — 다음 통합 대상(신규 증분, Increment 1 초안) |
