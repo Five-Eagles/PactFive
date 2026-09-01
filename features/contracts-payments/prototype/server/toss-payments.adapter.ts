@@ -3,9 +3,12 @@ import {
   type ConfirmPaymentInput,
   type ConfirmPaymentResponse,
   type PaymentGateway,
+  type PgPaymentStatus,
+  type RetrievePaymentResponse,
 } from "./payment.port";
 
 const TOSS_CONFIRM_URL = "https://api.tosspayments.com/v1/payments/confirm";
+const TOSS_ORDER_URL = "https://api.tosspayments.com/v1/payments/orders";
 
 /** 키 없이 어댑터를 만들 때. 스위트가 일반 Error로 죽지 않게 구분한다. */
 export class PgKeyMissingError extends Error {
@@ -70,5 +73,33 @@ export function createTossPaymentsAdapter(): PaymentGateway {
         status: "PAID",
       };
     },
+
+    async retrievePayment(orderId: string): Promise<RetrievePaymentResponse> {
+      const response = await fetch(`${TOSS_ORDER_URL}/${encodeURIComponent(orderId)}`, {
+        headers: { Authorization: basicAuthHeader(secretKey) },
+      });
+      if (!response.ok) {
+        throw new PaymentGatewayError("PAYMENT_CONFIRM_FAILED", "결제 승인을 조회하지 못했습니다.");
+      }
+      const body = (await response.json()) as {
+        orderId?: string;
+        totalAmount?: number;
+        paymentKey?: string;
+        status?: string;
+      };
+      return {
+        orderId: body.orderId ?? orderId,
+        amount: body.totalAmount ?? 0,
+        paymentKey: body.paymentKey ?? null,
+        status: mapTossStatus(body.status),
+      };
+    },
   };
+}
+
+function mapTossStatus(raw: string | undefined): PgPaymentStatus {
+  if (raw === "DONE") return "PAID";
+  if (raw === "READY") return "READY";
+  if (raw === "ABORTED" || raw === "EXPIRED") return "FAILED";
+  return "PENDING";
 }
