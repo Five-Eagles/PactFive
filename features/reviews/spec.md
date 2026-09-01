@@ -1,6 +1,6 @@
 # reviews — SPEC
 
-이번 세션 범위는 **상호 리뷰 설계 확정**이다. Mock·`design/`은 다음 스프린트.
+이번 세션 범위는 **규칙 13 Increment**이다. 공개 API Mock · `design/` high-fi 1화면 · `run.tsx`.
 정본: PRD v6.4 §3.7.1 · I-23 · I-24, ERD v1.4 `reviews`·E-19 태그 10종,
 `docs/domain/erd.md` E-13 `REVIEW_CREATED`. 함수명으로만 지칭한다 (D-48).
 
@@ -10,9 +10,9 @@
 
 ## 범위
 
-- 포함: 작성 조건, 방향·1회 제한, 공개 규칙, 평균, API·권한, UX, Increment 테스트 목록.
-- 제외: Mock·`design/`, 납품 화면(contracts-payments 규칙 14와 같이 Increment 밖),
-  리뷰 수정·삭제, `users` 직접 UPDATE, 알림 발송(최윤석 `REVIEW_REQUESTED`).
+- 포함: 작성 조건, 방향·1회 제한, 공개 규칙, 평균, API·권한, UX,
+  공개 API Mock, `design/` high-fi 1화면, 14일 단독 공개, `REVIEW_CREATED` 발행.
+- 제외: 수정·삭제, 납품 UI, `users` 직접 UPDATE(오민혁), 알림 발송(최윤석 `REVIEW_REQUESTED`).
 
 ## 관련 엔티티 (근거: `docs/domain/erd.md`)
 
@@ -54,13 +54,19 @@
 
 6. **단독 공개 (ASSUMPTION).** PRD에 대기 기간이 없다. **첫 리뷰 `created_at` 후 14일**이
    지나고 상대가 없으면 그 1건만 공개한다. 팀 확정 전 가정이다. 비고에 남긴다.
-   `REVIEW_CREATED`는 **공개 시점**에 1회 발행한다. 미공개 INSERT에는 안 보낸다.
+   `REVIEW_CREATED`는 공개 커밋 **이후** 5필드(`reviewId` · `projectId` · `revieweeId` ·
+   `rating` · `publishedAt`)로 발행한다. `publishedAt`은 실제 공개 시각이다. 미공개 INSERT에는
+   안 보낸다. 전달은 at-least-once(같은 `reviewId` 재전송 가능). 발행 실패가 공개를 되돌리지
+   않는다.
 
 7. **평균 별점은 공개된 리뷰만** 산술평균한다. `users.rating_average` / `review_count`는
-   조준영이 직접 UPDATE하지 않는다. 오민혁이 `REVIEW_CREATED`로 갱신한다 (E-13).
-   공개 리뷰가 없으면 `averageRating: null`, `reviewCount: 0`.
-   제공 API: `GET /api/v1/users/:userId/review-summary` (`getReviewSummary`).
-   프로젝트 목록은 이 값을 가공하지 않고 싣는다.
+   조준영이 직접 UPDATE하지 않는다. 오민혁이 `REVIEW_CREATED` 후 증분 계산하지 않고
+   `getPublishedRatingAggregate(revieweeId)`로 재집계한다.
+   `Promise<{ ratingSum: number; reviewCount: number }>`. 공개분만. 0건이면
+   `{ ratingSum: 0, reviewCount: 0 }`.
+   반올림 없음. 브라우저 `GET /api/v1/users/:userId/review-summary` (`getReviewSummary`)는
+   평균을 유지하고, 공개 없으면 `averageRating: null`, `reviewCount: 0`. 내부 포트 합계가
+   정본이다. 프로젝트 목록은 `getReviewSummary` 값을 가공하지 않고 싣는다.
 
 8. **취소·무효 차단.** `transactionStatus = CANCELED` 또는 계약 `CANCELED`면 작성 409.
    COMPLETED가 아니면 규칙 1. 이미 공개된 리뷰는 취소로 지우지 않는다.
@@ -80,12 +86,13 @@
     `LOAD_FAILED` 재시도, 409 중복·미완료·취소 안내, 공개 전 "상대 리뷰는 아직 없습니다".
     제출 후 수정 버튼 없음.
 
-12. **알림은 이 기능이 보내지 않는다.** `REVIEW_REQUESTED`는 최윤석. 공개·작성과 알림 시점은
-    다음 스프린트에 최윤석과 맞춘다.
+12. **알림은 포트 발행 / 발송은 최윤석.** `REVIEW_REQUESTED`는 COMPLETED 직후
+    contracts-payments가 `publishReviewRequested`로 발행한다. 이 기능은 발송하지 않는다.
+    공개·`REVIEW_CREATED`와 다르다.
 
-13. **Increment 백로그·완료 기준** (구현은 다음 스프린트).
-    백로그: 공개 API Mock(규칙 9·7), `design/` low-fi 1화면(규칙 11), 14일 단독 공개 스케줄,
-    `REVIEW_CREATED` 발행.
+13. **Increment 완료 기준** (`prototype/run.tsx`).
+    공개 API Mock(규칙 9·7), `design/` high-fi 1화면(규칙 11), 14일 단독 공개 스케줄,
+    `REVIEW_CREATED` 발행만 (users UPDATE는 오민혁).
     제외: 수정·삭제, 납품 UI, 알림 발송.
     완료 기준: COMPLETED 작성 / 미완료 거부 / 방향당 1회 409 / PATCH 없음 /
     양쪽 즉시 공개 / 14일 단독 공개 / CANCELED 거부 / 공개분만 평균 / 비당사자 공개만 /
@@ -98,4 +105,5 @@
 ## 비고
 
 규칙 6의 14일은 **ASSUMPTION**이다. PRD·ERD에 기간이 없다. 팀장이 다른 일수를 정하면
-규칙 6만 고친다.
+규칙 6만 고친다. 외부 대기(키·14일·오민혁 `REVIEW_CREATED`·최윤석 알림) 정본은
+`features/contracts-payments/review/external-wait-2026-08-31.md`.

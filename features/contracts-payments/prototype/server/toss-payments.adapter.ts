@@ -10,8 +10,28 @@ import {
 const TOSS_CONFIRM_URL = "https://api.tosspayments.com/v1/payments/confirm";
 const TOSS_ORDER_URL = "https://api.tosspayments.com/v1/payments/orders";
 
+/** 키 없이 어댑터를 만들 때. 스위트가 일반 Error로 죽지 않게 구분한다. */
+export class PgKeyMissingError extends Error {
+  readonly field = "PG_SECRET_KEY" as const;
+
+  constructor(message = "PG_SECRET_KEY가 없습니다. Mock을 쓰거나 루트 .env에 키를 넣으세요.") {
+    super(message);
+    this.name = "PgKeyMissingError";
+  }
+}
+
+export function isPgKeyMissingError(err: unknown): err is PgKeyMissingError {
+  return err instanceof PgKeyMissingError;
+}
+
+function readPgSecretKey(): string | undefined {
+  // 공백만 있으면 키 없음으로 본다.
+  const value = process.env.PG_SECRET_KEY?.trim();
+  return value ? value : undefined;
+}
+
 export function hasPgSecretKey(): boolean {
-  return Boolean(process.env.PG_SECRET_KEY);
+  return Boolean(readPgSecretKey());
 }
 
 function basicAuthHeader(secretKey: string): string {
@@ -20,9 +40,9 @@ function basicAuthHeader(secretKey: string): string {
 
 /** PG_SECRET_KEY가 있을 때만 sandbox confirm을 보낸다. 키 없으면 생성하지 않는다. */
 export function createTossPaymentsAdapter(): PaymentGateway {
-  const secretKey = process.env.PG_SECRET_KEY;
+  const secretKey = readPgSecretKey();
   if (!secretKey) {
-    throw new Error("PG_SECRET_KEY가 없습니다. Mock을 쓰거나 .env에 키를 넣으세요.");
+    throw new PgKeyMissingError();
   }
   return {
     async confirmPayment(input: ConfirmPaymentInput): Promise<ConfirmPaymentResponse> {

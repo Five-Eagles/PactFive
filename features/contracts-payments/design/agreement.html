@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>contracts-payments — 금액 합의 (high-fi)</title>
+<link rel="stylesheet" href="_tokens.css" />
+<link rel="stylesheet" href="panel.css" />
+</head>
+<body>
+
+<div class="meta">
+  <h1>금액 합의</h1>
+  <p>패널만 · 앱 셸 없음 · /projects/:projectId/agreements · design-system v1.0 · 규칙 17</p>
+  <span class="fi">high-fi</span>
+</div>
+
+<section class="screen">
+  <div class="id">빈 생성 · 의뢰인</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">금액 합의</h2>
+      <span class="badge neutral">제안 전</span>
+    </div>
+    <p class="status-copy">아직 제안이 없습니다. <strong>의뢰인이 금액을 제안</strong>하면 프리랜서가 수락하거나 거절합니다.</p>
+    <dl class="facts">
+      <dt>프로젝트 제목</dt>
+      <dd>쇼핑몰 웹사이트 구축</dd>
+    </dl>
+    <div class="field-row">
+      <label class="label" for="agreement-amount">합의 금액</label>
+      <input class="field" id="agreement-amount" name="amount" inputmode="numeric" placeholder="금액" />
+      <p class="helper">단위는 원입니다. 제안한 금액이 계약과 결제의 근거가 됩니다.</p>
+    </div>
+    <div class="btn-row">
+      <button type="submit" class="btn primary">제안하기</button>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">의뢰인 제안 후 · 응답 대기</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">금액 합의</h2>
+      <span class="badge warning">응답 대기</span>
+    </div>
+    <p class="status-copy">의뢰인이 금액을 제안했습니다. <strong>프리랜서의 수락 또는 거절</strong>을 기다리는 중입니다.</p>
+    <dl class="facts">
+      <dt>프로젝트 제목</dt>
+      <dd>쇼핑몰 웹사이트 구축</dd>
+      <dt>합의 금액</dt>
+      <dd><span class="money">1,000,000원</span></dd>
+    </dl>
+    <p class="helper">지금은 바꿀 수 없습니다. 프리랜서가 응답하면 다음 단계로 갑니다.</p>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">프리랜서 응답</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">금액 합의</h2>
+      <span class="badge warning">응답 대기</span>
+    </div>
+    <p class="status-copy">의뢰인이 아래 금액을 제안했습니다. <strong>지금 수락하거나 거절</strong>할 수 있습니다. 거절하면 이 거래는 끝납니다.</p>
+    <dl class="facts">
+      <dt>프로젝트 제목</dt>
+      <dd>쇼핑몰 웹사이트 구축</dd>
+      <dt>합의 금액</dt>
+      <dd><span class="money">1,000,000원</span></dd>
+    </dl>
+    <div class="btn-row">
+      <button type="button" class="btn primary">수락하기</button>
+      <button type="button" class="btn danger">거절하기</button>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">로딩</div>
+  <article class="panel" aria-busy="true">
+    <div class="panel-head">
+      <h2 class="title">금액 합의</h2>
+    </div>
+    <p class="status-copy">로딩</p>
+    <p class="helper">합의 내용을 불러오는 중입니다.</p>
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">LOAD_FAILED</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">금액 합의</h2>
+    </div>
+    <p class="notice danger" role="alert">LOAD_FAILED</p>
+    <p class="status-copy">합의 내용을 불러오지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.</p>
+    <div class="btn-row">
+      <button type="button" class="btn primary">다시 시도</button>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">409 재조회</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">금액 합의</h2>
+    </div>
+    <p class="notice warning" role="status">내용이 바뀌었습니다</p>
+    <p class="status-copy">다른 당사자가 먼저 응답했거나 프로젝트가 바뀌었습니다. 최신 내용을 확인한 뒤 이어서 진행하세요.</p>
+    <div class="btn-row">
+      <button type="button" class="btn primary">다시 불러오기</button>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">취소 후 변경 숨김</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">금액 합의</h2>
+      <span class="badge danger">취소됨</span>
+    </div>
+    <p class="notice danger" role="alert">프로젝트가 취소되었습니다</p>
+    <p class="status-copy">이 프로젝트는 더 이상 조건을 바꿀 수 없습니다. 새로운 거래가 필요하면 의뢰인이 다시 모집해야 합니다.</p>
+  </article>
+</section>
+
+<section class="required">
+  <h2>필수 요소 목록</h2>
+  <p class="lead">기본 렌더링(빈 생성) 시 화면에 반드시 보여야 하는 <strong>정확한 텍스트</strong>다.
+  <code>prototype/run.tsx</code>가 <code>AgreementPanel</code>을 렌더링해 확인한다.</p>
+  <table>
+    <thead><tr><th>화면</th><th>종류</th><th>텍스트</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="2">빈 생성</td><td>placeholder</td><td>금액</td></tr>
+      <tr><td>버튼</td><td>제안하기</td></tr>
+      <tr><td>로딩</td><td>상태</td><td>로딩</td></tr>
+      <tr><td rowspan="2">LOAD_FAILED</td><td>안내</td><td>LOAD_FAILED</td></tr>
+      <tr><td>버튼</td><td>다시 시도</td></tr>
+      <tr><td>409</td><td>버튼</td><td>다시 불러오기</td></tr>
+      <tr><td>취소</td><td>안내</td><td>프로젝트가 취소되었습니다</td></tr>
+      <tr><td rowspan="2">프리랜서 응답</td><td>버튼</td><td>수락하기</td></tr>
+      <tr><td>버튼</td><td>거절하기</td></tr>
+    </tbody>
+  </table>
+  <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
+  프로젝트 제목·금액 숫자(데이터), 상태 배지 라벨. 취소 화면에는 제안하기·수락하기·거절하기가
+  <strong>없어야</strong> 한다.</p>
+</section>
+
+</body>
+</html>
