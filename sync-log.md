@@ -11,3 +11,4 @@
 | 2026-08-28 | engagement | 3e4977e | 북마크 3종·추천 server 반영. web은 SCR-B08·B09 반영(북마크 버튼 포함) |
 | 2026-08-28 | user-management | 8db808b | 실 Supabase 어댑터·RegistrationIntent·다중 Origin 검증 델타 반영 |
 | 2026-08-28 | contracts-payments | 47c7760 | 결제 포트·토스 어댑터 반영, /internal/v1 서빙 책임 이관(순수 호출자로 전환) |
+| 2026-08-29 | project-management | 3e4977e | SCR-B06(수정)·SCR-B10(재모집) web 반영 완료 — 서버·API 클라이언트·타입은 1차 반영에 이미 있었고 화면·라우팅만 추가. SCR-B10은 모달로 반영(판단 필요 — feedback_loop 항목 1). `shared/ui/tokens.css`에 오버레이·마이크로 인터랙션 모션 첫 적용(design-tokens.md §13) |
