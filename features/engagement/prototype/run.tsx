@@ -276,6 +276,51 @@ async function main() {
     );
   }
 
+  /* ═══════════ 4-2. 저장한 프로젝트 id (규칙 35·36) ═══════════ */
+  section("저장한 프로젝트 id");
+  {
+    const { svc, projectRead } = newSvc();
+    const res = await svc.listBookmarkedProjectIds(FREE);
+
+    check(res.status === 200, "id 조회 200");
+    check(Array.isArray(res.body.projectIds), "projectIds 배열");
+    check(
+      res.body.projectIds.every((id) => typeof id === "string"),
+      "id 문자열만 담는다 — 카드 데이터를 넣지 않는다",
+    );
+    check(
+      !("page" in res.body) && !("totalCount" in res.body),
+      "규칙 36: 페이지를 나누지 않는다",
+    );
+    check(
+      res.body.projectIds.includes("prj_deleted"),
+      "삭제된 프로젝트도 남긴다 — 화면에 없는 id 는 대조 결과를 바꾸지 않는다",
+    );
+    check(
+      projectRead.calls.bulk.length === 0 && projectRead.calls.candidates.length === 0,
+      "프로젝트를 한 번도 조회하지 않는다 — 그래서 목록보다 가볍다",
+    );
+
+    // 규칙 11 이 10개로 끊는 것과 달리, 여기는 전부 준다.
+    const paged = await svc.listBookmarks(FREE, { page: 1, pageSize: 2 });
+    check(
+      res.body.projectIds.length > paged.body.items.length,
+      "2페이지에 있는 항목도 id 조회에는 들어 있다",
+    );
+  }
+  {
+    const { svc } = newSvc();
+    const other = await svc.listBookmarkedProjectIds(FREE2);
+    check(other.body.projectIds.length === 1, "규칙 9: 남의 것은 섞이지 않는다");
+
+    await expectError("비로그인 id 조회", 401, "AUTH_REQUIRED", () =>
+      svc.listBookmarkedProjectIds(null),
+    );
+    await expectError("의뢰인 id 조회", 403, "BOOKMARK_ROLE_REQUIRED", () =>
+      svc.listBookmarkedProjectIds(CLIENT),
+    );
+  }
+
   /* ═══════════ 5. 추천 프로젝트 (규칙 16~28) ═══════════ */
   section("추천 프로젝트");
   {
@@ -470,6 +515,69 @@ async function main() {
     );
     // 규칙 14 — 지원만 막힌다.
     check(listHtml.includes("disabled"), "규칙 14: 마감된 항목은 지원 버튼이 비활성이다");
+  }
+
+  /* ═══════════ 8. 추천 사유 (CR-0006 · §6 근거 이해) ═══════════ */
+  section("근거 이해 — 추천 사유");
+  {
+    const { svc } = newSvc();
+    // 기준: prj_open_free — DESIGN · FIGMA
+    const res = await svc.getRecommendations("prj_open_free");
+
+    const byId = new Map(res.body.items.map((p) => [p.projectId, p]));
+    check(
+      byId.get("prj_reco_2")?.reason === "SAME_CATEGORY_AND_SKILL",
+      "1순위는 SAME_CATEGORY_AND_SKILL",
+    );
+    check(byId.get("prj_reco_3")?.reason === "SAME_CATEGORY", "2순위는 SAME_CATEGORY");
+    check(byId.get("prj_reco_4")?.reason === "SHARED_SKILL", "3순위는 SHARED_SKILL");
+    check(
+      byId.get("prj_reco_2")?.matchedSkills.includes("Figma") === true,
+      "무엇이 겹쳤는지까지 준다",
+    );
+    check(
+      byId.get("prj_reco_3")?.matchedSkills.length === 0,
+      "카테고리만 같으면 겹친 기술이 없다",
+    );
+
+    // 규칙 28 — 금지한 것은 점수와 순위값이다. 사유 문구는 대상이 아니다.
+    check(
+      res.body.items.every((p) => !("tier" in p) && !("score" in p) && !("rank" in p)),
+      "규칙 28: 순위값·점수는 여전히 내보내지 않는다",
+    );
+
+    const html = decode(
+      renderToStaticMarkup(
+        React.createElement(RecommendationSection, {
+          items: res.body.items.map((p) => ({ ...p, recruitmentStatus: p.recruitmentStatus })),
+        }),
+      ),
+    );
+    check(html.includes("디자인 · Figma 가 같아요"), "화면에 사유가 문장으로 나온다");
+    check(html.includes("디자인 분야예요"), "카테고리만 같을 때의 문구");
+    check(
+      !html.includes("1순위") && !html.includes("2순위"),
+      "순위 표현은 화면에도 없다",
+    );
+
+    // 사유를 모르면 지어내지 않는다.
+    const noReason = renderToStaticMarkup(
+      React.createElement(RecommendationSection, {
+        items: [
+          {
+            projectId: "prj_x",
+            title: "제목",
+            category: { category: "DESIGN", displayName: "디자인" },
+            budgetAmount: 1_000_000,
+            recruitmentDeadlineAt: "2026-09-20T14:59:59Z",
+            recruitmentStatus: "OPEN" as const,
+            skills: [],
+            applicationCount: 0,
+          },
+        ],
+      }),
+    );
+    check(!noReason.includes("reco__why"), "사유를 모르면 아무 말도 하지 않는다");
   }
 
   section("결과");

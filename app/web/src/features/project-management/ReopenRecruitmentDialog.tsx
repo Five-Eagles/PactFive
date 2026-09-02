@@ -20,7 +20,7 @@ import { reopenRecruitment } from './api/project';
  *
  * `open` 클래스는 마운트 다음 프레임에 붙인다(useEffect + rAF) — 마운트와 동시에 클래스를
  * 넣으면 브라우저가 opacity:0→1 전환을 감지하지 못해 §13 페이드인이 재생되지 않는다
- * (2026-09-01 발견: reference-snapshot.html에서 같은 실수를 먼저 하고 여기서도 고쳤다).
+ * (2026-09-01 발견: design-system 모션 규칙 데모 화면에서 같은 실수를 먼저 하고 여기서도 고쳤다).
  */
 export type ReopenRecruitmentDialogProps = {
   projectId: string;

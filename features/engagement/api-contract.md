@@ -130,6 +130,33 @@
 
 에러: 401 `AUTH_REQUIRED` · 403 `BOOKMARK_ROLE_REQUIRED` · 422 `VALIDATION_ERROR`(범위 밖 페이지)
 
+## GET /api/v1/bookmarks/ids — 저장한 프로젝트 id
+
+권한: 프리랜서 (본인 것만)
+
+쿼리 없음. **페이지를 나누지 않는다.**
+
+응답 200:
+
+```json
+{ "projectIds": ["prj_p01", "prj_p07", "prj_p12"] }
+```
+
+에러: 401 `AUTH_REQUIRED` · 403 `BOOKMARK_ROLE_REQUIRED`
+
+### 왜 목록과 따로 두는가
+
+목록·상세 카드의 북마크 아이콘은 **화면이 초기 상태를 만든다** (규칙 35). 그 대조에
+`GET /api/v1/bookmarks` 를 쓰면 10개씩 끊기므로(규칙 11) 2페이지에 있는 항목이 빈 별로
+보인다. 누르면 서버는 규칙 1대로 성공을 주지만 화면은 방금 저장한 것처럼 보인다.
+
+id 문자열만 담으므로 수백 건이어도 가볍다. 화면은 한 번 받아 `Set` 으로 갖고 카드마다
+대조한다.
+
+**삭제된 프로젝트 id 도 걸러내지 않는다.** 걸러내려면 프로젝트를 조회해야 하는데, 이 조회의
+목적은 "지금 보고 있는 카드가 저장돼 있는가"뿐이다. 화면에 없는 id 가 섞여 있어도 대조
+결과는 같다. 목록(규칙 12)과 다른 이유가 이것이다 — 목록은 카드를 그리므로 걸러야 한다.
+
 ## GET /api/v1/projects/:projectId/recommendations — 추천 프로젝트
 
 권한: **불필요.** 비로그인도 볼 수 있다
@@ -151,7 +178,9 @@
       "recruitmentDeadlineAt": "2026-09-20T14:59:59Z",
       "recruitmentStatus": "OPEN",
       "skills": [{ "skillId": "REACT", "displayName": "React" }],
-      "applicationCount": 1
+      "applicationCount": 1,
+      "reason": "SAME_CATEGORY_AND_SKILL",
+      "matchedSkills": ["React"]
     }
   ]
 }
@@ -162,6 +191,10 @@
 > **`recruitmentStatus` 는 언제나 `OPEN` 이다** (규칙 18). 그래도 필드를 넣는 것은 카드 컴포넌트가 북마크 목록과 같은 것을 쓰기 때문이다.
 >
 > **내부 점수와 순위값을 넣지 않는다** (규칙 28). 순위는 배열 순서로만 표현한다.
+>
+> 대신 `reason`(`SAME_CATEGORY_AND_SKILL` / `SAME_CATEGORY` / `SHARED_SKILL`)과
+> 겹친 기술 이름을 준다. 규칙 28 이 금지한 것은 숫자이지 사유가 아니다 —
+> 순서로만 표현하면 사용자는 왜 하필 이 4건인지 알 수 없다 (§6 근거 이해).
 >
 > 후보가 없으면 `items: []` 이고 `200` 이다. 화면이 섹션을 감춘다 (규칙 24).
 

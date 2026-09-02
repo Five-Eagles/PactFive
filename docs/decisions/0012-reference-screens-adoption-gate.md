@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 상태 | **제안됨 — 의사결정 게이트 미통과.** 게이트를 통과하기 전까지 project-wide 필수 적용 없음 |
+| 상태 | **폐기됨 (2026-09-02).** 팀 회의에서 반려 — §7 재검토·폐기조건에 따라 게이트 진행을 멈추고 폐기로 확정. 아래 "폐기 기록" 참고 |
 | 작성 | 팀장 + AI 협업자 |
 | 날짜 | 2026-09-02 |
 | 관련 결정 | `design-system/design-tokens.md` §13, `app/web/AGENTS.md` "무엇이 무엇의 정본인가", 2026-08-28 오후 회의(`pactfive_meeting_0828_pm.html` — 옵션 C "권장 가이드"로 보류했던 안건) |
@@ -82,3 +82,23 @@ project-wide 필수 규칙으로 못박을까?"라는 질문이 자연스럽게 
 - `app/web/AGENTS.md` (정본 표)
 - `design-system/design-tokens.md` (헤더)
 - `sdd-framework/feature-workflow.md` (게이트 통과 시에만 새 단계 추가)
+
+---
+
+## 폐기 기록 (구현 기록 — 결정 내용을 바꾸지 않음, adr-process.md 참고)
+
+- **날짜**: 2026-09-02
+- **경위**: §5 게이트 통과 기준(실제 기능에서 써보고 피드백, 팀원 전원 확인 등)을 충족하기 전에
+  팀 회의에서 `reference-screens.html`(화면 프리뷰판)이 반려됐다. §7의 "게이트 기준을 반복해서
+  통과 못 하면 폐기"까지 가지 않고, 그보다 이른 단계에서 팀이 직접 폐기를 결정한 경우다 — §7의
+  취지(결정 안 된 채로 방치하지 않는다)에 따라 이 경우도 명시적으로 "폐기됨"으로 남긴다.
+- **함께 폐기된 것**: `reference-snapshot.html`(규칙 설명판)도 같은 목적의 짝 파일이라 함께
+  제거했다. 두 파일 모두 `design-system/`에서 삭제했다.
+- **대체**: 팀은 "추상적 정책 문서만으로는 부족하고 구체적인 참고 페이지가 필요하다"는 데는
+  동의했다 — 다만 그 구체적 참고 페이지는 프로젝트 폴더에 이미 있던 홈페이지 메인 페이지
+  형태여야 한다는 의견이 나왔고, 이를 받아들여 `ux-philosophy/reference-main.html`로
+  대체했다(§6 "구현 예시" 개념과 동일한 역할, `ux-philosophy.md` §7 참고).
+- **반영한 문서**: `app/web/AGENTS.md`(정본 표에서 두 행 제거, `reference-main.html` 행 추가),
+  `design-system/design-tokens.md`(헤더·§13 참조 제거), `app/web/src/shared/ui/tokens.css`·
+  `ReopenRecruitmentDialog.tsx`(버그 발견 경위 주석에서 파일명만 제거, 설명은 유지) — 전부
+  같은 날 반영.
