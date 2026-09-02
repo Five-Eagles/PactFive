@@ -4,7 +4,7 @@
 |---|---|
 | 제기 | 유동우 (project-management) · 2026-09-02 |
 | 대상 | 본인 담당 영역 — 보고용. 회신 필요 없음 |
-| 상태 | 개선 진행 중 |
+| 상태 | **완료 (2026-09-02).** project-management 3건 전부 고쳤다. engagement 2건 중 1건은 팀 판단 대기 |
 | 근거 | `ux-philosophy/ux-philosophy.md` §6 · `design-system/design-tokens.md` §8 |
 
 ## 어떻게 발견했나
@@ -120,14 +120,19 @@ recruitment_status → CLOSED
 
 ---
 
-## 순서
+## 처리 결과
 
-작은 단위로 나눠 올린다. 한 커밋이 커지면 리뷰가 어려워진다.
+작은 단위로 나눠 올렸다. 한 커밋이 커지면 리뷰가 어려워진다.
 
-```
-1  DestructiveActionSummary        결함 1 — 데이터 손실로 이어지는 것부터
-2  MoneyBreakdown                  결함 2 (화면 쪽)
-3  등록 입력 브라우저 보존          결함 3
-4  추천 사유 문구                   engagement
-5  budgetSource 필드                api-contract 변경 — 별도 제기
-```
+| | 무엇 | 커밋 | 검사 |
+|---|---|---|---|
+| ✅ | `DestructiveActionSummary` — 결함 1 | `7c82773` 433줄 | 12건 |
+| ✅ | `MoneyBreakdown` — 결함 2 | `d69e8e8` 279줄 | 12건 |
+| ✅ | `useDraft` — 결함 3 | 이 커밋 | 11건 |
+| ⏳ | 추천 사유 문구 — engagement | 다음 | |
+| ⏸ | 추천 접기 — engagement | **팀 판단 대기** | |
+
+`run.tsx` PASS 265 → 300. `test-report.md` §6 7항목 전부 충족.
+
+**결함 2 는 ERD 컬럼이 필요해 CR-0007 로 따로 올렸다.** 마이그레이션 전까지
+Mock 에서만 값이 유지되지만 동작은 깨지지 않는다 — 출처를 모르면 화면이 조용하다.

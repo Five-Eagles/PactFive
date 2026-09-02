@@ -1491,6 +1491,92 @@ async function main() {
     check(edit.includes("AI 단가 분석이 제안한 금액입니다"), "수정 화면에 출처가 붙는다");
   }
 
+  /* ═══════════ 10. 작업 보호 (CR-0006 결함 3) ═══════════ */
+  section("작업 보호 — 등록 입력 보존");
+  {
+    const { createMemoryDraftStore } = await import("./web/useDraft");
+    const { ProjectRegisterForm } = await import("./web/ProjectRegisterForm");
+
+    const store = createMemoryDraftStore();
+
+    // 아직 아무것도 안 넣었으면 저장할 것도 없다.
+    renderToStaticMarkup(React.createElement(ProjectRegisterForm, { draftStore: store }));
+    check(Object.keys(store.dump()).length === 0, "입력이 없으면 아무것도 저장하지 않는다");
+
+    // 저장된 초안이 있으면 되살린다. 서버 렌더링에서도 값이 들어가야 한다.
+    const saved = createMemoryDraftStore();
+    saved.write(
+      "pactfive:draft:project-register",
+      JSON.stringify({
+        version: 1,
+        savedAt: "2026-09-02T10:30:00Z",
+        value: {
+          title: "물류 관리 도구 개발",
+          description: "창고 재고를 실시간으로 확인할 수 있는 도구가 필요합니다.",
+          category: "WEB_DEVELOPMENT",
+          recruitmentStartAt: "",
+          recruitmentDeadlineAt: "",
+          budgetAmount: "6100000",
+          skillIds: ["NODEJS"],
+        },
+      }),
+    );
+    const html = decode(
+      renderToStaticMarkup(React.createElement(ProjectRegisterForm, { draftStore: saved })),
+    );
+    check(html.includes("물류 관리 도구 개발"), "저장된 초안을 되살린다");
+    check(html.includes("창고 재고를"), "긴 설명도 되살린다 — 다시 쓰지 않게 하는 것이 목적이다");
+
+    // **몰래 되살리지 않는다.** 무엇이 복원됐는지 알리고 버릴 길을 준다.
+    check(html.includes("작성 중이던 내용을 불러왔습니다"), "복원했다는 사실을 알린다");
+    check(html.includes("2026-09-02 10:30"), "언제 저장된 것인지 알린다");
+    check(html.includes("처음부터 작성"), "초안을 버릴 길이 있다 (§6 선택권)");
+    check(html.includes('role="status"'), "복원 안내가 보조 기술에 전달된다");
+
+    // 필드 구성이 바뀌면 옛 초안을 되살리지 않는다.
+    // 되살리면 없는 칸에 값이 들어가거나 새 칸이 비어 더 헷갈린다.
+    const stale = createMemoryDraftStore();
+    stale.write(
+      "pactfive:draft:project-register",
+      JSON.stringify({ version: 0, savedAt: "2026-08-01T00:00:00Z", value: { title: "옛 초안" } }),
+    );
+    const staleHtml = renderToStaticMarkup(
+      React.createElement(ProjectRegisterForm, { draftStore: stale }),
+    );
+    check(!staleHtml.includes("옛 초안"), "형식이 다른 옛 초안은 되살리지 않는다");
+    check(
+      stale.dump()["pactfive:draft:project-register"] === undefined,
+      "되살리지 않은 초안은 지운다",
+    );
+
+    // 깨진 값이면 조용히 버린다. 사용자가 할 수 있는 것이 없다.
+    const broken = createMemoryDraftStore();
+    broken.write("pactfive:draft:project-register", "{ 깨진 JSON");
+    const brokenHtml = renderToStaticMarkup(
+      React.createElement(ProjectRegisterForm, { draftStore: broken }),
+    );
+    check(
+      !brokenHtml.includes("작성 중이던 내용"),
+      "깨진 초안으로 복원 안내를 띄우지 않는다",
+    );
+
+    // 저장 자체가 실패하는 브라우저 설정이 있다. 그래도 입력을 막지 않는다.
+    const failing = {
+      read: () => null,
+      write: () => {
+        throw new Error("quota");
+      },
+      remove: () => {},
+    };
+    let threw = false;
+    try {
+      renderToStaticMarkup(React.createElement(ProjectRegisterForm, { draftStore: failing }));
+    } catch {
+      threw = true;
+    }
+    check(!threw, "저장이 막힌 환경에서도 화면이 뜬다 — 보존은 편의지 필수가 아니다");
+  }
+
   section("결과");
   console.log(`PASS ${passCount} · FAIL ${failCount}`);
   if (failCount > 0) {
