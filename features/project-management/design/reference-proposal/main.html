@@ -188,27 +188,7 @@
   /* ── 추천 전문가 ──────────────────────────────────────────
      ※ 프리랜서 탐색은 PRD 화면 목록(§7.1)에 없다. 시안의 구성을 살려 두되
         데이터 출처는 README 의 "확인이 필요한 것"에 적어 두었다. */
-  .ecard { overflow:hidden; display:flex; flex-direction:column; }
-  .ecard__thumb { aspect-ratio:16/10; background:var(--surface-subtle);
-    border-bottom:1px solid var(--border-subtle); }
-  .ecard__thumb img { width:100%; height:100%; object-fit:cover; display:block; }
-  .ecard__who { display:flex; align-items:center; gap:10px; padding:12px 14px 5px; }
-  .avatar { flex:none; width:43px; height:43px; border-radius:var(--r-pill);
-    display:grid; place-items:center; font-weight:800; font-size:15px;
-    color:var(--content-inverse); background:var(--navy-500);
-    border:3px solid var(--surface); box-shadow:0 0 0 1px var(--border-subtle); }
-  .ecard__name { font-size:15px; color:var(--content); min-width:0;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .ecard__name b { font-size:16px; margin-right:4px; }
-  .verified { display:inline-grid; place-items:center; width:15px; height:15px;
-    border-radius:var(--r-pill); background:var(--info); color:var(--content-inverse);
-    font-size:9px; margin-left:4px; vertical-align:1px; }
-  .ecard__meta { display:flex; gap:18px; align-items:center; margin:0;
-    padding:0 16px 15px 72px; color:var(--content-secondary); font-size:13px; }
-  .star { color:var(--rating-star); }
-  .online::before { content:""; display:inline-block; width:8px; height:8px;
-    border-radius:var(--r-pill); background:var(--success); margin-right:6px; }
-
+  /* 전문가 카드 스타일은 _tokens.css 에 있다 — experts.html 과 같은 것을 쓴다 */
   footer { border-top:1px solid var(--border-subtle); background:var(--surface); }
   footer .wrap { display:flex; flex-wrap:wrap; gap:var(--gap-5);
     padding-top:var(--gap-5); padding-bottom:var(--gap-6);
@@ -256,7 +236,6 @@
     .cat__ico { width:48px; height:44px; }
     .cat__ico svg { width:42px; height:38px; }
     .grid3, .grid4 { grid-template-columns:1fr; }
-    .ecard__meta { padding-left:16px; }
   }
   @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
 </style>
@@ -275,7 +254,7 @@
     <span class="brand">Pact<em>Five</em></span>
     <nav>
       <a href="browse.html">프로젝트 찾기</a>
-      <a href="#" data-notyet="experts">전문가 찾기</a>
+      <a href="experts.html">전문가 찾기</a>
       <a href="#" data-notyet="guide">이용 방법</a>
       <a href="#" data-notyet="safety">안전한 거래</a>
     </nav>
@@ -329,7 +308,7 @@
                   <span class="pill">B2B 서비스 구축 기획전</span>
                   <h2>복잡한 운영을 바꾸는<br />검증된 전문가</h2>
                   <p>기획부터 개발까지 한팀처럼</p>
-                  <a class="cta" href="browse.html#category=WEB_DEVELOPMENT">전문가 확인하기</a>
+                  <a class="cta" href="experts.html#category=WEB_DEVELOPMENT">전문가 확인하기</a>
                 </div>
                 <div class="banner__visual">
                   <img src="assets/banner-b2b.jpg" alt="" width="640" height="360" />
@@ -518,66 +497,11 @@
     <section class="sec" style="padding-top:0">
       <div class="sec__head">
         <h3>이번 주 추천 전문가</h3>
-        <a class="sec__more" href="#" data-notyet="experts">전체 보기 ›</a>
+        <a class="sec__more" href="experts.html">전체 보기 ›</a>
       </div>
 
-      <div class="grid4">
-        <article class="card ecard">
-          <div class="ecard__thumb"><img src="assets/expert-dashboard.jpg" alt="김다은의 대시보드 작업물" width="640" height="400" /></div>
-          <div class="ecard__who">
-            <span class="avatar" aria-hidden="true">김</span>
-            <span class="ecard__name"><b>김다은</b> · Product designer
-              <span class="verified" aria-label="본인 확인됨">✓</span></span>
-          </div>
-          <p class="ecard__meta">
-            <span><span class="star">★</span> <span class="num">4.9</span>
-              <span class="caption num">(38)</span></span>
-            <span class="online">활동 가능</span>
-          </p>
-        </article>
-
-        <article class="card ecard">
-          <div class="ecard__thumb"><img src="assets/expert-backoffice.jpg" alt="박서윤의 백오피스 작업물" width="640" height="400" /></div>
-          <div class="ecard__who">
-            <span class="avatar" aria-hidden="true">박</span>
-            <span class="ecard__name"><b>박서윤</b> · Frontend developer
-              <span class="verified" aria-label="본인 확인됨">✓</span></span>
-          </div>
-          <p class="ecard__meta">
-            <span><span class="star">★</span> <span class="num">5.0</span>
-              <span class="caption num">(21)</span></span>
-            <span class="online">활동 가능</span>
-          </p>
-        </article>
-
-        <article class="card ecard">
-          <div class="ecard__thumb"><img src="assets/expert-branding.jpg" alt="이준호의 브랜딩 작업물" width="640" height="400" /></div>
-          <div class="ecard__who">
-            <span class="avatar" aria-hidden="true">이</span>
-            <span class="ecard__name"><b>이준호</b> · Brand designer
-              <span class="verified" aria-label="본인 확인됨">✓</span></span>
-          </div>
-          <p class="ecard__meta">
-            <span><span class="star">★</span> <span class="num">4.9</span>
-              <span class="caption num">(64)</span></span>
-            <span class="online">활동 가능</span>
-          </p>
-        </article>
-
-        <article class="card ecard">
-          <div class="ecard__thumb"><img src="assets/expert-content.jpg" alt="최유진의 콘텐츠 작업물" width="640" height="400" /></div>
-          <div class="ecard__who">
-            <span class="avatar" aria-hidden="true">최</span>
-            <span class="ecard__name"><b>최유진</b> · Content creator
-              <span class="verified" aria-label="본인 확인됨">✓</span></span>
-          </div>
-          <p class="ecard__meta">
-            <span><span class="star">★</span> <span class="num">4.8</span>
-              <span class="caption num">(42)</span></span>
-            <span class="online">활동 가능</span>
-          </p>
-        </article>
-      </div>
+      <!-- experts.html 과 같은 카드다. demo/experts.js 가 그린다 -->
+      <div class="grid4" id="homeExperts"></div>
     </section>
   </div>
 </main>
@@ -590,6 +514,7 @@
 
 <script src="demo/data.js"></script>
 <script src="demo/engine.js"></script>
+<script src="demo/experts.js"></script>
 <script src="demo/bookmarks.js"></script>
 <script src="demo/session.js"></script>
 <script src="demo/notyet.js"></script>
@@ -641,6 +566,14 @@ window.PactFiveInit.main = function () {
       var v = document.getElementById("q").value.trim();
       location.href = "browse.html" + (v ? "#keyword=" + encodeURIComponent(v) : "#");
     });
+  }
+
+  /* ── 추천 전문가 ── */
+  var eslot = document.getElementById("homeExperts");
+  if (eslot) {
+    // 평점순 앞의 4명. 목록 화면과 같은 카드·같은 순서 규칙을 쓴다
+    eslot.innerHTML = window.PactFiveExperts.list({ sortBy: "rating" })
+      .items.slice(0, 4).map(window.PactFiveExperts.cardHTML).join("");
   }
 
   /* ── 기획전 슬라이드 ── */

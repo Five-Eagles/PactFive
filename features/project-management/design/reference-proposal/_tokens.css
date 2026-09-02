@@ -344,3 +344,48 @@ a { color:inherit; text-decoration:none; }
 .picker__role { font-size:11px; font-weight:700; color:var(--action-quiet);
   background:var(--surface-selected); border-radius:var(--r-pill); padding:2px 8px; }
 .picker__note { font-size:12px; color:var(--content-tertiary); }
+
+/* ── 전문가 카드 ─────────────────────────────────────────────
+ * main.html(추천 전문가)과 experts.html(목록)이 **같은 것을 쓴다.**
+ * 두 벌로 두면 한쪽만 고쳐진다 — 프로젝트 카드(.pcard)와 같은 이유다.
+ *
+ * ⚠ 전문가 탐색은 PRD 화면 목록에 없는 기능이다 (README 「확인이 필요한 것」).
+ */
+/* ── 전문가 카드 ──────────────────────────────────────────
+   겹: 썸네일이 판, 흰 카드가 표면, 아바타가 표면 위로 걸쳐 나온다 */
+.ecard { overflow:hidden; display:flex; flex-direction:column;
+  box-shadow:var(--shadow-card), var(--edge-top);
+  transition:transform var(--dur-feedback) var(--ease-feedback),
+             box-shadow var(--dur-feedback) var(--ease-feedback),
+             border-color var(--dur-feedback) var(--ease-feedback); }
+.ecard:hover { transform:translateY(-2px); box-shadow:var(--shadow-raise);
+  border-color:var(--border-focus); }
+.ecard__thumb { display:block; aspect-ratio:16/10; background:var(--surface-subtle);
+  border-bottom:1px solid var(--border-subtle); }
+.ecard__thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+
+.ecard__who { display:flex; align-items:center; gap:10px; padding:0 var(--gap-4);
+  margin-top:-21px; }
+.avatar { flex:none; width:42px; height:42px; border-radius:var(--r-pill);
+  display:grid; place-items:center; font-weight:800; font-size:15px;
+  color:var(--content-inverse); background:var(--navy-500);
+  border:3px solid var(--surface); box-shadow:0 0 0 1px var(--border-subtle); }
+.ecard__name { min-width:0; padding-top:18px; }
+.ecard__name b { display:block; font-size:15px; letter-spacing:-.01em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ecard__title { display:block; font-size:12px; color:var(--content-tertiary); }
+
+.ecard__meta { display:flex; align-items:center; justify-content:space-between;
+  gap:var(--gap-2); margin:var(--gap-3) 0 0; padding:0 var(--gap-4); }
+.ecard__rate { font-size:13px; color:var(--content-secondary); white-space:nowrap; }
+.ecard__rate.none { color:var(--content-tertiary); font-size:12px; }
+.star { color:var(--rating-star); }
+
+.ecard__facts { display:flex; gap:var(--gap-4); margin:var(--gap-3) 0 0;
+  padding:var(--gap-3) var(--gap-4) 0; border-top:1px solid var(--border-subtle);
+  font-size:12.5px; color:var(--content-tertiary); }
+.ecard__facts b { color:var(--content); }
+
+.ecard__skills { display:flex; flex-wrap:wrap; gap:var(--gap-1);
+  margin:var(--gap-3) 0 0; padding:0 var(--gap-4) var(--gap-4); }
+

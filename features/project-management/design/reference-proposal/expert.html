@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>전문가 프로필 — 제안</title>
+<link rel="stylesheet" href="_tokens.css" />
+<style>
+  /* ═══════════════════════════════════════════════════════
+     전문가 프로필 — 형식 제안
+
+     ⚠ PRD 화면 목록(§7.1)에 없다. 형식만 제안하고 값은 지어낸 것이다.
+
+     프로젝트 상세(detail.html)와 같은 뼈대를 쓴다 —
+     왼쪽에 내용, 오른쪽에 행동. 두 상세 화면이 다르게 생기면
+     같은 일을 두 번 배워야 한다.
+     ═══════════════════════════════════════════════════════ */
+
+  .crumb { margin:var(--gap-4) 0 0; font-size:13px; color:var(--content-tertiary); }
+  .crumb a { color:var(--action-quiet); font-weight:600; }
+  .crumb a:hover { text-decoration:underline; }
+
+  /* ── 프로필 머리 — 노란 판 위에 흰 카드가 걸친다 ─────────
+     겹: 노란 띠(판) → 흰 카드(표면) → 아바타(부양) */
+  .hero { position:relative; margin-top:var(--gap-4);
+    border-radius:var(--r-lg) var(--r-lg) 0 0;
+    background:var(--campaign-yellow-soft);
+    border:1px solid var(--campaign-yellow-edge); border-bottom:0;
+    height:96px; }
+  .card-head { position:relative; margin-top:-40px;
+    display:grid; grid-template-columns:auto minmax(0,1fr) auto;
+    gap:var(--gap-4); align-items:end;
+    padding:0 var(--gap-5) var(--gap-5); }
+  .pavatar { width:88px; height:88px; border-radius:var(--r-pill);
+    display:grid; place-items:center; font-size:32px; font-weight:800;
+    color:var(--content-inverse); background:var(--navy-500);
+    border:4px solid var(--surface); box-shadow:var(--shadow-raise); }
+  .who h1 { margin:0; font-size:28px; letter-spacing:-.03em; }
+  .who p { margin:4px 0 0; font-size:14px; color:var(--content-secondary); }
+  .who__chips { display:flex; flex-wrap:wrap; gap:var(--gap-1); margin-top:var(--gap-2); }
+
+  .rate { text-align:right; white-space:nowrap; }
+  .rate b { font-size:22px; font-variant-numeric:tabular-nums; }
+  .rate .star { color:var(--rating-star); }
+  .rate span { display:block; font-size:12px; color:var(--content-tertiary); }
+  .rate.none b { font-size:14px; font-weight:600; color:var(--content-tertiary); }
+
+  .body { display:grid; grid-template-columns:minmax(0,1fr) 300px;
+    gap:var(--gap-5); padding-bottom:var(--gap-7); }
+  .block { padding:var(--gap-5); margin-bottom:var(--gap-4);
+    box-shadow:var(--shadow-card), var(--edge-top); }
+  .block h2 { margin:0 0 var(--gap-3); font-size:17px; letter-spacing:-.02em; }
+  .bio { margin:0; font-size:14.5px; line-height:1.8; color:var(--content-secondary); }
+
+  /* 포트폴리오 — 작업물이 이 화면의 본론이다. 가장 큰 자리를 준다 */
+  .shots { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--gap-3); }
+  .shot { position:relative; border-radius:var(--r-md); overflow:hidden;
+    border:1px solid var(--border-subtle); background:var(--surface-subtle); }
+  .shot img { display:block; width:100%; aspect-ratio:16/10; object-fit:cover; }
+  .shot figcaption { padding:var(--gap-3); font-size:13px;
+    color:var(--content-secondary); border-top:1px solid var(--border-subtle); }
+  .shot figcaption b { display:block; color:var(--content); font-size:13.5px;
+    margin-bottom:2px; }
+
+  .kv { display:grid; grid-template-columns:96px minmax(0,1fr); gap:var(--gap-3);
+    padding:var(--gap-3) 0; border-bottom:1px solid var(--border-subtle);
+    font-size:14px; }
+  .kv:last-child { border-bottom:0; }
+  .kv__k { color:var(--content-tertiary); }
+
+  /* 받은 평가 */
+  .rev { padding:var(--gap-4) 0; border-bottom:1px solid var(--border-subtle); }
+  .rev:last-child { border-bottom:0; padding-bottom:0; }
+  .rev__top { display:flex; align-items:baseline; gap:var(--gap-3);
+    margin-bottom:6px; font-size:13px; }
+  .rev__who { font-weight:700; }
+  .rev__when { color:var(--content-tertiary); margin-left:auto; }
+  .rev p { margin:0; font-size:14px; line-height:1.7; color:var(--content-secondary); }
+
+  /* 오른쪽 행동 — 프로젝트 상세와 같은 자리 */
+  .side { align-self:start; position:sticky; top:var(--gap-4); }
+  .hire { padding:var(--gap-5); box-shadow:var(--shadow-card), var(--edge-top); }
+  .hire__rate { font-size:13px; color:var(--content-tertiary); }
+  .hire__rate b { display:block; font-size:24px; font-weight:800; color:var(--content);
+    letter-spacing:-.02em; margin-top:2px; }
+  .hire .btn { width:100%; margin-top:var(--gap-4); }
+  .hire__note { margin:var(--gap-3) 0 0; font-size:12.5px; line-height:1.6;
+    color:var(--content-tertiary); }
+
+  .note { max-width:var(--page-max); margin:0 auto var(--gap-3);
+    padding:var(--gap-2) var(--gap-3); border-radius:var(--r-md);
+    background:var(--info-surface); color:var(--info); font-size:13px; line-height:1.6; }
+
+  @media (max-width:1023px) {
+    .body { grid-template-columns:1fr; }
+    .side { position:static; }
+  }
+  @media (max-width:767px) {
+    .card-head { grid-template-columns:auto minmax(0,1fr); gap:var(--gap-3);
+      padding:0 var(--gap-4) var(--gap-4); }
+    .pavatar { width:64px; height:64px; font-size:24px; }
+    .who h1 { font-size:22px; }
+    .rate { grid-column:1 / -1; text-align:left; }
+    .shots { grid-template-columns:1fr; }
+  }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+
+<div class="page" style="padding-top:var(--gap-3)">
+  <p class="note"><b>제안 — 확정 아님.</b> 전문가 프로필은 PRD 화면 목록(§7.1)에 없다.
+  값은 지어낸 것이고, 형식은 ERD 의 <code>users</code> · <code>freelancer_profiles</code> ·
+  <code>freelancer_skills</code> 컬럼만 썼다.</p>
+</div>
+
+<header class="appbar">
+  <div class="appbar__in">
+    <a class="logo" href="main.html">Pact<em>Five</em></a>
+    <nav>
+      <a href="browse.html">프로젝트 찾기</a>
+      <a href="experts.html">전문가 찾기</a>
+    </nav>
+    <span class="spacer"></span>
+    <span data-session-actions></span>
+  </div>
+</header>
+
+<main class="page" id="ev">
+  <!-- 주소의 id 가 누구인지 정한다. demo/experts.js 가 그린다 -->
+</main>
+
+<script src="demo/data.js"></script>
+<script src="demo/engine.js"></script>
+<script src="demo/experts.js"></script>
+<script src="demo/bookmarks.js"></script>
+<script src="demo/session.js"></script>
+<script src="demo/notyet.js"></script>
+<script>
+/*
+ * 전문가 프로필.
+ *
+ * "지원하기"가 아니라 **"프로젝트 등록하고 제안받기"** 다.
+ * 이 서비스에서 일은 프로젝트를 통해 오간다 — 사람에게 바로 발주하는 길은 없다
+ * (PRD §5.2 전체 흐름). 없는 길을 버튼으로 만들지 않는다.
+ */
+window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit.expert = function () {
+  "use strict";
+  var X = window.PactFiveExperts, D = window.PactFiveData, E = window.PactFiveEngine;
+  var root = document.getElementById("ev");
+
+  /** 받은 평가. 리뷰가 있는 사람만 보여준다 — 없으면 섹션 자체를 감춘다 */
+  var REVIEWS = [
+    { who: "주식회사 마루컴퍼니", when: "2026.08.21", text: "요청한 것보다 먼저 물어봐 주셔서 헤맬 일이 없었습니다. 중간 공유가 꾸준했습니다." },
+    { who: "라온물류", when: "2026.07.30", text: "일정이 촉박했는데 무엇을 먼저 뺄지 같이 정해 주셨습니다. 다음에도 함께하고 싶습니다." },
+    { who: "데일리핏", when: "2026.06.12", text: "결과물도 좋았지만 왜 그렇게 했는지 설명이 명확했습니다." },
+  ];
+
+  function render() {
+    var id = new URLSearchParams((window.__pactfiveQuery || location.hash.slice(1)) || "").get("id");
+    var x = id ? X.find(id) : null;
+
+    if (!x) {
+      root.innerHTML =
+        '<div class="empty" role="status" style="margin-top:var(--gap-7)">' +
+          "<h3>전문가를 찾을 수 없습니다</h3>" +
+          "<p>주소가 바뀌었거나 활동을 멈춘 계정입니다.</p>" +
+          '<a class="btn primary" href="experts.html">전문가 찾기</a>' +
+        "</div>";
+      return;
+    }
+
+    var hasReviews = x.reviews > 0;
+    var shots = [x.shot, (x.shot + 1) % 4, (x.shot + 2) % 4, (x.shot + 3) % 4];
+    var shotNames = ["운영 대시보드", "백오피스 화면", "브랜드 가이드", "콘텐츠 패키지"];
+
+    root.innerHTML =
+      '<p class="crumb"><a href="experts.html">전문가 찾기</a> › ' +
+        '<a href="experts.html#category=' + x.category + '">' + E.esc(D.categoryName(x.category)) + "</a></p>" +
+
+      '<div class="hero" aria-hidden="true"></div>' +
+      '<div class="card" style="border-radius:0 0 var(--r-lg) var(--r-lg)">' +
+        '<div class="card-head">' +
+          '<span class="pavatar" aria-hidden="true">' + E.esc(x.name.slice(0, 1)) + "</span>" +
+          '<span class="who">' +
+            "<h1>" + E.esc(x.name) + "</h1>" +
+            "<p>" + E.esc(x.title) + "</p>" +
+            '<span class="who__chips">' +
+              '<span class="chip">' + E.esc(D.categoryName(x.category)) + "</span>" +
+              x.skills.map(function (s) {
+                return '<span class="chip">' + E.esc(D.skillName(s)) + "</span>";
+              }).join("") +
+            "</span>" +
+          "</span>" +
+          (hasReviews
+            ? '<span class="rate"><b><span class="star">★</span> ' + x.rating.toFixed(1) + "</b>" +
+              "<span>리뷰 " + x.reviews + "건</span></span>"
+            // 0.0 으로 그리면 "나쁘다"로 읽힌다. "아직 없다"와 다르다
+            : '<span class="rate none"><b>평가 없음</b><span>첫 거래를 기다립니다</span></span>') +
+        "</div>" +
+      "</div>" +
+
+      '<div class="body" style="margin-top:var(--gap-5)">' +
+        "<div>" +
+          '<section class="card block"><h2>소개</h2>' +
+            '<p class="bio">' + E.esc(x.bio) + "</p></section>" +
+
+          '<section class="card block"><h2>작업물</h2>' +
+            '<div class="shots">' +
+              shots.map(function (n, i) {
+                return "<figure class=\"shot\" style=\"margin:0\">" +
+                  '<img src="' + X.SHOTS[n] + '" alt="' + E.esc(x.name) + "의 " + shotNames[i] + '" width="640" height="400" />' +
+                  "<figcaption><b>" + shotNames[i] + "</b>" +
+                    D.categoryName(x.category) + " · " + (2026 - i) + "</figcaption>" +
+                "</figure>";
+              }).join("") +
+            "</div></section>" +
+
+          '<section class="card block"><h2>기본 정보</h2>' +
+            '<div class="kv"><span class="kv__k">주요 분야</span>' +
+              "<span>" + E.esc(D.categoryName(x.category)) + "</span></div>" +
+            '<div class="kv"><span class="kv__k">경력</span>' +
+              '<span class="num">' + x.years + "년</span></div>" +
+            '<div class="kv"><span class="kv__k">시간당 단가</span>' +
+              '<span class="num">' + x.rate.toLocaleString("ko-KR") + "원</span></div>" +
+            '<div class="kv"><span class="kv__k">기술</span><span>' +
+              x.skills.map(function (s) {
+                return '<span class="chip">' + E.esc(D.skillName(s)) + "</span>";
+              }).join("") +
+            "</span></div>" +
+          "</section>" +
+
+          // 리뷰가 없으면 섹션을 감춘다. 빈 제목만 남기지 않는다
+          (hasReviews
+            ? '<section class="card block"><h2>받은 평가 <span class="caption num">' +
+                x.reviews + "건 중 3건</span></h2>" +
+                REVIEWS.map(function (r) {
+                  return '<div class="rev"><p class="rev__top">' +
+                    '<span class="rev__who">' + r.who + "</span>" +
+                    '<span class="star">★ ' + x.rating.toFixed(1) + "</span>" +
+                    '<span class="rev__when num">' + r.when + "</span></p>" +
+                    "<p>" + r.text + "</p></div>";
+                }).join("") +
+              "</section>"
+            : "") +
+        "</div>" +
+
+        '<aside class="side">' +
+          '<div class="card hire">' +
+            '<p class="hire__rate">시간당 <b class="num">' + x.rate.toLocaleString("ko-KR") + "원</b></p>" +
+            // 사람에게 바로 발주하는 길은 이 서비스에 없다. 프로젝트를 통한다
+            '<button class="btn primary" type="button" data-notyet="register">프로젝트 등록하고 제안받기</button>' +
+            '<p class="hire__note">이 서비스는 프로젝트를 통해 일이 오갑니다. ' +
+            "프로젝트를 등록하면 이 전문가를 포함해 조건에 맞는 분들이 지원합니다.</p>" +
+          "</div>" +
+        "</aside>" +
+      "</div>";
+
+    document.title = x.name + " · PactFive";
+    window.scrollTo(0, 0);
+  }
+
+  window.PactFiveSession.paintHeader();
+  render();
+};
+
+if (document.getElementById("ev")) {
+  window.PactFiveSession.bind();
+  window.PactFiveNotYet.bind();
+  window.addEventListener("hashchange", function () { window.PactFiveInit.expert(); });
+  document.addEventListener("pactfive:session", function () {
+    window.PactFiveSession.paintHeader();
+  });
+  window.PactFiveInit.expert();
+}
+</script>
+
+</body>
+</html>

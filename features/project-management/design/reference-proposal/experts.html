@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>전문가 찾기 — 제안</title>
+<link rel="stylesheet" href="_tokens.css" />
+<style>
+  /* ═══════════════════════════════════════════════════════
+     전문가 찾기 — 형식 제안
+
+     ⚠ PRD 화면 목록(§7.1)에 없는 기능이다. 시안의 "전문가 찾기" 자리를
+     채우기 위한 제안이며 만들지 말지는 팀이 정한다.
+
+     디자인은 목록 화면(browse.html)과 **같은 규칙**을 쓴다.
+       색   노랑=바탕과 포인트 · 청록=행동 · 남색=정보
+       겹   판(뒤로 물러난 면) · 표면(흰 면 + 위쪽 밝은 선) · 부양(그림자)
+       카드 정보 순서를 고정한다. 순서가 카드마다 다르면 눈으로 비교할 수 없다
+     ═══════════════════════════════════════════════════════ */
+
+  /* 목록 위의 소개 띠. 노란 판을 여기 한 번만 쓴다 —
+     프로젝트 목록에는 없는 화면이라 어디에 왔는지 알려 줄 필요가 있다 */
+  .lead { background:var(--campaign-yellow-soft);
+    border-bottom:1px solid var(--campaign-yellow-edge); }
+  .lead__in { max-width:var(--page-max); margin:0 auto;
+    padding:var(--gap-6) var(--gutter) var(--gap-5); }
+  .lead h1 { margin:0; font-size:32px; letter-spacing:-.04em; font-weight:800; }
+  .lead p { margin:var(--gap-3) 0 0; font-size:15px; color:var(--content-secondary);
+    max-width:52ch; }
+
+  .layout { display:grid; grid-template-columns:236px minmax(0,1fr);
+    gap:var(--gap-5); padding:var(--gap-5) 0 var(--gap-7); }
+
+  /* 상시 필터 패널. browse.html 과 같은 구조다 — 두 화면이 다르게 생기면
+     같은 일을 두 번 배워야 한다 */
+  .filters { align-self:start; position:sticky; top:var(--gap-4);
+    padding:var(--gap-4); }
+  .filters h2 { margin:0 0 var(--gap-3); font-size:15px; }
+  .fgroup { padding:var(--gap-3) 0; border-top:1px solid var(--border-subtle); }
+  .fgroup b { display:block; font-size:13px; margin-bottom:var(--gap-2); }
+  .fgroup label { display:flex; align-items:center; gap:var(--gap-2);
+    padding:3px 0; font-size:13px; color:var(--content-secondary); cursor:pointer; }
+  .fgroup input { accent-color:var(--action); }
+
+  .toolbar { display:flex; align-items:center; gap:var(--gap-3);
+    margin-bottom:var(--gap-4); flex-wrap:wrap; }
+  .count { margin:0; margin-right:auto; font-size:14px; color:var(--content-secondary); }
+  .sorts { display:flex; gap:var(--gap-1); }
+  .sorts button { border:1px solid var(--border-subtle); background:var(--surface);
+    border-radius:var(--r-pill); padding:7px var(--gap-3);
+    font:inherit; font-size:13px; color:var(--content-tertiary); cursor:pointer; }
+  .sorts button[aria-pressed="true"] { border-color:var(--action);
+    color:var(--action-quiet); font-weight:700; background:var(--surface-selected); }
+
+  .grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--gap-4); }
+
+  /* 전문가 카드 스타일은 _tokens.css 에 있다 — main.html 과 같은 것을 쓴다 */
+
+  .pager { display:flex; gap:var(--gap-1); justify-content:center;
+    margin-top:var(--gap-5); }
+  .pager button { min-width:36px; height:36px; border-radius:var(--r-md);
+    border:1px solid var(--border-subtle); background:var(--surface);
+    font:inherit; font-size:14px; color:var(--content-secondary); cursor:pointer; }
+  .pager button[aria-current="page"] { border-color:var(--action);
+    color:var(--action-quiet); font-weight:700; background:var(--surface-selected); }
+
+  .note { max-width:var(--page-max); margin:0 auto var(--gap-3);
+    padding:var(--gap-2) var(--gap-3); border-radius:var(--r-md);
+    background:var(--info-surface); color:var(--info); font-size:13px; line-height:1.6; }
+
+  @media (max-width:1279px) { .grid4 { grid-template-columns:repeat(3,1fr); } }
+  @media (max-width:1023px) {
+    .layout { grid-template-columns:1fr; }
+    .filters { position:static; }
+    .fgroup { display:inline-block; margin-right:var(--gap-5); vertical-align:top;
+      border-top:0; }
+    .grid4 { grid-template-columns:repeat(2,1fr); }
+  }
+  @media (max-width:767px) {
+    .lead h1 { font-size:25px; }
+    .grid4 { grid-template-columns:1fr; }
+  }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+
+<div class="page" style="padding-top:var(--gap-3)">
+  <p class="note"><b>제안 — 확정 아님.</b> 전문가 탐색은 PRD 화면 목록(§7.1)에 없다.
+  자리를 채우기 위한 <b>형식 제안</b>이고 데이터는 지어낸 것이다.
+  형식은 ERD 에 있는 컬럼만 썼다 — 만들기로 하면 컬럼을 새로 파지 않아도 된다.</p>
+</div>
+
+<header class="appbar">
+  <div class="appbar__in">
+    <a class="logo" href="main.html">Pact<em>Five</em></a>
+    <nav>
+      <a href="browse.html">프로젝트 찾기</a>
+      <a href="experts.html" style="color:var(--action);font-weight:700">전문가 찾기</a>
+    </nav>
+    <span class="spacer"></span>
+    <span data-session-actions></span>
+  </div>
+</header>
+
+<section class="lead">
+  <div class="lead__in">
+    <h1>일을 맡길 전문가를 찾아보세요</h1>
+    <p>경력·단가·받은 평가를 같은 자리에서 비교합니다. 마음에 드는 사람을 찾으면
+      프로젝트를 등록하고 지원을 받으세요.</p>
+  </div>
+</section>
+
+<main class="page">
+  <div class="layout">
+    <aside class="card filters" id="filters">
+      <h2>필터</h2>
+      <div class="fgroup">
+        <b>분야</b>
+        <label><input type="radio" name="cat" value="" checked /> 전체</label>
+        <label><input type="radio" name="cat" value="WEB_DEVELOPMENT" /> 웹 개발</label>
+        <label><input type="radio" name="cat" value="MOBILE_APP" /> 모바일 앱</label>
+        <label><input type="radio" name="cat" value="DESIGN" /> 디자인</label>
+        <label><input type="radio" name="cat" value="DATA_AI" /> 데이터 · AI</label>
+        <label><input type="radio" name="cat" value="PLANNING" /> 기획</label>
+        <label><input type="radio" name="cat" value="MARKETING" /> 마케팅</label>
+      </div>
+      <div class="fgroup">
+        <b>기술 <span class="caption">전부 만족</span></b>
+        <label><input type="checkbox" name="skill" value="REACT" /> React</label>
+        <label><input type="checkbox" name="skill" value="TYPESCRIPT" /> TypeScript</label>
+        <label><input type="checkbox" name="skill" value="NODEJS" /> Node.js</label>
+        <label><input type="checkbox" name="skill" value="PYTHON" /> Python</label>
+        <label><input type="checkbox" name="skill" value="SQL" /> SQL</label>
+        <label><input type="checkbox" name="skill" value="FIGMA" /> Figma</label>
+        <label><input type="checkbox" name="skill" value="FLUTTER" /> Flutter</label>
+        <label><input type="checkbox" name="skill" value="AWS" /> AWS</label>
+      </div>
+      <button class="btn quiet sm" id="reset" type="button" style="width:100%">필터 초기화</button>
+    </aside>
+
+    <section>
+      <div class="toolbar">
+        <p class="count" id="count"></p>
+        <div class="sorts" role="group" aria-label="정렬">
+          <button type="button" data-sort="rating" aria-pressed="true">평점순</button>
+          <button type="button" data-sort="reviews" aria-pressed="false">리뷰 많은순</button>
+          <button type="button" data-sort="years" aria-pressed="false">경력순</button>
+        </div>
+      </div>
+
+      <div class="grid4 enter" id="grid"></div>
+      <div id="empty" hidden></div>
+      <div class="pager" id="pager"></div>
+    </section>
+  </div>
+</main>
+
+<script src="demo/data.js"></script>
+<script src="demo/engine.js"></script>
+<script src="demo/experts.js"></script>
+<script src="demo/bookmarks.js"></script>
+<script src="demo/session.js"></script>
+<script src="demo/notyet.js"></script>
+<script>
+/*
+ * 전문가 목록.
+ *
+ * 조건은 해시에 남긴다 — browse.html 과 같은 방식이다. 두 목록 화면이
+ * 서로 다르게 동작하면 사용자가 같은 일을 두 번 배워야 한다.
+ */
+window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit.experts = function () {
+  "use strict";
+  var X = window.PactFiveExperts;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function readQuery() {
+    var u = new URLSearchParams((window.__pactfiveQuery || location.hash.slice(1)) || "");
+    return {
+      category: u.get("category") || "",
+      skills: (u.get("skills") || "").split(",").filter(Boolean),
+      sortBy: u.get("sortBy") || "rating",
+      page: Number(u.get("page")) || 1,
+    };
+  }
+
+  function writeQuery(q) {
+    var u = new URLSearchParams();
+    if (q.category) u.set("category", q.category);
+    if (q.skills.length) u.set("skills", q.skills.join(","));
+    if (q.sortBy !== "rating") u.set("sortBy", q.sortBy);
+    if (q.page > 1) u.set("page", q.page);
+    location.hash = u.toString() ? "#" + u : "#";
+  }
+
+  function fill(q) {
+    document.querySelectorAll('input[name="cat"]').forEach(function (r) {
+      r.checked = r.value === q.category;
+    });
+    document.querySelectorAll('input[name="skill"]').forEach(function (c) {
+      c.checked = q.skills.indexOf(c.value) !== -1;
+    });
+    document.querySelectorAll("[data-sort]").forEach(function (b) {
+      b.setAttribute("aria-pressed", b.dataset.sort === q.sortBy ? "true" : "false");
+    });
+  }
+
+  function collect() {
+    var cat = document.querySelector('input[name="cat"]:checked');
+    var pressed = document.querySelector('[data-sort][aria-pressed="true"]');
+    return {
+      category: cat ? cat.value : "",
+      skills: Array.prototype.map.call(
+        document.querySelectorAll('input[name="skill"]:checked'),
+        function (c) { return c.value; },
+      ),
+      sortBy: pressed ? pressed.dataset.sort : "rating",
+      page: 1, // 조건이 바뀌면 1페이지로. 3페이지에서 좁히면 빈 화면이 나온다
+    };
+  }
+
+  function render() {
+    var q = readQuery();
+    fill(q);
+    var res = X.list(q);
+
+    $("count").innerHTML = '조건에 맞는 전문가 <b class="num">' + res.totalCount + "</b>명";
+    $("grid").innerHTML = res.items.map(X.cardHTML).join("");
+    $("grid").hidden = res.totalCount === 0;
+
+    var hasCondition = q.category || q.skills.length;
+    $("empty").hidden = res.totalCount > 0;
+    $("empty").innerHTML = res.totalCount > 0 ? "" :
+      '<div class="empty" role="status">' +
+        "<h3>조건에 맞는 전문가가 없습니다</h3>" +
+        "<p>기술을 여러 개 고르면 전부 만족하는 사람만 나옵니다. 하나씩 빼 보세요.</p>" +
+        (hasCondition ? '<button class="btn secondary sm" id="clearAll" type="button">조건 모두 지우기</button>' : "") +
+      "</div>";
+
+    var html = "";
+    if (res.totalPages > 1) {
+      for (var i = 1; i <= res.totalPages; i++) {
+        html += '<button type="button" data-page="' + i + '"' +
+          (i === res.page ? ' aria-current="page"' : "") + ">" + i + "</button>";
+      }
+    }
+    $("pager").innerHTML = html;
+  }
+
+  function apply() { writeQuery(collect()); render(); }
+
+  $("filters").addEventListener("change", apply);
+  document.querySelector(".sorts").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-sort]");
+    if (!b) return;
+    document.querySelectorAll("[data-sort]").forEach(function (x) {
+      x.setAttribute("aria-pressed", x === b ? "true" : "false");
+    });
+    apply();
+  });
+  $("pager").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-page]");
+    if (!b) return;
+    var q = readQuery(); q.page = Number(b.dataset.page);
+    writeQuery(q); render(); window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  $("reset").addEventListener("click", function () {
+    writeQuery({ category: "", skills: [], sortBy: readQuery().sortBy, page: 1 });
+    render();
+  });
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#clearAll")) return;
+    location.hash = "#";
+    render();
+  });
+
+  window.PactFiveSession.paintHeader();
+  render();
+};
+
+if (document.getElementById("grid") && document.querySelector(".lead")) {
+  window.PactFiveSession.bind();
+  window.PactFiveNotYet.bind();
+  window.addEventListener("hashchange", function () { window.PactFiveInit.experts(); });
+  document.addEventListener("pactfive:session", function () {
+    window.PactFiveSession.paintHeader();
+  });
+  window.PactFiveInit.experts();
+}
+</script>
+
+</body>
+</html>
