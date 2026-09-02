@@ -288,5 +288,21 @@
   </div>
 </main>
 
+
+<script>
+  /*
+   * 대표페이지 검색창이 넘긴 값을 받는다.
+   *
+   * 시안이라 서버가 없다. 실제 화면은 이 값을 `GET /api/v1/projects?keyword=` 로 보내고
+   * 서버가 title 과 description 에서 찾는다 (spec.md 규칙 · PRD §3.6).
+   * 여기서는 무엇이 넘어왔는지만 보여준다 — 넘긴 값이 사라지면 사용자가 다시 입력한다.
+   */
+  (function () {
+    var keyword = new URLSearchParams(location.search).get("keyword");
+    if (!keyword) return;
+    var field = document.getElementById("q");
+    if (field) field.value = keyword;
+  })();
+</script>
 </body>
 </html>
