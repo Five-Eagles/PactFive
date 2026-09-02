@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>contracts-payments — 결제 (high-fi)</title>
+<link rel="stylesheet" href="_tokens.css" />
+<link rel="stylesheet" href="panel.css" />
+</head>
+<body>
+
+<div class="meta">
+  <h1>결제</h1>
+  <p>패널만 · 앱 셸 없음 · /projects/:projectId/payments/:paymentId · design-system v1.0 · 규칙 9·17</p>
+  <span class="fi">high-fi</span>
+</div>
+
+<section class="screen">
+  <div class="id">체크아웃 · 금액 근거</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">결제</h2>
+      <span class="badge neutral">결제 전</span>
+    </div>
+    <p class="status-copy">계약이 체결되었습니다. <strong>의뢰인이 결제</strong>하면 작업이 시작됩니다.</p>
+    <dl class="facts">
+      <dt>프로젝트 제목</dt>
+      <dd>쇼핑몰 웹사이트 구축</dd>
+      <dt>결제 금액</dt>
+      <dd><span class="money">100,000원</span></dd>
+    </dl>
+    <p class="helper">이 금액은 합의에서 확정된 값입니다. 화면에서 바꾸지 않습니다.</p>
+    <div class="btn-row">
+      <button type="button" class="btn primary">결제하기</button>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">키 없음</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">결제</h2>
+      <span class="badge warning">연동 준비 중</span>
+    </div>
+    <p class="notice warning" role="status">결제 연동 준비 중</p>
+    <p class="status-copy">지금은 결제를 진행할 수 없습니다. 연동이 끝나면 다시 시도해 주세요.</p>
+    <div class="btn-row">
+      <button type="button" class="btn secondary">다시 시도</button>
+    </div>
+  </article>
+</section>
+
+<section class="required">
+  <h2>필수 요소 목록</h2>
+  <p class="lead">기본 렌더링(체크아웃)과 키 없음 상태의 <strong>정확한 텍스트</strong>다.
+  <code>prototype/run.tsx</code>가 <code>PaymentPanel</code>을 렌더링해 확인한다.</p>
+  <table>
+    <thead><tr><th>화면</th><th>종류</th><th>텍스트</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="2">체크아웃</td><td>금액</td><td>결제 금액</td></tr>
+      <tr><td>버튼</td><td>결제하기</td></tr>
+      <tr><td rowspan="2">키 없음</td><td>안내</td><td>연동 준비 중</td></tr>
+      <tr><td>버튼</td><td>다시 시도</td></tr>
+    </tbody>
+  </table>
+  <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
+  프로젝트 제목·금액 숫자(데이터). 키 없음 화면에는 결제하기가 <strong>없어야</strong> 한다.
+  프론트는 시크릿을 읽지 않는다.</p>
+</section>
+
+</body>
+</html>

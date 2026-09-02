@@ -16,12 +16,14 @@
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
-/** 서버가 4xx/5xx를 돌려줬을 때 던지는 에러. 화면단은 status로 분기한다. */
+/** 서버가 4xx/5xx를 돌려줬을 때 던지는 에러. 화면단은 status(또는 code)로 분기한다. */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
     readonly body?: unknown,
+    /** 서버 오류 코드(`error.code`) — 있으면 화면단이 status보다 이 값으로 분기하는 걸 우선한다. */
+    readonly code?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -54,6 +56,24 @@ type RequestOptions = {
   query?: Record<string, string | number | boolean | undefined | null>;
   /** 인증 헤더를 붙이지 않는다 (로그인·회원가입 등 공개 엔드포인트). */
   skipAuth?: boolean;
+  /**
+   * `setAuthTokenProvider`가 아직 최신값을 모를 수 있는 상황(예: 방금 refresh로 받은 토큰으로
+   * 바로 다음 요청을 보내야 하는 세션 복원 흐름)을 위한 명시적 토큰 override.
+   * 지정하면 provider 호출을 건너뛰고 이 값을 그대로 쓴다.
+   */
+  authToken?: string;
+  /**
+   * 401을 받아도 `setUnauthorizedHandler`로 등록된 처리(보통 로그인 화면으로 이동)를
+   * 실행하지 않는다. `ApiError`는 그대로 던지므로 호출부가 직접 판단한다.
+   *
+   * **세션 복원 요청에만 쓴다.** 앱이 뜰 때 "로그인 상태가 남아 있나" 물어보는 호출은,
+   * 실패해도 그건 "로그인한 적이 없다"는 정상적인 답이다. 이걸 만료로 취급해 로그인 화면으로
+   * 보내면 무한 리로드가 된다 — 이동 → 앱 재마운트 → 다시 복원 시도 → 401 → 이동.
+   * 공개 화면(프로젝트 탐색·상세)을 비로그인이 못 보게 되는 문제도 함께 생긴다.
+   *
+   * 사용자가 명시적으로 요청한 보호 API가 401을 받는 경우(진짜 만료)에는 이 옵션을 쓰지 않는다.
+   */
+  skipUnauthorizedHandler?: boolean;
   signal?: AbortSignal;
 };
 
@@ -79,7 +99,9 @@ async function request<T>(
 
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
-  if (!options.skipAuth) {
+  if (options.authToken) {
+    headers.Authorization = `Bearer ${options.authToken}`;
+  } else if (!options.skipAuth) {
     const token = await getAuthToken();
     if (token) headers.Authorization = `Bearer ${token}`;
   }
@@ -89,24 +111,34 @@ async function request<T>(
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: options.signal,
+    // app/web·app/server는 Vercel 프로젝트가 분리돼 배포 시 서로 다른 오리진이다(ADR-0007).
+    // user-management의 Refresh Token은 HttpOnly 쿠키로만 전달되므로(app/server/AGENTS.md
+    // "외부 벤더 연동" · features/user-management/api-contract.md) 크로스 오리진에서도 쿠키가
+    // 실리도록 항상 포함한다. 로컬 개발은 vite proxy로 동일 오리진이 되어 영향이 없다.
+    credentials: 'include',
   });
 
   if (response.status === 401) {
-    onUnauthorized?.();
-    throw new ApiError(401, '인증이 필요합니다.');
+    if (!options.skipUnauthorizedHandler) onUnauthorized?.();
+    const payload = await parseBody(response);
+    throw new ApiError(401, extractMessage(payload, '인증이 필요합니다.'), payload, extractCode(payload));
   }
 
   // 204 No Content 등 본문이 없는 응답
   if (response.status === 204) return undefined as T;
 
-  const text = await response.text();
-  const payload: unknown = text ? safeJsonParse(text) : undefined;
+  const payload = await parseBody(response);
 
   if (!response.ok) {
-    throw new ApiError(response.status, extractMessage(payload, response.statusText), payload);
+    throw new ApiError(response.status, extractMessage(payload, response.statusText), payload, extractCode(payload));
   }
 
   return payload as T;
+}
+
+async function parseBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  return text ? safeJsonParse(text) : undefined;
 }
 
 function safeJsonParse(text: string): unknown {
@@ -117,12 +149,32 @@ function safeJsonParse(text: string): unknown {
   }
 }
 
+/**
+ * 에러 메시지를 두 형식에서 찾는다.
+ *   1. `{ error: { code, message, details } }` — 표준 계약(user-management api-contract.md 등)
+ *   2. `{ message }` — 초기 스캐폴드(sample-login류)의 단순 형식과의 하위 호환
+ */
 function extractMessage(payload: unknown, fallback: string): string {
+  const nested = extractErrorObject(payload)?.message;
+  if (typeof nested === 'string') return nested;
   if (payload && typeof payload === 'object' && 'message' in payload) {
     const message = (payload as { message: unknown }).message;
     if (typeof message === 'string') return message;
   }
   return fallback;
+}
+
+function extractCode(payload: unknown): string | undefined {
+  const code = extractErrorObject(payload)?.code;
+  return typeof code === 'string' ? code : undefined;
+}
+
+function extractErrorObject(payload: unknown): { code?: unknown; message?: unknown } | undefined {
+  if (payload && typeof payload === 'object' && 'error' in payload) {
+    const error = (payload as { error: unknown }).error;
+    if (error && typeof error === 'object') return error as { code?: unknown; message?: unknown };
+  }
+  return undefined;
 }
 
 export const http = {

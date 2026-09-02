@@ -1,3 +1,4 @@
+import { MOCK_INTERNAL_SERVICE_TOKEN } from "../server/project-transaction.constants";
 import type { ProjectTransactionPort } from "../server/project-transaction.port";
 import {
   DomainContractError,
@@ -45,6 +46,7 @@ function seedProjects(): Map<string, ProjectRecord> {
       transactionStatus: "CANCELED",
       canceledAt: "2026-08-24T00:00:00Z",
     },
+    // A3: 수락 전에는 acceptedApplicationId가 null이며 합의에 들어가지 않는다.
     { ...baseProject("prj_null_accept"), acceptedApplicationId: null },
     { ...baseProject("prj_in_progress"), transactionStatus: "IN_PROGRESS", projectVersion: 8 },
     { ...baseProject("prj_completed"), transactionStatus: "COMPLETED", projectVersion: 9 },
@@ -64,6 +66,7 @@ function baseProject(projectId: string): ProjectRecord {
     projectId,
     clientId: "usr_client_a",
     recruitmentStatus: "CLOSED",
+    // A1·A4: 수락·잔여 거절·알림이 끝난 상태. 수락 지원은 1건.
     transactionStatus: "CONTRACT_PENDING",
     acceptedApplicationId: "app_123",
     recruitmentDeadlineAt: "2026-09-16T14:59:59Z",
@@ -108,11 +111,19 @@ function idempotencyKeyOf(projectId: string, key: string): string {
   return `${projectId}:${key}`;
 }
 
-/** 테스트마다 새 저장소를 만든다. */
-export function createProjectTransactionMock(nowIso: string = MOCK_NOW): ProjectTransactionPort & {
+export type ProjectTransactionMockOptions = {
+  serviceToken?: string;
+};
+
+/** 테스트마다 새 저장소를 만든다. 토큰이 다르면 모든 메서드를 거부한다. */
+export function createProjectTransactionMock(
+  nowIso: string = MOCK_NOW,
+  options: ProjectTransactionMockOptions = {},
+): ProjectTransactionPort & {
   getRecruitmentStartAt(projectId: string): string | null;
   getCallCounts(): Record<string, number>;
 } {
+  const serviceToken = options.serviceToken ?? MOCK_INTERNAL_SERVICE_TOKEN;
   const projects = seedProjects();
   const idempotency: IdempotencyStore = new Map();
   const callCounts = {
@@ -122,6 +133,14 @@ export function createProjectTransactionMock(nowIso: string = MOCK_NOW): Project
     completeProjectTransaction: 0,
     restorePreContractProject: 0,
   };
+
+  function assertServiceToken(): void {
+    if (serviceToken !== MOCK_INTERNAL_SERVICE_TOKEN) {
+      throw new DomainContractError("VALIDATION_ERROR", "서버 간 토큰이 올바르지 않습니다.", [
+        { field: "authorization", reason: "invalid" },
+      ]);
+    }
+  }
 
   function findAlive(projectId: string): ProjectRecord {
     const row = projects.get(projectId);
@@ -161,11 +180,13 @@ export function createProjectTransactionMock(nowIso: string = MOCK_NOW): Project
     },
 
     async getProjectNegotiationContext(projectId: string) {
+      assertServiceToken();
       callCounts.getProjectNegotiationContext += 1;
       return toContext(findAlive(projectId));
     },
 
     async markPaymentPending(projectId: string, input: MarkPaymentPendingInput) {
+      assertServiceToken();
       callCounts.markPaymentPending += 1;
       requireEnvelope(input);
       if (!input.contractId) {
@@ -208,8 +229,14 @@ export function createProjectTransactionMock(nowIso: string = MOCK_NOW): Project
     },
 
     async startProjectTransaction(projectId: string, input: StartProjectTransactionInput) {
+      assertServiceToken();
       callCounts.startProjectTransaction += 1;
       requireEnvelope(input);
+      if (!input.contractId) {
+        throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
+          { field: "contractId", reason: "required" },
+        ]);
+      }
       if (input.expectedProjectVersion === undefined || input.expectedProjectVersion === null) {
         throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
           { field: "expectedProjectVersion", reason: "required" },
@@ -235,6 +262,7 @@ export function createProjectTransactionMock(nowIso: string = MOCK_NOW): Project
           "프로젝트 상태가 변경되어 처리할 수 없습니다.",
         );
       }
+      // A3: CONTRACT_PENDING인데 수락 지원이 없으면 start에 들어가지 않는다.
       if (!row.acceptedApplicationId) {
         throw new DomainContractError(
           "PROJECT_TRANSITION_CONFLICT",
@@ -256,8 +284,14 @@ export function createProjectTransactionMock(nowIso: string = MOCK_NOW): Project
     },
 
     async completeProjectTransaction(projectId: string, input: CompleteProjectTransactionInput) {
+      assertServiceToken();
       callCounts.completeProjectTransaction += 1;
       requireEnvelope(input);
+      if (!input.contractId) {
+        throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
+          { field: "contractId", reason: "required" },
+        ]);
+      }
       if (input.expectedProjectVersion === undefined || input.expectedProjectVersion === null) {
         throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
           { field: "expectedProjectVersion", reason: "required" },
@@ -298,6 +332,7 @@ export function createProjectTransactionMock(nowIso: string = MOCK_NOW): Project
     },
 
     async restorePreContractProject(projectId: string, input: RestorePreContractProjectInput) {
+      assertServiceToken();
       callCounts.restorePreContractProject += 1;
       requireEnvelope(input);
       const details: Array<{ field: string; reason: string }> = [];

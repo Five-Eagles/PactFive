@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>contracts-payments — 계약 서명 (high-fi)</title>
+<link rel="stylesheet" href="_tokens.css" />
+<link rel="stylesheet" href="panel.css" />
+</head>
+<body>
+
+<div class="meta">
+  <h1>계약 서명</h1>
+  <p>패널만 · 앱 셸 없음 · /projects/:projectId/contracts/:contractId · design-system v1.0 · 규칙 17</p>
+  <span class="fi">high-fi</span>
+</div>
+
+<section class="screen">
+  <div class="id">서명하기 · 조건 근거</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">계약 서명</h2>
+      <span class="badge neutral">작성 중</span>
+    </div>
+    <p class="status-copy">합의된 조건입니다. 내용을 확인한 뒤 <strong>서명하기</strong>를 누르면 이 계약에 동의합니다. 상대도 같은 조건에 서명해야 결제가 시작됩니다.</p>
+    <dl class="facts">
+      <dt>프로젝트 제목</dt>
+      <dd>쇼핑몰 웹사이트 구축</dd>
+      <dt>합의 금액</dt>
+      <dd><span class="money">1,000,000원</span></dd>
+    </dl>
+    <p class="helper">서명 뒤에는 이 금액을 바꿀 수 없습니다.</p>
+    <div class="btn-row">
+      <button type="button" class="btn primary">서명하기</button>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">상대 서명 대기</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">계약 서명</h2>
+      <span class="badge warning">서명 중</span>
+    </div>
+    <p class="status-copy">내 서명은 완료되었습니다. <strong>상대방의 서명</strong>을 기다리는 중입니다. 양쪽이 서명하면 결제로 넘어갑니다.</p>
+    <dl class="facts">
+      <dt>프로젝트 제목</dt>
+      <dd>쇼핑몰 웹사이트 구축</dd>
+      <dt>합의 금액</dt>
+      <dd><span class="money">1,000,000원</span></dd>
+    </dl>
+    <p class="helper">서명은 한 번만 기록됩니다. 상대가 서명할 때까지 기다려 주세요.</p>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">취소 안내</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">계약 서명</h2>
+      <span class="badge danger">무효</span>
+    </div>
+    <p class="notice danger" role="alert">프로젝트가 취소되었습니다</p>
+    <p class="status-copy">서명을 진행할 수 없습니다. 이 계약은 더 이상 유효하지 않습니다.</p>
+  </article>
+</section>
+
+<section class="required">
+  <h2>필수 요소 목록</h2>
+  <p class="lead">기본 렌더링 시 화면에 반드시 보여야 하는 <strong>정확한 텍스트</strong>다.
+  <code>prototype/run.tsx</code>가 <code>ContractSignPanel</code>을 렌더링해 확인한다.</p>
+  <table>
+    <thead><tr><th>화면</th><th>종류</th><th>텍스트</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="3">서명</td><td>라벨</td><td>프로젝트 제목</td></tr>
+      <tr><td>라벨</td><td>합의 금액</td></tr>
+      <tr><td>버튼</td><td>서명하기</td></tr>
+      <tr><td>취소</td><td>안내</td><td>프로젝트가 취소되었습니다</td></tr>
+    </tbody>
+  </table>
+  <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
+  제목·금액 숫자(데이터). 취소 화면에는 서명하기가 <strong>없어야</strong> 한다.
+  취소 문구는 PRD §14.9 정본.</p>
+</section>
+
+</body>
+</html>

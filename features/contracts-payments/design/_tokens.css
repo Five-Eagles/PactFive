@@ -1,0 +1,162 @@
+/* PactFive design-system v1.0 Foundation MVP — high-fi 시안 공용 토큰
+ *
+ * 정본은 `design-system/design-tokens.md`의 TS 블록이다. 이 파일은 그 값을
+ * CSS 변수로 옮긴 사본이며, 시안 HTML이 semantic·componentTokens만 참조하도록
+ * 하기 위해 둔다. primitive 는 여기서만 쓰고 화면에서 직접 참조하지 않는다.
+ *
+ * 토큰이 바뀌면 이 파일 한 곳만 고친다.
+ */
+
+:root {
+  /* ── primitive (여기서만 사용) ─────────────────────── */
+  --navy-50:#F5F7FA; --navy-100:#E9EDF3; --navy-400:#8995A8; --navy-500:#667085;
+  --navy-600:#55627A; --navy-950:#0B132B;
+  --teal-50:#E7F5F4; --teal-500:#008A8D; --teal-700:#006D70; --teal-800:#00585C;
+  --rust-50:#FDEEEA; --rust-700:#C9472E;
+  --white:#FFFFFF;
+
+  /* ── semantic ─────────────────────────────────────── */
+  --canvas:            var(--navy-50);
+  --surface:           var(--white);
+  --surface-subtle:    #F7F9FB;
+  --surface-selected:  var(--teal-50);
+  --content:           var(--navy-950);
+  --content-secondary: var(--navy-600);
+  --content-tertiary:  var(--navy-500);
+  --content-disabled:  var(--navy-400);
+  --content-inverse:   var(--white);
+  --border:            #E1E6ED;
+  --border-subtle:     var(--navy-100);
+  --border-focus:      var(--teal-500);
+  --action:            var(--teal-700);
+  --action-hover:      var(--teal-800);
+  --action-text:       var(--white);
+  --action-secondary-text: var(--teal-700);
+  --action-disabled:   var(--navy-100);
+  --action-disabled-text: var(--navy-400);
+  --success:#2E7D46; --success-surface:#EAF6EE;
+  --warning:#8A5B00; --warning-surface:#FDF3D7;
+  --danger:var(--rust-700); --danger-surface:var(--rust-50);
+  --info:#1E62C9; --info-surface:#EAF1FC;
+
+  /* ── componentTokens ─────────────────────────────── */
+  --btn-h:44px; --btn-pad:16px; --btn-radius:8px;
+  --field-h:48px; --field-pad:16px; --field-radius:8px;
+  --card-radius:12px; --card-pad:20px;
+  --chip-h:28px; --chip-pad:10px; --chip-radius:999px;
+  --dialog-radius:16px; --dialog-pad:24px;
+
+  /* ── 타이포 ──────────────────────────────────────── */
+  --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--canvas);
+  color: var(--content);
+  margin: 0;
+  padding: 32px 20px 64px;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+/* 시안 메타 정보 */
+.meta { max-width: 1120px; margin: 0 auto 20px; }
+.meta h1 { font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: -.6px; margin: 0 0 6px; }
+.meta p { margin: 0; font-size: 14px; color: var(--content-tertiary); }
+.meta .fi { display:inline-block; margin-top:10px; background: var(--surface-selected);
+  color: var(--action); font-size:12px; font-weight:600; padding:4px 10px; border-radius: var(--chip-radius); }
+
+/* 화면 프레임 */
+.screen { max-width: 1120px; margin: 0 auto 28px; }
+.screen > .id { font-size: 12px; font-weight: 600; letter-spacing: .2px;
+  color: var(--content-tertiary); margin-bottom: 8px; }
+.frame { background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--card-radius); overflow: hidden; }
+.frame > header { height: 72px; display: flex; align-items: center; gap: 32px;
+  padding: 0 24px; border-bottom: 1px solid var(--border-subtle); }
+.frame > header .logo { font-weight: 800; letter-spacing: -.4px; }
+.frame > header nav { display: flex; gap: 24px; font-size: 14px; color: var(--content-secondary); }
+.body-pad { padding: 24px; }
+
+/* 타이포 클래스 */
+.h2 { font-size:32px; line-height:40px; font-weight:700; letter-spacing:-.6px; margin:0 0 4px; }
+.h3 { font-size:24px; line-height:32px; font-weight:700; letter-spacing:-.6px; margin:0 0 12px; }
+.title { font-size:20px; line-height:28px; font-weight:700; letter-spacing:-.2px; margin:0 0 8px; }
+.body-strong { font-size:16px; font-weight:600; }
+.label { font-size:14px; line-height:20px; font-weight:600; display:block; margin-bottom:6px; }
+.helper { font-size:14px; line-height:20px; color: var(--content-tertiary); margin:6px 0 0; }
+.caption { font-size:12px; line-height:16px; font-weight:500; color: var(--content-tertiary); }
+
+/* 입력 */
+.field { height: var(--field-h); width:100%; padding: 0 var(--field-pad);
+  border: 1px solid var(--border); border-radius: var(--field-radius);
+  background: var(--surface); color: var(--content); font: inherit; }
+.field::placeholder { color: var(--content-tertiary); }
+.field:focus { outline: 2px solid var(--border-focus); outline-offset: -1px; }
+.field[disabled] { background: var(--surface-subtle); color: var(--content-disabled); }
+textarea.field { height: auto; min-height: 120px; padding: 12px var(--field-pad); resize: vertical; }
+.field-row { margin-bottom: 20px; }
+
+/* 버튼 */
+.btn { height: var(--btn-h); padding: 0 var(--btn-pad); border-radius: var(--btn-radius);
+  border: 1px solid transparent; font: inherit; font-weight: 600; cursor: pointer; }
+.btn.primary { background: var(--action); color: var(--action-text); }
+.btn.primary:hover { background: var(--action-hover); }
+.btn.secondary { background: var(--surface); color: var(--action-secondary-text); border-color: var(--action); }
+.btn.quiet { background: transparent; color: var(--content-secondary); }
+.btn.danger { background: var(--surface); color: var(--danger); border-color: var(--danger); }
+.btn[disabled] { background: var(--action-disabled); color: var(--action-disabled-text);
+  border-color: transparent; cursor: not-allowed; }
+.btn-row { display: flex; gap: 12px; align-items: center; }
+
+/* 배지 · 칩 */
+.badge { display:inline-flex; align-items:center; height: var(--chip-h);
+  padding: 0 var(--chip-pad); border-radius: var(--chip-radius);
+  font-size:12px; font-weight:600; }
+.badge.open      { background: var(--success-surface); color: var(--success); }
+.badge.scheduled { background: var(--info-surface);    color: var(--info); }
+.badge.closed    { background: var(--surface-subtle);  color: var(--content-tertiary); }
+.badge.canceled  { background: var(--danger-surface);  color: var(--danger); }
+.badge.reopen    { background: var(--warning-surface);  color: var(--warning); }
+.chip { display:inline-flex; align-items:center; height: var(--chip-h);
+  padding: 0 var(--chip-pad); border-radius: var(--chip-radius);
+  border: 1px solid var(--border); font-size:12px; font-weight:600;
+  color: var(--content-secondary); background: var(--surface); }
+
+/* 카드 */
+.card { border: 1px solid var(--border); border-radius: var(--card-radius);
+  padding: var(--card-pad); background: var(--surface); }
+.grid { display: grid; gap: 16px; }
+.grid.cols3 { grid-template-columns: repeat(3, 1fr); }
+.grid.cols2 { grid-template-columns: repeat(2, 1fr); }
+
+/* 안내 배너 */
+.notice { border-radius: var(--btn-radius); padding: 12px 16px; font-size:14px; line-height:20px; }
+.notice.info    { background: var(--info-surface);    color: var(--info); }
+.notice.warning { background: var(--warning-surface); color: var(--warning); }
+.notice.danger  { background: var(--danger-surface);  color: var(--danger); }
+
+/* 단계 표시 */
+.steps { display:flex; gap:8px; align-items:center; margin-bottom:24px; font-size:14px; }
+.steps .step { display:flex; align-items:center; gap:8px; color: var(--content-tertiary); }
+.steps .step.on { color: var(--action); font-weight:600; }
+.steps .num { width:24px; height:24px; border-radius:999px; display:grid; place-items:center;
+  font-size:12px; font-weight:700; background: var(--surface-subtle); color: var(--content-tertiary); }
+.steps .step.on .num { background: var(--action); color: var(--action-text); }
+.steps .sep { width:24px; height:1px; background: var(--border); }
+
+/* 빈 상태 */
+.empty { text-align:center; padding:48px 24px; color: var(--content-tertiary); }
+
+/* 필수 요소 목록 */
+.required { max-width:1120px; margin: 0 auto 28px; border:1px solid var(--action);
+  border-radius: var(--card-radius); padding: var(--card-pad); background: var(--surface); }
+.required h2 { font-size:16px; font-weight:700; margin:0 0 4px; color: var(--action); }
+.required p.lead { margin:0 0 12px; font-size:14px; color: var(--content-secondary); }
+.required table { width:100%; border-collapse: collapse; font-size:13px; }
+.required th, .required td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border-subtle); vertical-align: top; }
+.required th { background: var(--surface-subtle); font-size:12px; }
+.required code { background: var(--surface-subtle); padding:1px 5px; border-radius:4px; font-size:12px; }

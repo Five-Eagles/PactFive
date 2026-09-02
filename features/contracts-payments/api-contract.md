@@ -1,9 +1,10 @@
-# contracts-payments — API 계약 (도메인 연동 4함수)
+# contracts-payments — API 계약
 
-형식은 `docs/naming-convention.md` §6·§7. **브라우저 공개 API가 아니다.** 조준영 서버 →
-유동우 `project-management` 내부 계약. 함수명이 정본(D-48).
-경로 `/internal/v1/projects/:projectId/...` (FACT, J1). 서버 간 토큰만.
-`Authorization: Bearer <serviceToken>`. Mock은 검증을 생략해도 헤더는 맞춘다.
+형식은 `docs/naming-convention.md` §6·§7. 함수명이 정본(D-48).
+내부 4함수는 `/internal/v1/projects/:projectId/...` (FACT, J1), 서버 간 토큰.
+공개 API는 `/api/v1/...`, 사용자 Bearer. 프론트 설계서 `/agreements` 5종은 **폐기**.
+`Authorization: Bearer <serviceToken>`. Mock 고정값은 `MOCK_INTERNAL_SERVICE_TOKEN`.
+불일치면 422 `VALIDATION_ERROR`. 공개 입구 `prototype/index.ts`.
 
 시각 ISO 8601 UTC `Z`. 성공·멱등 재처리 모두 **200**. 4xx는 아래 에러 봉투.
 
@@ -154,17 +155,18 @@
 
 ## POST /internal/v1/projects/:projectId/restore-pre-contract
 
-규칙 5. 최신 제안 수신자의 최종 거절만. 멱등 키 `negotiation-reject-{negotiationId}`.
-합의·계약을 취소하지 않는다. `recruitment_start_at`은 건드리지 않는다 (A-13만).
+규칙 5. 최신 제안 수신자의 최종 거절만. `negotiationId` = `agreements.id`.
+멱등 키 `negotiation-reject-{agreements.id}`. 합의·계약을 이 함수가 취소하지 않는다.
+`recruitment_start_at`은 건드리지 않는다 (A-13만).
 
 요청:
 
 ```json
 {
-  "negotiationId": "ngt_123", "offerId": "off_3",
+  "negotiationId": "agr_123", "offerId": "off_3",
   "actorUserId": "usr_freelancer_b", "reason": "FREELANCER_REJECTED",
   "requestId": "req_restore_01",
-  "idempotencyKey": "negotiation-reject-ngt_123",
+  "idempotencyKey": "negotiation-reject-agr_123",
   "occurredAt": "2026-08-25T04:30:00Z"
 }
 ```
@@ -176,7 +178,7 @@
 
 ```json
 {
-  "projectId": "prj_123", "negotiationId": "ngt_123",
+  "projectId": "prj_123", "negotiationId": "agr_123",
   "recruitmentStatus": "OPEN", "transactionStatus": "NONE",
   "reopened": true, "notReopenedReason": null,
   "restoredFields": ["recruitmentStatus", "transactionStatus"],
@@ -193,6 +195,90 @@
 
 에러: 404. 409 `PROJECT_TRANSITION_CONFLICT`. 409 `PROJECT_ALREADY_RESTORED`.
 409 `PROJECT_VERSION_CONFLICT`. 422.
+
+---
+
+## POST /internal/v1/projects/:projectId/invalidate-agreement
+
+규칙 15·22. 유동우 → 조준영. 프로젝트 취소 시 합의 `REJECTED`·계약 `CANCELED`.
+서명 감사는 삭제하지 않는다. 멱등 키 `invalidate-{cancellationId}`.
+
+요청:
+
+```json
+{
+  "cancellationId": "cnl_123", "actorUserId": "usr_client_a",
+  "reason": "PROJECT_CANCELED", "projectCanceledAt": "2026-08-27T05:00:00Z",
+  "requestId": "req_invalidate_01",
+  "idempotencyKey": "invalidate-cnl_123",
+  "occurredAt": "2026-08-27T05:00:00Z"
+}
+```
+
+응답 200: `{ "alreadyProcessed": false, "result": "DONE" }`.
+무효화할 합의·계약이 없으면 `NOT_NEEDED`. 시도 실패는 `FAILED` (D-89).
+같은 `cancellationId`는 최초 `result` + `alreadyProcessed: true`.
+
+에러: 404. 422.
+
+---
+
+## 공개 API 초안 (규칙 16, Increment 1)
+
+브라우저. `Authorization: Bearer <accessToken>`. 상태 변경 POST는 `Idempotency-Key` 필수.
+컨트롤러 구현은 다음 스프린트.
+
+### POST /api/v1/projects/:projectId/negotiation-offers — `proposeNegotiationOffer`
+
+의뢰인 최초 제안. 본문 `{ "amount": 900000, "currency": "KRW" }`.
+멱등 키 클라이언트가 생성. 성공: `agreements` 없으면 생성
+(`application_id`, `proposed_by_user_id`=의뢰인, `agreed_amount`=제안액, `PROPOSED`)
++ offer round 1. Increment 1에서는 의뢰인만. 재제안은 계약에만 있고 이 Increment 테스트 밖.
+
+### GET /api/v1/projects/:projectId/negotiation-offers/current
+
+당사자. 최신 round + 합의 상태 + 있으면 `contractId`·`contractStatus`.
+합의가 없으면 200이고 `offer`·`agreementId`·`contractId`는 `null`(빈 생성).
+
+### POST /api/v1/projects/:projectId/negotiation-offers/:offerId/accept — `acceptNegotiationOffer`
+
+최신 round 수신자. 본문 `{ "expectedRound": 1 }`. 규칙 11: 합의 `ACCEPTED` + 계약 `DRAFT`.
+멱등 키 `negotiation-accept-{offerId}`.
+
+### POST /api/v1/projects/:projectId/negotiation-offers/:offerId/reject — `rejectNegotiationOffer`
+
+최신 round 수신자 최종 거절. 본문 `{ "reasonCode": "PRICE_NOT_ACCEPTABLE" }`.
+`agreements`·offer를 `REJECTED`로 바꾼 뒤 서버가 규칙 5 restore를 호출한다.
+멱등 키 `negotiation-reject-{agreements.id}`.
+
+### GET /api/v1/contracts/:contractId
+
+규칙 20. 당사자. `terms_snapshot`·서명 시각·`status`. PDF 없음.
+
+### POST /api/v1/contracts/:contractId/sign — `signContract`
+
+규칙 13. 당사자. 멱등 키 `contract-sign-{contractId}-{signerId}`.
+응답: `status` (`SIGNING` \| `SIGNED`), `clientSignedAt`, `freelancerSignedAt`, `signedAt`.
+
+### POST /api/v1/payments — 결제 준비
+
+규칙 6 이후. 계약 `SIGNED`. ERD NOT NULL 채움(규칙 19): `payment_amount`·수수료·정산액·KRW.
+응답: `{ paymentId, orderId, amount, clientKey }`. `clientKey`는 서버 시크릿이 아님.
+`FAILED` 후 재결제는 같은 `paymentId`에 새 `orderId`(I-17).
+
+### GET /api/v1/payments/:paymentId
+
+규칙 21. 당사자. `paymentId` = `payments.id`. `status` (`READY` \| `PENDING` \| `PAID` \| `FAILED`).
+응답에 현재 `orderId`를 포함한다.
+
+### POST /api/v1/payments/confirm — `confirmPayment`
+
+규칙 9. 본문 `{ "orderId", "amount", "paymentKey" }`. 수신 시 `PENDING`. 성공 `PAID` 후
+규칙 3 start. 같은 `orderId` 재confirm 금지. 폐기된(교체된) `orderId`는 409.
+웹훅 재검증은 `PaymentGateway.retrievePayment(orderId)`.
+
+에러(공개): 401 `AUTH_REQUIRED` / 403 `PROJECT_FORBIDDEN`, 404, 409 상태 충돌, 422. 결제 금액 불일치는 `PAYMENT_AMOUNT_MISMATCH`.
+프로젝트 취소 후 서명은 409 `PROJECT_TRANSITION_CONFLICT` (화면: 취소 안내).
 
 ---
 
@@ -270,7 +356,74 @@ type RestorePreContractProjectResponse = DomainContractEnvelopeResponse & {
   transactionStatus: 'NONE';
   reopened: boolean;
   notReopenedReason: NotReopenedReason | null;
-  restoredFields: ['recruitmentStatus', 'transactionStatus'];
+  restoredFields: string[];
+};
+
+type AgreementStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED';
+type ContractStatus = 'DRAFT' | 'SIGNING' | 'SIGNED' | 'CANCELED';
+
+type ProposeNegotiationOfferInput = { amount: number; currency: 'KRW' };
+type CurrentNegotiationOfferResponse = {
+  projectId: string;
+  agreementId: string | null;
+  agreementStatus: AgreementStatus | null;
+  offer: { offerId: string; round: number; amount: number; currency: 'KRW'; offeredByUserId: string } | null;
+  contractId: string | null;
+  contractStatus: ContractStatus | null;
+};
+type AcceptNegotiationOfferInput = { expectedRound: number };
+type RejectNegotiationOfferInput = { reasonCode: string; reason?: string };
+type SignContractInput = { contractId: string };
+type SignContractResponse = {
+  contractId: string;
+  status: 'SIGNING' | 'SIGNED';
+  clientSignedAt: string | null;
+  freelancerSignedAt: string | null;
+  signedAt: string | null;
+  alreadyProcessed: boolean;
+};
+type ConfirmPaymentInput = { orderId: string; amount: number; paymentKey: string };
+type ConfirmPaymentResponse = {
+  orderId: string;
+  amount: number;
+  paymentKey: string;
+  status: 'PAID';
+};
+type PaymentStatus = 'READY' | 'PENDING' | 'PAID' | 'FAILED';
+type RetrievePaymentResponse = {
+  orderId: string;
+  amount: number;
+  paymentKey: string | null;
+  status: PaymentStatus;
+};
+type PaymentGateway = {
+  confirmPayment(input: ConfirmPaymentInput): Promise<ConfirmPaymentResponse>;
+  retrievePayment(orderId: string): Promise<RetrievePaymentResponse>;
+};
+type GetContractResponse = {
+  contractId: string;
+  status: ContractStatus;
+  termsSnapshot: { schemaVersion: 1; amount: number; currency: 'KRW'; projectTitle: string };
+  clientSignedAt: string | null;
+  freelancerSignedAt: string | null;
+  signedAt: string | null;
+};
+type GetPaymentResponse = {
+  paymentId: string;
+  orderId: string;
+  amount: number;
+  status: PaymentStatus;
+};
+type PostActionResult = 'DONE' | 'NOT_NEEDED' | 'FAILED';
+type InvalidateAgreementInput = {
+  cancellationId: string;
+  actorUserId: string;
+  reason: 'PROJECT_CANCELED';
+  projectCanceledAt: string;
+};
+type InvalidateAgreementResponse = {
+  alreadyProcessed: boolean;
+  result: PostActionResult;
 };
 
 type DomainContractErrorBody = {

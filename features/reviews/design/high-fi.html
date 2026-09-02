@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>reviews — 상호 리뷰 (high-fi)</title>
+<link rel="stylesheet" href="_tokens.css" />
+<link rel="stylesheet" href="panel.css" />
+</head>
+<body>
+
+<div class="meta">
+  <h1>상호 리뷰</h1>
+  <p>패널만 · 앱 셸 없음 · /projects/:projectId/reviews · design-system v1.0 · 규칙 11</p>
+  <span class="fi">high-fi</span>
+</div>
+
+<section class="screen">
+  <div class="id">빈 · 상대 미작성</div>
+  <form class="panel">
+    <div class="panel-head">
+      <h2 class="title">리뷰</h2>
+      <span class="badge info">작성 전</span>
+    </div>
+    <p class="status-copy">거래가 완료되었습니다. <strong>상대가 작성하기 전</strong>에는 상대 리뷰가 보이지 않습니다. 별점을 입력한 뒤 리뷰 작성을 누르세요.</p>
+    <div class="field-row">
+      <label class="label" for="rating">별점</label>
+      <input class="field" id="rating" name="rating" placeholder="별점" />
+      <p class="helper">1부터 5까지. 제출하면 바꿀 수 없습니다.</p>
+    </div>
+    <p class="notice info" role="status">상대 리뷰는 아직 없습니다</p>
+    <div class="btn-row">
+      <button type="submit" class="btn primary">리뷰 작성</button>
+    </div>
+  </form>
+</section>
+
+<section class="screen">
+  <div class="id">로딩</div>
+  <article class="panel" aria-busy="true">
+    <div class="panel-head">
+      <h2 class="title">리뷰</h2>
+    </div>
+    <p class="status-copy">로딩</p>
+    <p class="helper">리뷰 화면을 불러오는 중입니다.</p>
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">LOAD_FAILED</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">리뷰</h2>
+    </div>
+    <p class="notice danger" role="alert">LOAD_FAILED</p>
+    <p class="status-copy">리뷰를 불러오지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.</p>
+    <div class="btn-row">
+      <button type="button" class="btn primary">다시 시도</button>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">409 중복</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">리뷰</h2>
+      <span class="badge success">작성 완료</span>
+    </div>
+    <p class="notice info" role="status">이미 작성한 리뷰입니다</p>
+    <p class="status-copy">이 거래의 리뷰는 한 번만 작성할 수 있습니다. 제출한 내용은 바꿀 수 없습니다.</p>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">409 미완료</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">리뷰</h2>
+      <span class="badge warning">거래 미완료</span>
+    </div>
+    <p class="notice warning" role="status">거래가 완료되지 않았습니다</p>
+    <p class="status-copy">거래가 완료되면 리뷰를 작성할 수 있습니다. 지금은 완료를 기다려 주세요.</p>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">409 취소</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">리뷰</h2>
+      <span class="badge danger">취소됨</span>
+    </div>
+    <p class="notice danger" role="alert">취소된 거래는 리뷰할 수 없습니다</p>
+    <p class="status-copy">이 프로젝트는 취소되었습니다. 리뷰를 남길 수 있는 거래가 아닙니다.</p>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">제출 후 · 수정 없음</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">리뷰</h2>
+      <span class="badge success">제출됨</span>
+    </div>
+    <p class="status-copy">제출한 리뷰는 다시 작성할 수 없습니다.</p>
+    <dl class="facts">
+      <dt>별점</dt>
+      <dd class="money">5</dd>
+    </dl>
+  </article>
+</section>
+
+<section class="required">
+  <h2>필수 요소 목록</h2>
+  <p class="lead">기본 렌더링 시 화면에 반드시 보여야 하는 <strong>정확한 텍스트</strong>다.
+  <code>prototype/run.tsx</code>가 <code>ReviewPanel</code>을 렌더링해 확인한다.</p>
+  <table>
+    <thead><tr><th>화면</th><th>종류</th><th>텍스트</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="3">빈</td><td>placeholder</td><td>별점</td></tr>
+      <tr><td>빈 상태</td><td>상대 리뷰는 아직 없습니다</td></tr>
+      <tr><td>버튼</td><td>리뷰 작성</td></tr>
+      <tr><td>로딩</td><td>상태</td><td>로딩</td></tr>
+      <tr><td rowspan="2">LOAD_FAILED</td><td>안내</td><td>LOAD_FAILED</td></tr>
+      <tr><td>버튼</td><td>다시 시도</td></tr>
+      <tr><td>409 중복</td><td>안내</td><td>이미 작성한 리뷰입니다</td></tr>
+      <tr><td>409 미완료</td><td>안내</td><td>거래가 완료되지 않았습니다</td></tr>
+      <tr><td>409 취소</td><td>안내</td><td>취소된 거래는 리뷰할 수 없습니다</td></tr>
+    </tbody>
+  </table>
+  <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
+  제출 후 별점 숫자(데이터). 제출 화면에는 수정 버튼이 <strong>없어야</strong> 한다.</p>
+</section>
+
+</body>
+</html>
