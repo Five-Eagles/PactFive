@@ -12,6 +12,14 @@
 
 export type RecruitmentStatus = "SCHEDULED" | "OPEN" | "CLOSED";
 
+/**
+ * 예산이 어디서 왔는가.
+ *
+ * 규칙 8 이 AI 분석 금액으로 사용자 입력을 덮어쓰는데, 그 사실을 화면이 알 방법이
+ * 없었다 (CR-0006 결함 2). 값을 저장해 등록 의뢰인에게만 내려보낸다.
+ */
+export type BudgetSource = "CLIENT_INPUT" | "AI_ANALYSIS";
+
 export type ProjectTransactionStatus =
   | "NONE"
   | "CONTRACT_PENDING"
@@ -29,6 +37,10 @@ export type ProjectRecord = {
   description: string;
   category: string;
   budgetAmount: number;
+  /** ERD 추가 요청 중 — projects.budget_source (CR-0007) */
+  budgetSource: BudgetSource;
+  /** 그 출처가 정해진 시각. AI 분석이면 분석 연결 시각이다 */
+  budgetSourceAt: string;
   recruitmentStartAt: string | null;
   recruitmentDeadlineAt: string;
   recruitmentStatus: RecruitmentStatus;
@@ -97,6 +109,12 @@ export type ProjectAction =
 /** 등록 의뢰인 전용. 거래 상태는 여기에만 들어간다 (규칙 9) */
 export type ClientProjectDetail = PublicProjectDetail & {
   transactionStatus: ProjectTransactionStatus;
+  /**
+   * 예산 출처. **공개 응답에는 넣지 않는다** — 의뢰인이 AI 를 썼는지는
+   * 프리랜서가 알 필요가 없고, 알면 지원 금액 판단에 영향을 준다.
+   */
+  budgetSource: BudgetSource;
+  budgetSourceAt: string;
   pendingApplicationCount: number;
   recruitmentClosedAt: string | null;
   canceledAt: string | null;

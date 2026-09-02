@@ -501,6 +501,10 @@ type PublicProjectDetail = PublicProjectItem & {
 
 // 등록 의뢰인 전용 — transactionStatus 포함
 type ClientProjectDetail = PublicProjectDetail & {
+  // 예산이 어디서 왔는가. 등록 의뢰인만 본다 — 프리랜서가 알면 지원 금액 판단에
+  // 영향을 준다. ERD 컬럼은 CR-0007 로 요청 중이다.
+  budgetSource: "CLIENT_INPUT" | "AI_ANALYSIS";
+  budgetSourceAt: string;
   transactionStatus: ProjectTransactionStatus;
   pendingApplicationCount: number;
   recruitmentClosedAt: string | null;

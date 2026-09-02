@@ -1424,6 +1424,73 @@ async function main() {
     );
   }
 
+  /* ═══════════ 9. 금액 출처 (CR-0006 결함 2) ═══════════ */
+  section("근거 이해 — 예산 출처");
+  {
+    const { MoneyBreakdown } = await import("./web/MoneyBreakdown");
+    const { ProjectEditForm } = await import("./web/ProjectManage");
+
+    // 규칙 8 — 분석을 연결하면 사용자 입력을 덮어쓴다. 그 사실이 저장돼야 한다.
+    const { api } = newApi();
+    const plain = await api.createProject(CLIENT_A, validCreate, TX);
+    check(plain.body.budgetSource === "CLIENT_INPUT", "직접 입력이면 CLIENT_INPUT");
+
+    const withAi = await api.createProject(
+      CLIENT_A,
+      { ...validCreate, budgetAmount: 9_999_999, pricingAnalysisId: "ana_valid" },
+      TX,
+    );
+    check(withAi.body.budgetSource === "AI_ANALYSIS", "분석을 연결하면 AI_ANALYSIS 로 바뀐다");
+    check(withAi.body.budgetAmount === 4_800_000, "금액도 분석 값으로 바뀐다 (규칙 8)");
+    check(withAi.body.budgetSourceAt === AT, "출처가 정해진 시각이 기록된다");
+
+    // 규칙 9 — 출처는 등록 의뢰인만 본다. 남이 알면 지원 금액 판단에 영향을 준다.
+    const anon = api.getProject(null, "prj_open_free");
+    check(!("budgetSource" in anon.body), "공개 상세에는 출처 키가 없다");
+    const free = api.getProject(FREELANCER, "prj_open_free");
+    check(!("budgetSource" in free.body), "프리랜서에게도 출처를 주지 않는다");
+
+    const source = decode(
+      renderToStaticMarkup(
+        React.createElement(MoneyBreakdown, {
+          amount: 4_800_000,
+          source: "AI_ANALYSIS",
+          sourceAt: "2026-09-01T00:00:00Z",
+        }),
+      ),
+    );
+    check(source.includes("AI 단가 분석이 제안한 금액입니다"), "AI 출처를 문장으로 말한다");
+    check(source.includes("2026.09.01"), "언제 정해졌는지 함께 준다");
+    check(
+      source.includes("직접 수정할 수 있습니다"),
+      "§6 선택권 — 추천을 되돌릴 수 있다는 것까지 알린다",
+    );
+
+    // 모르면 지어내지 않는다.
+    const unknown = renderToStaticMarkup(
+      React.createElement(MoneyBreakdown, { amount: 3_000_000 }),
+    );
+    check(
+      !unknown.includes("AI") && !unknown.includes("직접 입력한"),
+      "출처를 모르면 아무 말도 하지 않는다",
+    );
+    check(unknown.includes("3,000,000"), "출처를 몰라도 금액은 보여준다");
+
+    const edit = decode(
+      renderToStaticMarkup(
+        React.createElement(ProjectEditForm, {
+          project: {
+            ...manageItem,
+            description: "설명",
+            budgetSource: "AI_ANALYSIS" as const,
+            budgetSourceAt: "2026-09-01T00:00:00Z",
+          },
+        }),
+      ),
+    );
+    check(edit.includes("AI 단가 분석이 제안한 금액입니다"), "수정 화면에 출처가 붙는다");
+  }
+
   section("결과");
   console.log(`PASS ${passCount} · FAIL ${failCount}`);
   if (failCount > 0) {

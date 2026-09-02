@@ -25,6 +25,7 @@ import {
   deleteEffects,
   type DestructiveAction,
 } from "./DestructiveActionSummary";
+import { MoneyBreakdown, type BudgetSource } from "./MoneyBreakdown";
 
 export type ManageItem = {
   projectId: string;
@@ -173,7 +174,12 @@ function toActionSpecs(
 /* ═══════════ SCR-B06 — 프로젝트 수정 ═══════════ */
 
 export type ProjectEditFormProps = {
-  project: ManageItem & { description: string };
+  project: ManageItem & {
+    description: string;
+    /** 서버가 준다. 없으면 출처를 말하지 않는다 (CR-0006 결함 2) */
+    budgetSource?: BudgetSource;
+    budgetSourceAt?: string;
+  };
   onSave?: (patch: { title: string; description: string }) => void;
   onCancel?: () => void;
 };
@@ -240,6 +246,15 @@ export function ProjectEditForm({ project, onSave, onCancel }: ProjectEditFormPr
           readOnly={!canEdit("budgetAmount")}
         />
       </Field>
+
+      {/* 입력 칸 옆에 출처를 붙인다. 이 숫자가 내가 넣은 값인지
+          AI 가 바꾼 값인지 여기서 구분된다 (CR-0006 결함 2) */}
+      <MoneyBreakdown
+        amount={project.budgetAmount}
+        source={project.budgetSource}
+        sourceAt={project.budgetSourceAt}
+        label="현재 예산"
+      />
 
       <Button variant="primary" type="submit">
         저장

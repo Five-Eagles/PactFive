@@ -242,6 +242,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
       description: p.description,
       recruitmentStartAt: p.recruitmentStartAt,
       transactionStatus: p.transactionStatus,
+      budgetSource: p.budgetSource,
+      budgetSourceAt: p.budgetSourceAt,
       pendingApplicationCount: p.pendingApplicationCount,
       recruitmentClosedAt: p.recruitmentClosedAt,
       canceledAt: p.canceledAt,
@@ -291,6 +293,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
       description: input.description,
       category: input.category,
       budgetAmount: input.budgetAmount,
+      // 분석을 연결하면 아래에서 AI_ANALYSIS 로 바뀐다 (규칙 8)
+      budgetSource: "CLIENT_INPUT",
+      budgetSourceAt: at,
       recruitmentStartAt: input.recruitmentStartAt,
       recruitmentDeadlineAt: input.recruitmentDeadlineAt,
       recruitmentStatus: startsLater ? "SCHEDULED" : "OPEN",
@@ -319,7 +324,14 @@ export function createProjectService(deps: ProjectServiceDeps) {
           requesterId: me.userId,
         });
         // 클라이언트가 보낸 금액을 덮어쓴다. 표시용으로만 받았다.
-        repo.update(projectId, { budgetAmount: claimed.recommendedAmount });
+        //
+        // **덮어썼다는 사실도 함께 남긴다** (CR-0006 결함 2).
+        // 남기지 않으면 의뢰인이 자기 화면의 숫자가 어디서 왔는지 알 수 없다.
+        repo.update(projectId, {
+          budgetAmount: claimed.recommendedAmount,
+          budgetSource: "AI_ANALYSIS",
+          budgetSourceAt: at,
+        });
       } catch {
         // 연결 실패면 프로젝트 생성까지 되돌린다. 한 트랜잭션이라 중간 값이 밖으로 안 보인다.
         repo.update(projectId, { deletedAt: at });
