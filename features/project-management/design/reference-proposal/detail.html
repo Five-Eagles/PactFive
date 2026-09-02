@@ -73,9 +73,9 @@
 <header class="appbar">
   <div class="appbar__in">
     <a class="logo" href="main.html">Pact<em>Five</em></a>
-    <nav><a href="browse.html">프로젝트 찾기</a><a href="#">내 북마크</a></nav>
+    <nav><a href="browse.html">프로젝트 찾기</a><a href="browse.html#saved=1">내 북마크</a></nav>
     <span class="spacer"></span>
-    <a class="btn primary sm" href="#">프로젝트 등록</a>
+    <a class="btn primary sm" href="#" data-notyet="register">프로젝트 등록</a>
   </div>
 </header>
 
@@ -87,6 +87,7 @@
 <script src="demo/data.js"></script>
 <script src="demo/engine.js"></script>
 <script src="demo/bookmarks.js"></script>
+<script src="demo/notyet.js"></script>
 <script>
 /*
  * SCR-B02 프로젝트 상세.
@@ -97,7 +98,8 @@
  * 추천(규칙 18~24)은 아래 recommend() 가 계산한다. 점수나 순위값을 내보내지 않고
  * 정렬 순서로만 표현한다.
  */
-(function () {
+window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit.detail = function () {
   "use strict";
   var E = window.PactFiveEngine, D = window.PactFiveData, B = window.PactFiveBookmarks;
   var view = document.getElementById("view");
@@ -245,8 +247,11 @@
 
   window.addEventListener("hashchange", render);
   B.bind();
+  window.PactFiveNotYet.bind();
   render();
-})();
+};
+// 자기 화면일 때만 스스로 돈다. 세 화면을 한 파일로 묶었을 때 서로를 건드리지 않는다
+if (document.getElementById("view")) window.PactFiveInit.detail();
 </script>
 
 </body>

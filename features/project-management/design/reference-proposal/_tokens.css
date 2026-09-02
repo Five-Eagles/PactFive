@@ -308,3 +308,23 @@ a { color:inherit; text-decoration:none; }
     overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
   .appbar nav::-webkit-scrollbar { display:none; }
 }
+
+/* ── 아직 없는 화면 안내 ─────────────────────────────────────
+ * `href="#"` 로 두면 눌러도 아무 일이 없어 고장으로 읽힌다.
+ * 없다는 것과 누가 만드는지를 말한다 (demo/notyet.js).
+ */
+.notyet { position:fixed; inset:0; z-index:100; display:grid; place-items:center;
+  padding:var(--gutter); }
+.notyet__scrim { position:absolute; inset:0; background:rgba(9,13,24,.45); }
+.notyet__box { position:relative; max-width:460px; width:100%;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-lg); padding:var(--gap-5);
+  box-shadow:var(--shadow-hero); }
+.notyet__box h2 { margin:0 0 var(--gap-3); font-size:19px; letter-spacing:-.02em; }
+.notyet__box p { margin:0 0 var(--gap-4); font-size:14px; line-height:1.7;
+  color:var(--content-secondary); }
+.notyet__kv { display:grid; grid-template-columns:auto 1fr; gap:6px var(--gap-4);
+  margin:0 0 var(--gap-5); font-size:13px; }
+.notyet__kv dt { color:var(--content-tertiary); font-weight:700; white-space:nowrap; }
+.notyet__kv dd { margin:0; color:var(--content-secondary); word-break:break-all; }
+.notyet__box .btn { width:100%; }

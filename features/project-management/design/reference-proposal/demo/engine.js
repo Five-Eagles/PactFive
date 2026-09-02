@@ -70,6 +70,13 @@
       rows = rows.filter(function (p) { return effectiveStatus(p, now) !== "CLOSED"; });
     }
 
+    // engagement 규칙 13 — 내 북마크는 **마감돼도 남는다.** 공개 목록과 반대다.
+    // 공개 목록은 "찾는 곳"이고 내 북마크는 "내가 담아둔 것"이다
+    if (q.savedOnly) {
+      var B = global.PactFiveBookmarks;
+      rows = D.PROJECTS.filter(function (p) { return B && B.has(p.id); });
+    }
+
     if (q.keyword) rows = rows.filter(function (p) { return matchesKeyword(p, q.keyword); });
 
     // 규칙 59 — 카테고리는 하나만. 프로젝트가 카테고리를 하나만 갖기 때문이다

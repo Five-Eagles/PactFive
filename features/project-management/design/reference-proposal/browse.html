@@ -98,9 +98,9 @@
 <header class="appbar">
   <div class="appbar__in">
     <a class="logo" href="main.html">Pact<em>Five</em></a>
-    <nav><a href="browse.html" style="color:var(--action);font-weight:700">프로젝트 찾기</a><a href="#">내 북마크</a></nav>
+    <nav><a href="browse.html" style="color:var(--action);font-weight:700">프로젝트 찾기</a><a href="browse.html#saved=1">내 북마크</a></nav>
     <span class="spacer"></span>
-    <a class="btn primary sm" href="#">프로젝트 등록</a>
+    <a class="btn primary sm" href="#" data-notyet="register">프로젝트 등록</a>
   </div>
 </header>
 
@@ -192,6 +192,7 @@
 <script src="demo/data.js"></script>
 <script src="demo/engine.js"></script>
 <script src="demo/bookmarks.js"></script>
+<script src="demo/notyet.js"></script>
 <script>
 /*
  * SCR-B01 목록 화면을 실제로 동작시킨다.
@@ -203,7 +204,8 @@
  *           3페이지를 보다 조건을 좁히면 그 페이지가 비어 있을 수 있다.
  * 규칙 61 — "필터 초기화"는 필터만 되돌리고 **검색어와 정렬은 남긴다.**
  */
-(function () {
+window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit.browse = function () {
   "use strict";
   var E = window.PactFiveEngine;
   var $ = function (id) { return document.getElementById(id); };
@@ -221,6 +223,7 @@
       minBudget: Number(u.get("minBudget")) || 0,
       maxBudget: Number(u.get("maxBudget")) || 0,
       includeClosed: u.get("closed") === "1",
+      savedOnly: u.get("saved") === "1",
       sortBy: u.get("sortBy") || "latest",
       page: Number(u.get("page")) || 1,
     };
@@ -234,6 +237,7 @@
     if (q.minBudget) u.set("minBudget", q.minBudget);
     if (q.maxBudget) u.set("maxBudget", q.maxBudget);
     if (q.includeClosed) u.set("closed", "1");
+    if (q.savedOnly) u.set("saved", "1");
     if (q.sortBy !== "latest") u.set("sortBy", q.sortBy);
     if (q.page > 1) u.set("page", q.page);
     var url = location.pathname + (u.toString() ? "#" + u : "#");
@@ -275,6 +279,7 @@
       minBudget: Number(String($("minBudget").value).replace(/[^0-9]/g, "")) || 0,
       maxBudget: Number(String($("maxBudget").value).replace(/[^0-9]/g, "")) || 0,
       includeClosed: (document.querySelector('input[name="rs"]:checked') || {}).value === "all",
+      savedOnly: readQuery().savedOnly,
       sortBy: pressed ? pressed.dataset.sort : "latest",
       page: 1,
     };
@@ -287,8 +292,10 @@
     fillControls(q);
 
     var res = E.list(q);
-    $("count").innerHTML =
-      '조건에 맞는 프로젝트 <b class="num">' + res.totalCount + "</b>건";
+    $("count").innerHTML = q.savedOnly
+      ? '저장한 프로젝트 <b class="num">' + res.totalCount + "</b>건" +
+        ' <a class="sec__more" href="browse.html#" style="margin-left:var(--gap-3)">전체 목록 보기 ›</a>'
+      : '조건에 맞는 프로젝트 <b class="num">' + res.totalCount + "</b>건";
 
     $("grid").innerHTML = res.items.map(E.cardHTML).join("");
     $("grid").hidden = res.totalCount === 0;
@@ -297,11 +304,18 @@
     var hasCondition = q.keyword || q.category || q.skills.length || q.minBudget || q.maxBudget;
     $("empty").hidden = res.totalCount > 0;
     $("empty").innerHTML = res.totalCount > 0 ? "" :
-      '<div class="empty" role="status">' +
-        "<h3>조건에 맞는 프로젝트가 없습니다</h3>" +
-        "<p>" + (hasCondition ? "검색어나 필터를 조정해 보세요." : "지금은 모집 중인 프로젝트가 없습니다.") + "</p>" +
-        (hasCondition ? '<button class="btn secondary sm" id="clearAll" type="button">조건 모두 지우기</button>' : "") +
-      "</div>";
+      q.savedOnly && !hasCondition
+        // engagement 규칙 15 — 비어 있는 것은 오류가 아니다. 다음에 할 일을 함께 준다
+        ? '<div class="empty" role="status">' +
+            "<h3>저장한 프로젝트가 없습니다</h3>" +
+            "<p>카드의 별을 누르면 여기 모입니다.</p>" +
+            '<a class="btn primary" href="browse.html#">프로젝트 둘러보기</a>' +
+          "</div>"
+        : '<div class="empty" role="status">' +
+            "<h3>조건에 맞는 프로젝트가 없습니다</h3>" +
+            "<p>" + (hasCondition ? "검색어나 필터를 조정해 보세요." : "지금은 모집 중인 프로젝트가 없습니다.") + "</p>" +
+            (hasCondition ? '<button class="btn secondary sm" id="clearAll" type="button">조건 모두 지우기</button>' : "") +
+          "</div>";
 
     renderPager(res);
     document.title = (q.keyword ? q.keyword + " — " : "") + "프로젝트 찾기 · PactFive";
@@ -375,9 +389,15 @@
 
   window.addEventListener("popstate", render);
   window.addEventListener("hashchange", render);
+  document.addEventListener("pactfive:bookmark", function () {
+    if (readQuery().savedOnly) render();
+  });
   window.PactFiveBookmarks.bind();
+  window.PactFiveNotYet.bind();
   render();
-})();
+};
+// 자기 화면일 때만 스스로 돈다. 세 화면을 한 파일로 묶었을 때 서로를 건드리지 않는다
+if (document.getElementById("grid")) window.PactFiveInit.browse();
 </script>
 </body>
 </html>

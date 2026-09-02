@@ -275,13 +275,14 @@
     <span class="brand">Pact<em>Five</em></span>
     <nav>
       <a href="browse.html">프로젝트 찾기</a>
-      <a href="#">전문가 찾기</a>
-      <a href="#">이용 방법</a>
-      <a href="#">안전한 거래</a>
+      <a href="browse.html#saved=1">내 북마크</a>
+      <a href="#" data-notyet="experts">전문가 찾기</a>
+      <a href="#" data-notyet="guide">이용 방법</a>
+      <a href="#" data-notyet="safety">안전한 거래</a>
     </nav>
     <div class="hdr__act">
-      <a class="login" href="#">로그인</a>
-      <button class="btn-reg" type="button">프로젝트 등록</button>
+      <a class="login" href="#" data-notyet="login">로그인</a>
+      <button class="btn-reg" type="button" data-notyet="register">프로젝트 등록</button>
     </div>
   </div>
 </header>
@@ -342,7 +343,7 @@
                   <span class="pill">AI 단가 분석</span>
                   <h2>예산을 혼자<br />정하지 않아도 됩니다</h2>
                   <p>비슷한 프로젝트를 근거로 범위를 먼저 알려드립니다</p>
-                  <a class="cta" href="#">등록하고 확인하기</a>
+                  <a class="cta" href="#" data-notyet="register">등록하고 확인하기</a>
                 </div>
                 <div class="banner__visual">
                   <img src="assets/expert-dashboard.jpg" alt="" width="640" height="360" />
@@ -354,7 +355,7 @@
                   <span class="pill">에스크로 결제</span>
                   <h2>납품을 승인한 뒤에<br />정산됩니다</h2>
                   <p>합의한 금액과 일정이 그대로 계약서가 됩니다</p>
-                  <a class="cta" href="#">진행 방식 보기</a>
+                  <a class="cta" href="#" data-notyet="safety">진행 방식 보기</a>
                 </div>
                 <div class="banner__visual">
                   <img src="assets/expert-branding.jpg" alt="" width="640" height="360" />
@@ -380,7 +381,7 @@
           </div>
           <div class="strip__stage"><span>현재 진행 단계</span><b>중간 결과물 검토</b></div>
           <div class="strip__due"><span>마감일</span><b class="num">D-3</b></div>
-          <a class="strip__more" href="#">전체 보기 ›</a>
+          <a class="strip__more" href="#" data-notyet="myproject">전체 보기 ›</a>
         </div>
       </div>
     </section>
@@ -519,7 +520,7 @@
     <section class="sec" style="padding-top:0">
       <div class="sec__head">
         <h3>이번 주 추천 전문가</h3>
-        <a class="sec__more" href="#">전체 보기 ›</a>
+        <a class="sec__more" href="#" data-notyet="experts">전체 보기 ›</a>
       </div>
 
       <div class="grid4">
@@ -592,6 +593,7 @@
 <script src="demo/data.js"></script>
 <script src="demo/engine.js"></script>
 <script src="demo/bookmarks.js"></script>
+<script src="demo/notyet.js"></script>
 <script>
 /*
  * 대표페이지의 "지금 모집 중인 프로젝트".
@@ -599,14 +601,26 @@
  * browse.html 과 **같은 데이터·같은 규칙·같은 카드**를 쓴다. 하드코딩하면
  * 대표페이지에서 본 것과 목록에서 본 것이 달라진다.
  */
-(function () {
+
+  /*
+   * 기획전 배너 슬라이드.
+   *
+   * 시안은 "1 / 5" 가 표시만이고 넘어가지 않았다. 실제로 넘어가게 만들되
+   * **자동으로 넘기지 않는다** — 읽는 속도를 화면이 정하면 안 되고,
+   * 자동 전환은 스크린리더 사용자에게 특히 불친절하다.
+   * `prefers-reduced-motion` 이면 CSS 가 transition 을 0 으로 만들어 즉시 바뀐다.
+   */
+  window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit.main = function () {
   "use strict";
-  var slot = document.getElementById("homeGrid");
+  /* ── 모집 중인 프로젝트 ── */var slot = document.getElementById("homeGrid");
   if (!slot) return;
   // 규칙 10 이 이미 마감된 것을 뺀다. 대표페이지는 앞의 6건만 보여준다
   var res = window.PactFiveEngine.list({ sortBy: "latest" });
   slot.innerHTML = res.items.slice(0, 6).map(window.PactFiveEngine.cardHTML).join("");
   window.PactFiveBookmarks.bind();
+  window.PactFiveNotYet.bind();
 
   /*
    * 검색 폼을 해시로 넘긴다.
@@ -623,19 +637,8 @@
       location.href = "browse.html" + (v ? "#keyword=" + encodeURIComponent(v) : "#");
     });
   }
-})();
-</script>
 
-<script>
-  /*
-   * 기획전 배너 슬라이드.
-   *
-   * 시안은 "1 / 5" 가 표시만이고 넘어가지 않았다. 실제로 넘어가게 만들되
-   * **자동으로 넘기지 않는다** — 읽는 속도를 화면이 정하면 안 되고,
-   * 자동 전환은 스크린리더 사용자에게 특히 불친절하다.
-   * `prefers-reduced-motion` 이면 CSS 가 transition 을 0 으로 만들어 즉시 바뀐다.
-   */
-  (function () {
+  /* ── 기획전 슬라이드 ── */
     var view = document.querySelector(".promo__view");
     if (!view) return;
     var track = view.querySelector(".promo__track");
@@ -660,7 +663,9 @@
     });
 
     show(0);
-  })();
+  };
+// 자기 화면일 때만 스스로 돈다. 세 화면을 한 파일로 묶었을 때 서로를 건드리지 않는다
+if (document.getElementById("homeGrid")) window.PactFiveInit.main();
 </script>
 
 </body>

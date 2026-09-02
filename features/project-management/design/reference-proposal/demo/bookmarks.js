@@ -67,7 +67,10 @@
    * 같은 프로젝트 카드가 여러 곳에 있으면 **전부** 같이 바뀐다 —
    * 한 곳만 바뀌면 사용자는 저장이 안 됐다고 본다.
    */
+  var bound = false;
   function bind() {
+    if (bound) return; // 화면을 바꿀 때마다 불린다. 두 번 걸면 한 번 눌러 두 번 토글된다
+    bound = true;
     document.addEventListener("click", function (e) {
       var btn = e.target.closest("[data-bookmark]");
       if (!btn) return;
