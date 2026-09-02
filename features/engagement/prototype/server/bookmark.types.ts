@@ -85,8 +85,23 @@ export type BookmarkListQuery = {
  * 넘길 수 없는 값을 내려보내면 화면이 페이지네이션을 붙이려 든다.
  * **순위값도 없다** (규칙 28). 순서만으로 표현한다.
  */
+/**
+ * 왜 추천됐는가.
+ *
+ * 규칙 28 이 금지한 것은 **내부 점수와 순위값**이다. "같은 카테고리" 같은
+ * 사유 문구는 금지 대상이 아니다 — 오히려 §6 근거 이해가 요구한다.
+ * 순서로만 표현하면 사용자는 왜 이 4건인지 알 수 없다.
+ */
+export type RecommendationReason = "SAME_CATEGORY_AND_SKILL" | "SAME_CATEGORY" | "SHARED_SKILL";
+
+export type RecommendedItem = BookmarkedProject & {
+  reason: RecommendationReason;
+  /** 겹친 기술 이름. 사유가 기술일 때만 채운다 */
+  matchedSkills: string[];
+};
+
 export type RecommendationResponse = {
-  items: BookmarkedProject[];
+  items: RecommendedItem[];
 };
 
 /* ─────────────── 오류 ─────────────── */

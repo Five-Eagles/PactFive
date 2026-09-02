@@ -12,7 +12,7 @@
   `high-fi-bookmarks.html`(SCR-B08 · SCR-B09). **필수 요소 목록 9개**, 전부 PRD 정본과 대조함.
   8개는 §14 문구표, 1개(`추천 프로젝트`)는 §7.2 화면 이름이라 근거 열을 따로 뒀다.
 - prototype/ 구성: **완료** — 데이터 계층 · 서비스 4종 · 화면 3종.
-  `run.tsx` **PASS 88 · FAIL 0**. 결과는 `test-report.md`.
+  `run.tsx` **PASS 98 · FAIL 0**. 결과는 `test-report.md`.
 
 ## 이 기능의 전제 — 읽기 전용
 
@@ -84,3 +84,4 @@
 | 2026-08-28 | prototype 데이터 계층 + 서비스 4종 — run.tsx PASS 69 |
 | 2026-08-28 | 화면 3종 + test-report.md — run.tsx PASS 88 · 필수 요소 9개 전부 · **SDD 산출물 4종 완료** |
 | 2026-08-28 | CR-0001 3종을 project-management 에 구현 — 통합 시 어댑터만 교체하면 된다 |
+| 2026-09-02 | 추천 사유 문구 추가 (CR-0006) — run.tsx PASS 98 |

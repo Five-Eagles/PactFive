@@ -151,7 +151,9 @@
       "recruitmentDeadlineAt": "2026-09-20T14:59:59Z",
       "recruitmentStatus": "OPEN",
       "skills": [{ "skillId": "REACT", "displayName": "React" }],
-      "applicationCount": 1
+      "applicationCount": 1,
+      "reason": "SAME_CATEGORY_AND_SKILL",
+      "matchedSkills": ["React"]
     }
   ]
 }
@@ -162,6 +164,10 @@
 > **`recruitmentStatus` 는 언제나 `OPEN` 이다** (규칙 18). 그래도 필드를 넣는 것은 카드 컴포넌트가 북마크 목록과 같은 것을 쓰기 때문이다.
 >
 > **내부 점수와 순위값을 넣지 않는다** (규칙 28). 순위는 배열 순서로만 표현한다.
+>
+> 대신 `reason`(`SAME_CATEGORY_AND_SKILL` / `SAME_CATEGORY` / `SHARED_SKILL`)과
+> 겹친 기술 이름을 준다. 규칙 28 이 금지한 것은 숫자이지 사유가 아니다 —
+> 순서로만 표현하면 사용자는 왜 하필 이 4건인지 알 수 없다 (§6 근거 이해).
 >
 > 후보가 없으면 `items: []` 이고 `200` 이다. 화면이 섹션을 감춘다 (규칙 24).
 

@@ -129,10 +129,11 @@ recruitment_status → CLOSED
 | ✅ | `DestructiveActionSummary` — 결함 1 | `7c82773` 433줄 | 12건 |
 | ✅ | `MoneyBreakdown` — 결함 2 | `d69e8e8` 279줄 | 12건 |
 | ✅ | `useDraft` — 결함 3 | 이 커밋 | 11건 |
-| ⏳ | 추천 사유 문구 — engagement | 다음 | |
+| ✅ | 추천 사유 문구 — engagement | 이 커밋 | 10건 |
 | ⏸ | 추천 접기 — engagement | **팀 판단 대기** | |
 
-`run.tsx` PASS 265 → 300. `test-report.md` §6 7항목 전부 충족.
+`run.tsx` PASS 265 → 300 (project-management) · 88 → 98 (engagement).
+project-management §6 는 7항목 전부 충족, engagement 는 6항목 충족 · 1항목 팀 판단 대기.
 
 **결함 2 는 ERD 컬럼이 필요해 CR-0007 로 따로 올렸다.** 마이그레이션 전까지
 Mock 에서만 값이 유지되지만 동작은 깨지지 않는다 — 출처를 모르면 화면이 조용하다.

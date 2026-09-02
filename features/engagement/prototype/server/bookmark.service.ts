@@ -21,6 +21,8 @@ import {
   type BookmarkListResponse,
   type BookmarkToggleResponse,
   type EngagementErrorCode,
+  type RecommendationReason,
+  type RecommendedItem,
   type RecommendationResponse,
 } from "./bookmark.types";
 import type { EngagementPorts, ProjectCardData } from "./ports/project-read.port";
@@ -193,6 +195,19 @@ export function createEngagementService(deps: EngagementServiceDeps) {
     return 3;
   }
 
+  /**
+   * 순위를 사유로 바꾼다.
+   *
+   * **숫자를 내보내지 않는다** (규칙 28). 1·2·3 은 정렬에만 쓰고,
+   * 밖으로는 무엇이 겹쳤는지만 말한다. 나중에 우선순위를 바꿔도
+   * 화면이 숫자에 기대고 있지 않아서 깨지지 않는다.
+   */
+  const REASON_BY_TIER: Record<number, RecommendationReason> = {
+    1: "SAME_CATEGORY_AND_SKILL",
+    2: "SAME_CATEGORY",
+    3: "SHARED_SKILL",
+  };
+
   async function getRecommendations(projectId: string): Promise<Responded<RecommendationResponse>> {
     // 규칙 16 — 로그인이 필요 없다.
     // 규칙 25 — 없거나 삭제된 프로젝트면 404.
@@ -218,7 +233,16 @@ export function createEngagementService(deps: EngagementServiceDeps) {
     // 규칙 28 — 순위값을 응답에 넣지 않는다. 순서로만 표현한다.
     return {
       status: 200,
-      body: { items: ranked.slice(0, RECOMMENDATION_COUNT).map(toBookmarkedProject) },
+      body: {
+        items: ranked.slice(0, RECOMMENDATION_COUNT).map((c): RecommendedItem => {
+          const tier = tierOf(c, base.category.category, skillIds);
+          return {
+            ...toBookmarkedProject(c),
+            reason: REASON_BY_TIER[tier]!,
+            matchedSkills: c.skills.filter((s) => skillIds.includes(s.skillId)).map((s) => s.displayName),
+          };
+        }),
+      },
     };
   }
 

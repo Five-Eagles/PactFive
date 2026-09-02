@@ -472,6 +472,69 @@ async function main() {
     check(listHtml.includes("disabled"), "규칙 14: 마감된 항목은 지원 버튼이 비활성이다");
   }
 
+  /* ═══════════ 8. 추천 사유 (CR-0006 · §6 근거 이해) ═══════════ */
+  section("근거 이해 — 추천 사유");
+  {
+    const { svc } = newSvc();
+    // 기준: prj_open_free — DESIGN · FIGMA
+    const res = await svc.getRecommendations("prj_open_free");
+
+    const byId = new Map(res.body.items.map((p) => [p.projectId, p]));
+    check(
+      byId.get("prj_reco_2")?.reason === "SAME_CATEGORY_AND_SKILL",
+      "1순위는 SAME_CATEGORY_AND_SKILL",
+    );
+    check(byId.get("prj_reco_3")?.reason === "SAME_CATEGORY", "2순위는 SAME_CATEGORY");
+    check(byId.get("prj_reco_4")?.reason === "SHARED_SKILL", "3순위는 SHARED_SKILL");
+    check(
+      byId.get("prj_reco_2")?.matchedSkills.includes("Figma") === true,
+      "무엇이 겹쳤는지까지 준다",
+    );
+    check(
+      byId.get("prj_reco_3")?.matchedSkills.length === 0,
+      "카테고리만 같으면 겹친 기술이 없다",
+    );
+
+    // 규칙 28 — 금지한 것은 점수와 순위값이다. 사유 문구는 대상이 아니다.
+    check(
+      res.body.items.every((p) => !("tier" in p) && !("score" in p) && !("rank" in p)),
+      "규칙 28: 순위값·점수는 여전히 내보내지 않는다",
+    );
+
+    const html = decode(
+      renderToStaticMarkup(
+        React.createElement(RecommendationSection, {
+          items: res.body.items.map((p) => ({ ...p, recruitmentStatus: p.recruitmentStatus })),
+        }),
+      ),
+    );
+    check(html.includes("디자인 · Figma 가 같아요"), "화면에 사유가 문장으로 나온다");
+    check(html.includes("디자인 분야예요"), "카테고리만 같을 때의 문구");
+    check(
+      !html.includes("1순위") && !html.includes("2순위"),
+      "순위 표현은 화면에도 없다",
+    );
+
+    // 사유를 모르면 지어내지 않는다.
+    const noReason = renderToStaticMarkup(
+      React.createElement(RecommendationSection, {
+        items: [
+          {
+            projectId: "prj_x",
+            title: "제목",
+            category: { category: "DESIGN", displayName: "디자인" },
+            budgetAmount: 1_000_000,
+            recruitmentDeadlineAt: "2026-09-20T14:59:59Z",
+            recruitmentStatus: "OPEN" as const,
+            skills: [],
+            applicationCount: 0,
+          },
+        ],
+      }),
+    );
+    check(!noReason.includes("reco__why"), "사유를 모르면 아무 말도 하지 않는다");
+  }
+
   section("결과");
   console.log(`PASS ${passCount} · FAIL ${failCount}`);
   if (failCount > 0) process.exitCode = 1;

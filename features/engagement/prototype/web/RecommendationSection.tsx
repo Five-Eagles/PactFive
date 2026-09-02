@@ -7,12 +7,25 @@
  *
  * **순위를 화면에 쓰지 않는다** (규칙 28). 1순위·2순위 표시도, 내부 점수도 없다.
  * 배열 순서가 곧 순위다.
+ *
+ * 다만 **왜 추천됐는지는 말한다** (CR-0006, §6 근거 이해). 규칙 28 이 금지한 것은
+ * 점수와 순위값이지 사유 문구가 아니다. 순서로만 표현하면 사용자는
+ * 왜 하필 이 4건인지 알 수 없다.
  */
 
 import { Chip, Money, RecruitmentBadge, type RecruitmentStatus } from "./ui";
 
+/** 서버가 준다. 화면이 판정하지 않는다 */
+export type RecommendationReason =
+  | "SAME_CATEGORY_AND_SKILL"
+  | "SAME_CATEGORY"
+  | "SHARED_SKILL";
+
 export type RecommendedProject = {
   projectId: string;
+  reason?: RecommendationReason;
+  /** 겹친 기술 이름 */
+  matchedSkills?: string[];
   title: string;
   category: { category: string; displayName: string };
   budgetAmount: number;
@@ -21,6 +34,27 @@ export type RecommendedProject = {
   skills: { skillId: string; displayName: string }[];
   applicationCount: number;
 };
+
+/**
+ * 사유를 문장으로 바꾼다.
+ *
+ * 기술이 겹치면 무엇이 겹쳤는지까지 말한다 — "기술이 맞아요" 보다
+ * "React · TypeScript 가 같아요" 가 판단에 쓸모 있다.
+ */
+function reasonText(p: RecommendedProject, categoryName: string): string | null {
+  const skills = p.matchedSkills?.length ? p.matchedSkills.join(" · ") : null;
+  switch (p.reason) {
+    case "SAME_CATEGORY_AND_SKILL":
+      return skills ? `${categoryName} · ${skills} 가 같아요` : `${categoryName} 분야예요`;
+    case "SAME_CATEGORY":
+      return `${categoryName} 분야예요`;
+    case "SHARED_SKILL":
+      return skills ? `${skills} 를 함께 써요` : null;
+    default:
+      // 사유를 모르면 아무 말도 하지 않는다. 지어내지 않는다.
+      return null;
+  }
+}
 
 export type RecommendationSectionProps = {
   items?: RecommendedProject[];
@@ -54,6 +88,10 @@ export function RecommendationSection({ items = [], onOpen }: RecommendationSect
             {/* 후보 조건이 OPEN 뿐이라 항상 "모집 중"이다 (규칙 18).
                 그래도 배지를 두는 것은 카드가 다른 목록과 같은 모양이어야 해서다. */}
             <RecruitmentBadge status={p.recruitmentStatus} />
+            {/* 왜 이 프로젝트가 여기 있는지 (§6 근거 이해) */}
+            {reasonText(p, p.category.displayName) && (
+              <p className="reco__why">{reasonText(p, p.category.displayName)}</p>
+            )}
           </article>
         ))}
       </div>
