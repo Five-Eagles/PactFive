@@ -106,7 +106,7 @@
 
 <main class="page">
   <div class="toolbar">
-    <form class="search" role="search" onsubmit="return false">
+    <form class="search" id="searchForm" role="search">
       <label for="q" style="position:absolute;left:-9999px">프로젝트 검색</label>
       <input id="q" type="search" placeholder="프로젝트를 검색해 보세요" />
       <button class="btn primary" type="submit">검색</button>
@@ -117,9 +117,9 @@
                var o=f.dataset.open!=='true'; f.dataset.open=o; s.dataset.open=o;
                this.setAttribute('aria-expanded',o);">필터</button>
     <div class="sorts" role="group" aria-label="정렬">
-      <button type="button" aria-pressed="true">최신순</button>
-      <button type="button" aria-pressed="false">마감임박순</button>
-      <button type="button" aria-pressed="false">예산 높은순</button>
+      <button type="button" data-sort="latest" aria-pressed="true">최신순</button>
+      <button type="button" data-sort="deadline" aria-pressed="false">마감임박순</button>
+      <button type="button" data-sort="budget" aria-pressed="false">예산 높은순</button>
     </div>
   </div>
 
@@ -139,170 +139,242 @@
 
       <div class="fgroup">
         <b>카테고리</b>
-        <label><input type="radio" name="cat" /> 전체</label>
-        <label><input type="radio" name="cat" checked /> 웹 개발</label>
-        <label><input type="radio" name="cat" /> 모바일 앱</label>
-        <label><input type="radio" name="cat" /> 디자인</label>
-        <label><input type="radio" name="cat" /> 데이터 · AI</label>
-        <label><input type="radio" name="cat" /> 기획</label>
-        <label><input type="radio" name="cat" /> 마케팅</label>
+        <label><input type="radio" name="cat" value="" checked /> 전체</label>
+        <label><input type="radio" name="cat" value="WEB_DEVELOPMENT" /> 웹 개발</label>
+        <label><input type="radio" name="cat" value="MOBILE_APP" /> 모바일 앱</label>
+        <label><input type="radio" name="cat" value="DESIGN" /> 디자인</label>
+        <label><input type="radio" name="cat" value="DATA_AI" /> 데이터 · AI</label>
+        <label><input type="radio" name="cat" value="PLANNING" /> 기획</label>
+        <label><input type="radio" name="cat" value="MARKETING" /> 마케팅</label>
       </div>
 
       <div class="fgroup">
         <b>예산 (원)</b>
         <div class="range">
-          <input type="text" inputmode="numeric" placeholder="최소" aria-label="최소 예산" />
-          <input type="text" inputmode="numeric" placeholder="최대" aria-label="최대 예산" />
+          <input id="minBudget" type="text" inputmode="numeric" placeholder="최소" aria-label="최소 예산" />
+          <input id="maxBudget" type="text" inputmode="numeric" placeholder="최대" aria-label="최대 예산" />
         </div>
       </div>
 
       <div class="fgroup">
         <b>필요한 기술 <span class="fgroup__hint">전부 만족</span></b>
-        <label><input type="checkbox" checked /> React</label>
-        <label><input type="checkbox" /> Node.js</label>
-        <label><input type="checkbox" /> TypeScript</label>
-        <label><input type="checkbox" /> Figma</label>
+        <label><input type="checkbox" name="skill" value="REACT" /> React</label>
+        <label><input type="checkbox" name="skill" value="NODEJS" /> Node.js</label>
+        <label><input type="checkbox" name="skill" value="TYPESCRIPT" /> TypeScript</label>
+        <label><input type="checkbox" name="skill" value="FIGMA" /> Figma</label>
+        <label><input type="checkbox" name="skill" value="FLUTTER" /> Flutter</label>
+        <label><input type="checkbox" name="skill" value="PYTHON" /> Python</label>
+        <label><input type="checkbox" name="skill" value="SQL" /> SQL</label>
+        <label><input type="checkbox" name="skill" value="HTML_CSS" /> HTML/CSS</label>
       </div>
 
       <div class="fgroup">
         <b>모집 상태</b>
-        <label><input type="radio" name="rs" checked /> 모집 중만</label>
-        <label><input type="radio" name="rs" /> 마감 포함</label>
+        <label><input type="radio" name="rs" value="open" checked /> 모집 중·예정만</label>
+        <label><input type="radio" name="rs" value="all" /> 마감 포함</label>
       </div>
 
-      <button class="btn quiet sm" type="button" style="width:100%">필터 초기화</button>
+      <button class="btn quiet sm" id="reset" type="button" style="width:100%">필터 초기화</button>
     </aside>
 
     <section>
-      <p class="count">조건에 맞는 프로젝트 <b class="num">18</b>건</p>
+      <p class="count" id="count"></p>
 
-      <div class="grid enter">
-        <article class="card pcard">
-          <div class="pcard__head">
-            <span class="pcard__cat">웹 개발</span>
-            <span class="badge open">모집 중</span>
-            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
-          </div>
-          <h3 class="pcard__title">반응형 랜딩페이지 제작</h3>
-          <p class="pcard__client"><b>주식회사 예시</b>
-            <span class="pcard__rate num">★ 4.8 (12)</span></p>
-          <p class="pcard__budget num">3,000,000원</p>
-          <p class="pcard__skills"><span class="chip">React</span><span class="chip">TypeScript</span></p>
-          <p class="pcard__meta">
-            <span class="num">지원 2건</span>
-            <span class="due num">2026.09.08 · <b>D-6</b></span>
-          </p>
-        </article>
-        <article class="card pcard">
-          <div class="pcard__head">
-            <span class="pcard__cat">웹 개발</span>
-            <span class="badge open">모집 중</span>
-            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
-          </div>
-          <h3 class="pcard__title">사내 재고관리 시스템</h3>
-          <p class="pcard__client"><b>라온물류</b>
-            <span class="pcard__rate num">★ 4.6 (31)</span></p>
-          <p class="pcard__budget num">5,500,000원</p>
-          <p class="pcard__skills"><span class="chip">Node.js</span><span class="chip">SQL</span></p>
-          <p class="pcard__meta">
-            <span class="num">지원 4건</span>
-            <span class="due num">2026.09.14 · <b>D-12</b></span>
-          </p>
-        </article>
-        <article class="card pcard">
-          <div class="pcard__head">
-            <span class="pcard__cat">디자인</span>
-            <span class="badge scheduled">모집 예정</span>
-            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
-          </div>
-          <h3 class="pcard__title">브랜드 소개 페이지</h3>
-          <p class="pcard__client"><b>에버블룸</b>
-            <span class="pcard__rate num">★ 5.0 (4)</span></p>
-          <p class="pcard__budget num">1,800,000원</p>
-          <p class="pcard__skills"><span class="chip">Figma</span></p>
-          <p class="pcard__meta">
-            <span class="num">지원 0건</span>
-            <span class="due num">2026.09.05 · <b>모집 시작</b></span>
-          </p>
-        </article>
-        <article class="card pcard pcard--dim">
-          <div class="pcard__head">
-            <span class="pcard__cat">웹 개발</span>
-            <span class="badge closed">모집 마감</span>
-            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
-          </div>
-          <h3 class="pcard__title">결제 연동 API 개발</h3>
-          <p class="pcard__client"><b>핀테크랩</b>
-            <span class="pcard__rate num">★ 4.7 (22)</span></p>
-          <p class="pcard__budget num">7,200,000원</p>
-          <p class="pcard__skills"><span class="chip">Node.js</span><span class="chip">AWS</span></p>
-          <p class="pcard__meta">
-            <span class="num">지원 9건</span>
-            <span class="due num">2026.08.30 · <b>마감됨</b></span>
-          </p>
-        </article>
-        <article class="card pcard">
-          <div class="pcard__head">
-            <span class="pcard__cat">디자인</span>
-            <span class="badge open">모집 중</span>
-            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
-          </div>
-          <h3 class="pcard__title">모바일 앱 UI 리뉴얼</h3>
-          <p class="pcard__client"><b>데일리핏</b>
-            <span class="pcard__rate num">★ 4.9 (8)</span></p>
-          <p class="pcard__budget num">2,200,000원</p>
-          <p class="pcard__skills"><span class="chip">Figma</span><span class="chip">React Native</span></p>
-          <p class="pcard__meta">
-            <span class="num">지원 3건</span>
-            <span class="due num">2026.09.02 · <b>오늘 마감</b></span>
-          </p>
-        </article>
-        <article class="card pcard">
-          <div class="pcard__head">
-            <span class="pcard__cat">데이터 · AI</span>
-            <span class="badge open">모집 중</span>
-            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
-          </div>
-          <h3 class="pcard__title">AI 챗봇 상담 기능</h3>
-          <p class="pcard__client"><b>헬프데스크</b>
-            <span class="pcard__rate num">★ 4.5 (17)</span></p>
-          <p class="pcard__budget num">6,400,000원</p>
-          <p class="pcard__skills"><span class="chip">Python</span><span class="chip">SQL</span><span class="chip">AWS</span><span class="pcard__more">+1</span></p>
-          <p class="pcard__meta">
-            <span class="num">지원 5건</span>
-            <span class="due num">2026.09.11 · <b>D-9</b></span>
-          </p>
-        </article>
-      </div>
-
-      <div class="pager">
-        <button type="button" aria-current="page">1</button>
-        <button type="button">2</button><button type="button">3</button>
-        <button type="button">›</button>
-      </div>
-
-      <p class="note"><b>규칙 10</b> — 마감된 프로젝트는 기본으로 빠진다.
-      위 <code>결제 연동 API 개발</code>은 필터에서 <b>마감 포함</b>을 골랐을 때만 나온다.
-      <b>규칙 9</b> — 이 목록 응답에는 거래 상태 키가 없다.</p>
+      <!-- 카드·페이지·빈 상태는 demo/engine.js 가 그린다. 하드코딩하지 않는다 -->
+      <div class="grid enter" id="grid"></div>
+      <div id="empty" hidden></div>
+      <div class="pager" id="pager"></div>
     </section>
   </div>
 </main>
 
 
+<script src="demo/data.js"></script>
+<script src="demo/engine.js"></script>
+<script src="demo/bookmarks.js"></script>
 <script>
-  /*
-   * 대표페이지 검색창이 넘긴 값을 받는다.
-   *
-   * 시안이라 서버가 없다. 실제 화면은 이 값을 `GET /api/v1/projects?keyword=` 로 보내고
-   * 서버가 title 과 description 에서 찾는다 (spec.md 규칙 · PRD §3.6).
-   * 여기서는 무엇이 넘어왔는지만 보여준다 — 넘긴 값이 사라지면 사용자가 다시 입력한다.
-   */
-  (function () {
-    var keyword = new URLSearchParams(location.search).get("keyword");
-    if (!keyword) return;
-    var field = document.getElementById("q");
-    if (field) field.value = keyword;
-  })();
+/*
+ * SCR-B01 목록 화면을 실제로 동작시킨다.
+ *
+ * 조건은 전부 **주소창에 남긴다.** 그래야 뒤로 가기가 동작하고, 걸러 놓은 화면을
+ * 링크로 넘길 수 있다. 대표페이지의 검색창·카테고리 타일도 같은 주소로 들어온다.
+ *
+ * 규칙 60 — 조건이 바뀌면 즉시 반영하고 page 를 1 로 되돌린다.
+ *           3페이지를 보다 조건을 좁히면 그 페이지가 비어 있을 수 있다.
+ * 규칙 61 — "필터 초기화"는 필터만 되돌리고 **검색어와 정렬은 남긴다.**
+ */
+(function () {
+  "use strict";
+  var E = window.PactFiveEngine;
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ── 주소 ↔ 조건 ─────────────────────────────────────── */
+
+  function readQuery() {
+    var u = new URLSearchParams(location.search);
+    return {
+      keyword: u.get("keyword") || "",
+      category: u.get("category") || "",
+      skills: (u.get("skills") || "").split(",").filter(Boolean),
+      minBudget: Number(u.get("minBudget")) || 0,
+      maxBudget: Number(u.get("maxBudget")) || 0,
+      includeClosed: u.get("closed") === "1",
+      sortBy: u.get("sortBy") || "latest",
+      page: Number(u.get("page")) || 1,
+    };
+  }
+
+  function writeQuery(q, replace) {
+    var u = new URLSearchParams();
+    if (q.keyword) u.set("keyword", q.keyword);
+    if (q.category) u.set("category", q.category);
+    if (q.skills.length) u.set("skills", q.skills.join(","));
+    if (q.minBudget) u.set("minBudget", q.minBudget);
+    if (q.maxBudget) u.set("maxBudget", q.maxBudget);
+    if (q.includeClosed) u.set("closed", "1");
+    if (q.sortBy !== "latest") u.set("sortBy", q.sortBy);
+    if (q.page > 1) u.set("page", q.page);
+    var url = location.pathname + (u.toString() ? "?" + u : "");
+    history[replace ? "replaceState" : "pushState"](null, "", url);
+  }
+
+  /* ── 조건 → 컨트롤 ───────────────────────────────────── */
+
+  function fillControls(q) {
+    $("q").value = q.keyword;
+    document.querySelectorAll('input[name="cat"]').forEach(function (r) {
+      r.checked = r.value === q.category;
+    });
+    document.querySelectorAll('input[name="skill"]').forEach(function (c) {
+      c.checked = q.skills.indexOf(c.value) !== -1;
+    });
+    $("minBudget").value = q.minBudget || "";
+    $("maxBudget").value = q.maxBudget || "";
+    document.querySelectorAll('input[name="rs"]').forEach(function (r) {
+      r.checked = r.value === (q.includeClosed ? "all" : "open");
+    });
+    document.querySelectorAll("[data-sort]").forEach(function (b) {
+      b.setAttribute("aria-pressed", b.dataset.sort === q.sortBy ? "true" : "false");
+    });
+  }
+
+  /* ── 컨트롤 → 조건 ───────────────────────────────────── */
+
+  function collect() {
+    var checkedCat = document.querySelector('input[name="cat"]:checked');
+    var pressed = document.querySelector('[data-sort][aria-pressed="true"]');
+    return {
+      keyword: $("q").value.trim(),
+      category: checkedCat ? checkedCat.value : "",
+      skills: Array.prototype.map.call(
+        document.querySelectorAll('input[name="skill"]:checked'),
+        function (c) { return c.value; },
+      ),
+      minBudget: Number(String($("minBudget").value).replace(/[^0-9]/g, "")) || 0,
+      maxBudget: Number(String($("maxBudget").value).replace(/[^0-9]/g, "")) || 0,
+      includeClosed: (document.querySelector('input[name="rs"]:checked') || {}).value === "all",
+      sortBy: pressed ? pressed.dataset.sort : "latest",
+      page: 1,
+    };
+  }
+
+  /* ── 그리기 ─────────────────────────────────────────── */
+
+  function render() {
+    var q = readQuery();
+    fillControls(q);
+
+    var res = E.list(q);
+    $("count").innerHTML =
+      '조건에 맞는 프로젝트 <b class="num">' + res.totalCount + "</b>건";
+
+    $("grid").innerHTML = res.items.map(E.cardHTML).join("");
+    $("grid").hidden = res.totalCount === 0;
+
+    // 규칙 — 결과가 없는 것은 오류가 아니다. 무엇을 할 수 있는지 함께 준다
+    var hasCondition = q.keyword || q.category || q.skills.length || q.minBudget || q.maxBudget;
+    $("empty").hidden = res.totalCount > 0;
+    $("empty").innerHTML = res.totalCount > 0 ? "" :
+      '<div class="empty" role="status">' +
+        "<h3>조건에 맞는 프로젝트가 없습니다</h3>" +
+        "<p>" + (hasCondition ? "검색어나 필터를 조정해 보세요." : "지금은 모집 중인 프로젝트가 없습니다.") + "</p>" +
+        (hasCondition ? '<button class="btn secondary sm" id="clearAll" type="button">조건 모두 지우기</button>' : "") +
+      "</div>";
+
+    renderPager(res);
+    document.title = (q.keyword ? q.keyword + " — " : "") + "프로젝트 찾기 · PactFive";
+  }
+
+  function renderPager(res) {
+    if (res.totalPages <= 1) { $("pager").innerHTML = ""; return; }
+    var html = "";
+    if (res.page > 1) html += '<button type="button" data-page="' + (res.page - 1) + '" aria-label="이전 페이지">‹</button>';
+    for (var i = 1; i <= res.totalPages; i++) {
+      html += '<button type="button" data-page="' + i + '"' +
+        (i === res.page ? ' aria-current="page"' : "") + ">" + i + "</button>";
+    }
+    if (res.page < res.totalPages) html += '<button type="button" data-page="' + (res.page + 1) + '" aria-label="다음 페이지">›</button>';
+    $("pager").innerHTML = html;
+  }
+
+  /* ── 반응 ───────────────────────────────────────────── */
+
+  function apply() {
+    writeQuery(collect());
+    render();
+  }
+
+  $("searchForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    apply();
+  });
+
+  // 규칙 60 — 필터는 즉시 반영한다. "적용" 버튼을 따로 두지 않는다
+  document.querySelector(".filters").addEventListener("change", apply);
+  document.querySelector(".filters").addEventListener("input", function (e) {
+    if (e.target.id === "minBudget" || e.target.id === "maxBudget") apply();
+  });
+
+  document.querySelector(".sorts").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-sort]");
+    if (!b) return;
+    document.querySelectorAll("[data-sort]").forEach(function (x) {
+      x.setAttribute("aria-pressed", x === b ? "true" : "false");
+    });
+    apply();
+  });
+
+  $("pager").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-page]");
+    if (!b) return;
+    var q = readQuery();
+    q.page = Number(b.dataset.page);
+    writeQuery(q);
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  // 규칙 61 — 필터 4종만 되돌린다. 검색어와 정렬은 남긴다 —
+  // 사용자가 입력한 것을 예고 없이 버리지 않는다
+  $("reset").addEventListener("click", function () {
+    var q = readQuery();
+    q.category = ""; q.skills = []; q.minBudget = 0; q.maxBudget = 0; q.includeClosed = false;
+    q.page = 1;
+    writeQuery(q);
+    render();
+  });
+
+  // 빈 상태의 "조건 모두 지우기"는 검색어까지 지운다 — 사용자가 그렇게 말한 것이다
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#clearAll")) return;
+    history.pushState(null, "", location.pathname);
+    render();
+  });
+
+  window.addEventListener("popstate", render);
+  window.PactFiveBookmarks.bind();
+  render();
+})();
 </script>
 </body>
 </html>

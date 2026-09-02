@@ -511,110 +511,8 @@
       </div>
       <p class="sec__note">모집 중이거나 모집 예정인 프로젝트만 보입니다. 마감된 것은 전체 보기에서 찾을 수 있습니다.</p>
 
-      <div class="grid3 enter">
-        <article class="card pcard">
-          <div class="pcard__head">
-            <span class="pcard__cat">웹 개발</span>
-            <span class="badge open">모집 중</span>
-            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
-          </div>
-          <h3 class="pcard__title">쇼핑몰 웹사이트 구축</h3>
-          <p class="pcard__client"><b>주식회사 마루컴퍼니</b>
-            <span class="pcard__rate num">★ 4.8 (12)</span></p>
-          <p class="pcard__budget num">5,000,000원</p>
-          <p class="pcard__skills"><span class="chip">React</span><span class="chip">TypeScript</span></p>
-          <p class="pcard__meta">
-            <span class="num">지원 0건</span>
-            <span class="due num">2026.09.16 · <b>D-14</b></span>
-          </p>
-        </article>
-
-        <article class="card pcard">
-          <div class="pcard__head">
-            <span class="pcard__cat">웹 개발</span>
-            <span class="badge open">모집 중</span>
-            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
-          </div>
-          <h3 class="pcard__title">사내 관리자 페이지</h3>
-          <p class="pcard__client"><b>라온물류</b>
-            <span class="pcard__rate num">★ 4.6 (31)</span></p>
-          <p class="pcard__budget num">3,500,000원</p>
-          <p class="pcard__skills"><span class="chip">Node.js</span><span class="chip">SQL</span></p>
-          <p class="pcard__meta">
-            <span class="num">지원 2건</span>
-            <span class="due num">2026.09.11 · <b>D-9</b></span>
-          </p>
-        </article>
-
-        <article class="card pcard">
-          <div class="pcard__head">
-            <span class="pcard__cat">디자인</span>
-            <span class="badge open">모집 중</span>
-            <button class="save" type="button" aria-pressed="true" aria-label="북마크 해제">★</button>
-          </div>
-          <h3 class="pcard__title">브랜드 리뉴얼 디자인</h3>
-          <p class="pcard__client"><b>데일리핏</b>
-            <span class="pcard__rate none">평가 없음</span></p>
-          <p class="pcard__budget num">2,200,000원</p>
-          <p class="pcard__skills"><span class="chip">Figma</span></p>
-          <p class="pcard__meta">
-            <span class="num">지원 1건</span>
-            <span class="due num">2026.09.20 · <b>D-18</b></span>
-          </p>
-        </article>
-
-        <article class="card pcard">
-          <div class="pcard__head">
-            <span class="pcard__cat">모바일 앱</span>
-            <span class="badge open">모집 중</span>
-            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
-          </div>
-          <h3 class="pcard__title">배달앱 MVP 개발</h3>
-          <p class="pcard__client"><b>스푼테이블</b>
-            <span class="pcard__rate num">★ 4.9 (8)</span></p>
-          <p class="pcard__budget num">8,000,000원</p>
-          <p class="pcard__skills"><span class="chip">Flutter</span><span class="chip">TypeScript</span></p>
-          <p class="pcard__meta">
-            <span class="num">지원 0건</span>
-            <span class="due num">2026.09.25 · <b>D-23</b></span>
-          </p>
-        </article>
-
-        <article class="card pcard">
-          <div class="pcard__head">
-            <span class="pcard__cat">마케팅</span>
-            <span class="badge open">모집 중</span>
-            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
-          </div>
-          <h3 class="pcard__title">신제품 런칭 마케팅</h3>
-          <p class="pcard__client"><b>코너스톤</b>
-            <span class="pcard__rate num">★ 4.5 (5)</span></p>
-          <p class="pcard__budget num">3,200,000원</p>
-          <p class="pcard__skills"><span class="chip">Figma</span></p>
-          <p class="pcard__meta">
-            <span class="num">지원 0건</span>
-            <span class="due num">2026.09.18 · <b>D-16</b></span>
-          </p>
-        </article>
-
-        <article class="card pcard">
-          <div class="pcard__head">
-            <span class="pcard__cat">웹 개발</span>
-            <span class="badge open">모집 중</span>
-            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
-          </div>
-          <h3 class="pcard__title">이벤트 페이지 제작</h3>
-          <p class="pcard__client"><b>블루밍랩</b>
-            <span class="pcard__rate none">평가 없음</span></p>
-          <p class="pcard__budget num">1,800,000원</p>
-          <p class="pcard__skills"><span class="chip">HTML/CSS</span></p>
-          <p class="pcard__meta">
-            <span class="num">지원 0건</span>
-            <!-- 마감이 가까워도 색과 굵기만 쓴다. "서두르세요" 같은 문구를 넣지 않는다 (§12) -->
-            <span class="due num">2026.09.03 · <b>내일 마감</b></span>
-          </p>
-        </article>
-      </div>
+      <!-- browse.html 과 같은 카드다. demo/engine.js 가 그린다 -->
+      <div class="grid3 enter" id="homeGrid"></div>
     </section>
 
     <!-- ═══════ 추천 전문가 ═══════ -->
@@ -690,6 +588,27 @@
     <span>PactFive</span><span>이용약관</span><span>개인정보처리방침</span><span>고객센터</span>
   </div>
 </footer>
+
+<script src="demo/data.js"></script>
+<script src="demo/engine.js"></script>
+<script src="demo/bookmarks.js"></script>
+<script>
+/*
+ * 대표페이지의 "지금 모집 중인 프로젝트".
+ *
+ * browse.html 과 **같은 데이터·같은 규칙·같은 카드**를 쓴다. 하드코딩하면
+ * 대표페이지에서 본 것과 목록에서 본 것이 달라진다.
+ */
+(function () {
+  "use strict";
+  var slot = document.getElementById("homeGrid");
+  if (!slot) return;
+  // 규칙 10 이 이미 마감된 것을 뺀다. 대표페이지는 앞의 6건만 보여준다
+  var res = window.PactFiveEngine.list({ sortBy: "latest" });
+  slot.innerHTML = res.items.slice(0, 6).map(window.PactFiveEngine.cardHTML).join("");
+  window.PactFiveBookmarks.bind();
+})();
+</script>
 
 <script>
   /*
