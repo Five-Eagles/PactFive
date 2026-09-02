@@ -2,10 +2,11 @@
 
 | | |
 |---|---|
-| 받는 사람 | 유동우 (project-management) · 최윤석 (applications) |
+| 받는 사람 | 유동우 (project-management) · 최윤석 (applications · notifications) |
 | 보내는 사람 | 조준영 (contracts-payments) |
 | 날짜 | 2026-08-26 |
-| 정본 | `features/contracts-payments/api-contract.md` · `prototype/` |
+| 갱신 | 2026-09-02 알림 포트 · 수락 손잡이 import |
+| 정본 | `features/contracts-payments/api-contract.md` · `prototype/` · `review/yoonseok-ports-contract.md` |
 
 4함수 Mock 스텁을 붙였습니다. 정본은 API 계약 문서이고, Mock은 그 계약의 스탠드인입니다.
 `features/{기능}/prototype/` 기준 상대 경로입니다. **`prototype/index.ts`만 import**하세요.
@@ -108,6 +109,7 @@ markPaymentPending 본문에는 `contractId`가 있어야 합니다. 없으면 4
 
 시드 `prj_alive`는 1~3이 끝난 상태(`CONTRACT_PENDING` + `acceptedApplicationId: app_123`)다.
 최윤석 2026-08-26 회신으로 이 순서는 확정이다.
+수락 이후 결제·리뷰·알림 발행까지는 아래 알림·손잡이 절과 `yoonseok-ports-contract.md` §3.
 
 restore 때 알아 두실 것:
 
@@ -115,6 +117,46 @@ restore 때 알아 두실 것:
 - 대기 지원이 남으면 (`prj_pending_apps`) HTTP 200, `reopened: false`, `notReopenedReason: PENDING_APPLICATIONS_REMAIN`. 유동우가 `rejectPendingApplications`를 다시 보낼 수 있습니다.
 - 재개 성공(`prj_restore`) 후 새 지원은 기존 `PENDING` 규칙입니다.
 - 거절 사유는 `PROJECT_CANCELED`(프로젝트 취소)와 `AGREEMENT_DECLINED`(합의 결렬)를 구분합니다.
+
+---
+
+## 최윤석님께 (알림 포트 · 수락 손잡이)
+
+`features/applications/` · `features/notifications/`는 조준영이 채우지 않습니다. **맞출 계약**만 있습니다. 구현 요청이 아닙니다. Y1·Y3·Y4는 회신 전제.
+
+입구는 **`prototype/index.ts`만**. `createPublicApiMock` · `AcceptedApplicationHandoff` · `NotificationTriggerPort`.
+
+```ts
+import {
+  createPublicApiMock,
+  createNotificationTriggerMock,
+  toAcceptedApplicationHandoff,
+} from "../../contracts-payments/prototype";
+import type {
+  AcceptedApplicationHandoff,
+  NotificationTriggerPort,
+} from "../../contracts-payments/prototype";
+
+const api = createPublicApiMock();
+const handoff: AcceptedApplicationHandoff | null = toAcceptedApplicationHandoff(
+  await api.projects.getProjectNegotiationContext("prj_alive"),
+);
+// { projectId, acceptedApplicationId: "app_123", transactionStatus: "CONTRACT_PENDING" }
+
+const notifications: NotificationTriggerPort = createNotificationTriggerMock();
+```
+
+| export | 역할 |
+|---|---|
+| `createPublicApiMock` | 합의·서명·결제 스탠드인. 손잡이 없으면 `proposeNegotiationOffer` 409 |
+| `AcceptedApplicationHandoff` | 수락이 끝난 뒤에만 합의 진입. `toAcceptedApplicationHandoff`가 null이면 들어가지 않음 |
+| `NotificationTriggerPort` | 조준영 `publish*`만. 최윤석 `createPaymentCompletedNotification` · `createReviewRequestedNotification` |
+
+호출 순서 한 장: 수락 → `CONTRACT_PENDING` + `acceptedApplicationId` → `proposeNegotiationOffer` → 수락·서명·`markPaymentPending`·confirm → `PAID` → `publishPaymentCompleted` → `startProjectTransaction` → (납품 2종은 시그니처만) → `COMPLETED` → `publishReviewRequested`. 표는 `yoonseok-ports-contract.md` §3.
+
+- `publishDeliveryRequested` · `publishDeliveryApproved`는 Increment 1에서 호출하지 않습니다.
+- 포트 throw여도 `PAID`·`COMPLETED`는 유지합니다 (PRD §5.6).
+- `REVIEW_REQUESTED`는 작성 가능 시점입니다. 공개·`REVIEW_CREATED`가 아닙니다.
 
 ---
 

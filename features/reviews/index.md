@@ -11,6 +11,7 @@
   `npx tsx prototype/run.tsx` → PASS 38.
 - design/: high-fi 1화면 (`high-fi.html`). 패널만 (앱 셸 없음). 라우트 `/projects/:projectId/reviews`.
   low-fi는 `low-fi.html`에 남김.
+  오버레이·reduced-motion은 `design/panel.css` (앱 셸·stagger 없음).
 
 ## 교차 담당
 - 유동우: `transactionStatus` 읽기 (`COMPLETED` · `CANCELED`).
@@ -30,3 +31,4 @@
 | 2026-08-31 | high-fi 리뷰 패널. 앱 셸 없음. 필수 요소·상태 분기 유지 |
 | 2026-08-31 | 규칙 12: `publishReviewRequested` 발행 / 발송은 최윤석 |
 | 2026-08-31 | 오민혁 회신: `getPublishedRatingAggregate`. 소비는 오민혁. run.tsx PASS 38 |
+| 2026-09-02 | 레퍼런스 오버레이·reduced-motion만 패널에 이식. 앱 셸·카드 그리드 없음 |

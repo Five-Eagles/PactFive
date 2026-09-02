@@ -13,6 +13,9 @@
   <h1>상호 리뷰</h1>
   <p>패널만 · 앱 셸 없음 · /projects/:projectId/reviews · design-system v1.0 · 규칙 11</p>
   <span class="fi">high-fi</span>
+  <div class="btn-row">
+    <button type="button" class="btn secondary" id="overlay-open">오버레이 리듬</button>
+  </div>
 </div>
 
 <section class="screen">
@@ -134,6 +137,34 @@
   <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
   제출 후 별점 숫자(데이터). 제출 화면에는 수정 버튼이 <strong>없어야</strong> 한다.</p>
 </section>
+
+<div class="overlay-backdrop" id="overlay" aria-hidden="true">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="overlay-title">
+    <h2 class="title" id="overlay-title">오버레이 리듬</h2>
+    <p class="status-copy">딤과 본체가 함께 240ms로 나타납니다. 카드 그리드 stagger와 앱 셸은 쓰지 않습니다.</p>
+    <div class="btn-row">
+      <button type="button" class="btn quiet" id="overlay-close">닫기</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var overlay = document.getElementById("overlay");
+  function openOverlay() {
+    overlay.classList.add("open");
+    overlay.setAttribute("aria-hidden", "false");
+  }
+  function closeOverlay() {
+    overlay.classList.remove("open");
+    overlay.setAttribute("aria-hidden", "true");
+  }
+  document.getElementById("overlay-open").addEventListener("click", openOverlay);
+  document.getElementById("overlay-close").addEventListener("click", closeOverlay);
+  overlay.addEventListener("click", function (e) {
+    if (e.target === overlay) closeOverlay();
+  });
+})();
+</script>
 
 </body>
 </html>
