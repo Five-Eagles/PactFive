@@ -210,8 +210,10 @@
 
   /* ── 주소 ↔ 조건 ─────────────────────────────────────── */
 
+  // 조건은 **해시**에 둔다. 정적 파일이라 서버가 없고, 해시는 file:// 에서도
+  // 미리보기 도구에서도 그대로 살아남는다. 뒤로 가기도 동작한다.
   function readQuery() {
-    var u = new URLSearchParams(location.search);
+    var u = new URLSearchParams(location.hash.replace(/^#/, ""));
     return {
       keyword: u.get("keyword") || "",
       category: u.get("category") || "",
@@ -234,7 +236,7 @@
     if (q.includeClosed) u.set("closed", "1");
     if (q.sortBy !== "latest") u.set("sortBy", q.sortBy);
     if (q.page > 1) u.set("page", q.page);
-    var url = location.pathname + (u.toString() ? "?" + u : "");
+    var url = location.pathname + (u.toString() ? "#" + u : "#");
     history[replace ? "replaceState" : "pushState"](null, "", url);
   }
 
@@ -367,11 +369,12 @@
   // 빈 상태의 "조건 모두 지우기"는 검색어까지 지운다 — 사용자가 그렇게 말한 것이다
   document.addEventListener("click", function (e) {
     if (!e.target.closest("#clearAll")) return;
-    history.pushState(null, "", location.pathname);
+    history.pushState(null, "", location.pathname + "#");
     render();
   });
 
   window.addEventListener("popstate", render);
+  window.addEventListener("hashchange", render);
   window.PactFiveBookmarks.bind();
   render();
 })();

@@ -175,7 +175,7 @@
             (saved ? "★" : "☆") +
           "</button>" +
         "</div>" +
-        '<h3 class="pcard__title"><a href="detail.html?id=' + p.id + '">' + esc(p.title) + "</a></h3>" +
+        '<h3 class="pcard__title"><a href="detail.html#id=' + p.id + '">' + esc(p.title) + "</a></h3>" +
         '<p class="pcard__client"><b>' + esc(c.name) + "</b>" + rate + "</p>" +
         '<p class="pcard__budget num">' + won(p.budget) + "</p>" +
         '<p class="pcard__skills">' +
