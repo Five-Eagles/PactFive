@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>contracts-payments — 금액 합의 (high-fi)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
 <link rel="stylesheet" href="_tokens.css" />
 <link rel="stylesheet" href="panel.css" />
 </head>
@@ -13,9 +14,6 @@
   <h1>금액 합의</h1>
   <p>패널만 · 앱 셸 없음 · /projects/:projectId/agreements · design-system v1.0 · 규칙 17</p>
   <span class="fi">high-fi</span>
-  <div class="btn-row">
-    <button type="button" class="btn secondary" id="overlay-open">오버레이 리듬</button>
-  </div>
 </div>
 
 <section class="screen">
@@ -34,6 +32,29 @@
       <label class="label" for="agreement-amount">합의 금액</label>
       <input class="field" id="agreement-amount" name="amount" inputmode="numeric" placeholder="금액" />
       <p class="helper">단위는 원입니다. 제안한 금액이 계약과 결제의 근거가 됩니다.</p>
+    </div>
+    <div class="btn-row">
+      <button type="submit" class="btn primary">제안하기</button>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">입력 오류 · 빈 금액</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">금액 합의</h2>
+      <span class="badge neutral">제안 전</span>
+    </div>
+    <p class="status-copy">아직 제안이 없습니다. <strong>의뢰인이 금액을 제안</strong>하면 프리랜서가 수락하거나 거절합니다.</p>
+    <dl class="facts">
+      <dt>프로젝트 제목</dt>
+      <dd>쇼핑몰 웹사이트 구축</dd>
+    </dl>
+    <div class="field-row">
+      <label class="label" for="agreement-amount-error">합의 금액</label>
+      <input class="field error" id="agreement-amount-error" name="amount" inputmode="numeric" placeholder="금액" aria-invalid="true" />
+      <p class="helper error">금액을 입력해 주세요.</p>
     </div>
     <div class="btn-row">
       <button type="submit" class="btn primary">제안하기</button>
@@ -75,7 +96,7 @@
     </dl>
     <div class="btn-row">
       <button type="button" class="btn primary">수락하기</button>
-      <button type="button" class="btn danger">거절하기</button>
+      <button type="button" class="btn danger" id="reject-open">거절하기</button>
     </div>
   </article>
 </section>
@@ -157,10 +178,11 @@
 
 <div class="overlay-backdrop" id="overlay" aria-hidden="true">
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="overlay-title">
-    <h2 class="title" id="overlay-title">오버레이 리듬</h2>
-    <p class="status-copy">딤과 본체가 함께 240ms로 나타납니다. 카드 그리드 stagger와 앱 셸은 쓰지 않습니다.</p>
+    <h2 class="title" id="overlay-title">합의를 거절할까요?</h2>
+    <p class="status-copy">거절하면 <strong>이 거래는 끝납니다</strong>. 프로젝트는 합의 전 상태로 돌아가고, 이 제안은 되돌릴 수 없습니다.</p>
     <div class="btn-row">
       <button type="button" class="btn quiet" id="overlay-close">닫기</button>
+      <button type="button" class="btn danger" id="reject-confirm">거절 확인</button>
     </div>
   </div>
 </div>
@@ -175,8 +197,9 @@
     overlay.classList.remove("open");
     overlay.setAttribute("aria-hidden", "true");
   }
-  document.getElementById("overlay-open").addEventListener("click", openOverlay);
+  document.getElementById("reject-open").addEventListener("click", openOverlay);
   document.getElementById("overlay-close").addEventListener("click", closeOverlay);
+  document.getElementById("reject-confirm").addEventListener("click", closeOverlay);
   overlay.addEventListener("click", function (e) {
     if (e.target === overlay) closeOverlay();
   });

@@ -1,11 +1,11 @@
 # reviews 테스트 결과
 
-담당자: 조준영            테스트 날짜: 2026-08-31
-테스트한 커밋: 커밋 전
+담당자: 조준영            테스트 날짜: 2026-09-02
+테스트한 커밋: 이 커밋 (`run.tsx` 포함)
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 38, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 40, FAIL 개수: 0)
 
 ## spec.md 규칙별 확인
 
@@ -21,10 +21,10 @@
 | 8 CANCELED 차단 | `run.tsx` 거래 취소 409 · 계약 취소 409 | 통과 |
 | 9 API·권한 | `run.tsx` 비당사자 공개만 · 본인 미공개 · 무인증 401 | 통과 |
 | 10 작성 필드·태그 | `run.tsx` 잘못된 태그 422 · 별점 422 · 서버가 식별자 채움 | 통과 |
-| 11 UX | `run.tsx` 별점·리뷰 작성·빈·로딩·LOAD_FAILED·409 3종·수정 없음·원시 색상 없음 | 통과 |
+| 11 UX | `run.tsx` 별점·리뷰 작성·빈·14일 안내·로딩·불러오지 못했습니다·409 3종·제출 14일·수정 없음·원시 색상 없음 | 통과 |
 | 12 알림 발송 | 발송은 최윤석 (이 `run.tsx` 해당 없음). 발행은 contracts-payments `run.tsx` 「PAID·COMPLETED 직후 publish」 | 해당 없음 |
 | 13 Increment 완료 기준 | `run.tsx` 양쪽 공개 시 이벤트 2건 · 없는 프로젝트 404 | 통과 |
-| UI(design/web) | `design/high-fi.html` 필수 요소 3개가 `ReviewPanel` 기본 렌더에 있음 | 통과 |
+| UI(design/web) | `design/high-fi.html` 필수 요소가 `ReviewPanel` 기본 렌더에 있음. 빈·제출 14일 안내 | 통과 |
 
 ## 아직 안 되는 것 (Known Issues)
 

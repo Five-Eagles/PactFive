@@ -17,6 +17,8 @@
   8/27 설계서 평가·최적안은 `review/spec-design-eval.md`.
   금주 마감은 `review/week-wrap-2026-08-28.md`.
   ADR-0012 패널 vs 레퍼런스 확인은 `review/reference-panel-gap-2026-09-02.md`.
+  최윤석 접점 확정 요청은 `review/yoonseok-ports-confirm-2026-09-02.md`.
+  팀장 패널 이식성 확정 요청은 `review/teamlead-panel-portability-2026-09-02.md`.
 - prototype/: 유동우 포트 스탠드인 Mock + 조준영 호출 서비스 + `PaymentGateway` Mock.
   키는 리포 루트 `.env`. 없으면 Mock·`PgKeyMissingError`. 다른 기능은 `prototype/index.ts`만 import한다.
   `NotificationTriggerPort`는 publish만. 발송은 최윤석.
@@ -44,7 +46,8 @@
 - design/: high-fi 3화면 (`agreement.html` · `contract-sign.html` · `payment.html`).
   패널만 (앱 셸 없음). `_tokens.css`는 design-system v1.0 사본. 키 없음 UX는
   `prototype/web/PaymentPanel.tsx` `view="keyMissing"`.
-  오버레이·reduced-motion은 `design/panel.css` (앱 셸·stagger 없음).
+  오버레이·reduced-motion은 `design/panel.css`. 합의 거절은 확인 다이얼로그 (앱 셸·stagger 없음).
+  화면 카피는 상황 문장. 합의·서명·결제 응답 기한은 스펙에 없어 미표시.
 
 ## 교차 담당
 - 유동우 (project-management): 4함수 제공자. 2026-08-25 함수별 정의 회신 반영 완료
@@ -52,6 +55,7 @@
 - 최윤석 (applications): 지원 수락 선행. 2026-08-26 함수별 정의 11건 전부 예
   (`review/yoonseok-function-defs-response-final.html`).
   알림 4종은 포트 발행 / 발송 대기. 계약은 `review/yoonseok-ports-contract.md`.
+  2026-09-02 확정 요청은 `review/yoonseok-ports-confirm-2026-09-02.md`.
 
 ## 갱신 이력
 
@@ -81,3 +85,6 @@
 | 2026-09-02 | ADR-0012 확인. 패널 vs 레퍼런스 어긋남 (`review/reference-panel-gap-2026-09-02.md`) |
 | 2026-09-02 | 패널에 오버레이·reduced-motion 리듬 이식. 앱 셸·stagger 없음 |
 | 2026-09-02 | 수락→결제→리뷰 호출 순서. 최윤석 import 입구 (`yoonseok-ports-contract` · `mock-stub-import-guide`) |
+| 2026-09-02 | 최윤석·팀장 확정 요청 (`yoonseok-ports-confirm` · `teamlead-panel-portability`) |
+| 2026-09-02 | 토큰 정본 일치. 서명 로딩/실패·결제 상태·거절 확인 다이얼로그. 실측 PASS 87 |
+| 2026-09-02 | UX 카피 반영. 실패·로딩은 상황 문장. 결제 금액·수수료·정산액 구분. 합의·서명·결제 응답 기한은 스펙에 없어 미표시. 실측 PASS 89 |

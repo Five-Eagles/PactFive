@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Badge, Button, Money, Notice } from "./ui";
 
 export type AgreementView =
@@ -114,30 +115,7 @@ export function AgreementPanel({
   }
 
   if (view === "respond") {
-    return (
-      <article className="panel">
-        <div className="panel-head">
-          <h2 className="title">금액 합의</h2>
-          <Badge tone="warning" label="응답 대기" />
-        </div>
-        <p className="status-copy">
-          의뢰인이 아래 금액을 제안했습니다. <strong>지금 수락하거나 거절</strong>할 수
-          있습니다. 거절하면 이 거래는 끝납니다.
-        </p>
-        <dl className="facts">
-          <dt>프로젝트 제목</dt>
-          <dd>{projectTitle}</dd>
-          <dt>합의 금액</dt>
-          <dd>
-            <Money amount={amount} />
-          </dd>
-        </dl>
-        <div className="btn-row">
-          <Button variant="primary">수락하기</Button>
-          <Button variant="danger">거절하기</Button>
-        </div>
-      </article>
-    );
+    return <AgreementRespondPanel projectTitle={projectTitle} amount={amount} />;
   }
 
   return (
@@ -173,5 +151,70 @@ export function AgreementPanel({
         </Button>
       </div>
     </form>
+  );
+}
+
+/** 거절은 확인 다이얼로그 뒤에만 진행한다 (§8 DestructiveActionSummary). */
+function AgreementRespondPanel({
+  projectTitle,
+  amount,
+}: {
+  projectTitle: string;
+  amount: number;
+}) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  return (
+    <>
+      <article className="panel">
+        <div className="panel-head">
+          <h2 className="title">금액 합의</h2>
+          <Badge tone="warning" label="응답 대기" />
+        </div>
+        <p className="status-copy">
+          의뢰인이 아래 금액을 제안했습니다. <strong>지금 수락하거나 거절</strong>할 수
+          있습니다. 거절하면 이 거래는 끝납니다.
+        </p>
+        <dl className="facts">
+          <dt>프로젝트 제목</dt>
+          <dd>{projectTitle}</dd>
+          <dt>합의 금액</dt>
+          <dd>
+            <Money amount={amount} />
+          </dd>
+        </dl>
+        <div className="btn-row">
+          <Button variant="primary">수락하기</Button>
+          <Button variant="danger" onClick={() => setConfirmOpen(true)}>
+            거절하기
+          </Button>
+        </div>
+      </article>
+      <div
+        className={confirmOpen ? "overlay-backdrop open" : "overlay-backdrop"}
+        aria-hidden={confirmOpen ? "false" : "true"}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) setConfirmOpen(false);
+        }}
+      >
+        <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="reject-title">
+          <h2 className="title" id="reject-title">
+            합의를 거절할까요?
+          </h2>
+          <p className="status-copy">
+            거절하면 <strong>이 거래는 끝납니다</strong>. 프로젝트는 합의 전 상태로 돌아가고,
+            이 제안은 되돌릴 수 없습니다.
+          </p>
+          <div className="btn-row">
+            <Button variant="quiet" onClick={() => setConfirmOpen(false)}>
+              닫기
+            </Button>
+            <Button variant="danger" onClick={() => setConfirmOpen(false)}>
+              거절 확인
+            </Button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

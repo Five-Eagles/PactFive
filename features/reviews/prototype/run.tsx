@@ -318,6 +318,7 @@ async function main() {
     hasText("규칙 11: 필수 별점", empty, "별점");
     hasText("규칙 11: 필수 리뷰 작성", empty, "리뷰 작성");
     hasText("규칙 11: 빈 상대 미작성", empty, "상대 리뷰는 아직 없습니다");
+    hasText("규칙 11: 빈 14일 안내", empty, "14일");
     hasText("규칙 11: 로딩", htmlOf("loading"), "불러오는 중");
     hasText("규칙 11: LOAD_FAILED", htmlOf("loadFailed"), "불러오지 못했습니다");
     hasText("규칙 11: LOAD_FAILED 재시도", htmlOf("loadFailed"), "다시 시도");
@@ -325,6 +326,7 @@ async function main() {
     hasText("규칙 11: 409 미완료", htmlOf("incomplete"), "거래가 완료되지 않았습니다");
     hasText("규칙 11: 409 취소", htmlOf("canceled"), "취소된 거래는 리뷰할 수 없습니다");
     const submitted = htmlOf("submitted");
+    hasText("규칙 11: 제출 14일 안내", submitted, "14일");
     if (!submitted.includes("수정")) {
       pass("규칙 11: 제출 후 수정 버튼 없음");
     } else {

@@ -21,7 +21,7 @@ import {
 import type { ProjectTransactionPort } from "../../contracts-payments/prototype";
 ```
 
-검증: 리포 루트에서 `npx tsx features/contracts-payments/prototype/run.tsx` → PASS 83.
+검증: 리포 루트에서 `npx tsx features/contracts-payments/prototype/run.tsx` → PASS 87.
 
 ---
 
