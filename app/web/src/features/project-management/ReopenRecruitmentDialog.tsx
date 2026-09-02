@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Field, Notice } from '../../shared/ui/primitives';
 import { ApiError } from '../../shared/http';
 import { toIsoOrEmpty } from '../../shared/date';
@@ -17,6 +17,10 @@ import { reopenRecruitment } from './api/project';
  *
  * 오버레이 모션은 `design-tokens.md` §13 규칙(240ms, entrance easing)을 처음 실제로 쓴다 —
  * `shared/ui/tokens.css`의 `.overlay-backdrop`·`.dialog`.
+ *
+ * `open` 클래스는 마운트 다음 프레임에 붙인다(useEffect + rAF) — 마운트와 동시에 클래스를
+ * 넣으면 브라우저가 opacity:0→1 전환을 감지하지 못해 §13 페이드인이 재생되지 않는다
+ * (2026-09-01 발견: reference-snapshot.html에서 같은 실수를 먼저 하고 여기서도 고쳤다).
  */
 export type ReopenRecruitmentDialogProps = {
   projectId: string;
@@ -36,6 +40,12 @@ export function ReopenRecruitmentDialog({
   const [deadline, setDeadline] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   async function handleReopen() {
     setSubmitting(true);
@@ -58,7 +68,7 @@ export function ReopenRecruitmentDialog({
 
   return (
     <div
-      className="overlay-backdrop open"
+      className={`overlay-backdrop${visible ? ' open' : ''}`}
       onClick={(event) => {
         if (event.target === event.currentTarget) onDismiss();
       }}

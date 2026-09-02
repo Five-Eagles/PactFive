@@ -765,10 +765,15 @@ select.field {
   padding: 24px;
   z-index: 80;
   opacity: 0;
+  /* opacity: 0 만으로는 클릭·hover를 막지 못한다 — 닫힌 상태에서도 이 레이어가 화면 전체를
+     덮고 있어 아래 요소가 마우스 이벤트를 못 받는다(2026-09-01, reference-snapshot.html에서
+     실제로 발견된 버그를 여기서도 방어). 열렸을 때만 포인터 이벤트를 받게 한다. */
+  pointer-events: none;
   transition: opacity var(--dur-slow) var(--ease-entrance);
 }
 .overlay-backdrop.open {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .dialog {
