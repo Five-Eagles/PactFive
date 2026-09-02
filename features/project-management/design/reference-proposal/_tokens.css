@@ -26,6 +26,12 @@
   --campaign-yellow:#F4C430;
   --campaign-plum:#4B173C;
   --campaign-lavender:#E9DDFB;
+  /* 대표페이지 히어로 바탕. campaign-yellow 를 옅게 깐 것이다.
+   * amber 계열을 쓰지 않은 이유: 그쪽은 경고(--warning-surface)에 배정돼 있어
+   * 같은 색이 두 가지 뜻을 갖게 된다. */
+  --campaign-yellow-soft: #FDF3D6;
+  --campaign-yellow-edge: #EFDFAA;
+  --campaign-yellow-deep: #E8C765;
 
   --white:#FFFFFF; --canvas:#FBFAF7; --surface-base:#F7F8FA; --muted:#EEF1F5;
   --border-base:#CBD3DF; --border-strong:#7A8498; --black:#090D18;

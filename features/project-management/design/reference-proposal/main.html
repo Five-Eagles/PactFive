@@ -7,86 +7,76 @@
 <link rel="stylesheet" href="_tokens.css" />
 <style>
   /* ═══════════════════════════════════════════════════════
+     색의 역할
+     ─────────────────────────────────────────────────────
+       노랑   바탕과 포인트. 히어로 판 · 강조 표시
+       청록   행동. 버튼 · 링크 · 선택 상태 · 모집 중 배지
+       남색   정보. 글자 · 아이콘 · 테두리
+
+     청록을 바탕에 쓰지 않는다. 바탕까지 청록이면 버튼이 눈에 안 띈다.
+
      겹의 규칙
      ─────────────────────────────────────────────────────
-     포인트가 되는 면은 세 겹으로 쌓는다.
-
-       1겹 판(plate)    뒤로 물러난 연한 면. 위치를 어긋나게 둔다
+       1겹 판(plate)    뒤로 물러난 면. 위치를 어긋나게 둔다
        2겹 표면(face)   내용이 올라가는 흰 면. 테두리 + 위쪽 밝은 선
-       3겹 부양(lift)   앞으로 떠 있는 조각. 접지 그림자 + 확산 그림자
+       3겹 부양(lift)   앞으로 떠 있는 조각. 접지 + 확산 그림자
 
      그림자만 키우지 않는다. 흐려지기만 하고 두께로 읽히지 않는다 (§12).
-     어긋난 위치 · 테두리 · 위쪽 밝은 선이 함께 있어야 한다.
      ═══════════════════════════════════════════════════════ */
 
   main { display:flex; flex-direction:column; }
   /* .page 의 margin:0 auto 는 flex 교차축에서 늘어나기를 막는다 — 폭을 명시한다 */
   main > * { width:100%; }
 
-  /* ── 히어로 ───────────────────────────────────────────── */
-  .hero { padding-block:var(--gap-7) var(--gap-6); }
-  .hero__grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,560px);
+  /* ── 히어로 — 노란 판 ─────────────────────────────────── */
+  .hero { background:var(--campaign-yellow-soft);
+    border-bottom:1px solid var(--campaign-yellow-edge); }
+  .hero__in { max-width:var(--page-max); margin:0 auto;
+    padding:var(--gap-7) var(--gutter) var(--gap-6);
+    display:grid; grid-template-columns:minmax(0,1fr) minmax(0,540px);
     gap:var(--gap-7); align-items:center; }
-  .hero__lede { margin:var(--gap-3) 0 var(--gap-5); font-size:16px; max-width:40ch; }
+  .hero__lede { margin:var(--gap-3) 0 var(--gap-5); font-size:16px; max-width:38ch;
+    color:var(--content-secondary); }
 
-  .search { display:flex; gap:var(--gap-2); max-width:520px; }
-  .search__wrap { position:relative; flex:1; min-width:0; }
-  .search__wrap > svg { position:absolute; left:14px; top:50%; transform:translateY(-50%);
-    pointer-events:none; }
-  .search input {
-    width:100%; height:var(--field-h); padding:0 var(--gap-4) 0 42px;
+  /* ── 조건으로 찾기 — 검색어가 아니라 필터다 ─────────────────
+     키워드 검색을 히어로에서 뺀 이유: `keyword` 는 제목과 설명만 본다 (PRD §3.6).
+     사람들이 검색창에 먼저 치는 것은 기술 이름인데 그건 `skills` 필터가 맡는다.
+     "React" 를 치면 React 를 요구하는 프로젝트가 있어도 0건이 나온다.
+     세 칸 모두 `GET /api/v1/projects` 가 실제로 받는 조건이다. */
+  .finder { background:var(--surface); border:1px solid var(--campaign-yellow-edge);
+    border-radius:var(--r-lg); padding:var(--gap-4);
+    box-shadow:var(--shadow-card), var(--edge-top); max-width:560px; }
+  .finder__row { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap-3); }
+  .finder__f { position:relative; display:flex; flex-direction:column; gap:6px; min-width:0; }
+  /* 펼침 표시. appearance:none 으로 기본 화살표를 지웠으니 대신 그린다 —
+     없으면 그냥 입력칸으로 보인다 */
+  .finder__f::after { content:""; position:absolute; right:14px; bottom:17px;
+    width:8px; height:8px; pointer-events:none;
+    border-right:2px solid var(--content-tertiary);
+    border-bottom:2px solid var(--content-tertiary);
+    transform:rotate(45deg) translateY(-2px); }
+  .finder__f > span { font-size:12px; font-weight:700; color:var(--content-tertiary); }
+  .finder select { width:100%; height:var(--btn-h); padding:0 30px 0 var(--gap-3);
     border:1px solid var(--border); border-radius:var(--r-md);
-    background:var(--surface); font:inherit; color:var(--content);
-    box-shadow:var(--shadow-card);
-    transition:border-color var(--dur-feedback) var(--ease-feedback),
-               box-shadow var(--dur-feedback) var(--ease-feedback);
-  }
-  .search input::placeholder { color:var(--content-tertiary); }
-  .search input:focus { outline:none; border-color:var(--border-focus);
-    box-shadow:var(--shadow-raise); }
-  .search .btn { height:var(--field-h); flex:none; box-shadow:var(--shadow-card); }
+    background:var(--surface); font:inherit; font-size:14px; color:var(--content);
+    appearance:none; background-image:none; }
+  .finder select:focus { outline:2px solid var(--border-focus); outline-offset:1px; }
+  .finder .btn { width:100%; margin-top:var(--gap-3); height:var(--btn-h); }
 
-  /* 의뢰인 쪽 진입. 검색은 프리랜서용이라 반대편 길을 한 줄로 남긴다 */
-  .hero__alt { margin-top:var(--gap-4); font-size:13px; color:var(--content-tertiary); }
-  .hero__alt a { color:var(--action-quiet); font-weight:600; }
+  .hero__alt { margin-top:var(--gap-4); font-size:13px; color:var(--content-secondary); }
+  .hero__alt a { color:var(--action-quiet); font-weight:700; }
   .hero__alt a:hover { text-decoration:underline; }
 
-  /* ── 히어로 삽화 ──────────────────────────────────────────
-     제품 자체를 그린 것이다. 없는 기능·없는 데이터를 그리지 않는다.
-     세 겹 — 뒤판 / 목록 패널 / 떠 있는 카드. */
-  .hero__art { position:relative; }
+  /* ── 히어로 삽화 — 제품 자체를 그린다 ─────────────────────
+     없는 기능·없는 데이터를 그리지 않는다. 세 겹 — 뒤판 / 목록 패널 / 떠 있는 카드. */
   .hero__art svg { display:block; width:100%; height:auto; }
 
-  /* ── 서비스가 하는 일 ─────────────────────────────────────
-     홍보 문구가 아니라 기능 설명이다. 셋 다 PRD 범위 안에 있다.
-     ※ Step 2(계약·결제·AI 단가)가 잘리면 이 줄도 함께 내려야 한다. */
-  .does { border-top:1px solid var(--border-subtle);
-    border-bottom:1px solid var(--border-subtle); background:var(--surface); }
-  .does__in { max-width:var(--page-max); margin:0 auto; padding:var(--gap-5) var(--gutter); }
-  .does ul { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap-5);
-    margin:0; padding:0; list-style:none; }
-  .does li { display:flex; gap:var(--gap-3); align-items:flex-start;
-    font-size:13px; color:var(--content-secondary); line-height:1.6; }
-  .does b { display:block; font-size:15px; color:var(--content); margin-bottom:3px; }
-
-  /* 아이콘 배지 — 판 + 표면 + 글리프.
-     ::before 가 판, ::after 가 흰 표면이다. 순서를 이렇게 두어야 판이 뒤로 간다 —
-     ::before 하나로 하면 부모 배경 위에 얹혀서 표면을 덮는다 */
-  .badge-ico { position:relative; flex:none; width:40px; height:40px;
-    display:grid; place-items:center; }
-  .badge-ico::before { content:""; position:absolute; inset:5px -5px -5px 5px;
-    border-radius:var(--r-md); background:var(--teal-100); }
-  .badge-ico::after { content:""; position:absolute; inset:0; z-index:0;
-    border-radius:var(--r-md); background:var(--surface);
-    border:1px solid var(--teal-200); box-shadow:var(--edge-top); }
-  .badge-ico svg { position:relative; z-index:1; }
-
   /* ── 카테고리 ─────────────────────────────────────────────
-     ERD 의 project_category 6종과 같다.
-     시안의 10종에는 ERD 에 없는 값(인기·콘텐츠·영상 등)이 섞여 있었다. */
-  .cats { background:var(--surface-base); }
-  .cats__in { display:grid; grid-template-columns:repeat(6,1fr); gap:var(--gap-3);
-    max-width:var(--page-max); margin:0 auto; padding:var(--gap-6) var(--gutter); }
+     ERD 의 project_category 6종과 같다. RFP §3.2.2 의 "메인 페이지 카테고리 버튼".
+     히어로 필터가 기술·예산·마감을 맡고 이쪽이 카테고리를 맡는다 — 겹치지 않는다. */
+  .cats { background:var(--surface-base); border-bottom:1px solid var(--border-subtle); }
+  .cats__in { max-width:var(--page-max); margin:0 auto; padding:var(--gap-6) var(--gutter); }
+  .cats__grid { display:grid; grid-template-columns:repeat(6,1fr); gap:var(--gap-3); }
   .cat { display:flex; flex-direction:column; align-items:center; gap:var(--gap-3);
     padding:var(--gap-4) var(--gap-2);
     border-radius:var(--r-lg); font-size:13px; font-weight:600;
@@ -96,36 +86,71 @@
                box-shadow var(--dur-feedback) var(--ease-feedback),
                border-color var(--dur-feedback) var(--ease-feedback); }
   .cat:hover { transform:translateY(-2px); box-shadow:var(--shadow-raise);
-    border-color:var(--border-focus); }
+    border-color:var(--action); }
 
   .cat__ico { position:relative; width:48px; height:48px; display:grid; place-items:center; }
-  /* 1겹 — 판. 오른쪽 아래로 어긋난다. 겹이 보여야 두께로 읽힌다 */
+  /* 1겹 판 — 오른쪽 아래로 어긋난다. 2겹 흰 표면. 3겹 글리프 */
   .cat__ico::before { content:""; position:absolute; inset:6px -6px -6px 6px;
-    border-radius:var(--r-md); background:var(--teal-100); }
-  /* 2겹 — 흰 표면 */
+    border-radius:var(--r-md); background:var(--campaign-yellow-edge); }
   .cat__ico::after { content:""; position:absolute; inset:0; z-index:0;
     border-radius:var(--r-md); background:var(--surface);
-    border:1px solid var(--teal-200); box-shadow:var(--edge-top); }
-  /* 3겹 — 글리프 */
+    border:1px solid var(--navy-200); box-shadow:var(--edge-top); }
   .cat__ico svg { position:relative; z-index:1; }
 
-  /* 아이콘 3겹 — 연한 판 · 중간 채움 · 진한 선 */
-  .ico-plate { fill:var(--teal-100); }
-  .ico-fill  { fill:var(--teal-200); }
-  .ico-line  { fill:none; stroke:var(--teal-700); stroke-width:1.5;
+  /* 아이콘 3겹 — 정보 색(남색)으로 그린다. 청록은 행동에만 쓴다 */
+  .ico-plate { fill:var(--navy-100); }
+  .ico-fill  { fill:var(--navy-200); }
+  .ico-line  { fill:none; stroke:var(--navy-700); stroke-width:1.5;
     stroke-linecap:round; stroke-linejoin:round; }
 
-  /* ── 섹션 ───────────────────────────────────────────────── */
+  /* ── 사용법 3단계 슬라이드 ────────────────────────────────
+     번호를 붙인다. 순서가 실제 정보다 — 등록해야 지원이 오고, 수락해야 계약이 열린다.
+     자동으로 넘기지 않는다. 읽는 속도를 화면이 정하면 안 된다. */
+  .how { background:var(--surface); }
+  .how__in { max-width:var(--page-max); margin:0 auto; padding:var(--gap-7) var(--gutter); }
+  .how__head { display:flex; align-items:baseline; justify-content:space-between;
+    gap:var(--gap-4); margin-bottom:var(--gap-5); }
+
+  .how__view { position:relative; overflow:hidden; border-radius:var(--r-lg); }
+  .how__track { display:flex; transition:transform var(--dur-enter) var(--ease-enter); }
+  .how__panel { flex:0 0 100%; display:grid; grid-template-columns:1fr minmax(0,380px);
+    gap:var(--gap-6); align-items:center;
+    padding:var(--gap-6); border-radius:var(--r-lg);
+    background:var(--surface-base); border:1px solid var(--border-subtle); }
+  .how__step { display:inline-flex; align-items:center; gap:var(--gap-2);
+    font-size:12px; font-weight:800; letter-spacing:.04em;
+    color:var(--campaign-plum); }
+  .how__num { display:grid; place-items:center; width:26px; height:26px;
+    border-radius:var(--r-pill); background:var(--campaign-yellow);
+    color:var(--campaign-plum); font-size:13px; }
+  .how__panel h3 { margin:var(--gap-3) 0 var(--gap-2); font-size:22px;
+    letter-spacing:-.02em; }
+  .how__panel p { margin:0; font-size:14px; color:var(--content-secondary);
+    line-height:1.7; max-width:42ch; }
+  .how__panel svg { display:block; width:100%; height:auto; }
+
+  .how__nav { display:flex; align-items:center; gap:var(--gap-2); }
+  .how__dots { display:flex; gap:6px; margin-right:var(--gap-2); }
+  .how__dots button { width:8px; height:8px; padding:0; border-radius:var(--r-pill);
+    border:0; background:var(--navy-200); cursor:pointer; }
+  .how__dots button[aria-current="true"] { background:var(--action); width:20px; }
+  .how__arrow { width:36px; height:36px; border-radius:var(--r-pill);
+    border:1px solid var(--border); background:var(--surface);
+    color:var(--content-secondary); font:inherit; font-size:15px; cursor:pointer;
+    box-shadow:var(--shadow-card); }
+  .how__arrow:hover { border-color:var(--action); color:var(--action-quiet); }
+
+  /* ── 모집 중인 프로젝트 ───────────────────────────────────── */
   .sec { padding:var(--gap-7) 0; }
   .sec__head { display:flex; align-items:baseline; justify-content:space-between;
     margin-bottom:var(--gap-2); }
   .sec__note { margin:0 0 var(--gap-5); font-size:13px; color:var(--content-tertiary); }
-  .sec__more { font-size:13px; font-weight:600; color:var(--action-quiet); }
+  .sec__more { font-size:13px; font-weight:700; color:var(--action-quiet); }
   .sec__more:hover { text-decoration:underline; }
 
   .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap-4); }
 
-  /* 프로젝트 카드 본체는 _tokens.css 에 있다 — browse.html 과 같은 것을 쓴다.
+  /* 카드 본체는 _tokens.css 에 있다 — browse.html 과 같은 것을 쓴다.
      여기서는 두께만 더한다. 그림자를 키우지 않고 위쪽 밝은 선으로 처리한다 (§12) */
   .pcard { box-shadow:var(--shadow-card), var(--edge-top); }
 
@@ -143,38 +168,39 @@
 
   /* 1280 / 1024 / 768 / 360 — PactFive 공식 분기점 */
   @media (max-width:1279px) {
-    .hero__grid { grid-template-columns:1fr; gap:var(--gap-6); }
-    .hero__art { max-width:560px; }
-    .cats__in { grid-template-columns:repeat(3,1fr); }
+    .hero__in { grid-template-columns:1fr; gap:var(--gap-6); }
+    .hero__art { max-width:540px; }
+    .cats__grid { grid-template-columns:repeat(3,1fr); }
     .grid3 { grid-template-columns:repeat(2,1fr); }
+    .how__panel { grid-template-columns:1fr minmax(0,300px); }
   }
   @media (max-width:767px) {
-    .hero { padding-block:var(--gap-5) var(--gap-4); }
+    .hero__in { padding:var(--gap-5) var(--gutter); }
     /* display 는 데스크톱 기준 크기라 375px 에서 여백을 다 먹는다 */
     .hero .display { font-size:28px; line-height:1.25; }
-    .hero__lede { font-size:15px; }
-    /* 삽화는 남긴다 — 휑해 보이는 것을 막는 것이 이 요소의 목적이다 */
+    .hero__lede { font-size:15px; margin-bottom:var(--gap-4); }
     .hero__art { max-width:none; }
-    .does ul { grid-template-columns:1fr; gap:var(--gap-4); }
 
     /* 첫 카드가 화면 아래로 너무 밀리지 않게. 프로젝트가 먼저 보여야 한다 */
     .hero { order:0; }
     .cats { order:1; }
     .sec  { order:2; }
-    .does { order:3; border-bottom:0; }
+    .how  { order:3; }
 
+    /* 한 칸씩 쌓으면 세 줄이 되어 히어로가 화면 하나를 더 먹는다.
+       2열로 두면 두 줄이고, 375px 에서 칸 하나가 약 160px 이라 "1,000만 ~ 3,000만원"도 들어간다 */
+    .finder__row { grid-template-columns:1fr 1fr; }
+    .finder__f:last-child { grid-column:1 / -1; }
     .grid3 { grid-template-columns:1fr; }
-    .cats__in { grid-template-columns:repeat(3,1fr); gap:var(--gap-2);
-      padding:var(--gap-5) var(--gutter); }
+    .cats__grid { grid-template-columns:repeat(3,1fr); gap:var(--gap-2); }
     .cat { padding:var(--gap-3) 4px var(--gap-2); font-size:12px; gap:var(--gap-2); }
     .cat__ico { width:42px; height:42px; }
-
-    /* 한 줄로 둔다. 두 줄로 쌓으면 첫 카드가 56px 더 밀린다.
-       360px 에서도 버튼(약 112px) + 입력(약 232px) 이 들어간다 */
-    .search .btn { padding:0 var(--gap-3); }
-    .search input { padding-right:var(--gap-2); }
+    .how__panel { grid-template-columns:1fr; padding:var(--gap-4); }
+    .how__panel .how__art { order:-1; }
   }
-  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+  @media (prefers-reduced-motion:reduce) {
+    * { transition:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -200,26 +226,57 @@
 
 <main>
   <!-- ═══════ 히어로 ═══════
-       RFP §3.2.2 가 목록 진입 경로 셋을 명시한다 —
-       헤더 메뉴 · 메인 검색창 · 메인 카테고리 버튼. 이 화면에 셋 다 있다. -->
-  <section class="hero page">
-    <div class="hero__grid">
+       RFP §3.2.2 가 목록 진입 경로 셋을 명시한다 — 헤더 메뉴 · 메인 조건 입력 · 카테고리 버튼.
+       가운데 것을 검색창이 아니라 필터로 뒀다 (아래 .finder 주석 참고). -->
+  <section class="hero">
+    <div class="hero__in">
       <div>
         <h1 class="display">맞는 프로젝트를 찾아보세요.</h1>
-        <p class="hero__lede body-sec">예산과 마감일을 먼저 확인하고 지원하세요.
+        <p class="hero__lede">예산과 마감일을 먼저 확인하고 지원하세요.
           합의부터 정산까지 서비스 안에서 이어집니다.</p>
 
-        <!-- 검색어를 목록 화면으로 넘긴다. 목록이 그 값을 받아 조건으로 쓴다 -->
-        <form class="search" role="search" method="get" action="browse.html">
-          <label class="caption" for="q" style="position:absolute;left:-9999px">검색어</label>
-          <div class="search__wrap">
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-              <circle cx="9" cy="9" r="6" stroke="var(--content-tertiary)" stroke-width="1.7"/>
-              <path d="M13.5 13.5 17 17" stroke="var(--content-tertiary)"
-                stroke-width="1.7" stroke-linecap="round"/>
-            </svg>
-            <input id="q" name="keyword" type="search" placeholder="어떤 프로젝트를 찾으세요?" />
+        <form class="finder" method="get" action="browse.html">
+          <div class="finder__row">
+            <label class="finder__f">
+              <span>기술</span>
+              <select name="skills">
+                <option value="">전체</option>
+                <option value="REACT">React</option>
+                <option value="TYPESCRIPT">TypeScript</option>
+                <option value="NODEJS">Node.js</option>
+                <option value="VUE">Vue</option>
+                <option value="SPRING">Spring</option>
+                <option value="FLUTTER">Flutter</option>
+                <option value="PYTHON">Python</option>
+                <option value="SQL">SQL</option>
+                <option value="FIGMA">Figma</option>
+                <option value="HTML_CSS">HTML/CSS</option>
+                <option value="AWS">AWS</option>
+              </select>
+            </label>
+
+            <label class="finder__f">
+              <span>예산</span>
+              <select name="budget">
+                <option value="">전체</option>
+                <option value="0-5000000">500만 미만</option>
+                <option value="5000000-10000000">500만~1,000만</option>
+                <option value="10000000-30000000">1,000만~3,000만</option>
+                <option value="30000000-">3,000만 이상</option>
+              </select>
+            </label>
+
+            <label class="finder__f">
+              <span>마감</span>
+              <select name="deadlineWithinDays">
+                <option value="">전체</option>
+                <option value="7">7일 이내</option>
+                <option value="14">14일 이내</option>
+                <option value="30">30일 이내</option>
+              </select>
+            </label>
           </div>
+
           <button class="btn primary" type="submit">프로젝트 찾기</button>
         </form>
 
@@ -233,18 +290,18 @@
         <svg viewBox="0 0 560 440" role="img">
           <defs>
             <filter id="lift" x="-30%" y="-30%" width="170%" height="180%">
-              <feDropShadow dx="0" dy="2"  stdDeviation="2"  flood-color="var(--navy-950)" flood-opacity=".07"/>
-              <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="var(--navy-950)" flood-opacity=".16"/>
+              <feDropShadow dx="0" dy="2"  stdDeviation="2"  flood-color="var(--navy-950)" flood-opacity=".08"/>
+              <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="var(--navy-950)" flood-opacity=".18"/>
             </filter>
             <filter id="panel" x="-20%" y="-20%" width="150%" height="150%">
-              <feDropShadow dx="0" dy="1"  stdDeviation="1"  flood-color="var(--navy-950)" flood-opacity=".05"/>
-              <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="var(--navy-950)" flood-opacity=".08"/>
+              <feDropShadow dx="0" dy="1"  stdDeviation="1"  flood-color="var(--navy-950)" flood-opacity=".06"/>
+              <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="var(--navy-950)" flood-opacity=".10"/>
             </filter>
           </defs>
 
-          <!-- 1겹 — 뒤판. 어긋나게 둬야 두께로 읽힌다 -->
-          <rect x="76" y="6" width="470" height="350" rx="20" fill="var(--teal-50)"/>
-          <rect x="100" y="22" width="422" height="318" rx="16" fill="var(--teal-100)" opacity=".5"/>
+          <!-- 1겹 — 뒤판. 노란 바탕 위라 더 진한 노랑으로 어긋나게 깐다 -->
+          <rect x="76" y="6" width="470" height="350" rx="20" fill="var(--campaign-yellow-edge)"/>
+          <rect x="100" y="22" width="422" height="318" rx="16" fill="var(--campaign-yellow-deep)" opacity=".55"/>
 
           <!-- 2겹 — 목록 패널 -->
           <g filter="url(#panel)">
@@ -252,23 +309,25 @@
               fill="var(--surface)" stroke="var(--border-subtle)"/>
           </g>
 
-          <!-- 패널 안 · 검색 줄 -->
-          <rect x="38" y="72" width="228" height="34" rx="9"
-            fill="var(--surface-subtle)" stroke="var(--border-subtle)"/>
-          <circle cx="58" cy="89" r="5" fill="none" stroke="var(--content-tertiary)" stroke-width="1.5"/>
-          <path d="M61.8 92.8 64.6 95.6" stroke="var(--content-tertiary)" stroke-width="1.5" stroke-linecap="round"/>
-          <text x="72" y="93.5" font-size="12" fill="var(--content-tertiary)" font-family="inherit">React 개발</text>
-
-          <!-- 정렬 3종 — 첫 번째가 선택된 상태 -->
-          <rect x="276" y="72" width="54" height="34" rx="9"
+          <!-- 패널 안 · 필터 줄 (검색창이 아니다) -->
+          <rect x="38" y="72" width="106" height="34" rx="9"
             fill="var(--surface-selected)" stroke="var(--action)"/>
-          <text x="303" y="93.5" font-size="11.5" font-weight="700" text-anchor="middle"
+          <text x="91" y="93.5" font-size="11.5" font-weight="700" text-anchor="middle"
+            fill="var(--action-quiet)" font-family="inherit">React ✕</text>
+          <rect x="152" y="72" width="118" height="34" rx="9"
+            fill="var(--surface-subtle)" stroke="var(--border-subtle)"/>
+          <text x="211" y="93.5" font-size="11.5" text-anchor="middle"
+            fill="var(--content-secondary)" font-family="inherit">1,000만원 이상</text>
+
+          <rect x="278" y="72" width="54" height="34" rx="9"
+            fill="var(--surface-selected)" stroke="var(--action)"/>
+          <text x="305" y="93.5" font-size="11.5" font-weight="700" text-anchor="middle"
             fill="var(--action-quiet)" font-family="inherit">최신순</text>
-          <rect x="336" y="72" width="64" height="34" rx="9" fill="none" stroke="var(--border-subtle)"/>
-          <text x="368" y="93.5" font-size="11.5" text-anchor="middle"
+          <rect x="338" y="72" width="64" height="34" rx="9" fill="none" stroke="var(--border-subtle)"/>
+          <text x="370" y="93.5" font-size="11.5" text-anchor="middle"
             fill="var(--content-tertiary)" font-family="inherit">마감임박</text>
-          <rect x="406" y="72" width="36" height="34" rx="9" fill="none" stroke="var(--border-subtle)"/>
-          <path d="M415 84h18M418 89h12M421 94h6" stroke="var(--content-tertiary)"
+          <rect x="408" y="72" width="34" height="34" rx="9" fill="none" stroke="var(--border-subtle)"/>
+          <path d="M416 84h18M419 89h12M422 94h6" stroke="var(--content-tertiary)"
             stroke-width="1.5" stroke-linecap="round"/>
 
           <!-- 목록 행 1 -->
@@ -322,7 +381,7 @@
             fill="var(--success)" font-family="inherit">모집 중</text>
           <text x="366" y="290.5" font-size="11" fill="var(--content-tertiary)"
             font-family="inherit">웹 개발</text>
-          <!-- 저장된 상태의 북마크. engagement 규칙 30 -->
+          <!-- 저장된 상태의 북마크. 행동이라 청록이다 (engagement 규칙 30) -->
           <path d="M521 278v18l-7-5.2-7 5.2v-18z" fill="var(--action)"/>
 
           <text x="310" y="322" font-size="15" font-weight="700" fill="var(--content)"
@@ -347,135 +406,94 @@
     </div>
   </section>
 
-  <!-- ═══════ 서비스가 하는 일 ═══════ -->
-  <section class="does">
-    <div class="does__in">
-      <ul>
-        <li>
-          <span class="badge-ico">
-            <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true">
-              <rect class="ico-plate" x="3" y="13" width="4.4" height="8" rx="1.2"/>
-              <rect class="ico-fill"  x="9.8" y="9" width="4.4" height="12" rx="1.2"/>
-              <rect class="ico-plate" x="16.6" y="5" width="4.4" height="16" rx="1.2"/>
-              <path class="ico-line" d="M4.4 11.4 11.6 7.2 19 3.4"/>
-            </svg>
-          </span>
-          <span><b>AI 단가 분석</b>비슷한 프로젝트를 근거로 예산 범위를 먼저 알려줍니다.</span>
-        </li>
-        <li>
-          <span class="badge-ico">
-            <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true">
-              <path class="ico-plate" d="M5 2.6h8.6L19.4 8v13.4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.6a1 1 0 0 1 1-1z"/>
-              <path class="ico-fill" d="M13.6 2.6 19.4 8h-5.8z"/>
-              <path class="ico-line" d="M5 2.6h8.6L19.4 8v13.4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.6a1 1 0 0 1 1-1z"/>
-              <path class="ico-line" d="M13.6 2.6 19.4 8h-5.8z"/>
-              <path class="ico-line" d="M7.6 17.4c1.9-2.4 2.9-4.3 2.9-5.7 0-1.2-1.4-1.1-1.4.2 0 2.3 3.3 6.1 4.8 6.1.9 0 1.4-.5 1.4-1"/>
-            </svg>
-          </span>
-          <span><b>전자 계약</b>합의한 금액과 일정이 그대로 계약서가 됩니다.</span>
-        </li>
-        <li>
-          <span class="badge-ico">
-            <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true">
-              <path class="ico-plate" d="M12 2.2 20 5.4v6.1c0 4.6-3.3 8.2-8 9.7-4.7-1.5-8-5.1-8-9.7V5.4z"/>
-              <path class="ico-fill" d="M12 2.2 20 5.4v6.1c0 .5 0 1-.1 1.4H12z"/>
-              <path class="ico-line" d="M12 2.2 20 5.4v6.1c0 4.6-3.3 8.2-8 9.7-4.7-1.5-8-5.1-8-9.7V5.4z"/>
-              <path class="ico-line" d="M8.6 11.6 11 14 15.6 9.4"/>
-            </svg>
-          </span>
-          <span><b>에스크로 결제</b>결제한 금액은 납품이 승인된 뒤에 정산됩니다.</span>
-        </li>
-      </ul>
-    </div>
-  </section>
-
   <!-- ═══════ 카테고리 ═══════ -->
   <section class="cats">
     <div class="cats__in">
-      <a class="cat" href="browse.html?category=WEB_DEVELOPMENT">
-        <span class="cat__ico">
-          <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
-            <rect class="ico-plate" x="3" y="6" width="26" height="20" rx="3"/>
-            <path class="ico-fill" d="M6 6h20a3 3 0 0 1 3 3v2H3V9a3 3 0 0 1 3-3z"/>
-            <rect class="ico-line" x="3" y="6" width="26" height="20" rx="3"/>
-            <path class="ico-line" d="M3 11h26"/>
-            <path class="ico-line" d="M13 15.5 10 19l3 3.5M19 15.5 22 19l-3 3.5"/>
-          </svg>
-        </span>
-        웹 개발
-      </a>
+      <div class="cats__grid">
+        <a class="cat" href="browse.html?category=WEB_DEVELOPMENT">
+          <span class="cat__ico">
+            <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+              <rect class="ico-plate" x="3" y="6" width="26" height="20" rx="3"/>
+              <path class="ico-fill" d="M6 6h20a3 3 0 0 1 3 3v2H3V9a3 3 0 0 1 3-3z"/>
+              <rect class="ico-line" x="3" y="6" width="26" height="20" rx="3"/>
+              <path class="ico-line" d="M3 11h26"/>
+              <path class="ico-line" d="M13 15.5 10 19l3 3.5M19 15.5 22 19l-3 3.5"/>
+            </svg>
+          </span>
+          웹 개발
+        </a>
 
-      <a class="cat" href="browse.html?category=MOBILE_APP">
-        <span class="cat__ico">
-          <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
-            <rect class="ico-plate" x="9" y="3" width="14" height="26" rx="3.5"/>
-            <rect class="ico-fill" x="11.5" y="8" width="9" height="13" rx="1.5"/>
-            <rect class="ico-line" x="9" y="3" width="14" height="26" rx="3.5"/>
-            <path class="ico-line" d="M14.4 6h3.2"/>
-            <path class="ico-line" d="M14.5 25.5h3"/>
-          </svg>
-        </span>
-        모바일 앱
-      </a>
+        <a class="cat" href="browse.html?category=MOBILE_APP">
+          <span class="cat__ico">
+            <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+              <rect class="ico-plate" x="9" y="3" width="14" height="26" rx="3.5"/>
+              <rect class="ico-fill" x="11.5" y="8" width="9" height="13" rx="1.5"/>
+              <rect class="ico-line" x="9" y="3" width="14" height="26" rx="3.5"/>
+              <path class="ico-line" d="M14.4 6h3.2"/>
+              <path class="ico-line" d="M14.5 25.5h3"/>
+            </svg>
+          </span>
+          모바일 앱
+        </a>
 
-      <a class="cat" href="browse.html?category=DESIGN">
-        <span class="cat__ico">
-          <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
-            <rect class="ico-plate" x="4" y="4" width="15" height="15" rx="3"/>
-            <circle class="ico-fill" cx="20.5" cy="20" r="7.5"/>
-            <rect class="ico-line" x="4" y="4" width="15" height="15" rx="3"/>
-            <circle class="ico-line" cx="20.5" cy="20" r="7.5"/>
-          </svg>
-        </span>
-        디자인
-      </a>
+        <a class="cat" href="browse.html?category=DESIGN">
+          <span class="cat__ico">
+            <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+              <rect class="ico-plate" x="4" y="4" width="15" height="15" rx="3"/>
+              <circle class="ico-fill" cx="20.5" cy="20" r="7.5"/>
+              <rect class="ico-line" x="4" y="4" width="15" height="15" rx="3"/>
+              <circle class="ico-line" cx="20.5" cy="20" r="7.5"/>
+            </svg>
+          </span>
+          디자인
+        </a>
 
-      <a class="cat" href="browse.html?category=DATA_AI">
-        <span class="cat__ico">
-          <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
-            <path class="ico-plate" d="M6 8v15c0 2.2 4.5 4 10 4s10-1.8 10-4V8z"/>
-            <ellipse class="ico-fill" cx="16" cy="8" rx="10" ry="4"/>
-            <ellipse class="ico-line" cx="16" cy="8" rx="10" ry="4"/>
-            <path class="ico-line" d="M6 8v15c0 2.2 4.5 4 10 4s10-1.8 10-4V8"/>
-            <path class="ico-line" d="M6 15.5c0 2.2 4.5 4 10 4s10-1.8 10-4"/>
-          </svg>
-        </span>
-        데이터 · AI
-      </a>
+        <a class="cat" href="browse.html?category=DATA_AI">
+          <span class="cat__ico">
+            <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+              <path class="ico-plate" d="M6 8v15c0 2.2 4.5 4 10 4s10-1.8 10-4V8z"/>
+              <ellipse class="ico-fill" cx="16" cy="8" rx="10" ry="4"/>
+              <ellipse class="ico-line" cx="16" cy="8" rx="10" ry="4"/>
+              <path class="ico-line" d="M6 8v15c0 2.2 4.5 4 10 4s10-1.8 10-4V8"/>
+              <path class="ico-line" d="M6 15.5c0 2.2 4.5 4 10 4s10-1.8 10-4"/>
+            </svg>
+          </span>
+          데이터 · AI
+        </a>
 
-      <a class="cat" href="browse.html?category=PLANNING">
-        <span class="cat__ico">
-          <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
-            <rect class="ico-plate" x="6" y="3" width="20" height="26" rx="3"/>
-            <path class="ico-fill" d="M9 3h14a3 3 0 0 1 3 3v4H6V6a3 3 0 0 1 3-3z"/>
-            <rect class="ico-line" x="6" y="3" width="20" height="26" rx="3"/>
-            <path class="ico-line" d="M6 10h20"/>
-            <path class="ico-line" d="M10.5 17.5 12.5 19.5 16 16"/>
-            <path class="ico-line" d="M18.5 17.5H21.5"/>
-            <path class="ico-line" d="M10.5 24h11"/>
-          </svg>
-        </span>
-        기획
-      </a>
+        <a class="cat" href="browse.html?category=PLANNING">
+          <span class="cat__ico">
+            <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+              <rect class="ico-plate" x="6" y="3" width="20" height="26" rx="3"/>
+              <path class="ico-fill" d="M9 3h14a3 3 0 0 1 3 3v4H6V6a3 3 0 0 1 3-3z"/>
+              <rect class="ico-line" x="6" y="3" width="20" height="26" rx="3"/>
+              <path class="ico-line" d="M6 10h20"/>
+              <path class="ico-line" d="M10.5 17.5 12.5 19.5 16 16"/>
+              <path class="ico-line" d="M18.5 17.5H21.5"/>
+              <path class="ico-line" d="M10.5 24h11"/>
+            </svg>
+          </span>
+          기획
+        </a>
 
-      <a class="cat" href="browse.html?category=MARKETING">
-        <span class="cat__ico">
-          <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
-            <path class="ico-plate" d="M4 12.5v7h5l10 6V6.5l-10 6z"/>
-            <path class="ico-fill" d="M9 12.5 19 6.5v19l-10-6z"/>
-            <path class="ico-line" d="M4 12.5v7h5l10 6V6.5l-10 6z"/>
-            <path class="ico-line" d="M23 12.5a5.5 5.5 0 0 1 0 7"/>
-            <path class="ico-line" d="M26.5 9a10 10 0 0 1 0 14"/>
-          </svg>
-        </span>
-        마케팅
-      </a>
+        <a class="cat" href="browse.html?category=MARKETING">
+          <span class="cat__ico">
+            <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+              <path class="ico-plate" d="M4 12.5v7h5l10 6V6.5l-10 6z"/>
+              <path class="ico-fill" d="M9 12.5 19 6.5v19l-10-6z"/>
+              <path class="ico-line" d="M4 12.5v7h5l10 6V6.5l-10 6z"/>
+              <path class="ico-line" d="M23 12.5a5.5 5.5 0 0 1 0 7"/>
+              <path class="ico-line" d="M26.5 9a10 10 0 0 1 0 14"/>
+            </svg>
+          </span>
+          마케팅
+        </a>
+      </div>
     </div>
   </section>
 
   <!-- ═══════ 모집 중인 프로젝트 ═══════
        이 화면에서 실제 API 로 채워지는 유일한 자리다 (GET /api/v1/projects).
-       그래서 3장이던 것을 6장으로 늘려 본문으로 삼았다.
        샘플은 PRD §9 시드 P01~P05·P12 를 그대로 썼다 — 배포하면 이 데이터가 실제로 있다. -->
   <section class="sec page">
     <div class="sec__head">
@@ -592,6 +610,165 @@
       </article>
     </div>
   </section>
+
+  <!-- ═══════ 사용법 3단계 ═══════
+       번호를 붙인 이유: 순서가 실제 정보다. 등록해야 지원이 오고, 수락해야 계약이 열린다.
+       자동으로 넘기지 않는다 — 읽는 속도를 화면이 정하면 안 된다. -->
+  <section class="how">
+    <div class="how__in">
+      <div class="how__head">
+        <h2 class="h1">이렇게 진행됩니다</h2>
+        <div class="how__nav">
+          <div class="how__dots" role="tablist" aria-label="단계 선택">
+            <button type="button" role="tab" aria-current="true" aria-label="1단계 프로젝트 등록"></button>
+            <button type="button" role="tab" aria-current="false" aria-label="2단계 지원과 수락"></button>
+            <button type="button" role="tab" aria-current="false" aria-label="3단계 계약과 정산"></button>
+          </div>
+          <button class="how__arrow" type="button" data-dir="-1" aria-label="이전 단계">‹</button>
+          <button class="how__arrow" type="button" data-dir="1" aria-label="다음 단계">›</button>
+        </div>
+      </div>
+
+      <div class="how__view">
+        <div class="how__track">
+
+          <!-- 1단계 -->
+          <div class="how__panel" role="group" aria-roledescription="슬라이드" aria-label="1 / 3">
+            <div>
+              <span class="how__step"><span class="how__num num">1</span> 프로젝트 등록</span>
+              <h3>예산을 혼자 정하지 않아도 됩니다.</h3>
+              <p>제목과 설명을 적으면 AI 단가 분석이 비슷한 프로젝트를 근거로 예산 범위를 먼저
+                알려줍니다. 제안 금액을 그대로 쓰거나 직접 고칠 수 있고, 어느 쪽인지 화면에 표시됩니다.</p>
+            </div>
+            <div class="how__art" aria-hidden="true">
+              <svg viewBox="0 0 380 240" role="img">
+                <rect x="24" y="14" width="344" height="212" rx="16" fill="var(--campaign-yellow-edge)"/>
+                <rect x="8" y="30" width="336" height="196" rx="14"
+                  fill="var(--surface)" stroke="var(--border-subtle)"/>
+                <text x="32" y="60" font-size="11" font-weight="700"
+                  fill="var(--content-tertiary)" font-family="inherit">프로젝트 제목</text>
+                <rect x="32" y="70" width="288" height="30" rx="8"
+                  fill="var(--surface-subtle)" stroke="var(--border-subtle)"/>
+                <text x="44" y="90" font-size="12" fill="var(--content)"
+                  font-family="inherit">쇼핑몰 웹사이트 구축</text>
+
+                <text x="32" y="126" font-size="11" font-weight="700"
+                  fill="var(--content-tertiary)" font-family="inherit">예산</text>
+                <rect x="32" y="136" width="288" height="34" rx="8"
+                  fill="var(--surface)" stroke="var(--action)"/>
+                <text x="44" y="158" font-size="15" font-weight="800" fill="var(--content)"
+                  font-family="inherit">5,000,000원</text>
+                <rect x="228" y="143" width="82" height="20" rx="10" fill="var(--campaign-yellow)"/>
+                <text x="269" y="157" font-size="10.5" font-weight="700" text-anchor="middle"
+                  fill="var(--campaign-plum)" font-family="inherit">AI 제안 금액</text>
+
+                <text x="32" y="192" font-size="11" fill="var(--content-secondary)"
+                  font-family="inherit">비슷한 프로젝트 24건의 중간값은 480만원입니다.</text>
+                <text x="32" y="208" font-size="11" fill="var(--content-tertiary)"
+                  font-family="inherit">지원자가 생기기 전에는 직접 수정할 수 있습니다.</text>
+              </svg>
+            </div>
+          </div>
+
+          <!-- 2단계 -->
+          <div class="how__panel" role="group" aria-roledescription="슬라이드" aria-label="2 / 3">
+            <div>
+              <span class="how__step"><span class="how__num num">2</span> 지원과 수락</span>
+              <h3>지원자를 나란히 놓고 고릅니다.</h3>
+              <p>경력·제안 금액·예상 기간이 같은 자리에 같은 순서로 표시됩니다. 한 명을 수락하면
+                나머지 지원은 자동으로 정리되고, 지원자에게도 결과가 전달됩니다.</p>
+            </div>
+            <div class="how__art" aria-hidden="true">
+              <svg viewBox="0 0 380 240" role="img">
+                <rect x="24" y="14" width="344" height="212" rx="16" fill="var(--campaign-yellow-edge)"/>
+                <rect x="8" y="30" width="336" height="196" rx="14"
+                  fill="var(--surface)" stroke="var(--border-subtle)"/>
+
+                <rect x="28" y="50" width="296" height="48" rx="10"
+                  fill="var(--success-surface)" stroke="var(--success)"/>
+                <circle cx="52" cy="74" r="12" fill="var(--surface)" stroke="var(--success)"/>
+                <path d="M46.5 74 50.5 78 58 70.5" fill="none" stroke="var(--success)"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <text x="74" y="70" font-size="12" font-weight="700" fill="var(--content)"
+                  font-family="inherit">김다은 · 경력 6년</text>
+                <text x="74" y="86" font-size="11" fill="var(--content-secondary)"
+                  font-family="inherit">4,800,000원 · 6주</text>
+                <text x="310" y="79" font-size="11" font-weight="700" text-anchor="end"
+                  fill="var(--success)" font-family="inherit">수락됨</text>
+
+                <rect x="28" y="108" width="296" height="44" rx="10"
+                  fill="var(--surface)" stroke="var(--border-subtle)"/>
+                <circle cx="52" cy="130" r="12" fill="var(--navy-100)"/>
+                <text x="74" y="126" font-size="12" fill="var(--content-secondary)"
+                  font-family="inherit">박서운 · 경력 3년</text>
+                <text x="74" y="142" font-size="11" fill="var(--content-tertiary)"
+                  font-family="inherit">5,200,000원 · 8주</text>
+
+                <rect x="28" y="162" width="296" height="44" rx="10"
+                  fill="var(--surface)" stroke="var(--border-subtle)"/>
+                <circle cx="52" cy="184" r="12" fill="var(--navy-100)"/>
+                <text x="74" y="180" font-size="12" fill="var(--content-secondary)"
+                  font-family="inherit">이준호 · 경력 9년</text>
+                <text x="74" y="196" font-size="11" fill="var(--content-tertiary)"
+                  font-family="inherit">6,000,000원 · 5주</text>
+              </svg>
+            </div>
+          </div>
+
+          <!-- 3단계 -->
+          <div class="how__panel" role="group" aria-roledescription="슬라이드" aria-label="3 / 3">
+            <div>
+              <span class="how__step"><span class="how__num num">3</span> 계약과 정산</span>
+              <h3>합의한 금액이 그대로 계약서가 됩니다.</h3>
+              <p>따로 문서를 만들 필요가 없습니다. 결제한 금액은 바로 넘어가지 않고, 납품을 승인한
+                뒤에 정산됩니다. 지금 어느 단계인지 양쪽이 같은 화면에서 봅니다.</p>
+            </div>
+            <div class="how__art" aria-hidden="true">
+              <svg viewBox="0 0 380 240" role="img">
+                <rect x="24" y="14" width="344" height="212" rx="16" fill="var(--campaign-yellow-edge)"/>
+                <rect x="8" y="30" width="336" height="196" rx="14"
+                  fill="var(--surface)" stroke="var(--border-subtle)"/>
+
+                <!-- 진행 단계 4칸. 3번째까지 지났다 -->
+                <circle cx="52" cy="70" r="11" fill="var(--action)"/>
+                <path d="M47 70 50.5 73.5 57 66.5" fill="none" stroke="var(--white)"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M63 70h34" stroke="var(--action)" stroke-width="2"/>
+                <circle cx="108" cy="70" r="11" fill="var(--action)"/>
+                <path d="M103 70 106.5 73.5 113 66.5" fill="none" stroke="var(--white)"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M119 70h34" stroke="var(--action)" stroke-width="2"/>
+                <circle cx="164" cy="70" r="11" fill="var(--action)"/>
+                <path d="M159 70 162.5 73.5 169 66.5" fill="none" stroke="var(--white)"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M175 70h34" stroke="var(--border)" stroke-width="2" stroke-dasharray="3 4"/>
+                <circle cx="220" cy="70" r="11" fill="var(--surface)" stroke="var(--border)"/>
+
+                <text x="41" y="96" font-size="10" fill="var(--content-secondary)" font-family="inherit">합의</text>
+                <text x="94" y="96" font-size="10" fill="var(--content-secondary)" font-family="inherit">계약</text>
+                <text x="150" y="96" font-size="10" fill="var(--content-secondary)" font-family="inherit">결제</text>
+                <text x="203" y="96" font-size="10" fill="var(--content-tertiary)" font-family="inherit">납품</text>
+
+                <rect x="28" y="118" width="296" height="88" rx="12"
+                  fill="var(--surface-subtle)" stroke="var(--border-subtle)"/>
+                <text x="46" y="142" font-size="11" fill="var(--content-tertiary)"
+                  font-family="inherit">보관 중인 금액</text>
+                <text x="46" y="168" font-size="20" font-weight="800" fill="var(--content)"
+                  font-family="inherit" letter-spacing="-.5">4,800,000원</text>
+                <rect x="46" y="180" width="150" height="20" rx="10" fill="var(--campaign-yellow)"/>
+                <text x="121" y="194" font-size="10.5" font-weight="700" text-anchor="middle"
+                  fill="var(--campaign-plum)" font-family="inherit">납품 승인 후 정산</text>
+                <path d="M262 140v34M262 174l-8-8M262 174l8-8" stroke="var(--action)"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="262" cy="130" r="8" fill="var(--surface)" stroke="var(--action)" stroke-width="2"/>
+              </svg>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer>
@@ -599,6 +776,50 @@
     <span>PactFive</span><span>이용약관</span><span>개인정보처리방침</span><span>고객센터</span>
   </div>
 </footer>
+
+<script>
+  /*
+   * 사용법 슬라이드.
+   *
+   * 자동으로 넘기지 않는다 — 읽는 속도를 화면이 정하면 안 되고, 자동 전환은
+   * 스크린리더 사용자에게 특히 불친절하다.
+   * `prefers-reduced-motion` 이면 CSS 가 transition 을 0 으로 만들어 즉시 바뀐다.
+   */
+  (function () {
+    var view = document.querySelector(".how__view");
+    if (!view) return;
+    var track = view.querySelector(".how__track");
+    var panels = track.querySelectorAll(".how__panel");
+    var dots = document.querySelectorAll(".how__dots button");
+    var arrows = document.querySelectorAll(".how__arrow");
+    var at = 0;
+
+    function show(next) {
+      at = (next + panels.length) % panels.length;
+      track.style.transform = "translateX(" + -at * 100 + "%)";
+      dots.forEach(function (d, i) {
+        d.setAttribute("aria-current", i === at ? "true" : "false");
+      });
+      // 보이지 않는 패널은 탭 순서에서 뺀다. 안 그러면 화면 밖으로 포커스가 간다
+      panels.forEach(function (p, i) {
+        p.inert = i !== at;
+      });
+    }
+
+    dots.forEach(function (d, i) {
+      d.addEventListener("click", function () { show(i); });
+    });
+    arrows.forEach(function (a) {
+      a.addEventListener("click", function () { show(at + Number(a.dataset.dir)); });
+    });
+    view.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") { show(at + 1); }
+      if (e.key === "ArrowLeft") { show(at - 1); }
+    });
+
+    show(0);
+  })();
+</script>
 
 </body>
 </html>
