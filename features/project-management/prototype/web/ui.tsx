@@ -28,6 +28,10 @@ export type ButtonProps = {
   loading?: boolean;
   type?: "button" | "submit";
   onClick?: () => void;
+  /** 보이는 글자와 다른 것을 읽어 줘야 할 때만 쓴다 */
+  ariaLabel?: string;
+  /** 마우스 사용자용 보조 설명. 이것만으로는 접근성이 충족되지 않는다 */
+  title?: string;
   children: ReactNode;
 };
 
@@ -39,6 +43,8 @@ export function Button({
   loading = false,
   type = "button",
   onClick,
+  ariaLabel,
+  title,
   children,
 }: ButtonProps) {
   return (
@@ -47,6 +53,8 @@ export function Button({
       className={`btn btn--${variant} btn--${size}${fullWidth ? " btn--full" : ""}`}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
+      aria-label={ariaLabel}
+      title={title}
       onClick={onClick}
     >
       {children}
@@ -191,7 +199,25 @@ export function PermissionAwareActions({ actions }: { actions: ActionSpec[] }) {
     <div className="actions">
       {actions.map((a) => (
         <span key={a.id} className="actions__item">
-          <Button variant={a.variant ?? "secondary"} disabled={!a.available} onClick={a.onClick}>
+          {/*
+            사유를 **두 경로로** 전한다.
+
+            보이는 문구는 행 레이아웃이 좁으면 넣을 자리가 없다 (통합 화면이 그래서
+            `title` 속성으로 옮겼다). 그런데 `title` 은 키보드 사용자와 일부 보조 기술에
+            전달되지 않아 §6 접근 가능성에 걸린다.
+
+            그래서 `aria-label` 에 사유를 함께 넣는다. 눈으로 보든 읽어 주든
+            같은 이유를 듣게 된다 (feedback_loop 2026-08-28 항목 5).
+          */}
+          <Button
+            variant={a.variant ?? "secondary"}
+            disabled={!a.available}
+            onClick={a.onClick}
+            ariaLabel={
+              !a.available && a.blockedReason ? `${a.label} — ${a.blockedReason}` : undefined
+            }
+            title={!a.available ? a.blockedReason : undefined}
+          >
             {a.label}
           </Button>
           {!a.available && a.blockedReason && (

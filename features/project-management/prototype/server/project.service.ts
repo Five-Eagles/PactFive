@@ -192,7 +192,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       recruitmentStartAt: p.recruitmentStartAt,
     };
     if (auth?.role === "FREELANCER") {
-      detail.isBookmarked = false; // engagement 담당. 여기서는 자리만 채운다
+      // 북마크 여부는 넣지 않는다. 화면이 engagement 조회로 대조한다 (CR-0008)
       detail.canApply = effectiveRecruitmentStatus(p, at) === "OPEN" && p.transactionStatus === "NONE";
     }
     return detail;

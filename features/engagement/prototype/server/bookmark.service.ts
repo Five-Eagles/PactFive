@@ -19,6 +19,7 @@ import {
   type BookmarkItem,
   type BookmarkListQuery,
   type BookmarkListResponse,
+  type BookmarkIdsResponse,
   type BookmarkToggleResponse,
   type EngagementErrorCode,
   type RecommendationReason,
@@ -179,6 +180,25 @@ export function createEngagementService(deps: EngagementServiceDeps) {
     };
   }
 
+  /* ═══════════ 3-2. 저장한 프로젝트 id (규칙 35·36) ═══════════ */
+
+  /**
+   * 화면이 카드마다 북마크 여부를 대조하는 데 쓴다.
+   *
+   * **삭제된 프로젝트도 걸러내지 않는다.** 여기서 걸러내려면 프로젝트를 조회해야 하는데,
+   * 이 조회의 목적은 "지금 보고 있는 카드가 저장돼 있는가"뿐이다.
+   * 화면에 없는 id 가 섞여 있어도 대조 결과는 같다.
+   */
+  async function listBookmarkedProjectIds(
+    auth: AuthContext | null,
+  ): Promise<Responded<BookmarkIdsResponse>> {
+    const me = await requireFreelancer(auth);
+    return {
+      status: 200,
+      body: { projectIds: repo.findByFreelancer(me.userId).map((b) => b.projectId) },
+    };
+  }
+
   /* ═══════════ 4. 추천 프로젝트 (규칙 16~26) ═══════════ */
 
   /**
@@ -246,5 +266,11 @@ export function createEngagementService(deps: EngagementServiceDeps) {
     };
   }
 
-  return { addBookmark, removeBookmark, listBookmarks, getRecommendations };
+  return {
+    addBookmark,
+    removeBookmark,
+    listBookmarks,
+    listBookmarkedProjectIds,
+    getRecommendations,
+  };
 }

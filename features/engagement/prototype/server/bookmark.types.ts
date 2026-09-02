@@ -100,6 +100,16 @@ export type RecommendedItem = BookmarkedProject & {
   matchedSkills: string[];
 };
 
+/**
+ * 저장한 프로젝트 id 목록 (규칙 36).
+ *
+ * 페이지를 나누지 않는다. 화면이 한 번 받아 `Set` 으로 갖고 카드마다 대조한다.
+ * 카드 데이터를 담지 않는 이유는 그것 때문에 무거워지면 목록마다 부를 수 없어서다.
+ */
+export type BookmarkIdsResponse = {
+  projectIds: string[];
+};
+
 export type RecommendationResponse = {
   items: RecommendedItem[];
 };

@@ -1627,6 +1627,49 @@ async function main() {
     check(locked.includes("프로젝트 제목"), "지원 3건: 제목은 계속 고칠 수 있다");
   }
 
+  section("접근 가능성 — 막힌 행동의 사유");
+  {
+    const { PermissionAwareActions } = await import("./web/ui");
+
+    const html = decode(
+      renderToStaticMarkup(
+        React.createElement(PermissionAwareActions, {
+          actions: [
+            { id: "EDIT", label: "수정", available: true },
+            {
+              id: "DELETE",
+              label: "삭제",
+              available: false,
+              blockedReason: "지원자 3명이 있어 삭제할 수 없습니다",
+            },
+          ],
+        }),
+      ),
+    );
+
+    // 세 경로로 같은 이유가 전해져야 한다 — 눈 · 마우스 · 보조 기술.
+    check(
+      html.includes(">지원자 3명이 있어 삭제할 수 없습니다<"),
+      "보이는 문구로 이유를 말한다",
+    );
+    check(
+      html.includes('title="지원자 3명이 있어 삭제할 수 없습니다"'),
+      "마우스 사용자에게 title 로도 전한다",
+    );
+    check(
+      html.includes('aria-label="삭제 — 지원자 3명이 있어 삭제할 수 없습니다"'),
+      "aria-label 이 사유를 함께 읽어 준다 — title 은 키보드·보조 기술에 전달되지 않는다",
+    );
+    check(html.includes("disabled"), "막힌 버튼은 눌리지 않는다");
+
+    // 열린 버튼에는 붙이지 않는다. 붙으면 읽어 주는 이름이 보이는 글자와 달라진다.
+    check(
+      !html.includes('aria-label="수정'),
+      "열린 버튼에는 aria-label 을 붙이지 않는다",
+    );
+    check(!/title="[^"]*"[^>]*>수정/.test(html), "열린 버튼에는 title 도 붙이지 않는다");
+  }
+
   section("결과");
   console.log(`PASS ${passCount} · FAIL ${failCount}`);
   if (failCount > 0) {

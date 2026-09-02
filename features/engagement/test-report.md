@@ -6,7 +6,7 @@
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 98 · FAIL 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 108 · FAIL 0)
 - [x] `npx tsc --noEmit --strict` 통과
 
 ```text
@@ -19,7 +19,7 @@
 7. 화면 규칙                8건
 8. 추천 사유               10건
 ──────────────────────────────
-                           98건
+                          108건
 ```
 
 ## spec.md 규칙별 확인

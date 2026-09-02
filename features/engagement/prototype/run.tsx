@@ -276,6 +276,51 @@ async function main() {
     );
   }
 
+  /* ═══════════ 4-2. 저장한 프로젝트 id (규칙 35·36) ═══════════ */
+  section("저장한 프로젝트 id");
+  {
+    const { svc, projectRead } = newSvc();
+    const res = await svc.listBookmarkedProjectIds(FREE);
+
+    check(res.status === 200, "id 조회 200");
+    check(Array.isArray(res.body.projectIds), "projectIds 배열");
+    check(
+      res.body.projectIds.every((id) => typeof id === "string"),
+      "id 문자열만 담는다 — 카드 데이터를 넣지 않는다",
+    );
+    check(
+      !("page" in res.body) && !("totalCount" in res.body),
+      "규칙 36: 페이지를 나누지 않는다",
+    );
+    check(
+      res.body.projectIds.includes("prj_deleted"),
+      "삭제된 프로젝트도 남긴다 — 화면에 없는 id 는 대조 결과를 바꾸지 않는다",
+    );
+    check(
+      projectRead.calls.bulk.length === 0 && projectRead.calls.candidates.length === 0,
+      "프로젝트를 한 번도 조회하지 않는다 — 그래서 목록보다 가볍다",
+    );
+
+    // 규칙 11 이 10개로 끊는 것과 달리, 여기는 전부 준다.
+    const paged = await svc.listBookmarks(FREE, { page: 1, pageSize: 2 });
+    check(
+      res.body.projectIds.length > paged.body.items.length,
+      "2페이지에 있는 항목도 id 조회에는 들어 있다",
+    );
+  }
+  {
+    const { svc } = newSvc();
+    const other = await svc.listBookmarkedProjectIds(FREE2);
+    check(other.body.projectIds.length === 1, "규칙 9: 남의 것은 섞이지 않는다");
+
+    await expectError("비로그인 id 조회", 401, "AUTH_REQUIRED", () =>
+      svc.listBookmarkedProjectIds(null),
+    );
+    await expectError("의뢰인 id 조회", 403, "BOOKMARK_ROLE_REQUIRED", () =>
+      svc.listBookmarkedProjectIds(CLIENT),
+    );
+  }
+
   /* ═══════════ 5. 추천 프로젝트 (규칙 16~28) ═══════════ */
   section("추천 프로젝트");
   {

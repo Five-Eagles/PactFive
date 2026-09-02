@@ -89,8 +89,13 @@ export type PublicProjectItem = {
   skills: SkillRef[];
   applicationCount: number;
   client: ClientPublicProfile;
-  /** 로그인한 프리랜서일 때만 포함 */
-  isBookmarked?: boolean;
+  /*
+   * 북마크 여부는 여기에 없다 (2026-09-02 확정).
+   *
+   * 채우려면 이 서비스가 engagement 를 불러야 하는데, 그것은 담당 경계를 넘는다.
+   * 화면이 `GET /api/v1/bookmarks/ids` 로 대조한다 (engagement 규칙 35·36).
+   * PRD v6.4 와 어긋나는 부분은 CR-0008 로 요청했다.
+   */
 };
 
 export type PublicProjectDetail = PublicProjectItem & {
