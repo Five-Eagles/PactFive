@@ -19,7 +19,6 @@ export function ReviewPanel({ view = "empty" }: ReviewPanelProps) {
         <div className="panel-head">
           <h2 className="title">리뷰</h2>
         </div>
-        <p className="status-copy">로딩</p>
         <p className="helper">리뷰 화면을 불러오는 중입니다.</p>
         <div className="skeleton" />
         <div className="skeleton" />
@@ -34,10 +33,10 @@ export function ReviewPanel({ view = "empty" }: ReviewPanelProps) {
           <h2 className="title">리뷰</h2>
         </div>
         <p className="notice danger" role="alert">
-          LOAD_FAILED
+          리뷰를 불러오지 못했습니다
         </p>
         <p className="status-copy">
-          리뷰를 불러오지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.
+          네트워크를 확인한 뒤 다시 시도해 주세요.
         </p>
         <div className="btn-row">
           <button type="button" className="btn primary">

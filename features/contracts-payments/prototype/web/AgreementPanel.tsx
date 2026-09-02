@@ -30,7 +30,6 @@ export function AgreementPanel({
         <div className="panel-head">
           <h2 className="title">금액 합의</h2>
         </div>
-        <p className="status-copy">로딩</p>
         <p className="helper">합의 내용을 불러오는 중입니다.</p>
         <div className="skeleton" />
         <div className="skeleton" />
@@ -44,9 +43,9 @@ export function AgreementPanel({
         <div className="panel-head">
           <h2 className="title">금액 합의</h2>
         </div>
-        <Notice tone="danger">LOAD_FAILED</Notice>
+        <Notice tone="danger">합의 내용을 불러오지 못했습니다</Notice>
         <p className="status-copy">
-          합의 내용을 불러오지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.
+          네트워크를 확인한 뒤 다시 시도해 주세요.
         </p>
         <div className="btn-row">
           <Button variant="primary">다시 시도</Button>

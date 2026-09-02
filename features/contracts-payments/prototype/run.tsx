@@ -836,9 +836,9 @@ async function main() {
     const create = htmlOf(React.createElement(AgreementPanel));
     hasText("규칙 17: 합의 필수 금액", create, "금액");
     hasText("규칙 17: 합의 필수 제안하기", create, "제안하기");
-    hasText("규칙 17: 합의 로딩", htmlOf(React.createElement(AgreementPanel, { view: "loading" })), "로딩");
+    hasText("규칙 17: 합의 로딩", htmlOf(React.createElement(AgreementPanel, { view: "loading" })), "불러오는 중");
     const loadFailed = htmlOf(React.createElement(AgreementPanel, { view: "loadFailed" }));
-    hasText("규칙 17: 합의 LOAD_FAILED", loadFailed, "LOAD_FAILED");
+    hasText("규칙 17: 합의 LOAD_FAILED", loadFailed, "불러오지 못했습니다");
     hasText("규칙 17: 합의 LOAD_FAILED 재시도", loadFailed, "다시 시도");
     hasText(
       "규칙 17: 합의 409 재조회",
@@ -860,6 +860,9 @@ async function main() {
     hasText("규칙 17: 서명 프로젝트 제목", sign, "프로젝트 제목");
     hasText("규칙 17: 서명 합의 금액", sign, "합의 금액");
     hasText("규칙 17: 서명하기", sign, "서명하기");
+    const signFailed = htmlOf(React.createElement(ContractSignPanel, { view: "loadFailed" }));
+    hasText("규칙 17: 서명 LOAD_FAILED", signFailed, "불러오지 못했습니다");
+    hasText("규칙 17: 서명 LOAD_FAILED 재시도", signFailed, "다시 시도");
     const signCanceled = htmlOf(React.createElement(ContractSignPanel, { view: "canceled" }));
     hasText("규칙 17: 서명 취소 안내", signCanceled, "프로젝트가 취소되었습니다");
     if (!signCanceled.includes("서명하기")) {
@@ -872,7 +875,7 @@ async function main() {
     hasText("규칙 17: 결제 금액", checkout, "결제 금액");
     hasText("규칙 17: 결제하기", checkout, "결제하기");
 
-    const allHtml = [create, canceled, respond, sign, signCanceled, checkout].join("\n");
+    const allHtml = [create, canceled, respond, sign, signFailed, signCanceled, checkout].join("\n");
     if (!/#[0-9A-Fa-f]{6}/.test(allHtml)) {
       pass("규칙 17: 화면에 원시 색상값 없음");
     } else {
@@ -1170,7 +1173,7 @@ async function main() {
     hasText(
       "규칙 22: 로딩",
       htmlOf(React.createElement(AgreementPanel, { view: "loading" })),
-      "로딩",
+      "불러오는 중",
     );
     hasText(
       "규칙 22: LOAD_FAILED 재시도",

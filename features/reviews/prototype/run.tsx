@@ -318,8 +318,8 @@ async function main() {
     hasText("규칙 11: 필수 별점", empty, "별점");
     hasText("규칙 11: 필수 리뷰 작성", empty, "리뷰 작성");
     hasText("규칙 11: 빈 상대 미작성", empty, "상대 리뷰는 아직 없습니다");
-    hasText("규칙 11: 로딩", htmlOf("loading"), "로딩");
-    hasText("규칙 11: LOAD_FAILED", htmlOf("loadFailed"), "LOAD_FAILED");
+    hasText("규칙 11: 로딩", htmlOf("loading"), "불러오는 중");
+    hasText("규칙 11: LOAD_FAILED", htmlOf("loadFailed"), "불러오지 못했습니다");
     hasText("규칙 11: LOAD_FAILED 재시도", htmlOf("loadFailed"), "다시 시도");
     hasText("규칙 11: 409 중복", htmlOf("duplicate"), "이미 작성한 리뷰입니다");
     hasText("규칙 11: 409 미완료", htmlOf("incomplete"), "거래가 완료되지 않았습니다");

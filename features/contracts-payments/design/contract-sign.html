@@ -55,6 +55,32 @@
 </section>
 
 <section class="screen">
+  <div class="id">불러오는 중</div>
+  <article class="panel" aria-busy="true">
+    <div class="panel-head">
+      <h2 class="title">계약 서명</h2>
+    </div>
+    <p class="helper">계약 내용을 불러오는 중입니다.</p>
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">불러오기 실패</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">계약 서명</h2>
+    </div>
+    <p class="notice danger" role="alert">계약 내용을 불러오지 못했습니다</p>
+    <p class="status-copy">네트워크를 확인한 뒤 다시 시도해 주세요.</p>
+    <div class="btn-row">
+      <button type="button" class="btn primary">다시 시도</button>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
   <div class="id">취소 안내</div>
   <article class="panel">
     <div class="panel-head">
@@ -77,6 +103,9 @@
       <tr><td>라벨</td><td>합의 금액</td></tr>
       <tr><td>버튼</td><td>서명하기</td></tr>
       <tr><td>취소</td><td>안내</td><td>프로젝트가 취소되었습니다</td></tr>
+      <tr><td>불러오는 중</td><td>안내</td><td>계약 내용을 불러오는 중입니다.</td></tr>
+      <tr><td rowspan="2">불러오기 실패</td><td>안내</td><td>계약 내용을 불러오지 못했습니다</td></tr>
+      <tr><td>버튼</td><td>다시 시도</td></tr>
     </tbody>
   </table>
   <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
