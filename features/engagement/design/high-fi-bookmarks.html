@@ -16,7 +16,9 @@
   .pcard .foot { display:flex; justify-content:space-between; align-items:center; gap:10px;
     font-size:12px; color:var(--content-tertiary); border-top:1px solid var(--border-subtle);
     padding-top:10px; margin-top:2px; }
-  .pcard.dim { background:var(--surface-muted); }
+    /* --surface-muted 는 _tokens.css 에 없다. design-tokens.md 에 semantic 으로
+     정의된 적이 없는 이름이라 --surface-subtle 로 고쳤다 (feedback_loop 8/28 항목 5) */
+  .pcard.dim { background:var(--surface-subtle); }
   .saved-at { font-size:12px; color:var(--content-tertiary); }
   .bookmark { width:40px; height:40px; border:1px solid var(--border); border-radius:var(--btn-radius);
     background:var(--surface); cursor:pointer; font-size:18px; line-height:1; }

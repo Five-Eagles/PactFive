@@ -219,5 +219,10 @@ export const IDEMPOTENCY_KEY = {
   applyPricingBudget: (pricingAnalysisId: string) => `pricing-apply-${pricingAnalysisId}`,
 } as const;
 
-/** 서버 간 호출에 붙는 헤더. 사용자 로그인 토큰으로는 접근할 수 없다 (규칙 49) */
-export const INTERNAL_SERVICE_TOKEN = "mock-internal-service-token";
+/**
+ * 서버 간 호출에 붙는 헤더 이름. 사용자 로그인 토큰으로는 접근할 수 없다 (규칙 49).
+ *
+ * **값은 여기 없다.** `config.ts` 의 `loadConfig()` 가 프로젝트 루트 `.env` 에서
+ * 읽는다 (팀 요구사항 2026-09-01). 코드에 박아두면 저장소를 보는 사람이 곧 그 값을 안다.
+ */
+export const INTERNAL_SERVICE_TOKEN_HEADER = "x-internal-service-token";
