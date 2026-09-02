@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>마이페이지 — 제안</title>
+<link rel="stylesheet" href="_tokens.css" />
+<style>
+  /* ── 마이페이지 ──────────────────────────────────────────
+     로그인해야 의미가 있는 것들을 한곳에 모은다. 헤더에 흩어 두면
+     비로그인 사용자에게 누를 수 없는 메뉴만 보인다.
+
+     **로그인 자체는 여기서 만들지 않는다** — user-management(오민혁) 담당이다.
+     `demo/session.js` 가 그 연결점이고, 이 화면은 "누가 보는가"만 물어본다. */
+
+  .my { padding:var(--gap-6) 0 var(--gap-7); }
+  .my__head { display:flex; align-items:center; gap:var(--gap-4);
+    padding:var(--gap-5); border-radius:var(--r-lg);
+    background:var(--surface); border:1px solid var(--border-subtle);
+    box-shadow:var(--shadow-card), var(--edge-top); margin-bottom:var(--gap-5); }
+  .my__avatar { flex:none; width:56px; height:56px; border-radius:var(--r-pill);
+    display:grid; place-items:center; font-size:20px; font-weight:800;
+    color:var(--content-inverse); background:var(--navy-500);
+    border:3px solid var(--surface); box-shadow:0 0 0 1px var(--border-subtle); }
+  .my__who b { font-size:19px; letter-spacing:-.02em; }
+  .my__who p { margin:4px 0 0; font-size:13px; color:var(--content-secondary); }
+  .my__role { display:inline-block; margin-left:var(--gap-2);
+    padding:3px 9px; border-radius:var(--r-pill);
+    background:var(--surface-selected); color:var(--action-quiet);
+    font-size:12px; font-weight:700; vertical-align:2px; }
+
+  /* 탭. 역할에 따라 항목이 다르다 — 누를 수 없는 탭을 두지 않는다 */
+  .tabs { display:flex; gap:var(--gap-1); border-bottom:1px solid var(--border-subtle);
+    margin-bottom:var(--gap-5); }
+  .tabs button { border:0; background:none; font:inherit; font-size:15px; font-weight:600;
+    color:var(--content-tertiary); padding:var(--gap-3) var(--gap-4);
+    border-bottom:2px solid transparent; margin-bottom:-1px; cursor:pointer; }
+  .tabs button:hover { color:var(--content); }
+  .tabs button[aria-selected="true"] { color:var(--action-quiet);
+    border-bottom-color:var(--action); }
+
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap-4); }
+  .pcard { box-shadow:var(--shadow-card), var(--edge-top); }
+  .pcard__rate.none { color:var(--content-tertiary); font-weight:500; }
+
+  .my__note { margin:var(--gap-4) 0 0; font-size:13px; color:var(--content-tertiary); }
+
+  @media (max-width:1279px) { .grid3 { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:767px) {
+    .grid3 { grid-template-columns:1fr; }
+    .my__head { flex-wrap:wrap; }
+    .tabs { overflow-x:auto; }
+    .tabs button { white-space:nowrap; padding:var(--gap-3) var(--gap-3); }
+  }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar__in">
+    <a class="logo" href="main.html">Pact<em>Five</em></a>
+    <nav><a href="browse.html">프로젝트 찾기</a><a href="experts.html">전문가 찾기</a></nav>
+    <span class="spacer"></span>
+    <span data-session-actions></span>
+  </div>
+</header>
+
+<main class="page my" id="my">
+  <!-- demo/session.js 가 누구인지 알려주면 그에 맞춰 그린다 -->
+</main>
+
+<script src="demo/data.js"></script>
+<script src="demo/engine.js"></script>
+<script src="demo/bookmarks.js"></script>
+<script src="demo/session.js"></script>
+<script src="demo/notyet.js"></script>
+<script>
+/*
+ * 마이페이지.
+ *
+ * 역할에 따라 탭이 다르다. 누를 수 없는 탭을 두지 않는다 —
+ * 프리랜서에게 "내 프로젝트"는 의뢰인 화면이고, 의뢰인에게 "저장한 프로젝트"는
+ * 북마크가 프리랜서 기능이라 의미가 없다 (engagement 규칙 5·30).
+ */
+window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit.mypage = function () {
+  "use strict";
+  var E = window.PactFiveEngine, D = window.PactFiveData;
+  var S = window.PactFiveSession, B = window.PactFiveBookmarks;
+  var root = document.getElementById("my");
+
+  var TABS = {
+    FREELANCER: [
+      { id: "saved", label: "저장한 프로젝트" },
+      { id: "applied", label: "내 지원", notyet: "apply" },
+    ],
+    CLIENT: [
+      { id: "projects", label: "내 프로젝트", notyet: "myproject" },
+      { id: "applicants", label: "받은 지원", notyet: "apply" },
+    ],
+  };
+
+  function tabOf() {
+    return new URLSearchParams((window.__pactfiveQuery || location.hash.slice(1)) || "").get("tab");
+  }
+
+  function render() {
+    var u = S.user();
+
+    // 비로그인 — 로그인 화면으로 떠넘기지 않고 여기서 이유를 말한다
+    if (!u) {
+      root.innerHTML =
+        '<div class="empty" role="status" style="margin-top:var(--gap-6)">' +
+          "<h3>로그인하면 볼 수 있습니다</h3>" +
+          "<p>저장한 프로젝트와 지원 현황은 본인만 볼 수 있습니다.</p>" +
+          '<button class="btn primary" type="button" data-notyet="login">로그인</button>' +
+        "</div>";
+      return;
+    }
+
+    var tabs = TABS[u.role];
+    var at = tabs.filter(function (t) { return t.id === tabOf(); })[0] || tabs[0];
+
+    root.innerHTML =
+      '<div class="my__head">' +
+        '<span class="my__avatar" aria-hidden="true">' + E.esc(u.name.slice(0, 1)) + "</span>" +
+        '<span class="my__who">' +
+          "<b>" + E.esc(u.name) + "</b>" +
+          '<span class="my__role">' + (u.role === "CLIENT" ? "의뢰인" : "프리랜서") + "</span>" +
+          "<p>" + (u.org ? E.esc(u.org) : "프로필이 아직 비어 있습니다") + "</p>" +
+        "</span>" +
+      "</div>" +
+
+      '<div class="tabs" role="tablist">' +
+        tabs.map(function (t) {
+          return '<button type="button" role="tab" data-tab="' + t.id + '"' +
+            ' aria-selected="' + (t.id === at.id ? "true" : "false") + '">' + t.label + "</button>";
+        }).join("") +
+      "</div>" +
+
+      '<div id="panel"></div>';
+
+    panel(at);
+  }
+
+  function panel(t) {
+    var box = document.getElementById("panel");
+
+    // 아직 없는 화면은 자리만 잡고 담당자를 말한다. 빈 화면을 그냥 두지 않는다
+    if (t.notyet) {
+      var s = window.PactFiveNotYet.SCREENS[t.notyet];
+      box.innerHTML =
+        '<div class="empty" role="status">' +
+          "<h3>" + t.label + " 화면은 아직 없습니다</h3>" +
+          "<p>담당 " + s.owner + " · 명세 <code>" + s.where + "</code></p>" +
+          '<a class="btn secondary" href="browse.html">프로젝트 찾기</a>' +
+        "</div>";
+      return;
+    }
+
+    // 저장한 프로젝트 (engagement 규칙 12·13·15)
+    var res = E.list({ savedOnly: true, includeClosed: true, sortBy: "latest" });
+    box.innerHTML = res.totalCount === 0
+      ? '<div class="empty" role="status">' +
+          "<h3>저장한 프로젝트가 없습니다</h3>" +
+          "<p>카드의 별을 누르면 여기 모입니다.</p>" +
+          '<a class="btn primary" href="browse.html">프로젝트 둘러보기</a>' +
+        "</div>"
+      : '<div class="grid3 enter">' + res.items.map(E.cardHTML).join("") + "</div>" +
+        // 규칙 13 — 마감된 것도 남는다. 공개 목록과 반대인 이유를 적어 둔다
+        '<p class="my__note">마감된 프로젝트도 지울 때까지 남습니다. ' +
+        "공개 목록에서는 빠지지만 내가 담아둔 것은 내가 지웁니다.</p>";
+  }
+
+  root.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-tab]");
+    if (!b) return;
+    location.hash = "tab=" + b.getAttribute("data-tab");
+    render();
+  });
+
+  document.addEventListener("pactfive:session", function () {
+    S.paintHeader();
+    render();
+  });
+  document.addEventListener("pactfive:bookmark", function () {
+    if (document.querySelector('[data-tab="saved"][aria-selected="true"]')) render();
+  });
+
+  S.paintHeader();
+  render();
+};
+
+if (document.getElementById("my")) {
+  window.PactFiveSession.bind();
+  window.PactFiveBookmarks.bind();
+  window.PactFiveNotYet.bind();
+  window.PactFiveInit.mypage();
+}
+</script>
+
+</body>
+</html>

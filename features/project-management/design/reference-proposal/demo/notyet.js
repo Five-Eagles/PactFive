@@ -22,6 +22,10 @@
       owner: "오민혁 (user-management)",
       where: "features/user-management/",
       note: "",
+      // 역할에 따라 화면이 달라지는 규칙이 여럿이라, 그것만 보이도록 계정을 세워 준다
+      extra: function () {
+        return window.PactFiveSession ? window.PactFiveSession.accountPickerHTML() : "";
+      },
     },
     experts: {
       name: "전문가 찾기",
@@ -77,6 +81,7 @@
         '<h2 id="notyet-t">' + s.name + " 화면은 아직 없습니다</h2>" +
         '<div id="notyet-d">' +
           (s.note ? "<p>" + s.note + "</p>" : "") +
+          (s.extra ? s.extra() : "") +
           '<dl class="notyet__kv">' +
             "<dt>담당</dt><dd>" + s.owner + "</dd>" +
             "<dt>명세</dt><dd><code>" + s.where + "</code></dd>" +
@@ -101,6 +106,7 @@
     if (bound) return; // 위와 같은 이유
     bound = true;
     document.addEventListener("click", function (e) {
+      if (e.target.closest("[data-signin]")) { close(); return; }
       var t = e.target.closest("[data-notyet]");
       if (!t) return;
       e.preventDefault();

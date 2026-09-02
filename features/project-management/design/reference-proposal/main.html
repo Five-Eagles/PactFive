@@ -275,15 +275,13 @@
     <span class="brand">Pact<em>Five</em></span>
     <nav>
       <a href="browse.html">프로젝트 찾기</a>
-      <a href="browse.html#saved=1">내 북마크</a>
       <a href="#" data-notyet="experts">전문가 찾기</a>
       <a href="#" data-notyet="guide">이용 방법</a>
       <a href="#" data-notyet="safety">안전한 거래</a>
     </nav>
-    <div class="hdr__act">
-      <a class="login" href="#" data-notyet="login">로그인</a>
-      <button class="btn-reg" type="button" data-notyet="register">프로젝트 등록</button>
-    </div>
+    <!-- 로그인 여부에 따라 demo/session.js 가 채운다. 북마크는 여기 두지 않는다 —
+         로그인해야 의미가 있는 것이라 마이페이지 안으로 넣었다 -->
+    <div class="hdr__act" data-session-actions></div>
   </div>
 </header>
 
@@ -593,6 +591,7 @@
 <script src="demo/data.js"></script>
 <script src="demo/engine.js"></script>
 <script src="demo/bookmarks.js"></script>
+<script src="demo/session.js"></script>
 <script src="demo/notyet.js"></script>
 <script>
 /*
@@ -621,6 +620,12 @@ window.PactFiveInit.main = function () {
   slot.innerHTML = res.items.slice(0, 6).map(window.PactFiveEngine.cardHTML).join("");
   window.PactFiveBookmarks.bind();
   window.PactFiveNotYet.bind();
+  // 헤더의 오른쪽은 로그인 여부에 따라 다르다. 세션이 바뀌면 다시 칠한다
+  window.PactFiveSession.bind();
+  window.PactFiveSession.paintHeader();
+  document.addEventListener("pactfive:session", function () {
+    window.PactFiveSession.paintHeader();
+  });
 
   /*
    * 검색 폼을 해시로 넘긴다.
