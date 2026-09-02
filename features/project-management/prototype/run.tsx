@@ -1358,6 +1358,72 @@ async function main() {
   check(!/#[0-9A-Fa-f]{6}/.test(allHtml), "화면에 원시 색상값(#RRGGBB)이 박혀 있지 않다");
   check(!allHtml.includes("workMode"), "workMode 는 쓰지 않는다 (CR-0004 — ERD 에 없는 필드)");
 
+  /* ═══════════ 8. 되돌릴 수 없는 행동 (CR-0006 결함 1) ═══════════ */
+  section("비파괴성 — 되돌릴 수 없는 행동");
+  {
+    const { DestructiveActionSummary, cancelEffects, deleteEffects } = await import(
+      "./web/DestructiveActionSummary"
+    );
+
+    // 취소는 프로젝트 하나만 바뀌는 것이 아니다. 그 영향이 실행 전에 보여야 한다.
+    const withApps = cancelEffects({ pendingApplicationCount: 5, hasContract: true });
+    check(
+      withApps.some((e) => e.includes("5건") && e.includes("알림")),
+      "취소: 지원자 수와 알림 발송을 실행 전에 알린다",
+    );
+    check(
+      withApps.some((e) => e.includes("합의") && e.includes("계약")),
+      "취소: 합의·계약 무효화를 알린다",
+    );
+    check(
+      withApps.some((e) => e.includes("다시 열 수 없")),
+      "취소: 되돌아갈 수 없다는 것을 알린다 (규칙 31)",
+    );
+
+    const noApps = cancelEffects({ pendingApplicationCount: 0, hasContract: false });
+    check(
+      !noApps.some((e) => e.includes("지원")),
+      "취소: 지원자가 없으면 그 문구를 만들지 않는다",
+    );
+    check(noApps.length > 0, "취소: 영향이 적어도 되돌릴 수 없다는 사실은 남는다");
+    check(deleteEffects().length > 0, "삭제: 영향을 알린다");
+
+    const html = decode(
+      renderToStaticMarkup(
+        React.createElement(DestructiveActionSummary, {
+          action: {
+            title: "프로젝트 취소",
+            subject: "쇼핑몰 웹사이트 구축",
+            effects: withApps,
+            confirmLabel: "취소합니다",
+          },
+          onConfirm: () => {},
+          onCancel: () => {},
+        }),
+      ),
+    );
+    check(html.includes("이 작업은 되돌릴 수 없습니다"), "확인 화면: 되돌릴 수 없다고 말한다");
+    check(html.includes("쇼핑몰 웹사이트 구축"), "확인 화면: 어느 프로젝트인지 보여준다");
+    check(html.includes("그만두기"), "확인 화면: 빠져나갈 길이 있다");
+    check(
+      html.includes('role="alertdialog"') && html.includes('aria-modal="true"'),
+      "확인 화면: 보조 기술에 경고 대화상자로 전달된다",
+    );
+    check(
+      html.includes("destructive-effects"),
+      "확인 화면: 영향 목록이 aria-describedby 로 연결된다",
+    );
+
+    // 되돌릴 수 있는 행동까지 확인을 붙이면 확인이 무뎌진다.
+    const listHtml = renderToStaticMarkup(
+      React.createElement(MyProjectList, { items: [manageItem] }),
+    );
+    check(
+      !listHtml.includes('role="alertdialog"'),
+      "목록: 확인 화면은 누르기 전에는 없다",
+    );
+  }
+
   section("결과");
   console.log(`PASS ${passCount} · FAIL ${failCount}`);
   if (failCount > 0) {
