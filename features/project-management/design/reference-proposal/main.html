@@ -6,67 +6,49 @@
 <title>PactFive 대표페이지 — 제안</title>
 <link rel="stylesheet" href="_tokens.css" />
 <style>
-  /* ── 히어로 ─────────────────────────────────────────── */
-  .hero { padding:var(--gap-6) 0 var(--gap-5); }
-  .hero__grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,500px);
-    gap:var(--gap-6); align-items:start; }
-  .hero__lede { margin:var(--gap-3) 0 var(--gap-5); font-size:16px; max-width:34ch; }
+  /* ── 히어로 ─────────────────────────────────────────────
+     한 단이다. 오른쪽에 배너·진행현황을 두던 두 단 구조를 접었다 —
+     그 자리를 채우던 것이 전부 데이터 근거가 없는 것들이었다.
+     빈 자리를 다른 허구로 메우지 않고 폭을 줄였다. */
+  .hero { padding-block:var(--gap-7) var(--gap-6); text-align:center; }
+  .hero__in { max-width:680px; margin:0 auto; }
+  .hero__lede { margin:var(--gap-3) auto var(--gap-5); font-size:16px; max-width:44ch; }
 
   .search { display:flex; gap:var(--gap-2); }
   .search input {
-    flex:1; height:var(--field-h); padding:0 var(--gap-4);
+    flex:1; min-width:0; height:var(--field-h); padding:0 var(--gap-4);
     border:1px solid var(--border); border-radius:var(--r-md);
     background:var(--surface); font:inherit; color:var(--content);
   }
   .search input::placeholder { color:var(--content-tertiary); }
-  .search .btn { height:var(--field-h); }
+  .search .btn { height:var(--field-h); flex:none; }
 
-  .popular { display:flex; flex-wrap:wrap; align-items:center; gap:var(--gap-2);
-    margin-top:var(--gap-4); font-size:13px; }
-  .popular > span { color:var(--content-tertiary); font-weight:600; margin-right:var(--gap-1); }
-  .popular a { color:var(--action-quiet); font-weight:500; }
-  .popular a:hover { text-decoration:underline; }
+  /* 의뢰인 쪽 진입. 검색은 프리랜서용이라 반대편 길을 한 줄로 남긴다 */
+  .hero__alt { margin-top:var(--gap-4); font-size:13px; color:var(--content-tertiary); }
+  .hero__alt a { color:var(--action-quiet); font-weight:600; }
+  .hero__alt a:hover { text-decoration:underline; }
 
-  /* 신뢰 지표 — 이 서비스가 일반 구인 사이트와 다른 지점 */
-  .trust { display:flex; gap:var(--gap-5); margin-top:var(--gap-5);
-    padding-top:var(--gap-4); border-top:1px solid var(--border-subtle); }
-  .trust div { font-size:13px; color:var(--content-secondary); }
-  .trust b { display:block; font-size:15px; color:var(--content); margin-bottom:2px; }
+  /* 모바일에서 섹션 순서를 바꾸려고 세로 flex 로 둔다 (아래 미디어쿼리) */
+  main { display:flex; flex-direction:column; }
+  /* .page 의 `margin:0 auto` 가 flex 교차축에서는 늘어나기를 막는다 —
+     폭이 내용만큼으로 줄어든다. width 를 명시해 원래 폭을 되돌린다 */
+  main > * { width:100%; }
 
-  /* ── 캠페인 ─────────────────────────────────────────── */
-  /* 캠페인 색은 이 배너 안에서만 쓴다 (§11 "캠페인 색의 범위 제한") */
-  .promo { position:relative; border-radius:var(--r-lg); overflow:hidden;
-    background:var(--campaign-yellow); color:var(--campaign-plum);
-    display:grid; grid-template-columns:1fr 200px; min-height:252px; }
-  .promo__text { padding:var(--gap-5); display:flex; flex-direction:column; }
-  .promo__tag { align-self:flex-start; background:var(--campaign-plum);
-    color:var(--campaign-yellow); font-size:12px; font-weight:700;
-    padding:4px var(--gap-3); border-radius:var(--r-pill); }
-  .promo h2 { margin:var(--gap-3) 0 var(--gap-2); font-size:26px; line-height:1.28;
-    font-weight:800; letter-spacing:-.02em; }
-  .promo p { margin:0; font-size:14px; opacity:.85; }
-  .promo .btn { align-self:flex-start; margin-top:auto;
-    background:var(--campaign-plum); color:var(--white); }
-  .promo__art { align-self:end; }
-  .promo__nav { position:absolute; right:var(--gap-4); bottom:var(--gap-4);
-    display:flex; align-items:center; gap:var(--gap-2);
-    font-size:12px; font-weight:700; }
-  .promo__nav button { width:28px; height:28px; border-radius:var(--r-pill);
-    border:1px solid var(--campaign-plum); background:transparent;
-    color:var(--campaign-plum); cursor:pointer; font:inherit; }
-
-  /* 진행 중 작업 요약 — 로그인 사용자에게만 */
-  .resume { display:flex; align-items:center; gap:var(--gap-4);
-    margin-top:var(--gap-3); padding:var(--gap-3) var(--gap-4); white-space:nowrap; }
-  .resume__k { font-size:11px; color:var(--content-tertiary); }
-  .resume__v { font-size:13px; font-weight:600; }
-  .resume__title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
-  .resume .sep { width:1px; height:28px; flex:none; background:var(--border-subtle); }
-  .resume .due { color:var(--danger); }
-
-  /* ── 카테고리 ───────────────────────────────────────── */
-  .cats { border-top:1px solid var(--border-subtle);
+  /* ── 서비스가 하는 일 ───────────────────────────────────
+     홍보 문구가 아니라 기능 설명이다. 셋 다 PRD 범위 안에 있다.
+     ※ Step 2(계약·결제·AI 단가)가 잘리면 이 줄도 함께 내려야 한다. */
+  .does { border-top:1px solid var(--border-subtle);
     border-bottom:1px solid var(--border-subtle); background:var(--surface); }
+  .does__in { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap-5);
+    max-width:var(--page-max); margin:0 auto;
+    padding:var(--gap-5) var(--gutter); }
+  .does div { font-size:13px; color:var(--content-secondary); line-height:1.6; }
+  .does b { display:block; font-size:15px; color:var(--content); margin-bottom:4px; }
+
+  /* ── 카테고리 ───────────────────────────────────────────
+     ERD 의 project_category 6종과 같다.
+     시안의 10종에는 ERD 에 없는 값(인기·콘텐츠·영상 등)이 섞여 있었다. */
+  .cats { border-bottom:1px solid var(--border-subtle); background:var(--surface); }
   .cats__in { display:grid; grid-template-columns:repeat(6,1fr);
     max-width:var(--page-max); margin:0 auto; }
   .cat { display:flex; flex-direction:column; align-items:center; gap:var(--gap-2);
@@ -80,30 +62,19 @@
   /* ── 섹션 ───────────────────────────────────────────── */
   .sec { padding:var(--gap-6) 0 var(--gap-7); }
   .sec__head { display:flex; align-items:baseline; justify-content:space-between;
-    margin-bottom:var(--gap-4); }
+    margin-bottom:var(--gap-2); }
+  .sec__note { margin:0 0 var(--gap-4); font-size:13px; color:var(--content-tertiary); }
   .sec__more { font-size:13px; font-weight:600; color:var(--action-quiet); }
 
   .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap-4); }
 
   /* 프로젝트 카드 스타일은 _tokens.css 에 있다 — browse.html 과 같은 것을 쓴다 */
 
-  /* 전문가 카드 — 썸네일이 실제 작업물이어야 한다 (§11) */
-  .ecard { overflow:hidden; display:flex; flex-direction:column; }
-  .ecard__thumb { aspect-ratio:16/10; background:var(--surface-subtle);
-    border-bottom:1px solid var(--border-subtle); }
-  .ecard__thumb svg { display:block; width:100%; height:100%; }
-  .ecard__body { display:flex; align-items:center; gap:var(--gap-3); padding:var(--gap-4); }
-  .avatar { width:36px; height:36px; flex:none; border-radius:var(--r-pill);
-    background:var(--navy-100); display:grid; place-items:center;
-    font-size:13px; font-weight:700; color:var(--navy-700); }
-  .ecard__name { font-size:14px; font-weight:700; }
-  .ecard__role { font-size:12px; color:var(--content-tertiary); }
-  .ecard__meta { margin-left:auto; text-align:right; font-size:12px; }
-  .ecard__meta b { font-size:13px; }
-  .avail { color:var(--success); font-weight:600; }
+  /* 평점이 없는 의뢰인. 0.0 이나 ★☆☆☆☆ 로 그리지 않는다 —
+     "나쁘다"와 "아직 없다"는 다르다 (ux-philosophy §6 근거 이해) */
+  .pcard__rate.none { color:var(--content-tertiary); font-weight:500; }
 
-  footer { border-top:1px solid var(--border-subtle); background:var(--surface);
-    margin-top:var(--gap-7); }
+  footer { border-top:1px solid var(--border-subtle); background:var(--surface); }
   footer .page { display:flex; gap:var(--gap-5); padding-top:var(--gap-5);
     padding-bottom:var(--gap-6); font-size:13px; color:var(--content-tertiary); }
 
@@ -113,26 +84,32 @@
 
   /* 1280 / 1024 / 768 / 360 — PactFive 공식 분기점 */
   @media (max-width:1279px) {
-    .hero__grid { grid-template-columns:1fr; }
     .cats__in { grid-template-columns:repeat(3,1fr); }
     .grid3 { grid-template-columns:repeat(2,1fr); }
   }
   @media (max-width:767px) {
-    .grid3 { grid-template-columns:1fr; }
-    .cats__in { grid-template-columns:repeat(2,1fr); }
+    .hero { padding-block:var(--gap-5) var(--gap-4); text-align:left; }
+    /* display 는 데스크톱 기준 크기라 375px 에서 두 줄로 깨지며 여백을 다 먹는다 */
+    .hero .display { font-size:28px; line-height:1.25; }
+    .hero__lede { margin-left:0; font-size:15px; }
 
-    /* 아래는 전부 "가로로 넘치지 않게" 하는 처리다.
-       레퍼런스 국내 3곳이 375px 에서 데스크톱 폭이 남아 넘쳤다 — 그 결함은 안 가져온다. */
-    .promo { grid-template-columns:1fr; min-height:0; }
-    .promo__art { display:none; }
-    .promo h2 { font-size:22px; }
+    /* 첫 카드가 화면 1.5개 아래로 밀려 있었다.
+       "서비스가 하는 일"은 읽을 사람은 읽고 아닌 사람은 지나치는 내용이라 뒤로 보낸다.
+       프로젝트가 먼저 보여야 한다. */
+    .hero { order:0; }
+    .cats { order:1; }
+    .sec  { order:2; }
+    .does { order:3; border-bottom:0; }
+    .grid3 { grid-template-columns:1fr; }
+    /* 2열이면 3줄이 되어 첫 카드가 화면 아래로 밀린다. 3열 2줄로 줄인다 */
+    .cats__in { grid-template-columns:repeat(3,1fr); }
+    .cat { padding:var(--gap-3) 4px; font-size:12px; }
+    .does__in { grid-template-columns:1fr; gap:var(--gap-4); }
+
+    /* 375px 에서 가로로 넘치지 않게. 레퍼런스 국내 3곳이 여기서 넘쳤다 */
     .search { flex-wrap:wrap; }
-    .search input { min-width:0; flex:1 1 100%; }
+    .search input { flex:1 1 100%; }
     .search .btn { flex:1 1 100%; }
-    .trust { display:grid; grid-template-columns:1fr 1fr; gap:var(--gap-3); }
-    .resume { flex-wrap:wrap; white-space:normal; }
-    .resume .sep { display:none; }
-    .resume__title { flex:1 1 100%; }
   }
   @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
 </style>
@@ -140,17 +117,17 @@
 <body>
 
 <div class="page" style="padding-top:var(--gap-3)">
-  <p class="note"><b>제안 — 확정 아님.</b> 정본 토큰만 사용. 원시 색상값은 <code>_tokens.css</code> 의 <code>:root</code> 에만 있다.</p>
+  <p class="note"><b>제안 — 확정 아님.</b> PRD 화면 목록(§7.1)과 ERD 에 근거가 있는 것만 남겼다.
+  걷어낸 항목과 사유는 <code>README.md</code> 에 있다.</p>
 </div>
 
 <header class="appbar">
   <div class="appbar__in">
     <span class="logo">Pact<em>Five</em></span>
+    <!-- 통합 앱(app/web)의 실제 nav 와 같다. 없는 화면을 가리키는 메뉴를 두지 않는다 -->
     <nav>
       <a href="browse.html">프로젝트 찾기</a>
-      <a href="#">전문가 찾기</a>
-      <a href="#">이용 방법</a>
-      <a href="#">안전한 거래</a>
+      <a href="#">내 프로젝트</a>
     </nav>
     <span class="spacer"></span>
     <a class="btn quiet sm" href="#">로그인</a>
@@ -159,90 +136,35 @@
 </header>
 
 <main>
-  <!-- ═══════ 히어로 ═══════ -->
+  <!-- ═══════ 히어로 ═══════
+       RFP §3.2.2 가 목록 진입 경로 셋을 명시한다 —
+       헤더 메뉴 · 메인 검색창 · 메인 카테고리 버튼. 이 화면에 셋 다 있다. -->
   <section class="hero page">
-    <div class="hero__grid">
-      <div>
-        <h1 class="display">좋은 협업을 만드는<br />전문가를 찾아보세요.</h1>
-        <p class="hero__lede body-sec">검증된 경력과 실제 결과물을 비교하고, 계약까지 안전하게 이어가세요.</p>
+    <div class="hero__in">
+      <h1 class="display">맞는 프로젝트를 찾아보세요.</h1>
+      <p class="hero__lede body-sec">예산과 마감일을 먼저 확인하고 지원하세요.
+        합의부터 정산까지 서비스 안에서 이어집니다.</p>
 
-        <form class="search" role="search" onsubmit="return false">
-          <label class="caption" for="q" style="position:absolute;left:-9999px">검색어</label>
-          <input id="q" type="search" placeholder="어떤 전문가가 필요하세요?" />
-          <button class="btn primary" type="submit">전문가 찾기</button>
-        </form>
+      <form class="search" role="search" onsubmit="return false">
+        <label class="caption" for="q" style="position:absolute;left:-9999px">검색어</label>
+        <input id="q" type="search" placeholder="어떤 프로젝트를 찾으세요?" />
+        <button class="btn primary" type="submit">프로젝트 찾기</button>
+      </form>
 
-        <p class="popular">
-          <span>인기 검색</span>
-          <a href="#">브랜드 디자인</a><a href="#">B2B 백오피스</a><a href="#">앱 UX 개선</a>
-          <a href="#">쇼핑몰 구축</a><a href="#">콘텐츠 제작</a>
-        </p>
+      <p class="hero__alt">일을 맡기려는 분은 <a href="#">프로젝트 등록</a>에서 시작하세요.</p>
+    </div>
+  </section>
 
-        <div class="trust">
-          <div><b class="num">에스크로 결제</b>납품 승인 후 정산됩니다</div>
-          <div><b class="num">전자 계약</b>합의 금액이 그대로 계약서로</div>
-          <div><b class="num">AI 단가 분석</b>비슷한 프로젝트 기준 제시</div>
-        </div>
-      </div>
-
-      <div>
-        <div class="promo">
-          <div class="promo__text">
-            <span class="promo__tag">B2B 서비스 구축 기획전</span>
-            <h2>복잡한 운영을 바꾸는<br />검증된 전문가</h2>
-            <p>기획부터 개발까지 한 팀처럼</p>
-            <a class="btn" href="browse.html">전문가 확인하기</a>
-          </div>
-          <div class="promo__art" aria-hidden="true">
-            <!-- 실제 작업 맥락을 보여주는 삽화. 의미 없는 그라데이션 대신 콘텐츠를 그린다 -->
-            <svg viewBox="0 0 200 240" role="img">
-              <rect x="18" y="60" width="168" height="112" rx="6" fill="var(--navy-800)"/>
-              <rect x="24" y="66" width="156" height="100" rx="3" fill="var(--white)"/>
-              <rect x="30" y="72" width="40" height="88" rx="2" fill="var(--navy-50)"/>
-              <rect x="36" y="80" width="26" height="4" rx="2" fill="var(--navy-300)"/>
-              <rect x="36" y="90" width="20" height="4" rx="2" fill="var(--navy-200)"/>
-              <rect x="36" y="100" width="24" height="4" rx="2" fill="var(--navy-200)"/>
-              <rect x="78" y="72" width="46" height="26" rx="3" fill="var(--teal-50)"/>
-              <rect x="128" y="72" width="46" height="26" rx="3" fill="var(--navy-50)"/>
-              <rect x="78" y="104" width="96" height="4" rx="2" fill="var(--navy-200)"/>
-              <rect x="78" y="114" width="76" height="4" rx="2" fill="var(--navy-200)"/>
-              <rect x="78" y="124" width="88" height="4" rx="2" fill="var(--navy-200)"/>
-              <path d="M78 152 L96 140 L112 148 L132 128 L152 136 L174 118"
-                fill="none" stroke="var(--teal-500)" stroke-width="2.5" stroke-linecap="round"/>
-              <rect x="10" y="176" width="86" height="56" rx="4" fill="var(--white)"
-                stroke="var(--navy-200)"/>
-              <rect x="18" y="186" width="52" height="3" rx="1.5" fill="var(--navy-300)"/>
-              <rect x="18" y="194" width="66" height="3" rx="1.5" fill="var(--navy-200)"/>
-              <rect x="18" y="202" width="44" height="3" rx="1.5" fill="var(--navy-200)"/>
-              <rect x="112" y="182" width="72" height="46" rx="4" fill="var(--campaign-lavender)"/>
-              <rect x="120" y="192" width="44" height="3" rx="1.5" fill="var(--campaign-plum)" opacity=".5"/>
-              <rect x="120" y="200" width="52" height="3" rx="1.5" fill="var(--campaign-plum)" opacity=".3"/>
-            </svg>
-          </div>
-          <div class="promo__nav">
-            <span class="num">1 / 5</span>
-            <button type="button" aria-label="이전">‹</button>
-            <button type="button" aria-label="다음">›</button>
-          </div>
-        </div>
-
-        <div class="card resume">
-          <span class="resume__title">
-            <span class="resume__k">내 프로젝트</span><br />
-            <span class="resume__v">쇼핑몰 웹사이트 구축</span>
-          </span>
-          <span class="sep"></span>
-          <span><span class="resume__k">현재 단계</span><br /><span class="resume__v">중간 결과물 검토</span></span>
-          <span class="sep"></span>
-          <span><span class="resume__k">마감일</span><br /><span class="resume__v due num">D-3</span></span>
-          <a class="btn quiet sm" href="#">전체 보기 ›</a>
-        </div>
-      </div>
+  <!-- ═══════ 서비스가 하는 일 ═══════ -->
+  <section class="does">
+    <div class="does__in">
+      <div><b>AI 단가 분석</b>비슷한 프로젝트를 근거로 예산 범위를 먼저 알려줍니다.</div>
+      <div><b>전자 계약</b>합의한 금액과 일정이 그대로 계약서가 됩니다.</div>
+      <div><b>에스크로 결제</b>결제한 금액은 납품이 승인된 뒤에 정산됩니다.</div>
     </div>
   </section>
 
   <!-- ═══════ 카테고리 ═══════ -->
-  <!-- ERD 의 카테고리 6종과 같다. 시안의 10종은 ERD 에 없는 값이 섞여 있었다 -->
   <section class="cats">
     <div class="cats__in">
       <a class="cat" href="browse.html">
@@ -278,12 +200,17 @@
     </div>
   </section>
 
-  <!-- ═══════ 모집 중인 프로젝트 ═══════ -->
+  <!-- ═══════ 모집 중인 프로젝트 ═══════
+       이 화면에서 실제 API 로 채워지는 유일한 자리다 (GET /api/v1/projects).
+       그래서 3장이던 것을 6장으로 늘려 본문으로 삼았다.
+       샘플은 PRD §9 시드 P01~P05·P12 를 그대로 썼다 — 배포하면 이 데이터가 실제로 있다. -->
   <section class="sec page">
     <div class="sec__head">
       <h2 class="h1">지금 모집 중인 프로젝트</h2>
       <a class="sec__more" href="browse.html">전체 보기 ›</a>
     </div>
+    <!-- 기본 노출 정책(D-08)을 화면에서도 말한다. 왜 6건뿐인지 알 수 있어야 한다 -->
+    <p class="sec__note">모집 중이거나 모집 예정인 프로젝트만 보입니다. 마감된 것은 전체 보기에서 찾을 수 있습니다.</p>
 
     <div class="grid3 enter">
       <article class="card pcard">
@@ -292,144 +219,103 @@
           <span class="badge open">모집 중</span>
           <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
         </div>
-        <h3 class="pcard__title">반응형 랜딩페이지 제작</h3>
-        <p class="pcard__client"><b>주식회사 예시</b>
+        <h3 class="pcard__title">쇼핑몰 웹사이트 구축</h3>
+        <p class="pcard__client"><b>주식회사 마루컴퍼니</b>
           <span class="pcard__rate num">★ 4.8 (12)</span></p>
-        <p class="pcard__budget num">3,000,000원</p>
+        <p class="pcard__budget num">5,000,000원</p>
         <p class="pcard__skills"><span class="chip">React</span><span class="chip">TypeScript</span></p>
         <p class="pcard__meta">
-          <span class="num">지원 2건</span>
-          <span class="due num">2026.09.08 · <b>D-6</b></span>
+          <span class="num">지원 0건</span>
+          <span class="due num">2026.09.16 · <b>D-14</b></span>
         </p>
       </article>
+
       <article class="card pcard">
         <div class="pcard__head">
           <span class="pcard__cat">웹 개발</span>
           <span class="badge open">모집 중</span>
           <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
         </div>
-        <h3 class="pcard__title">사내 재고관리 시스템</h3>
+        <h3 class="pcard__title">사내 관리자 페이지</h3>
         <p class="pcard__client"><b>라온물류</b>
           <span class="pcard__rate num">★ 4.6 (31)</span></p>
-        <p class="pcard__budget num">5,500,000원</p>
+        <p class="pcard__budget num">3,500,000원</p>
         <p class="pcard__skills"><span class="chip">Node.js</span><span class="chip">SQL</span></p>
         <p class="pcard__meta">
-          <span class="num">지원 4건</span>
-          <span class="due num">2026.09.14 · <b>D-12</b></span>
+          <span class="num">지원 2건</span>
+          <span class="due num">2026.09.11 · <b>D-9</b></span>
         </p>
       </article>
+
       <article class="card pcard">
         <div class="pcard__head">
           <span class="pcard__cat">디자인</span>
           <span class="badge open">모집 중</span>
           <button class="save" type="button" aria-pressed="true" aria-label="북마크 해제">★</button>
         </div>
-        <h3 class="pcard__title">모바일 앱 UI 리뉴얼</h3>
+        <h3 class="pcard__title">브랜드 리뉴얼 디자인</h3>
         <p class="pcard__client"><b>데일리핏</b>
-          <span class="pcard__rate num">★ 4.9 (8)</span></p>
+          <!-- 리뷰가 아직 없는 의뢰인. 0.0 으로 그리면 "평가가 나쁘다"로 읽힌다 -->
+          <span class="pcard__rate none">평가 없음</span></p>
         <p class="pcard__budget num">2,200,000원</p>
-        <p class="pcard__skills"><span class="chip">Figma</span><span class="chip">React Native</span></p>
+        <p class="pcard__skills"><span class="chip">Figma</span></p>
         <p class="pcard__meta">
-          <span class="num">지원 3건</span>
-          <span class="due num">2026.09.02 · <b>오늘 마감</b></span>
+          <span class="num">지원 1건</span>
+          <span class="due num">2026.09.20 · <b>D-18</b></span>
         </p>
       </article>
-    </div>
-  </section>
 
-  <!-- ═══════ 추천 전문가 ═══════ -->
-  <section class="sec page" style="padding-top:0">
-    <div class="sec__head">
-      <h2 class="h1">이번 주 추천 전문가</h2>
-      <a class="sec__more" href="#">전체 보기 ›</a>
-    </div>
-
-    <div class="grid3">
-      <article class="card ecard">
-        <div class="ecard__thumb" aria-hidden="true">
-          <svg viewBox="0 0 320 200">
-            <rect width="320" height="200" fill="var(--navy-900)"/>
-            <rect x="0" y="0" width="72" height="200" fill="var(--navy-950)"/>
-            <rect x="14" y="20" width="40" height="5" rx="2.5" fill="var(--teal-400)"/>
-            <rect x="14" y="40" width="32" height="4" rx="2" fill="var(--navy-600)"/>
-            <rect x="14" y="54" width="38" height="4" rx="2" fill="var(--navy-600)"/>
-            <rect x="14" y="68" width="28" height="4" rx="2" fill="var(--navy-600)"/>
-            <rect x="90" y="24" width="48" height="34" rx="4" fill="var(--navy-800)"/>
-            <rect x="148" y="24" width="48" height="34" rx="4" fill="var(--navy-800)"/>
-            <rect x="206" y="24" width="48" height="34" rx="4" fill="var(--navy-800)"/>
-            <rect x="264" y="24" width="42" height="34" rx="4" fill="var(--navy-800)"/>
-            <rect x="98" y="34" width="26" height="6" rx="3" fill="var(--teal-400)"/>
-            <rect x="156" y="34" width="22" height="6" rx="3" fill="var(--navy-500)"/>
-            <rect x="214" y="34" width="28" height="6" rx="3" fill="var(--navy-500)"/>
-            <rect x="90" y="72" width="216" height="104" rx="5" fill="var(--navy-800)"/>
-            <path d="M104 152 L134 128 L158 138 L188 108 L216 120 L248 92 L288 104"
-              fill="none" stroke="var(--teal-400)" stroke-width="3" stroke-linecap="round"/>
-            <circle cx="188" cy="108" r="4" fill="var(--teal-200)"/>
-          </svg>
+      <article class="card pcard">
+        <div class="pcard__head">
+          <span class="pcard__cat">모바일 앱</span>
+          <span class="badge open">모집 중</span>
+          <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
         </div>
-        <div class="ecard__body">
-          <span class="avatar">김</span>
-          <span><span class="ecard__name">김다은</span><br /><span class="ecard__role">Product designer</span></span>
-          <span class="ecard__meta"><b class="num">4.9</b> <span class="caption num">(38)</span><br /><span class="avail">활동 가능</span></span>
-        </div>
+        <h3 class="pcard__title">배달앱 MVP 개발</h3>
+        <p class="pcard__client"><b>스푼테이블</b>
+          <span class="pcard__rate num">★ 4.9 (8)</span></p>
+        <p class="pcard__budget num">8,000,000원</p>
+        <p class="pcard__skills"><span class="chip">Flutter</span><span class="chip">TypeScript</span></p>
+        <p class="pcard__meta">
+          <span class="num">지원 0건</span>
+          <span class="due num">2026.09.25 · <b>D-23</b></span>
+        </p>
       </article>
 
-      <article class="card ecard">
-        <div class="ecard__thumb" aria-hidden="true">
-          <svg viewBox="0 0 320 200">
-            <rect width="320" height="200" fill="var(--surface-base)"/>
-            <rect x="24" y="20" width="272" height="160" rx="6" fill="var(--white)" stroke="var(--navy-200)"/>
-            <rect x="40" y="36" width="60" height="7" rx="3.5" fill="var(--navy-800)"/>
-            <rect x="40" y="58" width="240" height="1" fill="var(--navy-200)"/>
-            <rect x="40" y="70" width="52" height="5" rx="2.5" fill="var(--navy-300)"/>
-            <rect x="112" y="70" width="52" height="5" rx="2.5" fill="var(--navy-300)"/>
-            <rect x="184" y="70" width="52" height="5" rx="2.5" fill="var(--navy-300)"/>
-            <rect x="40" y="92" width="72" height="5" rx="2.5" fill="var(--navy-500)"/>
-            <rect x="112" y="92" width="44" height="5" rx="2.5" fill="var(--navy-400)"/>
-            <rect x="184" y="92" width="60" height="5" rx="2.5" fill="var(--navy-400)"/>
-            <rect x="40" y="112" width="66" height="5" rx="2.5" fill="var(--navy-500)"/>
-            <rect x="112" y="112" width="50" height="5" rx="2.5" fill="var(--navy-400)"/>
-            <rect x="184" y="112" width="40" height="5" rx="2.5" fill="var(--navy-400)"/>
-            <rect x="40" y="132" width="58" height="5" rx="2.5" fill="var(--navy-500)"/>
-            <rect x="112" y="132" width="56" height="5" rx="2.5" fill="var(--navy-400)"/>
-            <rect x="184" y="132" width="46" height="5" rx="2.5" fill="var(--navy-400)"/>
-            <rect x="248" y="88" width="32" height="14" rx="7" fill="var(--green-50)"/>
-            <rect x="248" y="108" width="32" height="14" rx="7" fill="var(--amber-50)"/>
-            <rect x="248" y="128" width="32" height="14" rx="7" fill="var(--green-50)"/>
-          </svg>
+      <article class="card pcard">
+        <div class="pcard__head">
+          <span class="pcard__cat">마케팅</span>
+          <span class="badge open">모집 중</span>
+          <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
         </div>
-        <div class="ecard__body">
-          <span class="avatar">박</span>
-          <span><span class="ecard__name">박서운</span><br /><span class="ecard__role">Frontend developer</span></span>
-          <span class="ecard__meta"><b class="num">5.0</b> <span class="caption num">(21)</span><br /><span class="avail">활동 가능</span></span>
-        </div>
+        <h3 class="pcard__title">신제품 런칭 마케팅</h3>
+        <p class="pcard__client"><b>코너스톤</b>
+          <span class="pcard__rate num">★ 4.5 (5)</span></p>
+        <p class="pcard__budget num">3,200,000원</p>
+        <p class="pcard__skills"><span class="chip">Figma</span></p>
+        <p class="pcard__meta">
+          <span class="num">지원 0건</span>
+          <span class="due num">2026.09.18 · <b>D-16</b></span>
+        </p>
       </article>
 
-      <article class="card ecard">
-        <div class="ecard__thumb" aria-hidden="true">
-          <svg viewBox="0 0 320 200">
-            <rect width="320" height="200" fill="var(--green-50)"/>
-            <rect x="34" y="42" width="112" height="132" rx="4" fill="var(--green-700)"/>
-            <rect x="48" y="62" width="56" height="8" rx="4" fill="var(--green-200)"/>
-            <rect x="48" y="78" width="72" height="8" rx="4" fill="var(--green-200)"/>
-            <rect x="48" y="146" width="44" height="4" rx="2" fill="var(--green-200)" opacity=".7"/>
-            <rect x="160" y="30" width="126" height="86" rx="3" fill="var(--white)" stroke="var(--navy-200)"/>
-            <rect x="174" y="46" width="60" height="5" rx="2.5" fill="var(--navy-300)"/>
-            <rect x="174" y="58" width="86" height="4" rx="2" fill="var(--navy-200)"/>
-            <rect x="174" y="68" width="74" height="4" rx="2" fill="var(--navy-200)"/>
-            <circle cx="196" cy="94" r="10" fill="var(--green-600)"/>
-            <circle cx="222" cy="94" r="10" fill="var(--navy-800)"/>
-            <circle cx="248" cy="94" r="10" fill="var(--campaign-yellow)"/>
-            <rect x="160" y="128" width="126" height="46" rx="3" fill="var(--white)" stroke="var(--navy-200)"/>
-            <rect x="174" y="142" width="52" height="5" rx="2.5" fill="var(--navy-300)"/>
-            <rect x="174" y="154" width="94" height="4" rx="2" fill="var(--navy-200)"/>
-          </svg>
+      <article class="card pcard">
+        <div class="pcard__head">
+          <span class="pcard__cat">웹 개발</span>
+          <span class="badge open">모집 중</span>
+          <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
         </div>
-        <div class="ecard__body">
-          <span class="avatar">이</span>
-          <span><span class="ecard__name">이준호</span><br /><span class="ecard__role">Brand designer</span></span>
-          <span class="ecard__meta"><b class="num">4.9</b> <span class="caption num">(64)</span><br /><span class="avail">활동 가능</span></span>
-        </div>
+        <h3 class="pcard__title">이벤트 페이지 제작</h3>
+        <p class="pcard__client"><b>블루밍랩</b>
+          <span class="pcard__rate none">평가 없음</span></p>
+        <p class="pcard__budget num">1,800,000원</p>
+        <p class="pcard__skills"><span class="chip">HTML/CSS</span></p>
+        <p class="pcard__meta">
+          <span class="num">지원 0건</span>
+          <!-- 마감이 가까워도 색과 굵기만 쓴다. "서두르세요" 같은 문구를 넣지 않는다
+               (design-tokens.md §12 금지 패턴 — 마감 과장) -->
+          <span class="due num">2026.09.03 · <b>내일 마감</b></span>
+        </p>
       </article>
     </div>
   </section>
