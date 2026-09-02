@@ -20,6 +20,15 @@ export type ConfirmPaymentResponse = {
   status: 'PAID';
 };
 
+export type PgPaymentStatus = 'READY' | 'PENDING' | 'PAID' | 'FAILED';
+
+export type RetrievePaymentResponse = {
+  orderId: string;
+  amount: number;
+  paymentKey: string | null;
+  status: PgPaymentStatus;
+};
+
 export type PaymentGatewayErrorCode = 'PAYMENT_AMOUNT_MISMATCH' | 'PAYMENT_CONFIRM_FAILED';
 
 /** PG 승인 실패. 프로젝트 연동 계약 오류(DomainContractError)와 섞지 않는다. */
@@ -33,9 +42,10 @@ export class PaymentGatewayError extends Error {
   }
 }
 
-/** 결제 승인은 이 포트만 본다. */
+/** 결제 승인과 재조회는 이 포트만 본다. */
 export type PaymentGateway = {
   confirmPayment(input: ConfirmPaymentInput): Promise<ConfirmPaymentResponse>;
+  retrievePayment(orderId: string): Promise<RetrievePaymentResponse>;
 };
 
 export function isPaymentGatewayError(error: unknown): error is PaymentGatewayError {
