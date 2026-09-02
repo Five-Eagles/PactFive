@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
 import { Button, Field, Notice } from '../../shared/ui/primitives';
 import { ApiError } from '../../shared/http';
+import { toIsoOrEmpty } from '../../shared/date';
 import { registerProject } from './api/project';
 import { PROJECT_ROUTES } from './project.routes';
 import { CATEGORY_OPTIONS, SKILL_OPTIONS } from './project.types';
@@ -52,11 +53,6 @@ const EMPTY_DRAFT: RegisterDraft = {
 /** "5,000,000" 처럼 쉼표를 넣어도 받는다. 숫자가 아니면 NaN 이 되고 서버가 422 로 끊는다 */
 function toAmount(raw: string): number {
   return Number(raw.replace(/,/g, '').trim());
-}
-
-/** `<input type="date">` 는 `2026-09-20` 을 준다. 서버는 ISO 시각을 기대한다 */
-function toIsoOrEmpty(date: string): string {
-  return date ? new Date(`${date}T23:59:59Z`).toISOString() : '';
 }
 
 /** 단계 표시 — 시안의 `.steps` */

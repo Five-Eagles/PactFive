@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Route } from 'react-router-dom';
 import { ProjectBrowsePage } from './ProjectBrowsePage';
 import { ProjectDetailPage } from './ProjectDetailPage';
+import { ProjectEditPage } from './ProjectEditPage';
 import { ProjectManagePage } from './ProjectManagePage';
 import { ProjectRegisterForm } from './ProjectRegisterForm';
 
@@ -19,6 +20,7 @@ export const PROJECT_ROUTES = {
   detail: (projectId: string) => `/projects/${projectId}`,
   register: '/projects/new',
   manage: '/my/projects',
+  edit: (projectId: string) => `/my/projects/${projectId}/edit`,
 } as const;
 
 export type ProjectRouteSlots = {
@@ -51,6 +53,8 @@ export function projectRoutes({
         }
       />
       <Route path={PROJECT_ROUTES.manage} element={<ProjectManagePage clientId={clientId} />} />
+      {/* 등록(/projects/new)과 마찬가지로 :projectId 라우트보다 더 구체적인 경로다 */}
+      <Route path="/my/projects/:projectId/edit" element={<ProjectEditPage />} />
     </>
   );
 }
