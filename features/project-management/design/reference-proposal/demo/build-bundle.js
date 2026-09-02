@@ -60,6 +60,8 @@ const PAGES = [
   { name: "mypage",  file: "mypage.html",  path: "/mypage" },
   { name: "register", file: "register.html", path: "/register" },
   { name: "guide",    file: "guide.html",    path: "/guide" },
+  { name: "edit",     file: "edit.html",     path: "/edit" },
+  { name: "reopen",   file: "reopen.html",   path: "/reopen" },
 ];
 
 const pages = {};
@@ -131,6 +133,9 @@ function toRoutes(s) {
     .split('href="guide.html#safety"').join('href="#/guide?s=safety"')
     .split('href="guide.html"').join('href="#/guide"')
     .split('"register.html"').join('"#/register"')
+    .split('"edit.html#id=" + p.id').join('"#/edit?id=" + p.id')
+    .split('"reopen.html#id=" + p.id').join('"#/reopen?id=" + p.id')
+    .split('href="mypage.html#').join('href="#/mypage?')
     .replace(/href="main\.html"/g, 'href="#/"')
     .replace(/href="browse\.html#/g, 'href="#/projects?')
     .replace(/href="browse\.html"/g, 'href="#/projects"')
@@ -150,7 +155,7 @@ function toRoutes(s) {
 }
 
 const tokens = read("_tokens.css");
-const demo = ["data.js", "engine.js", "experts.js", "bookmarks.js", "session.js", "register.js", "notyet.js"]
+const demo = ["data.js", "engine.js", "experts.js", "bookmarks.js", "session.js", "register.js", "manage.js", "resume.js", "notyet.js"]
   .map((f) => "/* ── demo/" + f + " ── */\n" + inlineImages(fs.readFileSync(path.join(SRC, "demo", f), "utf8")))
   .join("\n");
 

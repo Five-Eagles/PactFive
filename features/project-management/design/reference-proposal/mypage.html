@@ -73,6 +73,7 @@
 <script src="demo/data.js"></script>
 <script src="demo/engine.js"></script>
 <script src="demo/bookmarks.js"></script>
+<script src="demo/manage.js"></script>
 <script src="demo/session.js"></script>
 <script src="demo/notyet.js"></script>
 <script>
@@ -96,7 +97,7 @@ window.PactFiveInit.mypage = function () {
       { id: "applied", label: "내 지원", notyet: "apply" },
     ],
     CLIENT: [
-      { id: "projects", label: "내 프로젝트", notyet: "myproject" },
+      { id: "projects", label: "내 프로젝트" },
       { id: "applicants", label: "받은 지원", notyet: "apply" },
     ],
   };
@@ -159,6 +160,16 @@ window.PactFiveInit.mypage = function () {
       return;
     }
 
+    // SCR-B07 내 프로젝트 — 등록 의뢰인만 본다 (규칙 17)
+    if (t.id === "projects") {
+      box.innerHTML =
+        '<div class="acts" style="margin:0 0 var(--gap-4);justify-content:flex-end">' +
+          '<a class="btn primary" href="register.html">프로젝트 등록</a>' +
+        "</div>" +
+        window.PactFiveManage.listHTML();
+      return;
+    }
+
     // 저장한 프로젝트 (engagement 규칙 12·13·15)
     var res = E.list({ savedOnly: true, includeClosed: true, sortBy: "latest" });
     box.innerHTML = res.totalCount === 0
@@ -174,6 +185,17 @@ window.PactFiveInit.mypage = function () {
   }
 
   root.addEventListener("click", function (e) {
+    var act = e.target.closest("[data-act]");
+    if (act && !act.disabled) {
+      e.preventDefault();
+      var id = act.getAttribute("data-act");
+      var p = E.find(act.getAttribute("data-id"));
+      // 되돌릴 수 있는 것은 바로 간다. 전부 확인을 붙이면 확인이 무뎌진다
+      if (id === "EDIT") { location.href = "edit.html#id=" + p.id; return; }
+      if (id === "REOPEN_RECRUITMENT") { location.href = "reopen.html#id=" + p.id; return; }
+      window.PactFiveManage.ask(id, p);
+      return;
+    }
     var b = e.target.closest("[data-tab]");
     if (!b) return;
     location.hash = "tab=" + b.getAttribute("data-tab");

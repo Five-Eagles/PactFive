@@ -124,28 +124,52 @@
 
   /* ── 내 프로젝트 요약 ─────────────────────────────────────
      ※ 계약 이후 데이터라 Step 2(조준영)에 붙는다. 지금은 자리와 형태만 잡아둔 것이다. */
-  .strip { display:flex; flex-wrap:wrap; align-items:center; margin-top:var(--gap-4);
-    border:1px solid var(--border-subtle); border-radius:var(--r-md);
-    background:var(--surface); box-shadow:var(--shadow-card), var(--edge-top);
-    min-height:63px; }
-  .strip > div { display:flex; align-items:center; gap:10px; white-space:nowrap;
-    padding:var(--gap-3) var(--gap-4); border-right:1px solid var(--border-subtle); }
-  .strip__label { font-weight:800; white-space:nowrap; }
-  .strip__file b { font-size:14px; }
-  .strip__file .small { color:var(--content-tertiary); font-size:12px; margin-top:2px; }
-  .fileicon { flex:none; width:23px; height:27px; border:2px solid var(--content);
-    border-radius:2px; position:relative; }
-  .fileicon::before { content:""; position:absolute; right:-2px; top:-2px;
-    width:8px; height:8px; background:var(--surface);
-    border-left:2px solid var(--content); border-bottom:2px solid var(--content); }
-  .strip__stage { gap:var(--gap-3); color:var(--content-tertiary); font-size:13px; }
-  .strip__stage b { color:var(--content); font-size:14px; }
-  .strip__due { flex-direction:column; align-items:flex-start; gap:1px; }
-  .strip__due span { color:var(--content-tertiary); font-size:12px; }
-  .strip__due b { color:var(--danger); font-size:16px; }
-  .strip__more { margin-left:auto; padding:var(--gap-3) var(--gap-4);
-    color:var(--content-secondary); font-size:13px; white-space:nowrap; }
-  .strip__more:hover { color:var(--action-quiet); text-decoration:underline; }
+  /* ── 요약 카드 ────────────────────────────────────────────
+     **로그인해야 보이는 자리다.** 비로그인에게는 같은 자리에 무엇이 보일지를
+     말한다 — 자리를 비우면 히어로가 무너지고, 가짜 데이터를 두면 거짓말이 된다.
+
+     겹: 배너(2겹) 위로 24px 올라와 걸친다(3겹 부양). 두 조각이 하나로 읽힌다. */
+  .resume { position:relative; z-index:2; margin:-24px var(--gap-5) 0;
+    display:flex; align-items:center; gap:var(--gap-4);
+    padding:var(--gap-4) var(--gap-5);
+    border-radius:var(--r-lg); background:var(--surface);
+    border:1px solid var(--border-subtle);
+    box-shadow:var(--shadow-hero), var(--edge-top); }
+
+  .resume__ico { position:relative; flex:none; width:44px; height:44px;
+    display:grid; place-items:center; }
+  .resume__ico::before { content:""; position:absolute; inset:5px -5px -5px 5px;
+    border-radius:var(--r-md); background:var(--campaign-yellow-edge); }
+  .resume__ico::after { content:""; position:absolute; inset:0; z-index:0;
+    border-radius:var(--r-md); background:var(--surface);
+    border:1px solid var(--navy-200); box-shadow:var(--edge-top); }
+  .resume__ico svg { position:relative; z-index:1; }
+
+  .resume__main { min-width:0; flex:1; }
+  .resume__k { display:block; font-size:11.5px; font-weight:700;
+    color:var(--content-tertiary); letter-spacing:.02em; }
+  .resume__title { display:block; font-size:15px; letter-spacing:-.02em;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+
+  /* 진행 단계. 지금 어디인지 점으로 본다 — 글자만으로는 순서가 안 보인다 */
+  .resume__steps { display:flex; align-items:center; gap:5px; flex:none; }
+  .resume__dot { width:8px; height:8px; border-radius:var(--r-pill);
+    background:var(--border); }
+  .resume__dot[data-on="true"] { background:var(--action); }
+  .resume__dot[data-now="true"] { width:22px; background:var(--action); }
+  .resume__stage { font-size:12.5px; font-weight:700; color:var(--content-secondary);
+    margin-left:var(--gap-2); white-space:nowrap; }
+
+  .resume__due { flex:none; text-align:right; white-space:nowrap; }
+  .resume__due span { display:block; font-size:11.5px; color:var(--content-tertiary); }
+  .resume__due b { font-size:16px; color:var(--danger); }
+  .resume__go { flex:none; font-size:13px; font-weight:700; color:var(--action-quiet);
+    white-space:nowrap; }
+  .resume__go:hover { text-decoration:underline; }
+
+  /* 비로그인 — 같은 껍데기에 다른 말 */
+  .resume[data-anon="true"] .resume__title { color:var(--content-secondary);
+    font-weight:500; font-size:14px; white-space:normal; }
 
   /* ── 카테고리 10종 ────────────────────────────────────────
      시안의 10종을 그대로 뒀다. ERD `project_category` 는 6종이라
@@ -214,8 +238,10 @@
     .banner__visual { order:-1; aspect-ratio:16/7; }
     .grid3 { grid-template-columns:repeat(2,1fr); }
     /* 접힌 줄에서는 세로 구분선이 어긋난다. 시안은 1180px 아래를 정의하지 않았다 */
-    .strip > div { border-right:0; }
-    .strip__more { margin-left:0; }
+    .resume { flex-wrap:wrap; margin-inline:var(--gap-3); gap:var(--gap-3); }
+    .resume__main { flex:1 1 100%; order:-1; }
+    .resume__steps { order:2; }
+    .resume__due { margin-left:auto; }
   }
   @media (max-width:767px) {
     .hdr__in { height:auto; flex-wrap:wrap; padding-top:10px; padding-bottom:10px;
@@ -351,16 +377,8 @@
         </div>
 
         <!-- 내 프로젝트 요약 — 로그인한 의뢰인에게만 -->
-        <div class="strip">
-          <div class="strip__label">내 프로젝트</div>
-          <div class="strip__file">
-            <span class="fileicon" aria-hidden="true"></span>
-            <span><b>wireframe_v2.pdf</b><span class="small" style="display:block">2.4MB</span></span>
-          </div>
-          <div class="strip__stage"><span>현재 진행 단계</span><b>중간 결과물 검토</b></div>
-          <div class="strip__due"><span>마감일</span><b class="num">D-3</b></div>
-          <a class="strip__more" href="#" data-notyet="myproject">전체 보기 ›</a>
-        </div>
+        <!-- 로그인해야 보이는 자리. demo/resume.js 가 상태에 맞춰 채운다 -->
+        <div id="resume"></div>
       </div>
     </section>
   </div>
@@ -516,6 +534,8 @@
 <script src="demo/data.js"></script>
 <script src="demo/engine.js"></script>
 <script src="demo/experts.js"></script>
+<script src="demo/manage.js"></script>
+<script src="demo/resume.js"></script>
 <script src="demo/bookmarks.js"></script>
 <script src="demo/session.js"></script>
 <script src="demo/notyet.js"></script>
@@ -568,6 +588,10 @@ window.PactFiveInit.main = function () {
       location.href = "browse.html" + (v ? "#keyword=" + encodeURIComponent(v) : "#");
     });
   }
+
+  /* ── 요약 카드 ── */
+  window.PactFiveResume.bind();
+  window.PactFiveResume.render();
 
   /* ── 추천 전문가 ── */
   var eslot = document.getElementById("homeExperts");
