@@ -40,22 +40,7 @@
   .count b { color:var(--content); }
 
   .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap-4); }
-  .pcard { display:flex; flex-direction:column; gap:var(--gap-3); padding:var(--gap-5);
-    transition:border-color .15s ease, box-shadow .15s ease; }
-  .pcard:hover { border-color:var(--border-focus); box-shadow:var(--shadow-raise); }
-  .pcard__top { display:flex; justify-content:space-between; gap:var(--gap-3); }
-  .pcard__client { font-size:12px; color:var(--content-tertiary); }
-  .pcard__budget { font-size:22px; font-weight:800; letter-spacing:-.02em; }
-  .pcard__skills { display:flex; flex-wrap:wrap; gap:var(--gap-1); }
-  .pcard__foot { display:flex; justify-content:space-between; align-items:center;
-    font-size:12px; color:var(--content-tertiary);
-    padding-top:var(--gap-3); border-top:1px solid var(--border-subtle); }
-  .pcard--dim { background:var(--surface-subtle); }
-  .save { width:32px; height:32px; flex:none; border-radius:var(--r-sm);
-    border:1px solid var(--border-subtle); background:var(--surface);
-    color:var(--content-tertiary); cursor:pointer; font-size:15px; line-height:1; }
-  .save[aria-pressed="true"] { border-color:var(--action); color:var(--action);
-    background:var(--surface-selected); }
+  /* 프로젝트 카드 스타일은 _tokens.css 에 있다 — main.html 과 같은 것을 쓴다 */
 
   .pager { display:flex; gap:var(--gap-1); justify-content:center; margin-top:var(--gap-6); }
   .pager button { min-width:36px; height:36px; padding:0 var(--gap-2);
@@ -67,9 +52,44 @@
   .note { padding:var(--gap-3) var(--gap-4); border-radius:var(--r-md);
     background:var(--info-surface); color:var(--info); font-size:13px; margin:var(--gap-4) 0 0; }
 
-  @media (max-width:1000px) { .layout { grid-template-columns:1fr; }
-    .filters { position:static; } .grid { grid-template-columns:1fr 1fr; } }
-  @media (max-width:680px) { .grid { grid-template-columns:1fr; } }
+  /* 모바일 필터 열기 버튼 — 데스크톱에서는 숨긴다 */
+  .filter-open { display:none; }
+
+  /* 1280 / 1024 / 768 / 360 — PactFive 공식 분기점 */
+  @media (max-width:1279px) { .grid { grid-template-columns:repeat(2,1fr); } }
+
+  @media (max-width:1023px) {
+    .layout { grid-template-columns:1fr; }
+    .filter-open { display:inline-flex; }
+
+    /* 좌측 패널을 그대로 쌓지 않고 드로어로 바꾼다.
+       국내 3곳이 375px 에서 데스크톱 고정폭이 남아 가로 넘침이 생겼다 — 그 결함은 안 가져온다. */
+    .filters {
+      position:fixed; inset:0 0 0 auto; z-index:40;
+      width:min(320px,86vw); max-width:none;
+      border-radius:0; border-left:1px solid var(--border);
+      overflow-y:auto; padding:var(--gap-5) var(--gutter);
+      transform:translateX(100%);
+      transition:transform var(--dur-overlay) var(--ease-enter);
+    }
+    .filters[data-open="true"] { transform:none; }
+    .filters__close { display:block; }
+    .scrim { position:fixed; inset:0; z-index:39; background:var(--navy-950);
+      opacity:0; pointer-events:none;
+      transition:opacity var(--dur-overlay) var(--ease-enter); }
+    .scrim[data-open="true"] { opacity:.4; pointer-events:auto; }
+  }
+
+  @media (max-width:767px) {
+    .grid { grid-template-columns:1fr; }
+    .toolbar { padding:var(--gap-4) 0; }
+    .sorts { margin-left:0; width:100%; overflow-x:auto; }
+  }
+
+  .filters__close { display:none; position:absolute; top:var(--gap-3); right:var(--gutter);
+    width:32px; height:32px; border:1px solid var(--border-subtle);
+    border-radius:var(--r-sm); background:var(--surface); cursor:pointer; font:inherit; }
+
   @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
 </style>
 </head>
@@ -91,6 +111,11 @@
       <input id="q" type="search" placeholder="프로젝트를 검색해 보세요" />
       <button class="btn primary" type="submit">검색</button>
     </form>
+    <button class="btn secondary sm filter-open" type="button"
+      aria-controls="filters" aria-expanded="false"
+      onclick="var f=document.getElementById('filters'),s=document.getElementById('scrim');
+               var o=f.dataset.open!=='true'; f.dataset.open=o; s.dataset.open=o;
+               this.setAttribute('aria-expanded',o);">필터</button>
     <div class="sorts" role="group" aria-label="정렬">
       <button type="button" aria-pressed="true">최신순</button>
       <button type="button" aria-pressed="false">마감임박순</button>
@@ -98,10 +123,18 @@
     </div>
   </div>
 
+  <div class="scrim" id="scrim"
+    onclick="this.dataset.open=false;document.getElementById('filters').dataset.open=false;
+             document.querySelector('.filter-open').setAttribute('aria-expanded','false');"></div>
+
   <div class="layout">
-    <!-- 필터를 버튼이 아니라 상시 패널로 둔다.
+    <!-- 데스크톱은 236px 상시 패널, 1024 미만은 드로어로 바뀐다.
          시안의 `필터` 버튼은 열릴 화면이 정의돼 있지 않았다 (feedback_loop 8/28 항목 6). -->
-    <aside class="card filters">
+    <aside class="card filters" id="filters">
+      <button class="filters__close" type="button" aria-label="필터 닫기"
+        onclick="var f=document.getElementById('filters');f.dataset.open=false;
+                 document.getElementById('scrim').dataset.open=false;
+                 document.querySelector('.filter-open').setAttribute('aria-expanded','false');">✕</button>
       <h2>필터</h2>
 
       <div class="fgroup">
@@ -142,77 +175,102 @@
     <section>
       <p class="count">조건에 맞는 프로젝트 <b class="num">18</b>건</p>
 
-      <div class="grid">
+      <div class="grid enter">
         <article class="card pcard">
-          <div class="pcard__top">
-            <span><h3 class="h3">반응형 랜딩페이지 제작</h3>
-              <span class="pcard__client">주식회사 예시</span></span>
-            <button class="save" type="button" aria-label="북마크 저장" aria-pressed="false">☆</button>
+          <div class="pcard__head">
+            <span class="pcard__cat">웹 개발</span>
+            <span class="badge open">모집 중</span>
+            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
           </div>
+          <h3 class="pcard__title">반응형 랜딩페이지 제작</h3>
+          <p class="pcard__client"><b>주식회사 예시</b>
+            <span class="pcard__rate num">★ 4.8 (12)</span></p>
           <p class="pcard__budget num">3,000,000원</p>
           <p class="pcard__skills"><span class="chip">React</span><span class="chip">TypeScript</span></p>
-          <span class="badge open" style="align-self:flex-start">모집 중</span>
-          <div class="pcard__foot"><span>지원 2건</span><span class="num">마감 6일 전 · 09.08</span></div>
+          <p class="pcard__meta">
+            <span class="num">지원 2건</span>
+            <span class="due num">2026.09.08 · <b>D-6</b></span>
+          </p>
         </article>
-
         <article class="card pcard">
-          <div class="pcard__top">
-            <span><h3 class="h3">사내 재고관리 시스템</h3>
-              <span class="pcard__client">라온물류</span></span>
-            <button class="save" type="button" aria-label="북마크 해제" aria-pressed="true">★</button>
+          <div class="pcard__head">
+            <span class="pcard__cat">웹 개발</span>
+            <span class="badge open">모집 중</span>
+            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
           </div>
+          <h3 class="pcard__title">사내 재고관리 시스템</h3>
+          <p class="pcard__client"><b>라온물류</b>
+            <span class="pcard__rate num">★ 4.6 (31)</span></p>
           <p class="pcard__budget num">5,500,000원</p>
           <p class="pcard__skills"><span class="chip">Node.js</span><span class="chip">SQL</span></p>
-          <span class="badge open" style="align-self:flex-start">모집 중</span>
-          <div class="pcard__foot"><span>지원 4건</span><span class="num">마감 12일 전 · 09.14</span></div>
+          <p class="pcard__meta">
+            <span class="num">지원 4건</span>
+            <span class="due num">2026.09.14 · <b>D-12</b></span>
+          </p>
         </article>
-
         <article class="card pcard">
-          <div class="pcard__top">
-            <span><h3 class="h3">브랜드 소개 페이지</h3>
-              <span class="pcard__client">에버블룸</span></span>
-            <button class="save" type="button" aria-label="북마크 저장" aria-pressed="false">☆</button>
+          <div class="pcard__head">
+            <span class="pcard__cat">디자인</span>
+            <span class="badge scheduled">모집 예정</span>
+            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
           </div>
+          <h3 class="pcard__title">브랜드 소개 페이지</h3>
+          <p class="pcard__client"><b>에버블룸</b>
+            <span class="pcard__rate num">★ 5.0 (4)</span></p>
           <p class="pcard__budget num">1,800,000원</p>
           <p class="pcard__skills"><span class="chip">Figma</span></p>
-          <span class="badge scheduled" style="align-self:flex-start">모집 예정</span>
-          <div class="pcard__foot"><span>지원 0건</span><span class="num">09.05 시작</span></div>
+          <p class="pcard__meta">
+            <span class="num">지원 0건</span>
+            <span class="due num">2026.09.05 · <b>모집 시작</b></span>
+          </p>
         </article>
-
         <article class="card pcard pcard--dim">
-          <div class="pcard__top">
-            <span><h3 class="h3">결제 연동 API 개발</h3>
-              <span class="pcard__client">핀테크랩</span></span>
-            <button class="save" type="button" aria-label="북마크 저장" aria-pressed="false">☆</button>
+          <div class="pcard__head">
+            <span class="pcard__cat">웹 개발</span>
+            <span class="badge closed">모집 마감</span>
+            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
           </div>
+          <h3 class="pcard__title">결제 연동 API 개발</h3>
+          <p class="pcard__client"><b>핀테크랩</b>
+            <span class="pcard__rate num">★ 4.7 (22)</span></p>
           <p class="pcard__budget num">7,200,000원</p>
           <p class="pcard__skills"><span class="chip">Node.js</span><span class="chip">AWS</span></p>
-          <span class="badge closed" style="align-self:flex-start">모집 마감</span>
-          <div class="pcard__foot"><span>지원 9건</span><span class="num">08.30 마감</span></div>
+          <p class="pcard__meta">
+            <span class="num">지원 9건</span>
+            <span class="due num">2026.08.30 · <b>마감됨</b></span>
+          </p>
         </article>
-
         <article class="card pcard">
-          <div class="pcard__top">
-            <span><h3 class="h3">모바일 앱 UI 리뉴얼</h3>
-              <span class="pcard__client">데일리핏</span></span>
-            <button class="save" type="button" aria-label="북마크 저장" aria-pressed="false">☆</button>
+          <div class="pcard__head">
+            <span class="pcard__cat">디자인</span>
+            <span class="badge open">모집 중</span>
+            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
           </div>
+          <h3 class="pcard__title">모바일 앱 UI 리뉴얼</h3>
+          <p class="pcard__client"><b>데일리핏</b>
+            <span class="pcard__rate num">★ 4.9 (8)</span></p>
           <p class="pcard__budget num">2,200,000원</p>
           <p class="pcard__skills"><span class="chip">Figma</span><span class="chip">React Native</span></p>
-          <span class="badge open" style="align-self:flex-start">모집 중</span>
-          <div class="pcard__foot"><span>지원 3건</span><span class="num">오늘 마감</span></div>
+          <p class="pcard__meta">
+            <span class="num">지원 3건</span>
+            <span class="due num">2026.09.02 · <b>오늘 마감</b></span>
+          </p>
         </article>
-
         <article class="card pcard">
-          <div class="pcard__top">
-            <span><h3 class="h3">AI 챗봇 상담 기능</h3>
-              <span class="pcard__client">헬프데스크</span></span>
-            <button class="save" type="button" aria-label="북마크 저장" aria-pressed="false">☆</button>
+          <div class="pcard__head">
+            <span class="pcard__cat">데이터 · AI</span>
+            <span class="badge open">모집 중</span>
+            <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
           </div>
+          <h3 class="pcard__title">AI 챗봇 상담 기능</h3>
+          <p class="pcard__client"><b>헬프데스크</b>
+            <span class="pcard__rate num">★ 4.5 (17)</span></p>
           <p class="pcard__budget num">6,400,000원</p>
-          <p class="pcard__skills"><span class="chip">Python</span><span class="chip">SQL</span></p>
-          <span class="badge open" style="align-self:flex-start">모집 중</span>
-          <div class="pcard__foot"><span>지원 5건</span><span class="num">마감 9일 전 · 09.11</span></div>
+          <p class="pcard__skills"><span class="chip">Python</span><span class="chip">SQL</span><span class="chip">AWS</span><span class="pcard__more">+1</span></p>
+          <p class="pcard__meta">
+            <span class="num">지원 5건</span>
+            <span class="due num">2026.09.11 · <b>D-9</b></span>
+          </p>
         </article>
       </div>
 

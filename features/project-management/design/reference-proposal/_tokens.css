@@ -67,7 +67,27 @@
   --gap-5:24px; --gap-6:32px; --gap-7:48px; --gap-8:72px;
 
   --page-max:1180px;
+  /* 분기점 360 · 768 · 1024 · 1280 / gutter 16 · 24 · 32 */
+  --gutter:32px;
+
+  /* ── 모션 ─────────────────────────────────────────────
+   * 외부 레퍼런스의 200~500ms 를 평균내지 않는다 — 목록 비교 화면에서
+   * 느린 전환은 스캔을 방해한다. 조사 결론도 같았다
+   * (`outputs/design-research/00-요약.md` §7).
+   *
+   * 출처였던 `design-system/reference-snapshot.html` 은 2026-09-02 팀 반려로
+   * 삭제됐다(PR #43 · ADR-0012 폐기). 아래 값은 그 문서에서 옮겨온 것이며,
+   * 지금은 이 파일이 유일한 기록이다. 팀이 모션 정본을 다시 정하면 그쪽을 따른다.
+   */
+  --dur-feedback:100ms;  --ease-feedback:cubic-bezier(.2,0,0,1);
+  --dur-enter:160ms;     --ease-enter:cubic-bezier(0,0,0,1);
+  --dur-exit:160ms;      --ease-exit:cubic-bezier(.3,0,1,1);
+  --dur-overlay:240ms;
+  --stagger:40ms;
 }
+
+@media (max-width:1023px) { :root { --gutter:24px; } }
+@media (max-width:767px)  { :root { --gutter:16px; } }
 
 /* ── 기본 ─────────────────────────────────────────────── */
 
@@ -94,7 +114,7 @@ a { color:inherit; text-decoration:none; }
   border-radius:var(--r-sm);
 }
 
-.page { max-width:var(--page-max); margin:0 auto; padding:0 var(--gap-5); }
+.page { max-width:var(--page-max); margin:0 auto; padding:0 var(--gutter); }
 
 /* ── 타이포 ───────────────────────────────────────────── */
 
@@ -149,6 +169,89 @@ a { color:inherit; text-decoration:none; }
   border-radius:var(--r-lg); box-shadow:var(--shadow-card);
 }
 
+/* ── 프로젝트 카드 ─────────────────────────────────────
+ *
+ * main.html 과 browse.html 이 **같은 것을 쓴다.** 두 벌로 두면 한쪽만 고쳐진다.
+ *
+ * 정보 그룹 9개를 늘 같은 순서로 둔다. 순서가 카드마다 다르면 눈으로 비교할 수 없다.
+ *
+ *   1 카테고리   2 모집 상태   3 제목   4 의뢰인   5 의뢰인 평점
+ *   6 예산       7 요구 기술   8 지원자 수   9 마감(절대+상대)
+ *
+ * 전부 `PublicProjectItem` 에 실제로 있는 값이다. 근무 방식·예상 기간은
+ * `projects` 에 없어서 넣지 않았다 (아래 README 참고).
+ */
+
+.pcard {
+  display:flex; flex-direction:column; gap:var(--gap-2);
+  padding:var(--gap-5);
+  background:var(--surface); border:1px solid var(--border-subtle);
+  border-radius:var(--r-lg);
+  /* 기본은 테두리로 구분하고 그림자는 hover 에만. 레퍼런스 5곳 중 3곳이 그림자를 안 쓴다 */
+  transition:border-color var(--dur-feedback) var(--ease-feedback),
+             box-shadow var(--dur-feedback) var(--ease-feedback);
+}
+.pcard:hover { border-color:var(--border-focus); box-shadow:var(--shadow-raise); }
+
+/* 1·2 — 카테고리와 상태를 한 줄에. 북마크는 우측 끝 */
+.pcard__head { display:flex; align-items:center; gap:var(--gap-2); }
+.pcard__cat { font-size:12px; font-weight:600; color:var(--content-tertiary); }
+.pcard__head .save { margin-left:auto; }
+
+/* 3 */
+.pcard__title { font-size:16px; font-weight:600; line-height:1.45; margin:2px 0 0;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+
+/* 4·5 — 의뢰인과 평판을 한 줄로 묶는다 */
+.pcard__client { display:flex; align-items:center; gap:var(--gap-2);
+  font-size:12px; color:var(--content-tertiary); }
+.pcard__client b { font-weight:600; color:var(--content-secondary); }
+.pcard__rate { color:var(--content-tertiary); }
+
+/* 6 */
+.pcard__budget { font-size:22px; font-weight:800; letter-spacing:-.02em; margin:var(--gap-1) 0 0; }
+
+/* 7 */
+.pcard__skills { display:flex; flex-wrap:wrap; gap:var(--gap-1); }
+.pcard__more { font-size:12px; color:var(--content-tertiary); align-self:center; }
+
+/* 8·9 — 2열 메타 행. 세로로 쌓으면 정보 하나당 높이가 그대로 늘어난다 */
+.pcard__meta { display:grid; grid-template-columns:1fr auto; gap:var(--gap-2);
+  align-items:baseline; margin-top:auto; padding-top:var(--gap-3);
+  border-top:1px solid var(--border-subtle); font-size:12px;
+  color:var(--content-tertiary); }
+.pcard__meta .due { text-align:right; }
+.pcard__meta .due b { color:var(--content-secondary); font-weight:700; }
+
+.pcard--dim { background:var(--surface-subtle); }
+
+.save { width:30px; height:30px; flex:none; border-radius:var(--r-sm);
+  border:1px solid var(--border-subtle); background:var(--surface);
+  color:var(--content-tertiary); cursor:pointer; font-size:14px; line-height:1;
+  transition:border-color var(--dur-feedback) var(--ease-feedback),
+             color var(--dur-feedback) var(--ease-feedback); }
+.save:hover { border-color:var(--action); color:var(--action); }
+.save[aria-pressed="true"] { border-color:var(--action); color:var(--action);
+  background:var(--surface-selected); }
+
+/* 목록 등장 — 첫 8개만 stagger, 9번째부터 즉시 (정본 계약) */
+@keyframes pf-enter { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+.enter > * { animation:pf-enter var(--dur-enter) var(--ease-enter) both; }
+.enter > :nth-child(1) { animation-delay:0ms; }
+.enter > :nth-child(2) { animation-delay:40ms; }
+.enter > :nth-child(3) { animation-delay:80ms; }
+.enter > :nth-child(4) { animation-delay:120ms; }
+.enter > :nth-child(5) { animation-delay:160ms; }
+.enter > :nth-child(6) { animation-delay:200ms; }
+.enter > :nth-child(7) { animation-delay:240ms; }
+.enter > :nth-child(8) { animation-delay:280ms; }
+.enter > :nth-child(n+9) { animation:none; }
+
+@media (prefers-reduced-motion:reduce) {
+  *, *::before, *::after { animation-duration:0ms !important; animation-delay:0ms !important;
+    transition-duration:0ms !important; }
+}
+
 /* ── 앱 셸 ────────────────────────────────────────────── */
 
 .appbar {
@@ -158,10 +261,23 @@ a { color:inherit; text-decoration:none; }
   border-bottom:1px solid var(--border-subtle);
 }
 .appbar__in { display:flex; align-items:center; gap:var(--gap-6);
-  height:64px; max-width:var(--page-max); margin:0 auto; padding:0 var(--gap-5); }
-.logo { font-size:20px; font-weight:800; letter-spacing:-.03em; }
+  height:64px; max-width:var(--page-max); margin:0 auto; padding:0 var(--gutter); }
+.logo { font-size:20px; font-weight:800; letter-spacing:-.03em; white-space:nowrap; }
 .logo em { font-style:normal; color:var(--action); }
 .appbar nav { display:flex; gap:var(--gap-5); font-size:14px; font-weight:500;
-  color:var(--content-secondary); }
+  color:var(--content-secondary); white-space:nowrap; }
+.appbar nav a { transition:color var(--dur-feedback) var(--ease-feedback); }
 .appbar nav a:hover { color:var(--content); }
 .appbar .spacer { margin-left:auto; }
+
+/* 모바일 — 로고와 주요 행동만 한 줄에 두고 nav 는 아래 줄에서 가로로 넘긴다.
+   한 줄에 다 넣으면 nav 글자가 세로로 접힌다. */
+@media (max-width:767px) {
+  .appbar__in { flex-wrap:wrap; height:auto; align-items:center;
+    padding-top:var(--gap-2); padding-bottom:var(--gap-2); gap:var(--gap-3) var(--gap-4); }
+  .appbar__in > .spacer { order:1; }
+  .appbar__in > .btn, .appbar__in > .logo { order:0; }
+  .appbar nav { order:2; width:100%; gap:var(--gap-4);
+    overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+  .appbar nav::-webkit-scrollbar { display:none; }
+}

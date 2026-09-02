@@ -7,10 +7,10 @@
 <link rel="stylesheet" href="_tokens.css" />
 <style>
   /* ── 히어로 ─────────────────────────────────────────── */
-  .hero { padding:var(--gap-8) 0 var(--gap-7); }
-  .hero__grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,520px);
-    gap:var(--gap-7); align-items:start; }
-  .hero__lede { margin:var(--gap-4) 0 var(--gap-6); font-size:17px; max-width:34ch; }
+  .hero { padding:var(--gap-6) 0 var(--gap-5); }
+  .hero__grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,500px);
+    gap:var(--gap-6); align-items:start; }
+  .hero__lede { margin:var(--gap-3) 0 var(--gap-5); font-size:16px; max-width:34ch; }
 
   .search { display:flex; gap:var(--gap-2); }
   .search input {
@@ -28,8 +28,8 @@
   .popular a:hover { text-decoration:underline; }
 
   /* 신뢰 지표 — 이 서비스가 일반 구인 사이트와 다른 지점 */
-  .trust { display:flex; gap:var(--gap-5); margin-top:var(--gap-6);
-    padding-top:var(--gap-5); border-top:1px solid var(--border-subtle); }
+  .trust { display:flex; gap:var(--gap-5); margin-top:var(--gap-5);
+    padding-top:var(--gap-4); border-top:1px solid var(--border-subtle); }
   .trust div { font-size:13px; color:var(--content-secondary); }
   .trust b { display:block; font-size:15px; color:var(--content); margin-bottom:2px; }
 
@@ -37,7 +37,7 @@
   /* 캠페인 색은 이 배너 안에서만 쓴다 (§11 "캠페인 색의 범위 제한") */
   .promo { position:relative; border-radius:var(--r-lg); overflow:hidden;
     background:var(--campaign-yellow); color:var(--campaign-plum);
-    display:grid; grid-template-columns:1fr 200px; min-height:288px; }
+    display:grid; grid-template-columns:1fr 200px; min-height:252px; }
   .promo__text { padding:var(--gap-5); display:flex; flex-direction:column; }
   .promo__tag { align-self:flex-start; background:var(--campaign-plum);
     color:var(--campaign-yellow); font-size:12px; font-weight:700;
@@ -70,35 +70,22 @@
   .cats__in { display:grid; grid-template-columns:repeat(6,1fr);
     max-width:var(--page-max); margin:0 auto; }
   .cat { display:flex; flex-direction:column; align-items:center; gap:var(--gap-2);
-    padding:var(--gap-5) var(--gap-2); font-size:13px; font-weight:600;
+    padding:var(--gap-4) var(--gap-2); font-size:13px; font-weight:600;
     border-right:1px solid var(--border-subtle); transition:background .15s ease; }
   .cat:last-child { border-right:0; }
   .cat:hover { background:var(--surface-subtle); }
-  .cat__ico { width:44px; height:44px; display:grid; place-items:center;
+  .cat__ico { width:40px; height:40px; display:grid; place-items:center;
     border-radius:var(--r-md); background:var(--surface-selected); }
 
   /* ── 섹션 ───────────────────────────────────────────── */
-  .sec { padding:var(--gap-7) 0; }
+  .sec { padding:var(--gap-6) 0 var(--gap-7); }
   .sec__head { display:flex; align-items:baseline; justify-content:space-between;
-    margin-bottom:var(--gap-5); }
+    margin-bottom:var(--gap-4); }
   .sec__more { font-size:13px; font-weight:600; color:var(--action-quiet); }
 
   .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap-4); }
 
-  /* 프로젝트 카드 — 비교에 필요한 항목을 늘 같은 순서로 (ProjectCard 패턴) */
-  .pcard { display:flex; flex-direction:column; gap:var(--gap-3);
-    padding:var(--gap-5); transition:border-color .15s ease, box-shadow .15s ease; }
-  .pcard:hover { border-color:var(--border-focus); box-shadow:var(--shadow-raise); }
-  .pcard__top { display:flex; justify-content:space-between; gap:var(--gap-3); }
-  .pcard__budget { font-size:22px; font-weight:800; letter-spacing:-.02em; }
-  .pcard__skills { display:flex; flex-wrap:wrap; gap:var(--gap-1); }
-  .pcard__foot { display:flex; justify-content:space-between; font-size:12px;
-    color:var(--content-tertiary); padding-top:var(--gap-3);
-    border-top:1px solid var(--border-subtle); }
-  .save { width:32px; height:32px; flex:none; border-radius:var(--r-sm);
-    border:1px solid var(--border-subtle); background:var(--surface);
-    color:var(--content-tertiary); cursor:pointer; font-size:15px; line-height:1; }
-  .save:hover { border-color:var(--action); color:var(--action); }
+  /* 프로젝트 카드 스타일은 _tokens.css 에 있다 — browse.html 과 같은 것을 쓴다 */
 
   /* 전문가 카드 — 썸네일이 실제 작업물이어야 한다 (§11) */
   .ecard { overflow:hidden; display:flex; flex-direction:column; }
@@ -120,28 +107,40 @@
   footer .page { display:flex; gap:var(--gap-5); padding-top:var(--gap-5);
     padding-bottom:var(--gap-6); font-size:13px; color:var(--content-tertiary); }
 
-  .note { max-width:var(--page-max); margin:0 auto var(--gap-5);
-    padding:var(--gap-3) var(--gap-4); border-radius:var(--r-md);
+  .note { max-width:var(--page-max); margin:0 auto var(--gap-3);
+    padding:var(--gap-2) var(--gap-3); border-radius:var(--r-md);
     background:var(--info-surface); color:var(--info); font-size:13px; line-height:1.6; }
 
-  @media (max-width:1000px) {
+  /* 1280 / 1024 / 768 / 360 — PactFive 공식 분기점 */
+  @media (max-width:1279px) {
     .hero__grid { grid-template-columns:1fr; }
     .cats__in { grid-template-columns:repeat(3,1fr); }
-    .grid3 { grid-template-columns:1fr 1fr; }
+    .grid3 { grid-template-columns:repeat(2,1fr); }
   }
-  @media (max-width:680px) {
-    .grid3, .cats__in { grid-template-columns:1fr; }
-    .promo { grid-template-columns:1fr; }
+  @media (max-width:767px) {
+    .grid3 { grid-template-columns:1fr; }
+    .cats__in { grid-template-columns:repeat(2,1fr); }
+
+    /* 아래는 전부 "가로로 넘치지 않게" 하는 처리다.
+       레퍼런스 국내 3곳이 375px 에서 데스크톱 폭이 남아 넘쳤다 — 그 결함은 안 가져온다. */
+    .promo { grid-template-columns:1fr; min-height:0; }
+    .promo__art { display:none; }
+    .promo h2 { font-size:22px; }
+    .search { flex-wrap:wrap; }
+    .search input { min-width:0; flex:1 1 100%; }
+    .search .btn { flex:1 1 100%; }
+    .trust { display:grid; grid-template-columns:1fr 1fr; gap:var(--gap-3); }
+    .resume { flex-wrap:wrap; white-space:normal; }
+    .resume .sep { display:none; }
+    .resume__title { flex:1 1 100%; }
   }
   @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
 </style>
 </head>
 <body>
 
-<div class="page" style="padding-top:var(--gap-4)">
-  <p class="note"><b>제안 — 확정 아님.</b> 정본 토큰(<code>design-system/design-tokens.md</code>)만 사용했고
-  원시 색상값은 <code>_tokens.css</code> 의 <code>:root</code> 에만 있다.
-  홈·랜딩은 PRD §7.2 상 오민혁 담당이라, 이 파일은 담당 이관이 정해지기 전까지 제안이다.</p>
+<div class="page" style="padding-top:var(--gap-3)">
+  <p class="note"><b>제안 — 확정 아님.</b> 정본 토큰만 사용. 원시 색상값은 <code>_tokens.css</code> 의 <code>:root</code> 에만 있다.</p>
 </div>
 
 <header class="appbar">
@@ -286,39 +285,54 @@
       <a class="sec__more" href="browse.html">전체 보기 ›</a>
     </div>
 
-    <div class="grid3">
+    <div class="grid3 enter">
       <article class="card pcard">
-        <div class="pcard__top">
-          <h3 class="h3">반응형 랜딩페이지 제작</h3>
-          <button class="save" type="button" aria-label="북마크 저장" aria-pressed="false">☆</button>
+        <div class="pcard__head">
+          <span class="pcard__cat">웹 개발</span>
+          <span class="badge open">모집 중</span>
+          <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
         </div>
+        <h3 class="pcard__title">반응형 랜딩페이지 제작</h3>
+        <p class="pcard__client"><b>주식회사 예시</b>
+          <span class="pcard__rate num">★ 4.8 (12)</span></p>
         <p class="pcard__budget num">3,000,000원</p>
         <p class="pcard__skills"><span class="chip">React</span><span class="chip">TypeScript</span></p>
-        <span class="badge open" style="align-self:flex-start">모집 중</span>
-        <div class="pcard__foot"><span>웹 개발 · 지원 2건</span><span class="num">마감 6일 전</span></div>
+        <p class="pcard__meta">
+          <span class="num">지원 2건</span>
+          <span class="due num">2026.09.08 · <b>D-6</b></span>
+        </p>
       </article>
-
       <article class="card pcard">
-        <div class="pcard__top">
-          <h3 class="h3">사내 재고관리 시스템</h3>
-          <button class="save" type="button" aria-label="북마크 저장" aria-pressed="false">☆</button>
+        <div class="pcard__head">
+          <span class="pcard__cat">웹 개발</span>
+          <span class="badge open">모집 중</span>
+          <button class="save" type="button" aria-pressed="false" aria-label="북마크 저장">☆</button>
         </div>
+        <h3 class="pcard__title">사내 재고관리 시스템</h3>
+        <p class="pcard__client"><b>라온물류</b>
+          <span class="pcard__rate num">★ 4.6 (31)</span></p>
         <p class="pcard__budget num">5,500,000원</p>
         <p class="pcard__skills"><span class="chip">Node.js</span><span class="chip">SQL</span></p>
-        <span class="badge open" style="align-self:flex-start">모집 중</span>
-        <div class="pcard__foot"><span>웹 개발 · 지원 4건</span><span class="num">마감 12일 전</span></div>
+        <p class="pcard__meta">
+          <span class="num">지원 4건</span>
+          <span class="due num">2026.09.14 · <b>D-12</b></span>
+        </p>
       </article>
-
       <article class="card pcard">
-        <div class="pcard__top">
-          <h3 class="h3">모바일 앱 UI 리뉴얼</h3>
-          <button class="save" type="button" aria-label="북마크 해제" aria-pressed="true"
-            style="border-color:var(--action);color:var(--action);background:var(--surface-selected)">★</button>
+        <div class="pcard__head">
+          <span class="pcard__cat">디자인</span>
+          <span class="badge open">모집 중</span>
+          <button class="save" type="button" aria-pressed="true" aria-label="북마크 해제">★</button>
         </div>
+        <h3 class="pcard__title">모바일 앱 UI 리뉴얼</h3>
+        <p class="pcard__client"><b>데일리핏</b>
+          <span class="pcard__rate num">★ 4.9 (8)</span></p>
         <p class="pcard__budget num">2,200,000원</p>
         <p class="pcard__skills"><span class="chip">Figma</span><span class="chip">React Native</span></p>
-        <span class="badge open" style="align-self:flex-start">모집 중</span>
-        <div class="pcard__foot"><span>디자인 · 지원 3건</span><span class="num">오늘 마감</span></div>
+        <p class="pcard__meta">
+          <span class="num">지원 3건</span>
+          <span class="due num">2026.09.02 · <b>오늘 마감</b></span>
+        </p>
       </article>
     </div>
   </section>
