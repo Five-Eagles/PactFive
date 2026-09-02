@@ -92,7 +92,10 @@ export function MyProjectList({ items = [], onAction }: MyProjectListProps) {
       </div>
 
       {items.length === 0 ? (
-        <EmptyState message="등록한 프로젝트가 없습니다" />
+        <EmptyState
+          title="등록한 프로젝트가 없습니다"
+          body="첫 프로젝트를 등록하고 프리랜서를 만나보세요."
+        />
       ) : (
         <ul className="manage__list">
           {items.map((item) => (
@@ -176,17 +179,29 @@ function toActionSpecs(
 export type ProjectEditFormProps = {
   project: ManageItem & {
     description: string;
+    category?: string;
+    recruitmentStartAt?: string | null;
     /** 서버가 준다. 없으면 출처를 말하지 않는다 (CR-0006 결함 2) */
     budgetSource?: BudgetSource;
     budgetSourceAt?: string;
   };
-  onSave?: (patch: { title: string; description: string }) => void;
+  onSave?: (patch: {
+    title: string;
+    description: string;
+    recruitmentStartAt: string;
+    recruitmentDeadlineAt: string;
+  }) => void;
   onCancel?: () => void;
 };
 
 export function ProjectEditForm({ project, onSave, onCancel }: ProjectEditFormProps) {
   const [title, setTitle] = useState(project.title);
   const [description, setDescription] = useState(project.description);
+  // 규칙 15 를 뒤집으면 **대기 지원이 0건일 때 모집 일정도 수정 가능**이다.
+  // editableFields 가 이미 두 필드를 내려보내는데 화면에 칸이 없었다
+  // (feedback_loop 2026-08-29 항목 2).
+  const [startAt, setStartAt] = useState(project.recruitmentStartAt ?? "");
+  const [deadlineAt, setDeadlineAt] = useState(project.recruitmentDeadlineAt.slice(0, 10));
 
   // 서버가 준 목록에 없으면 잠긴 칸이다.
   const canEdit = (field: string) => project.editableFields.includes(field);
@@ -196,7 +211,12 @@ export function ProjectEditForm({ project, onSave, onCancel }: ProjectEditFormPr
       className="edit"
       onSubmit={(e) => {
         e.preventDefault();
-        onSave?.({ title, description });
+        onSave?.({
+          title,
+          description,
+          recruitmentStartAt: startAt,
+          recruitmentDeadlineAt: deadlineAt,
+        });
       }}
     >
       <h1>프로젝트 수정</h1>
@@ -244,6 +264,39 @@ export function ProjectEditForm({ project, onSave, onCancel }: ProjectEditFormPr
           type="text"
           defaultValue={String(project.budgetAmount)}
           readOnly={!canEdit("budgetAmount")}
+        />
+      </Field>
+
+      <Field
+        id="edit-start"
+        label="모집 시작일 (선택)"
+        state={canEdit("recruitmentStartAt") ? "default" : "readOnly"}
+      >
+        <input
+          id="edit-start"
+          type="date"
+          value={startAt.slice(0, 10)}
+          readOnly={!canEdit("recruitmentStartAt")}
+          onChange={(e) => setStartAt(e.target.value)}
+        />
+      </Field>
+
+      <Field
+        id="edit-deadline"
+        label="모집 마감일"
+        state={canEdit("recruitmentDeadlineAt") ? "default" : "readOnly"}
+        helperText={
+          canEdit("recruitmentDeadlineAt")
+            ? undefined
+            : `지원자 ${project.pendingApplicationCount}명이 있어 모집 일정은 변경할 수 없습니다.`
+        }
+      >
+        <input
+          id="edit-deadline"
+          type="date"
+          value={deadlineAt}
+          readOnly={!canEdit("recruitmentDeadlineAt")}
+          onChange={(e) => setDeadlineAt(e.target.value)}
         />
       </Field>
 

@@ -1577,6 +1577,56 @@ async function main() {
     check(!threw, "저장이 막힌 환경에서도 화면이 뜬다 — 보존은 편의지 필수가 아니다");
   }
 
+  /* ═══════════ 11. 수정 화면이 editableFields 를 다 쓴다 ═══════════ */
+  section("수정 화면 — 규칙 15 의 잠금 반영");
+  {
+    const { ProjectEditForm } = await import("./web/ProjectManage");
+
+    // 대기 지원 0건 — 예산·일정까지 고칠 수 있어야 한다 (규칙 15 를 뒤집은 것)
+    const free = decode(
+      renderToStaticMarkup(
+        React.createElement(ProjectEditForm, {
+          project: {
+            ...manageItem,
+            description: "설명",
+            pendingApplicationCount: 0,
+            editableFields: [
+              "title",
+              "description",
+              "category",
+              "skillIds",
+              "budgetAmount",
+              "recruitmentStartAt",
+              "recruitmentDeadlineAt",
+            ],
+          },
+        }),
+      ),
+    );
+    check(free.includes("모집 마감일"), "지원 0건: 마감일 칸이 있다");
+    check(free.includes("모집 시작일 (선택)"), "지원 0건: 시작일 칸이 있다");
+    check(
+      (free.match(/readonly/gi) || []).length === 0,
+      "지원 0건: 읽기 전용인 칸이 없다",
+    );
+
+    // 대기 지원 3건 — 예산과 일정이 잠긴다. 숨기지 않고 이유를 말한다.
+    const locked = decode(
+      renderToStaticMarkup(
+        React.createElement(ProjectEditForm, {
+          project: { ...manageItem, description: "설명" },
+        }),
+      ),
+    );
+    check(locked.includes("모집 마감일"), "지원 3건: 칸을 숨기지 않는다");
+    check((locked.match(/readonly/gi) || []).length >= 3, "지원 3건: 예산·일정이 읽기 전용");
+    check(
+      locked.includes("지원자 3명이 있어 모집 일정은 변경할 수 없습니다."),
+      "지원 3건: 왜 잠겼는지 말한다",
+    );
+    check(locked.includes("프로젝트 제목"), "지원 3건: 제목은 계속 고칠 수 있다");
+  }
+
   section("결과");
   console.log(`PASS ${passCount} · FAIL ${failCount}`);
   if (failCount > 0) {

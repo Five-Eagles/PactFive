@@ -18,7 +18,7 @@
   전부 PRD §14 문구 정본과 일치하는 것까지 기계 대조함.
 - prototype/ 구성: **완료** — 데이터 계층 · 계약 함수 7종 · 공개 API 9종 ·
   engagement 제공 읽기 3종 · 화면 6종.
-  `run.tsx` **PASS 300 · FAIL 0**. 결과는 `test-report.md`.
+  `run.tsx` **PASS 307 · FAIL 0**. 결과는 `test-report.md`.
 
 ## 상태 모델 — 이 기능의 핵심
 
@@ -79,3 +79,4 @@ transaction_status      NONE · CONTRACT_PENDING ·
 | 2026-09-01 | 환경 변수 주입 (`config.ts`) — 코드에 박힌 토큰 제거 · run.tsx PASS 265 · CR-0005 |
 | 2026-09-02 | ux-philosophy §6 결함 3건 개선 (CR-0006) — 확인 화면 · 예산 출처 · 입력 보존 · run.tsx PASS 300 |
 | 2026-09-02 | 목록 필터 규칙 58~61 확정 — 시안의 `필터` 버튼에 대응하는 동작이 없었다 |
+| 2026-09-02 | feedback_loop 12건 검토 완료 · 수정 화면 일정 필드 · EmptyState 3분할 통일 |

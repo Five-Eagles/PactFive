@@ -148,11 +148,26 @@ export function Money({ amount }: { amount: number }) {
   return <span className="money">{amount.toLocaleString("ko-KR")}원</span>;
 }
 
-/** 결과가 0건일 때. 빈 화면을 그냥 두지 않는다 (Foundation: EmptyState) */
-export function EmptyState({ message, action }: { message: string; action?: ReactNode }) {
+/**
+ * 결과가 0건일 때. 빈 화면을 그냥 두지 않는다 (Foundation: EmptyState)
+ *
+ * **제목·설명·행동 3분할이다.** 한 줄만 두면 다음에 무엇을 할지 알 수 없다
+ * (§6 복구 가능성). engagement 쪽 형태로 통일했다 — 통합 단계에서
+ * `shared/ui/primitives.tsx` 가 이 형태를 골랐다 (feedback_loop 8/28 engagement 항목 2).
+ */
+export function EmptyState({
+  title,
+  body,
+  action,
+}: {
+  title: string;
+  body?: string;
+  action?: ReactNode;
+}) {
   return (
     <div className="empty" role="status">
-      <p>{message}</p>
+      <h3>{title}</h3>
+      {body && <p>{body}</p>}
       {action}
     </div>
   );
