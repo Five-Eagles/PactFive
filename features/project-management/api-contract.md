@@ -78,6 +78,14 @@
 
 쿼리: `keyword` · `category` · `skills` · `minBudget` · `maxBudget` · `recruitmentStatus` · `deadlineBefore` · `sortBy` · `sortOrder` · `page` · `pageSize`
 
+> **`keyword` 는 제목 · 설명 · 요구 기술 이름에서 찾는다** (규칙 62).
+> 기술은 표시 이름(`Node.js`)과 코드(`NODEJS`) 둘 다 본다 — 사람들이 검색창에 가장 먼저
+> 치는 것이 기술 이름인데, 제목·설명만 보면 `React` 가 0건으로 나온다.
+>
+> **띄어쓰기가 있으면 낱말로 끊어 전부 만족하는 것만 남긴다** (규칙 63, AND).
+> 통째로 찾으면 `브랜드 디자인` 이 "브랜드 리뉴얼 디자인" 을 못 잡는다.
+> 공백만 넣으면 조건이 없는 것과 같다.
+
 | 파라미터 | 제약 |
 |---|---|
 | `page` | 1~1000 |

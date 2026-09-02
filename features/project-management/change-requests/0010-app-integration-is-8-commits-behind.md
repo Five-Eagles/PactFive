@@ -26,6 +26,7 @@
 | `39b7c89` | 추천 사유 표시 (CR-0006) |
 | `ef1411e` | feedback_loop 3건 반영 (모집 일정 칸 · aria-label · EmptyState) |
 | `1de2646` | `GET /bookmarks/ids` · `isBookmarked` 제거 (CR-0008) |
+| `(2026-09-03)` | **검색어가 기술 이름을 본다 · 띄어쓰기를 낱말로 끊는다 (규칙 62·63)** |
 
 **지금 배포하면 이 일곱 가지가 화면에 없다.** 특히 앞의 셋은
 `ux-philosophy.md` §6 자체 점검에서 결함으로 잡힌 것들이다.
@@ -46,6 +47,20 @@
 | 프로토타입 | `app/` 대응 |
 |---|---|
 | `server/project.service.ts` · `project.types.ts` | `app/server/src/features/project-management/` 같은 이름 |
+
+### 2026-09-03 추가 — 검색어 판정
+
+`app/server/src/features/project-management/project.service.ts:389` 의 `keyword` 필터가
+제목·설명만 본다. 배포된 화면에서 실측했다.
+
+| 입력 | 지금 | 고친 뒤 |
+|---|---|---|
+| `React` | **0건** | 2건 |
+| `Figma` | **0건** | 1건 |
+| `관리 시스템` | **0건** | 1건 |
+
+프로토타입 쪽은 `matchesKeyword()` 로 고쳤고 테스트 8건을 붙였다.
+`app/server` 는 팀장 영역이라 같은 함수를 옮겨 붙이면 된다 — 의존성이 없다.
 | `server/ports/external.port.ts` · `project-transaction.port.ts` | `project.port.ts` · `project-transaction.port.ts` |
 | `web/ui.tsx` | `app/web/src/shared/ui/primitives.tsx` (Button 에 `ariaLabel`·`title`) |
 | `web/ProjectManage.tsx` | `ProjectManagePage.tsx` · `ProjectEditPage.tsx` |

@@ -293,25 +293,28 @@
         <h1>좋은 협업을 만드는<br />전문가를 찾아보세요.</h1>
         <p class="sub">검증된 경력과 실제 결과물을 비교하고, 계약까지 안전하게 이어가세요.</p>
 
+        <!-- 검색어는 제목·설명·요구 기술 이름에서 찾는다 (규칙 62·63).
+             "전문가"를 묻지 않는 이유: 이 상자는 프로젝트 목록으로 간다.
+             전문가 탐색은 PRD 에 아직 없다 — README "확인이 필요한 것" 참고. -->
         <form class="search" role="search" method="get" action="browse.html">
           <label class="caption" for="q" style="position:absolute;left:-9999px">검색어</label>
           <div class="searchbox">
-            <input id="q" name="keyword" type="search" placeholder="어떤 전문가가 필요하세요?" />
+            <input id="q" name="keyword" type="search" placeholder="기술이나 키워드로 찾아보세요" />
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <circle cx="10.5" cy="10.5" r="6.5" stroke="var(--content)" stroke-width="2.4"/>
               <path d="M15.5 15.5 20 20" stroke="var(--content)" stroke-width="2.4" stroke-linecap="round"/>
             </svg>
           </div>
-          <button class="find-btn" type="submit">전문가 찾기</button>
+          <button class="find-btn" type="submit">프로젝트 찾기</button>
         </form>
 
         <p class="keywords">
           <strong>인기 검색</strong>
-          <a href="browse.html?keyword=%EB%B8%8C%EB%9E%9C%EB%93%9C%20%EB%94%94%EC%9E%90%EC%9D%B8">브랜드 디자인</a>
-          <a href="browse.html?keyword=B2B%20%EB%B0%B1%EC%98%A4%ED%94%BC%EC%8A%A4">B2B 백오피스</a>
-          <a href="browse.html?keyword=%EC%95%B1%20UX%20%EA%B0%9C%EC%84%A0">앱 UX 개선</a>
-          <a href="browse.html?keyword=%EC%87%BC%ED%95%91%EB%AA%B0%20%EA%B5%AC%EC%B6%95">쇼핑몰 구축</a>
-          <a href="browse.html?keyword=%EC%BD%98%ED%85%90%EC%B8%A0%20%EC%A0%9C%EC%9E%91">콘텐츠 제작</a>
+          <a href="browse.html?keyword=React">React</a>
+          <a href="browse.html?keyword=Figma">Figma</a>
+          <a href="browse.html?keyword=%EC%87%BC%ED%95%91%EB%AA%B0">쇼핑몰</a>
+          <a href="browse.html?keyword=%EB%A6%AC%EB%89%B4%EC%96%BC">리뉴얼</a>
+          <a href="browse.html?keyword=%EA%B4%80%EB%A6%AC%20%EC%8B%9C%EC%8A%A4%ED%85%9C">관리 시스템</a>
         </p>
       </div>
 

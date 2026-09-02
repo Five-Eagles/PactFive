@@ -47,6 +47,36 @@ import type { AuthContext, ExternalPorts, TransactionContext } from "./ports/ext
 const DAY = 24 * 60 * 60 * 1000;
 const MAX_RECRUITMENT_DAYS = 365;
 
+/**
+ * 검색어 판정 (규칙 62·63).
+ *
+ * **기술 이름도 본다.** 사람들이 검색창에 가장 먼저 치는 것이 기술 이름인데
+ * 제목·설명만 보면 "React" 가 0건으로 나온다 — React 를 요구하는 프로젝트가
+ * 실제로 있는데도 그렇다. 2026-09-03 실측으로 확인했다.
+ *
+ * **띄어쓰기로 끊어 전부 만족하는 것만 남긴다.** 통째로 찾으면
+ * "브랜드 디자인" 이 "브랜드 리뉴얼 디자인" 을 못 찾는다. 대표페이지의
+ * 인기 검색어 5개가 전부 0건이던 이유가 이것이다.
+ *
+ * 낱말끼리는 AND 다. OR 로 하면 낱말 하나만 걸려도 나와서 결과가 넓어진다 —
+ * 목록의 목적은 지원할 곳을 좁히는 것이다 (규칙 58 의 AND 와 같은 이유).
+ */
+function matchesKeyword(project: { title: string; description: string; skillIds: string[] }, keyword: string): boolean {
+  const words = keyword.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+
+  const haystack = [
+    project.title,
+    project.description,
+    // 표시 이름과 코드를 둘 다 넣는다 — "Node.js" 로도 "NODEJS" 로도 찾는다
+    ...toSkillRefs(project.skillIds).flatMap((s) => [s.displayName, s.skillId]),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return words.every((w) => haystack.includes(w));
+}
+
 export type ProjectServiceDeps = {
   repo: ProjectRepository;
   ports: ExternalPorts;
@@ -380,10 +410,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
 
     if (query.keyword) {
-      const k = query.keyword.toLowerCase();
-      rows = rows.filter(
-        (p) => p.title.toLowerCase().includes(k) || p.description.toLowerCase().includes(k),
-      );
+      rows = rows.filter((p) => matchesKeyword(p, query.keyword!));
     }
     if (query.category) rows = rows.filter((p) => p.category === query.category);
     if (query.skills?.length) {

@@ -6,7 +6,7 @@
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 313 · FAIL 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 323 · FAIL 0)
 - [x] `npx tsc --noEmit --strict` 통과
 
 ```text
@@ -24,7 +24,7 @@
 10. 등록 입력 보존         11건
 11. 수정 화면 잠금 반영     7건
 ──────────────────────────────
-                          313건
+                          323건
 ```
 
 ## spec.md 규칙별 확인

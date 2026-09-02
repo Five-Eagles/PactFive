@@ -795,6 +795,57 @@ async function main() {
         bySkill.body.items.every((i) => i.skills.some((s) => s.skillId === "FIGMA")),
       "기술 필터",
     );
+    /* ── 검색어 (규칙 62·63) ──────────────────────────────
+       2026-09-03 실측에서 두 가지가 드러났다.
+         "React"        → 0건 (React 를 요구하는 프로젝트가 있는데도)
+         "브랜드 디자인" → 0건 (통째로 찾아서 "브랜드 리뉴얼 디자인" 을 못 잡음)
+       둘 다 여기서 막는다. */
+
+    // 규칙 62 — 기술 이름으로도 찾는다
+    const byTech = api.listProjects({ keyword: "React" });
+    check(
+      byTech.body.items.length > 0 &&
+        byTech.body.items.every((i) => i.skills.some((sk) => sk.skillId === "REACT")),
+      "규칙 62: 기술 표시 이름으로 찾힌다 (React)",
+    );
+    check(
+      api.listProjects({ keyword: "REACT" }).body.totalCount === byTech.body.totalCount,
+      "규칙 62: 대소문자를 가리지 않는다",
+    );
+    check(
+      api.listProjects({ keyword: "nodejs" }).body.items.every((i) =>
+        i.skills.some((sk) => sk.skillId === "NODEJS"),
+      ) && api.listProjects({ keyword: "nodejs" }).body.totalCount > 0,
+      "규칙 62: 기술 코드로도 찾힌다 (nodejs)",
+    );
+
+    // 규칙 63 — 띄어쓰기로 끊어서 전부 만족하는 것만
+    const twoWords = api.listProjects({ keyword: "관리 시스템" });
+    check(twoWords.body.totalCount > 0, "규칙 63: 두 낱말이 떨어져 있어도 찾힌다");
+    check(
+      twoWords.body.items.every(
+        (i) => i.title.includes("관리") || i.title.includes("시스템"),
+      ),
+      "규칙 63: 찾힌 것들이 실제로 그 낱말을 갖고 있다",
+    );
+    check(
+      api.listProjects({ keyword: "관리 없는낱말xyz" }).body.totalCount === 0,
+      "규칙 63: 낱말끼리는 AND 다 — 하나만 걸리면 안 나온다",
+    );
+    check(
+      api.listProjects({ keyword: "   " }).body.totalCount ===
+        api.listProjects({}).body.totalCount,
+      "공백만 넣으면 조건이 없는 것과 같다",
+    );
+
+    // 제목·설명은 그대로 본다 (기존 동작이 깨지지 않았는지)
+    check(
+      api.listProjects({ keyword: "쇼핑몰" }).body.items.some((i) =>
+        i.title.includes("쇼핑몰"),
+      ),
+      "제목 검색은 그대로 동작한다",
+    );
+
     const byBudget = api.listProjects({ minBudget: 5_000_000 });
     check(byBudget.body.items.every((i) => i.budgetAmount >= 5_000_000), "예산 하한 필터");
 
@@ -1668,6 +1719,18 @@ async function main() {
       "열린 버튼에는 aria-label 을 붙이지 않는다",
     );
     check(!/title="[^"]*"[^>]*>수정/.test(html), "열린 버튼에는 title 도 붙이지 않는다");
+  }
+
+  section("검색어 — 이전과 후 대조");
+  {
+    const { api } = newApi();
+    // 대표페이지 인기 검색어와 기술 이름을 실제로 돌려본다.
+    for (const k of ["React", "Figma", "쇼핑몰", "리뉴얼", "관리 시스템", "브랜드 디자인"]) {
+      const n = api.listProjects({ keyword: k }).body.totalCount;
+      console.log(`      ${k.padEnd(12)} ${String(n).padStart(2)}건`);
+    }
+    check(api.listProjects({ keyword: "React" }).body.totalCount > 0, "React 가 0건이 아니다");
+    check(api.listProjects({ keyword: "Figma" }).body.totalCount > 0, "Figma 가 0건이 아니다");
   }
 
   section("결과");
