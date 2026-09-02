@@ -3,12 +3,14 @@ import {
   type ConfirmPaymentInput,
   type ConfirmPaymentResponse,
   type PaymentGateway,
+  type PgPaymentStatus,
+  type RetrievePaymentResponse,
 } from './payment.port';
 
 /**
  * 토스페이먼츠 결제 승인 어댑터.
  *
- * 원본: features/contracts-payments/prototype/server/toss-payments.adapter.ts (47c7760)
+ * 원본: features/contracts-payments/prototype/server/toss-payments.adapter.ts (bfe51b8)
  *
  * `PG_SECRET_KEY` 는 **서버 전용 비밀값**이다 — `VITE_` 접두사를 절대 붙이지 않는다
  * (app/web/AGENTS.md "환경 변수"). 키가 없으면 어댑터를 만들지 않고 예외를 던진다:
@@ -18,6 +20,7 @@ import {
  */
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
+const TOSS_ORDER_URL = 'https://api.tosspayments.com/v1/payments/orders';
 
 export function hasPgSecretKey(): boolean {
   return Boolean(process.env.PG_SECRET_KEY);
@@ -61,5 +64,33 @@ export function createTossPaymentsAdapter(): PaymentGateway {
         status: 'PAID',
       };
     },
+
+    async retrievePayment(orderId: string): Promise<RetrievePaymentResponse> {
+      const response = await fetch(`${TOSS_ORDER_URL}/${encodeURIComponent(orderId)}`, {
+        headers: { Authorization: basicAuthHeader(secretKey) },
+      });
+      if (!response.ok) {
+        throw new PaymentGatewayError('PAYMENT_CONFIRM_FAILED', '결제 승인을 조회하지 못했습니다.');
+      }
+      const body = (await response.json()) as {
+        orderId?: string;
+        totalAmount?: number;
+        paymentKey?: string;
+        status?: string;
+      };
+      return {
+        orderId: body.orderId ?? orderId,
+        amount: body.totalAmount ?? 0,
+        paymentKey: body.paymentKey ?? null,
+        status: mapTossStatus(body.status),
+      };
+    },
   };
+}
+
+function mapTossStatus(raw: string | undefined): PgPaymentStatus {
+  if (raw === 'DONE') return 'PAID';
+  if (raw === 'READY') return 'READY';
+  if (raw === 'ABORTED' || raw === 'EXPIRED') return 'FAILED';
+  return 'PENDING';
 }
