@@ -38,6 +38,10 @@
 `spec.md`에서 작업하고, 팀장이 검토해 `app/`에 반영합니다. `app/`은 팀장만 직접 수정합니다.
 자세한 절차는 `sdd-framework/feature-workflow.md`, `app/AGENTS.md` 참고.
 
+이미지 등 자산 파일이 추가로 필요하면 `features/{기능}/assets/{카테고리}/`에 카테고리별로 나눠 둡니다
+(예: `assets/images/`) — `design/`·`prototype/`은 파일 안에 base64로 욱여넣지 않고 이 폴더를
+상대경로로 참조합니다 (2026-09-02 추가, 자세한 이유는 `sdd-framework/feature-workflow.md` 참고).
+
 ## design-system/, ux-philosophy/ (2026-08-20 추가)
 
 UI·UX 담당자가 만드는 산출물입니다. 만드는 방법은 각각
