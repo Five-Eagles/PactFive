@@ -11,12 +11,6 @@
   "use strict";
 
   var SCREENS = {
-    register: {
-      name: "프로젝트 등록",
-      owner: "유동우 (project-management)",
-      where: "design/high-fi-register.html · spec.md 규칙 1~8",
-      note: "3단계 퍼널이다. 이 폴더의 시안 3장에는 아직 없다.",
-    },
     login: {
       name: "로그인",
       owner: "오민혁 (user-management)",
@@ -32,18 +26,6 @@
       owner: "정해지지 않음",
       where: "README.md 「확인이 필요한 것」 1번",
       note: "PRD 화면 목록(§7.1)에 프리랜서 탐색이 없다. 만들지 말지부터 정해야 한다.",
-    },
-    guide: {
-      name: "이용 방법",
-      owner: "정해지지 않음",
-      where: "README.md 「확인이 필요한 것」",
-      note: "정적 안내 페이지다. 화면 목록에 없다.",
-    },
-    safety: {
-      name: "안전한 거래",
-      owner: "조준영 (contracts-payments)",
-      where: "features/contracts-payments/",
-      note: "에스크로·전자계약 설명 페이지다. Step 2 다.",
     },
     myproject: {
       name: "내 프로젝트",

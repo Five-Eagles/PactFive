@@ -85,9 +85,9 @@
     slot.innerHTML = u
       ? '<a class="login" href="mypage.html">' + u.name + " 님</a>" +
         '<button class="btn quiet sm" type="button" data-signout>로그아웃</button>' +
-        '<a class="btn primary sm" href="#" data-notyet="register">프로젝트 등록</a>'
+        '<a class="btn primary sm" href="register.html">프로젝트 등록</a>'
       : '<a class="login" href="#" data-notyet="login">로그인</a>' +
-        '<a class="btn primary sm" href="#" data-notyet="register">프로젝트 등록</a>';
+        '<a class="btn primary sm" href="register.html">프로젝트 등록</a>';
   }
 
   var bound = false;
