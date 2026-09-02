@@ -64,7 +64,27 @@
    - `api-contract.md`: `docs/naming-convention.md` §6(DTO 패턴)·§7(REST 규칙) 형식을 따른다.
      구조 템플릿은 `sdd-framework/templates/api-contract-template.md`, 실제 예시는
      `features/sample-login/api-contract.md`.
-   - `design/`: 화면 시안. **design-system이 아직 없으면 low-fi(뼈대 수준)**로, **design-system이
+   - `design/`: 화면 시안. **이 항목(프론트엔드 UI/UX 시안 작업)을 시작하기 전에
+     `ux-philosophy/ux-philosophy.md`를 읽는다.** 위 "시작하기 전에 반드시 확인·읽어야 할 것"
+     목록(1~6번)에는 없다 — 백엔드 전용 기능처럼 `design/`을 만들 일이 없으면 읽지 않아도 된다.
+     화면 시안을 그릴 때만 해당한다 (2026-09-02 추가, 근거: 지금까지는 `ux-philosophy.md §6`
+     검증이 `integration-workflow.md`의 팀장 통합 게이트에서만 이뤄져, 담당자가 시안을 다 그린
+     뒤에야 원칙 위반이 드러나는 구조였다 — 시안 작성 시점에 먼저 읽으면 같은 문제를 더 일찍
+     막을 수 있다).
+     함께 `ux-philosophy/reference-main.html`(PactFive 메인 페이지를 정적 HTML로 재구성한 파일,
+     2026-09-02 추가)을 다섯 원칙이 실제 화면에서 어떻게 검증되는지 보여주는 **구현 예시**로
+     참고한다(`ux-philosophy.md` §7: "현재 구현 예시는 교체될 수 있으며, 원칙의 의미를 제한하지
+     않는다"). JS 없는 정적 HTML이라 이미지(`ux-philosophy.png`)와 달리 어떤 AI 툴이든 텍스트로
+     그대로 읽을 수 있다 — 이전에는 png를 참고하도록 했으나 텍스트 기반 참고가 가능해져 이 파일로
+     교체했다. **이 파일의 색상·레이아웃·컴포넌트를 그대로 베끼라는 뜻이 아니다** — 실제로
+     `reference-main.html`의 `--teal:#007a80`은 `design-tokens.md`의 `teal[700]: #006D70`과
+     다르다(확인됨). **그래서 `design-system/design-tokens.md`가 이미 나와 있으면(지금은 나와
+     있다) 이것도 `design/` 시작 전에 ux-philosophy.md와 마찬가지로 먼저 읽는다** — 실제로 적용할
+     색상·컴포넌트 규격의 정본이고, reference-main.html과 다르면 design-tokens.md를 따른다
+     (2026-09-02 강화: 이전엔 "정본이다"라는 캐비어트로만 있어서 명령형 지시가 아니었다 —
+     reference-main.html은 확실히 읽으면서 정작 진짜 정본인 design-tokens.md는 안 읽고 넘어갈
+     위험이 있었다).
+     **design-system이 아직 없으면 low-fi(뼈대 수준)**로, **design-system이
      나온 뒤에는 high-fi(실제 컴포넌트 적용)**로 만든다. 두 산출물 다 같은 폴더에 쌓인다.
    - **형식은 항상 인터랙티브 HTML이다 (low-fi도 예외 아님).** md 텍스트로 필드를 나열하는 건
      레이아웃(위치·크기·배치)을 보여주지 못해 와이어프레임이 아니다. 팀 Presentation System을
@@ -105,6 +125,13 @@
    확인했는지 한 줄씩 남긴다. 확인 안 한 규칙이 있으면 숨기지 말고 "안 함"이라고 적는다 — 이게
    팀장이 통합 여부를 판단하는 유일한 근거이므로, 비어 있는 것과 "안 함"이라고 적힌 것은 다른
    정보다.
+   - **`design/`을 만든 기능(프론트엔드 UI가 있는 기능)은 여기에 `ux-philosophy.md` §6 검증
+     기준표 자체 점검 결과도 함께 남긴다** (2026-09-02 추가). 표의 7개 항목(상태 이해·근거
+     이해·작업 보호·복구 가능성·선택권·비파괴성·접근 가능성)마다 이 화면이 그 기준을 어떻게
+     충족하는지, 혹은 충족하지 못하면 왜인지 한 줄씩 적는다. 이건 `integration-workflow.md`의
+     팀장 통합 게이트에 있는 같은 검증을 대신하는 게 아니라 그 앞에 두는 자체 점검이다 — 담당자가
+     먼저 걸러야 팀장 게이트에서 왕복하는 횟수가 줄어든다. 백엔드 전용 기능(`design/`이 없는
+     기능)은 "해당 없음"이라고 적고 넘어간다.
 5. **브라우저에서 눈으로 확인 (선택)** — `run.tsx`는 콘솔에서 pass/fail만 찍고 화면을 띄우지
    않는다. `prototype/web/index.tsx`에 화면 컴포넌트를 `default export`해두면(완료 조건 항목,
    작성 자체는 필수 — 파일 하나짜리 래퍼라 비용이 거의 없다. 예: `export { LoginForm as default }
