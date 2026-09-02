@@ -1,0 +1,80 @@
+/* 이식 가능한 패널. 앱 셸(글로벌 헤더·탭바·홈)은 넣지 않는다.
+ * 색은 semantic 변수만 쓴다. primitive hex는 _tokens.css :root 에서만.
+ */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: var(--card-pad);
+  max-width: 560px;
+}
+
+.panel .title { margin-top: 0; }
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.facts {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  background: var(--surface-subtle);
+  border-radius: var(--btn-radius);
+}
+
+.facts dt {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--content-tertiary);
+  margin: 0 0 4px;
+}
+
+.facts dd {
+  margin: 0 0 12px;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--content);
+}
+
+.facts dd:last-child { margin-bottom: 0; }
+
+.money {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.status-copy {
+  margin: 0 0 16px;
+  color: var(--content-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.status-copy strong {
+  color: var(--content);
+  font-weight: 600;
+}
+
+.panel .notice { margin: 0 0 16px; }
+.panel .btn-row { margin-top: 4px; flex-wrap: wrap; }
+.panel .helper { margin-top: 0; margin-bottom: 16px; }
+
+.badge.success { background: var(--success-surface); color: var(--success); }
+.badge.warning { background: var(--warning-surface); color: var(--warning); }
+.badge.info { background: var(--info-surface); color: var(--info); }
+.badge.danger { background: var(--danger-surface); color: var(--danger); }
+.badge.neutral { background: var(--surface-subtle); color: var(--content-tertiary); }
+
+.skeleton {
+  height: 12px;
+  border-radius: 4px;
+  background: var(--surface-subtle);
+  margin-bottom: 8px;
+}

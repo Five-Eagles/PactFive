@@ -10,7 +10,7 @@ sync-log.md 기록: 있음
 
 ## 항목 1 — [충돌] `startProjectTransaction`·`completeProjectTransaction` 입력에 `contractId`가 빠져 있었다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — 무엇이 어긋났나**
 - 이쪽 `project-transaction.types.ts`의 `StartProjectTransactionInput` ·
@@ -32,13 +32,14 @@ sync-log.md 기록: 있음
 - `prototype/`도 같은 수정이 필요하다 — 원본을 고치지 않으면 다음 통합에서 되돌아온다.
 
 **담당자 메모**
--
+- prototype `StartProjectTransactionInput`·`CompleteProjectTransactionInput`·mock·`run.tsx`에
+  `contractId`를 반영했다. 타입 주석에 feedback 항목 1 근거를 남겼다.
 
 ---
 
 ## 항목 2 — [충돌] `restoredFields`가 튜플로 고정돼 있어 제공자 응답을 다 담지 못한다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — 무엇이 어긋났나**
 - 이쪽 `RestorePreContractProjectResponse.restoredFields` 타입이
@@ -60,7 +61,8 @@ sync-log.md 기록: 있음
   정하는 것이 자연스럽다.
 
 **담당자 메모**
--
+- CR-0002·PM `project-transaction.port.ts`에 맞춰 `restoredFields`를 `string[]`로 넓혔다.
+  호출자 코드에서 이 배열을 읽는 곳은 없고, 제공자가 실제로 비운 필드만 담는다.
 
 ---
 
@@ -68,16 +70,17 @@ sync-log.md 기록: 있음
 
 본문 위치: `feedback_loop/2026-08-28/project-management.md` 항목 1 참조
 
-상태: 미확인
+상태: 반영완료
 
 **담당자 메모**
--
+- 8/27 항목 2와 같이 잠정 대행 종료·PM 소유에 동의한다. 최종 이관은 유동우·팀장과 다음
+  통합에서 맞춘다.
 
 ---
 
 ## 항목 4 — 결제 포트·토스 어댑터를 반영했고, 아직 아무도 부르지 않는다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact**
 - 이번 델타에 `payment.port.ts`(`PaymentGateway`)와 `toss-payments.adapter.ts`가 새로 들어왔다.
@@ -96,13 +99,14 @@ sync-log.md 기록: 있음
   (`app/web/AGENTS.md` "환경 변수"). 어댑터 주석에 그 경고를 남겼다.
 
 **담당자 메모**
--
+- prototype에 `payment.port.ts`·`toss-payments.adapter.ts`가 이미 있다. app 조립 전까지
+  라우트 없음·`hasPgSecretKey()` fail-closed 설계에 동의한다.
 
 ---
 
 ## 항목 5 — 웹 화면은 이번에도 만들지 않았다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact**
 - `features/contracts-payments/prototype/`에 여전히 `web/` 폴더가 없다. `design/`도 비어 있다.
@@ -116,4 +120,4 @@ sync-log.md 기록: 있음
   `review/week-wrap-2026-08-28.md`도 웹을 다음 스프린트로 잡고 있다.
 
 **담당자 메모**
--
+- 8/27 항목 3과 같다. web/`design/`은 다음 스프린트(wrap·규칙 22 백로그).

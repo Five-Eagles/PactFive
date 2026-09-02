@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>contracts-payments — 금액 합의 (low-fi)</title>
+<style>
+  body{ font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; background:#f1f1f1; margin:0; padding:2rem; color:#333; }
+  .meta{ max-width:420px; margin:0 auto 1rem; font-size:12px; color:#888; }
+  .frame{ max-width:420px; margin:0 auto; background:#fff; border:2px dashed #999; padding:2rem; }
+  .label{ font-size:11px; color:#999; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.25rem; }
+  .box{ background:#e5e5e5; border:1px solid #aaa; border-radius:2px; padding:.75rem; margin-bottom:1rem; color:#777; font-size:14px; }
+  .box.button{ background:#ccc; border-color:#888; text-align:center; font-weight:bold; color:#555; }
+  .note{ font-size:11px; color:#999; margin-top:.25rem; }
+</style>
+</head>
+<body>
+<div class="meta">contracts-payments · AGR-01 빈 생성 · low-fi · design-system 미확정</div>
+<div class="frame">
+  <div class="label">[TEXT INPUT] 제안 금액</div>
+  <div class="box">placeholder: 제안 금액</div>
+  <div class="label">[BUTTON] 제출</div>
+  <div class="box button">제안하기</div>
+  <div class="note">로딩·LOAD_FAILED·409 재조회·취소 안내는 조건부. 취소되면 이 버튼을 숨긴다.</div>
+</div>
+<div class="frame" style="margin-top:1rem; border-style:solid;">
+  <p class="label" style="margin-bottom:.5rem;">필수 요소 목록 (기본 렌더링 시, 조건부 요소 제외)</p>
+  <ul style="font-size:13px; color:#555; padding-left:1.2rem; margin:0;">
+    <li>placeholder 텍스트 "제안 금액"</li>
+    <li>버튼 텍스트 "제안하기"</li>
+  </ul>
+</div>
+</body>
+</html>
