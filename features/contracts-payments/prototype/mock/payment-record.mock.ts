@@ -34,7 +34,7 @@ type PaymentRecord = {
   rawResponse: { code: string; message: string } | null;
 };
 
-const MOCK_PAYMENT_ID = "pay_mock_01";
+export const MOCK_PAYMENT_ID = "pay_mock_01";
 const MOCK_CLIENT_KEY = "mock_pg_client_key";
 const MOCK_FAILED_AT = "2026-08-25T05:10:00Z";
 const MOCK_PAID_AT = "2026-08-25T05:12:00Z";

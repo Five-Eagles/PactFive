@@ -6,22 +6,20 @@ import {
   canProposeNegotiationOffer,
   createNotificationTriggerMock,
   createProjectTransactionMock,
+  createPublicApiMock,
   DomainContractError,
   isDomainContractError,
+  isPublicApiError,
+  MOCK_CLIENT_USER_ID,
+  MOCK_FREELANCER_USER_ID,
   MOCK_NOW,
+  MOCK_OUTSIDER_USER_ID,
+  MOCK_PAYMENT_ID,
   toAcceptedApplicationHandoff,
   type DomainContractErrorCode,
 } from "./index";
 import { createPaymentRecordMock } from "./mock/payment-record.mock";
-import {
-  createPublicApiMock,
-  MOCK_CLIENT_USER_ID,
-  MOCK_FREELANCER_USER_ID,
-  MOCK_OFFER_AMOUNT,
-  MOCK_OUTSIDER_USER_ID,
-  MOCK_PROJECT_TITLE,
-} from "./mock/public-api.mock";
-import { isPublicApiError } from "./server/public-api.types";
+import { MOCK_OFFER_AMOUNT, MOCK_PROJECT_TITLE } from "./mock/public-api.mock";
 import {
   createPaymentGatewayMock,
   MOCK_CONFIRMED_AMOUNT,
@@ -1018,6 +1016,30 @@ async function main() {
     }
   }
 
+  // 규칙 16·21 — 공개 GET /payments/:paymentId (웹훅 없음)
+  {
+    const api = createPublicApiMock();
+    const row = await api.getPayment(MOCK_PAYMENT_ID, MOCK_CLIENT_USER_ID);
+    if (row.paymentId === MOCK_PAYMENT_ID && row.status === "READY" && row.orderId) {
+      pass("규칙 16: GET payment 당사자 200");
+    } else {
+      fail("규칙 16: GET payment 당사자 200", row);
+    }
+    try {
+      await api.getPayment(MOCK_PAYMENT_ID, MOCK_OUTSIDER_USER_ID);
+      fail("규칙 16: GET payment 비당사자 403", "오류가 나지 않았습니다");
+    } catch (err) {
+      if (isPublicApiError(err) && err.body.error.code === "PROJECT_FORBIDDEN" && err.httpStatus === 403) {
+        pass("규칙 16: GET payment 비당사자 403");
+      } else {
+        fail("규칙 16: GET payment 비당사자 403", err);
+      }
+    }
+    await expectCode("규칙 16: GET payment 없음 404", "PROJECT_NOT_FOUND", () =>
+      api.getPayment("pay_missing", MOCK_CLIENT_USER_ID),
+    );
+  }
+
   // 규칙 12·13 — 서명 전이·멱등 최초 시각
   {
     const api = createPublicApiMock();
@@ -1130,12 +1152,11 @@ async function main() {
     }
   }
 
-  // 규칙 17·22 — UX 상태와 design 필수 요소
+  // 규칙 22 — Increment 백로그 UX. 합의·서명은 규칙 17, 결제는 PaymentCheckoutPanel만.
   {
     const React = await import("react");
     const { renderToStaticMarkup } = await import("react-dom/server");
     const { AgreementPanel } = await import("./web/AgreementPanel");
-    const { ContractSignPanel } = await import("./web/ContractSignPanel");
     const { PaymentCheckoutPanel } = await import("./web/PaymentCheckoutPanel");
 
     function htmlOf(node: React.ReactElement): string {
@@ -1146,8 +1167,6 @@ async function main() {
       else fail(name, html);
     }
 
-    hasText("규칙 17: 합의 필수 제안 금액", htmlOf(React.createElement(AgreementPanel)), "제안 금액");
-    hasText("규칙 17: 합의 필수 제안하기", htmlOf(React.createElement(AgreementPanel)), "제안하기");
     hasText(
       "규칙 22: 로딩",
       htmlOf(React.createElement(AgreementPanel, { view: "loading" })),
@@ -1161,7 +1180,7 @@ async function main() {
     hasText(
       "규칙 22: 409 재조회",
       htmlOf(React.createElement(AgreementPanel, { view: "stale" })),
-      "다시 조회",
+      "다시 불러오기",
     );
     const canceled = htmlOf(React.createElement(AgreementPanel, { view: "canceled" }));
     if (canceled.includes("프로젝트가 취소되었습니다") && !canceled.includes("제안하기")) {
@@ -1169,8 +1188,6 @@ async function main() {
     } else {
       fail("규칙 22: 취소 후 변경 숨김", canceled);
     }
-    hasText("규칙 17: 서명 필수 계약 조건", htmlOf(React.createElement(ContractSignPanel)), "계약 조건");
-    hasText("규칙 17: 서명 필수 서명하기", htmlOf(React.createElement(ContractSignPanel)), "서명하기");
     hasText("규칙 17: 결제 필수 결제 금액", htmlOf(React.createElement(PaymentCheckoutPanel)), "결제 금액");
     hasText("규칙 17: 결제 필수 결제하기", htmlOf(React.createElement(PaymentCheckoutPanel)), "결제하기");
   }

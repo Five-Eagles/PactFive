@@ -1,4 +1,5 @@
 import { createProjectTransactionMock, MOCK_NOW } from "./project-transaction.mock";
+import { createPaymentRecordMock, MOCK_PAYMENT_ID } from "./payment-record.mock";
 import { DomainContractError } from "../server/project-transaction.types";
 import type { ContractStatus } from "../server/contract.types";
 import {
@@ -6,12 +7,15 @@ import {
   type AcceptNegotiationOfferInput,
   type CurrentNegotiationOfferResponse,
   type GetContractResponse,
+  type GetPaymentResponse,
   type InvalidateAgreementInput,
   type InvalidateAgreementResponse,
   type ProposeNegotiationOfferInput,
   type RejectNegotiationOfferInput,
   type SignContractResponse,
 } from "../server/public-api.types";
+
+export { MOCK_PAYMENT_ID };
 
 export const MOCK_CLIENT_USER_ID = "usr_client_a";
 export const MOCK_FREELANCER_USER_ID = "usr_freelancer_b";
@@ -72,6 +76,8 @@ function laterDate(start: string, end: string): string {
 /** Increment 1 공개 API 스탠드인. 프로젝트 4함수 Mock을 거절·무효화에 재사용한다. */
 export function createPublicApiMock(nowIso: string = MOCK_NOW) {
   const projects = createProjectTransactionMock(nowIso);
+  const payments = createPaymentRecordMock();
+  const paymentProjectIds = new Map<string, string>();
   const agreements = new Map<string, AgreementRow>();
   const contracts = new Map<string, ContractRow>();
   const audits: SignatureAudit[] = [];
@@ -79,6 +85,10 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
   const rejectIdempotency = new Map<string, CurrentNegotiationOfferResponse>();
   const signIdempotency = new Map<string, SignContractResponse>();
   const invalidateIdempotency = new Map<string, InvalidateAgreementResponse>();
+
+  // GET payment 시드. 준비 API와 같은 결제 행 저장소를 쓴다.
+  const seededPayment = payments.preparePayment();
+  paymentProjectIds.set(seededPayment.paymentId, "prj_alive");
 
   async function requireParty(projectId: string, actorUserId: string | undefined) {
     if (!actorUserId) {
@@ -323,6 +333,14 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
         freelancerSignedAt: row.freelancerSignedAt,
         signedAt: row.signedAt,
       };
+    },
+
+    async getPayment(paymentId: string, actorUserId: string): Promise<GetPaymentResponse> {
+      // 없는 결제는 당사자 검사 전에 404.
+      const row = payments.getPayment(paymentId);
+      const projectId = paymentProjectIds.get(paymentId) ?? "prj_alive";
+      await requireParty(projectId, actorUserId);
+      return row;
     },
 
     async signContract(contractId: string, actorUserId: string): Promise<SignContractResponse> {
