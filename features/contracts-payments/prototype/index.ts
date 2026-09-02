@@ -1,4 +1,13 @@
 export { createProjectTransactionMock, MOCK_NOW } from "./mock/project-transaction.mock";
+export {
+  createPublicApiMock,
+  MOCK_CLIENT_USER_ID,
+  MOCK_FREELANCER_USER_ID,
+  MOCK_OUTSIDER_USER_ID,
+  MOCK_PAYMENT_ID,
+} from "./mock/public-api.mock";
+export { PublicApiError, isPublicApiError } from "./server/public-api.types";
+export type { GetPaymentResponse } from "./server/public-api.types";
 export type { ProjectTransactionMockOptions } from "./mock/project-transaction.mock";
 export { createNotificationTriggerMock } from "./mock/notification.mock";
 export type { NotificationTriggerMock } from "./mock/notification.mock";
