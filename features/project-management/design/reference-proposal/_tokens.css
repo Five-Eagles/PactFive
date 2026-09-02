@@ -32,6 +32,20 @@
   --campaign-yellow-soft: #FDF3D6;
   --campaign-yellow-edge: #EFDFAA;
   --campaign-yellow-deep: #E8C765;
+  /* ── 대표페이지 카테고리 아이콘 팔레트 ──────────────────────
+   * `ux-philosophy/reference-main.html`(오민혁 시안) 의 아이콘 색을 그대로 옮긴 것이다.
+   * 아이콘 10종이 저마다 다른 색을 쓰는데, 그 다색이 시안의 성격이라 살렸다.
+   * **아이콘 안에서만 쓴다.** 다른 UI 로 새 나가면 §12 의 다색 금지에 걸린다.
+   */
+  --ico-ink:#17233A;
+  --ico-blue:#2D71DB;  --ico-blue-soft:#7B9EDC;  --ico-blue-pale:#4DA3FF;
+  --ico-navy:#263C5F;  --ico-navy-deep:#253348;
+  --ico-yellow:#F5CB37; --ico-yellow-deep:#EFB819;
+  --ico-mint:#5BC5B2;
+  --ico-grey:#D8E0E8;  --ico-grey-pale:#EEF0F2;
+
+  /* 별점. 노랑 계열이지만 캠페인 색도 경고 색도 아니다 — 역할이 달라 따로 둔다 */
+  --rating-star:#F4A300;
 
   --white:#FFFFFF; --canvas:#FBFAF7; --surface-base:#F7F8FA; --muted:#EEF1F5;
   --border-base:#CBD3DF; --border-strong:#7A8498; --black:#090D18;
