@@ -139,12 +139,13 @@
 
       <div class="fgroup">
         <b>카테고리</b>
-        <label><input type="checkbox" checked /> 웹 개발</label>
-        <label><input type="checkbox" /> 모바일 앱</label>
-        <label><input type="checkbox" /> 디자인</label>
-        <label><input type="checkbox" /> 데이터 · AI</label>
-        <label><input type="checkbox" /> 기획</label>
-        <label><input type="checkbox" /> 마케팅</label>
+        <label><input type="radio" name="cat" /> 전체</label>
+        <label><input type="radio" name="cat" checked /> 웹 개발</label>
+        <label><input type="radio" name="cat" /> 모바일 앱</label>
+        <label><input type="radio" name="cat" /> 디자인</label>
+        <label><input type="radio" name="cat" /> 데이터 · AI</label>
+        <label><input type="radio" name="cat" /> 기획</label>
+        <label><input type="radio" name="cat" /> 마케팅</label>
       </div>
 
       <div class="fgroup">
@@ -156,7 +157,7 @@
       </div>
 
       <div class="fgroup">
-        <b>필요한 기술</b>
+        <b>필요한 기술 <span class="fgroup__hint">전부 만족</span></b>
         <label><input type="checkbox" checked /> React</label>
         <label><input type="checkbox" /> Node.js</label>
         <label><input type="checkbox" /> TypeScript</label>
