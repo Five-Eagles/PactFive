@@ -21,8 +21,9 @@ ADR-0006과 동일한 원칙). 담당자마다 폴더 구성이 달라도 통합
 | 화면 구조 — 레이아웃·영역 구성·무엇이 어디에 놓이는가 | **`features/{기능}/design/*.html`** | `prototype/web/*.tsx`가 아니다 |
 | 화면 문구 | `design/*.html`의 "필수 요소 목록" (PRD §14를 옮긴 것) | 시안의 **일부**다 |
 | 색·간격·컴포넌트 치수 | `design-system/design-tokens.md` → `design/_tokens.css` | `app/web/src/shared/ui/tokens.css`가 그 사본 |
-| 모션 규칙(등장·퇴장·전환) | `design-system/design-tokens.md` §13 | `design-system/reference-snapshot.html`은 프리뷰일 뿐, 규칙은 텍스트가 정본 |
-| 레이아웃 리듬·컴포넌트 조합(참고용) | `design-system/reference-snapshot.html` | 2026-08-28 project-management 기준 스냅샷 — 살아있는 코드 아님, 마일스톤마다 재추출 |
+| 모션 규칙(등장·퇴장·전환) | `design-system/design-tokens.md` §13 | 프리뷰 두 개는 모두 근거일 뿐, 규칙은 텍스트가 정본 |
+| 레이아웃 리듬·컴포넌트 조합 — 규칙 설명판(참고용) | `design-system/reference-snapshot.html` | 모션 규칙별로 근거·설명과 함께 보여줌. 2026-08-28 project-management 기준 스냅샷 — 살아있는 코드 아님, 마일스톤마다 재추출 |
+| 레이아웃 리듬·컴포넌트 조합 — 화면 프리뷰판(참고용) | `design-system/reference-screens.html` | 설명 없이 실제 화면 단위(찾기·상세·내 프로젝트·등록)로 조립해 동작까지 보여줌. AI가 구현 참고용으로 읽을 때는 이쪽. 마찬가지로 살아있는 코드 아님, 마일스톤마다 재추출 |
 | 규칙·상태 판정 | `spec.md` | |
 | 요청/응답 형태 | `api-contract.md` | |
 

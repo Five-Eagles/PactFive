@@ -6,8 +6,10 @@
 - 시각 기준: `../../design-concepts/imagegen-kmong-v5/`의 V5 시안 5종
 - UX 원칙: `../ux-philosophy/ux-philosophy.md`
 - 사람용 프리뷰: `design-system-preview.html`
-- 모션·레이아웃 리듬 레퍼런스: `reference-snapshot.html` (project-management 통합 화면 기준
-  스냅샷 — 살아있는 코드가 아니라 특정 시점에 고정된 참고 자료, §13 모션 규칙 참고)
+- 모션·레이아웃 리듬 레퍼런스: 규칙 설명판 `reference-snapshot.html`(§13 모션 규칙을 근거·설명과
+  함께 보여줌) + 화면 프리뷰판 `reference-screens.html`(설명 없이 실제 화면 단위로 조립해
+  보여줌 — AI 구현 참고용). 둘 다 project-management 통합 화면 기준 스냅샷이며 살아있는 코드가
+  아니라 특정 시점에 고정된 참고 자료다.
 
 ## 1. 시스템 목적
 
@@ -512,7 +514,8 @@ export type PageTemplate = "discovery" | "stepForm" | "detailAction" | "workspac
 
 `primitive.motion.duration`·`primitive.motion.easing`·`semantic.motion.*` 토큰은 §3에 값만
 정의되어 있고 실제로 쓰는 화면이 없었다. 아래는 그 값을 **언제·어떻게** 쓰는지에 대한 규칙이다 —
-정본은 이 문서이고, `reference-snapshot.html`은 이 규칙을 실제로 보여주는 프리뷰일 뿐이다.
+정본은 이 문서이고, `reference-snapshot.html`·`reference-screens.html`은 이 규칙을 실제로
+보여주는 프리뷰일 뿐이다.
 
 ### 리스트 등장 애니메이션 (stagger)
 
