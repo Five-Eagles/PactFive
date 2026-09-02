@@ -11,33 +11,35 @@
   /* ── primitive (여기서만 사용) ─────────────────────── */
   --navy-50:#F5F7FA; --navy-100:#E9EDF3; --navy-400:#8995A8; --navy-500:#667085;
   --navy-600:#55627A; --navy-950:#0B132B;
-  --teal-50:#E7F5F4; --teal-500:#008A8D; --teal-700:#006D70; --teal-800:#00585C;
-  --rust-50:#FDEEEA; --rust-700:#C9472E;
+  --teal-50:#E7F5F4; --teal-500:#008A8D; --teal-700:#006D70; --teal-800:#00585C; --teal-900:#073F43;
+  --rust-50:#FDEEEA; --rust-700:#B93824;
   --white:#FFFFFF;
+  --canvas-paper:#FBFAF7;
 
   /* ── semantic ─────────────────────────────────────── */
-  --canvas:            var(--navy-50);
+  --canvas:            var(--canvas-paper);
   --surface:           var(--white);
-  --surface-subtle:    #F7F9FB;
+  --surface-subtle:    #F7F8FA;
   --surface-selected:  var(--teal-50);
   --content:           var(--navy-950);
   --content-secondary: var(--navy-600);
   --content-tertiary:  var(--navy-500);
   --content-disabled:  var(--navy-400);
   --content-inverse:   var(--white);
-  --border:            #E1E6ED;
+  --border:            #CBD3DF;
   --border-subtle:     var(--navy-100);
   --border-focus:      var(--teal-500);
   --action:            var(--teal-700);
   --action-hover:      var(--teal-800);
+  --action-pressed:    var(--teal-900);
   --action-text:       var(--white);
   --action-secondary-text: var(--teal-700);
   --action-disabled:   var(--navy-100);
   --action-disabled-text: var(--navy-400);
-  --success:#2E7D46; --success-surface:#EAF6EE;
-  --warning:#8A5B00; --warning-surface:#FDF3D7;
+  --success:#16734D; --success-surface:#EAF7F0;
+  --warning:#7A4B00; --warning-surface:#FFF3C4;
   --danger:var(--rust-700); --danger-surface:var(--rust-50);
-  --info:#1E62C9; --info-surface:#EAF1FC;
+  --info:#1C5F9C; --info-surface:#EDF5FC;
 
   /* ── componentTokens ─────────────────────────────── */
   --btn-h:44px; --btn-pad:16px; --btn-radius:8px;
@@ -46,8 +48,22 @@
   --chip-h:28px; --chip-pad:10px; --chip-radius:999px;
   --dialog-radius:16px; --dialog-pad:24px;
 
+  /* ── motion (design-tokens.md §13) ───────────────── */
+  --dur-fast: 100ms;
+  --dur-normal: 160ms;
+  --dur-slow: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-entrance: cubic-bezier(0, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 1, 1);
+
+  /* overlay 색·그림자 — primitive 값은 :root 만 */
+  --overlay: rgba(11, 19, 43, 0.56);
+  --shadow-overlay: 0 18px 48px rgba(11, 19, 43, 0.18);
+  --z-overlay: 60;
+  --z-modal: 80;
+
   /* ── 타이포 ──────────────────────────────────────── */
-  --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -97,19 +113,32 @@ body {
 .field::placeholder { color: var(--content-tertiary); }
 .field:focus { outline: 2px solid var(--border-focus); outline-offset: -1px; }
 .field[disabled] { background: var(--surface-subtle); color: var(--content-disabled); }
+.field.error { border-color: var(--danger); }
+.field.success { border-color: var(--success); }
+.helper.error { color: var(--danger); }
+.helper.success { color: var(--success); }
 textarea.field { height: auto; min-height: 120px; padding: 12px var(--field-pad); resize: vertical; }
 .field-row { margin-bottom: 20px; }
 
-/* 버튼 */
+/* 버튼 — 마이크로 100ms (semantic.motion.feedback). 클래스 이름은 시안을 유지한다. */
 .btn { height: var(--btn-h); padding: 0 var(--btn-pad); border-radius: var(--btn-radius);
-  border: 1px solid transparent; font: inherit; font-weight: 600; cursor: pointer; }
+  border: 1px solid transparent; font: inherit; font-weight: 600; cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-standard),
+              border-color var(--dur-fast) var(--ease-standard),
+              color var(--dur-fast) var(--ease-standard); }
+.btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 .btn.primary { background: var(--action); color: var(--action-text); }
-.btn.primary:hover { background: var(--action-hover); }
+.btn.primary:hover:not(:disabled) { background: var(--action-hover); }
+.btn.primary:active:not(:disabled) { background: var(--action-pressed); }
 .btn.secondary { background: var(--surface); color: var(--action-secondary-text); border-color: var(--action); }
+.btn.secondary:hover:not(:disabled) { background: var(--surface-selected); }
 .btn.quiet { background: transparent; color: var(--content-secondary); }
+.btn.quiet:hover:not(:disabled) { background: var(--surface-subtle); }
 .btn.danger { background: var(--surface); color: var(--danger); border-color: var(--danger); }
-.btn[disabled] { background: var(--action-disabled); color: var(--action-disabled-text);
-  border-color: transparent; cursor: not-allowed; }
+.btn.danger:hover:not(:disabled) { background: var(--danger-surface); }
+.btn[disabled],
+.btn[aria-busy="true"] { background: var(--action-disabled); color: var(--action-disabled-text);
+  border-color: transparent; cursor: not-allowed; pointer-events: none; }
 .btn-row { display: flex; gap: 12px; align-items: center; }
 
 /* 배지 · 칩 */

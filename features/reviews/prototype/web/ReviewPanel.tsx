@@ -19,7 +19,6 @@ export function ReviewPanel({ view = "empty" }: ReviewPanelProps) {
         <div className="panel-head">
           <h2 className="title">리뷰</h2>
         </div>
-        <p className="status-copy">로딩</p>
         <p className="helper">리뷰 화면을 불러오는 중입니다.</p>
         <div className="skeleton" />
         <div className="skeleton" />
@@ -34,10 +33,10 @@ export function ReviewPanel({ view = "empty" }: ReviewPanelProps) {
           <h2 className="title">리뷰</h2>
         </div>
         <p className="notice danger" role="alert">
-          LOAD_FAILED
+          리뷰를 불러오지 못했습니다
         </p>
         <p className="status-copy">
-          리뷰를 불러오지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.
+          네트워크를 확인한 뒤 다시 시도해 주세요.
         </p>
         <div className="btn-row">
           <button type="button" className="btn primary">
@@ -108,6 +107,9 @@ export function ReviewPanel({ view = "empty" }: ReviewPanelProps) {
           <span className="badge success">제출됨</span>
         </div>
         <p className="status-copy">제출한 리뷰는 다시 작성할 수 없습니다.</p>
+        <p className="helper">
+          상대가 없으면 첫 리뷰 후 14일이 지나면 이 리뷰가 공개됩니다.
+        </p>
         <dl className="facts">
           <dt>별점</dt>
           <dd className="money">5</dd>
@@ -135,6 +137,9 @@ export function ReviewPanel({ view = "empty" }: ReviewPanelProps) {
       </div>
       <p className="notice info" role="status">
         상대 리뷰는 아직 없습니다
+      </p>
+      <p className="helper">
+        상대가 없으면 첫 리뷰 후 14일이 지나면 이 리뷰가 공개됩니다.
       </p>
       <div className="btn-row">
         <button type="submit" className="btn primary">

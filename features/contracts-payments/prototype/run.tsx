@@ -836,9 +836,9 @@ async function main() {
     const create = htmlOf(React.createElement(AgreementPanel));
     hasText("규칙 17: 합의 필수 금액", create, "금액");
     hasText("규칙 17: 합의 필수 제안하기", create, "제안하기");
-    hasText("규칙 17: 합의 로딩", htmlOf(React.createElement(AgreementPanel, { view: "loading" })), "로딩");
+    hasText("규칙 17: 합의 로딩", htmlOf(React.createElement(AgreementPanel, { view: "loading" })), "불러오는 중");
     const loadFailed = htmlOf(React.createElement(AgreementPanel, { view: "loadFailed" }));
-    hasText("규칙 17: 합의 LOAD_FAILED", loadFailed, "LOAD_FAILED");
+    hasText("규칙 17: 합의 LOAD_FAILED", loadFailed, "불러오지 못했습니다");
     hasText("규칙 17: 합의 LOAD_FAILED 재시도", loadFailed, "다시 시도");
     hasText(
       "규칙 17: 합의 409 재조회",
@@ -860,6 +860,9 @@ async function main() {
     hasText("규칙 17: 서명 프로젝트 제목", sign, "프로젝트 제목");
     hasText("규칙 17: 서명 합의 금액", sign, "합의 금액");
     hasText("규칙 17: 서명하기", sign, "서명하기");
+    const signFailed = htmlOf(React.createElement(ContractSignPanel, { view: "loadFailed" }));
+    hasText("규칙 17: 서명 LOAD_FAILED", signFailed, "불러오지 못했습니다");
+    hasText("규칙 17: 서명 LOAD_FAILED 재시도", signFailed, "다시 시도");
     const signCanceled = htmlOf(React.createElement(ContractSignPanel, { view: "canceled" }));
     hasText("규칙 17: 서명 취소 안내", signCanceled, "프로젝트가 취소되었습니다");
     if (!signCanceled.includes("서명하기")) {
@@ -870,9 +873,14 @@ async function main() {
 
     const checkout = htmlOf(React.createElement(PaymentPanel));
     hasText("규칙 17: 결제 금액", checkout, "결제 금액");
+    hasText("규칙 17: 결제 플랫폼 수수료", checkout, "플랫폼 수수료");
+    hasText("규칙 17: 결제 정산액", checkout, "정산액");
     hasText("규칙 17: 결제하기", checkout, "결제하기");
+    const payFailed = htmlOf(React.createElement(PaymentPanel, { view: "failed" }));
+    hasText("규칙 17: 결제 실패", payFailed, "결제 실패");
+    hasText("규칙 17: 결제 다시 결제", payFailed, "다시 결제");
 
-    const allHtml = [create, canceled, respond, sign, signCanceled, checkout].join("\n");
+    const allHtml = [create, canceled, respond, sign, signFailed, signCanceled, checkout, payFailed].join("\n");
     if (!/#[0-9A-Fa-f]{6}/.test(allHtml)) {
       pass("규칙 17: 화면에 원시 색상값 없음");
     } else {
@@ -1152,12 +1160,12 @@ async function main() {
     }
   }
 
-  // 규칙 22 — Increment 백로그 UX. 합의·서명은 규칙 17, 결제는 PaymentCheckoutPanel만.
+  // 규칙 22 — Increment 백로그 UX. 합의·서명은 규칙 17, 결제는 PaymentPanel.
   {
     const React = await import("react");
     const { renderToStaticMarkup } = await import("react-dom/server");
     const { AgreementPanel } = await import("./web/AgreementPanel");
-    const { PaymentCheckoutPanel } = await import("./web/PaymentCheckoutPanel");
+    const { PaymentPanel } = await import("./web/PaymentPanel");
 
     function htmlOf(node: React.ReactElement): string {
       return renderToStaticMarkup(node);
@@ -1170,7 +1178,7 @@ async function main() {
     hasText(
       "규칙 22: 로딩",
       htmlOf(React.createElement(AgreementPanel, { view: "loading" })),
-      "로딩",
+      "불러오는 중",
     );
     hasText(
       "규칙 22: LOAD_FAILED 재시도",
@@ -1188,8 +1196,8 @@ async function main() {
     } else {
       fail("규칙 22: 취소 후 변경 숨김", canceled);
     }
-    hasText("규칙 17: 결제 필수 결제 금액", htmlOf(React.createElement(PaymentCheckoutPanel)), "결제 금액");
-    hasText("규칙 17: 결제 필수 결제하기", htmlOf(React.createElement(PaymentCheckoutPanel)), "결제하기");
+    hasText("규칙 17: 결제 필수 결제 금액", htmlOf(React.createElement(PaymentPanel)), "결제 금액");
+    hasText("규칙 17: 결제 필수 결제하기", htmlOf(React.createElement(PaymentPanel)), "결제하기");
   }
 
   console.log(`PASS ${passCount} / FAIL ${failCount}`);

@@ -8,9 +8,11 @@
   방향당 1건·수정 불가 (I-23). 단독 공개 14일은 ASSUMPTION.
 - api-contract.md: `POST/GET .../reviews`, `GET .../review-summary`. PATCH 없음.
 - prototype/: 공개 API Mock(`createReviewApiMock`) + `run.tsx`.
-  `npx tsx prototype/run.tsx` → PASS 38.
+  `npx tsx prototype/run.tsx` → PASS 40.
 - design/: high-fi 1화면 (`high-fi.html`). 패널만 (앱 셸 없음). 라우트 `/projects/:projectId/reviews`.
   low-fi는 `low-fi.html`에 남김.
+  오버레이·reduced-motion은 `design/panel.css` (앱 셸·stagger 없음).
+  빈·제출 화면에 14일 단독 공개 안내를 넣었다. 일수는 ASSUMPTION이다.
 
 ## 교차 담당
 - 유동우: `transactionStatus` 읽기 (`COMPLETED` · `CANCELED`).
@@ -30,3 +32,6 @@
 | 2026-08-31 | high-fi 리뷰 패널. 앱 셸 없음. 필수 요소·상태 분기 유지 |
 | 2026-08-31 | 규칙 12: `publishReviewRequested` 발행 / 발송은 최윤석 |
 | 2026-08-31 | 오민혁 회신: `getPublishedRatingAggregate`. 소비는 오민혁. run.tsx PASS 38 |
+| 2026-09-02 | 레퍼런스 오버레이·reduced-motion만 패널에 이식. 앱 셸·카드 그리드 없음 |
+| 2026-09-02 | 토큰 정본 hex·Pretendard. 별점 입력 오류 예. 메타 리듬 데모 제거 |
+| 2026-09-02 | 빈·제출 화면에 14일 단독 공개 안내. ASSUMPTION 유지 |
