@@ -75,6 +75,13 @@ export type GetContractResponse = {
   signedAt: string | null;
 };
 
+export type GetPaymentResponse = {
+  paymentId: string;
+  orderId: string;
+  amount: number;
+  status: "READY" | "PENDING" | "PAID" | "FAILED";
+};
+
 export type InvalidateAgreementInput = {
   cancellationId: string;
   actorUserId: string;
