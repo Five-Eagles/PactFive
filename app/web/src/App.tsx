@@ -22,25 +22,6 @@ setUnauthorizedHandler(() => {
   window.location.assign(AUTH_ROUTES.login);
 });
 
-function HomePage() {
-  return (
-    <PageBody>
-      <h1 className="h2">프리랜서와 의뢰인을 잇습니다</h1>
-      <p className="helper" style={{ marginBottom: 24 }}>
-        프로젝트를 등록하고 지원자를 만나거나, 관심 있는 프로젝트를 찾아 지원해 보세요.
-      </p>
-      <div className="btn-row">
-        <Link to={PROJECT_ROUTES.browse}>
-          <Button variant="primary">프로젝트 찾기</Button>
-        </Link>
-        <Link to={PROJECT_ROUTES.register}>
-          <Button variant="secondary">프로젝트 등록</Button>
-        </Link>
-      </div>
-    </PageBody>
-  );
-}
-
 /**
  * 아직 설계/통합되지 않은 기능 라우트 — 경로 slug는 각 기능 폴더명을 그대로 kebab-case로 쓴다.
  * 실제 화면 구현이 생기면 이 배열에서 빼고 해당 기능의 `{도메인}.routes.tsx`로 옮긴다.
@@ -125,11 +106,12 @@ function AppRoutes() {
   return (
     <AppShell items={navItems} homeHref={APP_ROUTES.home}>
       <Routes>
-        <Route path={APP_ROUTES.home} element={<HomePage />} />
-
         {authRoutes}
 
         {projectRoutes({
+          // 대표페이지는 project-management 화면이다. 다만 `/` 라는 **주소**는
+          // 앱 껍데기(로고 링크)와 "없는 페이지"가 같이 쓰므로 앱이 계속 소유한다.
+          homePath: APP_ROUTES.home,
           // 내 프로젝트 목록은 의뢰인 것만 의미가 있다.
           clientId: viewer?.role === 'CLIENT' ? viewer.userId : null,
           renderBookmark,
