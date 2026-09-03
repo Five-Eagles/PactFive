@@ -82,3 +82,26 @@ Supabase가 아니라 Kakao 자체 정책이므로 미리 확인해야 한다.
 다시 써야 한다 (아직 미반영).
 
 (근거: ADR-0007·ADR-0008, 2026-08-24)
+
+## 배포 오리진 — Vercel Rewrite로 동일 출처화 (2026-09-03 확정)
+
+`app/web`·`app/server`는 각각 Vercel 프로젝트지만, 커스텀 도메인을 쓰지 않고 Vercel이
+자동으로 주는 `*.vercel.app`을 그대로 쓰기로 했다. `*.vercel.app`은 Public Suffix List에
+있어 두 프로젝트의 도메인이 **서로 다른 사이트**로 취급된다 — `__Host-pactfiveRefreshToken`
+같은 `__Host-` 쿠키는 그 상태로는 브라우저가 크로스 사이트 요청에 안정적으로 실어주지
+않는다(근거·기각한 대안: `docs/decisions/0013-web-origin-same-origin-rewrite.md`).
+
+그래서 `app/web/vercel.json`에 `/api/*` → `app/server` 배포 URL로 넘기는 rewrite를 둔다.
+브라우저는 항상 `app/web` 도메인에만 요청하고, Vercel 엣지가 서버 쪽에서 `app/server`로
+프록시한다 — 로컬 개발의 `app/web/vite.config.ts` `/api` 프록시(→ `localhost:3000`)와
+같은 사고방식을 배포 환경까지 그대로 유지하는 것이다.
+
+**아직 안 끝난 부분**: `app/web/vercel.json`의 `destination`은 자리표시자다. Vercel
+프로젝트를 실제로 만들어 `app/server`의 실제 배포 URL을 알아야 채울 수 있다 — 개발
+배포(Preview)·프로덕션 배포 각각 실제 URL로 교체해야 한다.
+
+`WEB_ORIGIN` 환경 변수(CORS 허용 목록 + 이메일 인증 리다이렉트 URL의 기반, `app.ts` 참고)는
+이 rewrite와 별개로 계속 쓴다 — rewrite는 브라우저 트래픽을 동일 출처로 만들 뿐, `app/server`를
+직접 호출하는 경로(수동 테스트 등)에 대한 방어는 여전히 CORS 허용 목록이 한다. 값은 3단계로
+채운다 — 로컬은 `.env`(`http://localhost:5174`), 개발/프로덕션 배포는 커밋되지 않는 Vercel
+프로젝트 자체의 환경 변수로 등록한다(`.env.example`에는 값을 넣지 않는다).
