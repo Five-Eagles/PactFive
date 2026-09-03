@@ -239,6 +239,9 @@
 
 당사자. 최신 round + 합의 상태 + 있으면 `contractId`·`contractStatus`.
 합의가 없으면 200이고 `offer`·`agreementId`·`contractId`는 `null`(빈 생성).
+AGR-01 우측 컬럼·거절 분기: `projectTitle`, `recruitmentStatus`, `transactionStatus`,
+`canceledAt`, `applicationId`. `reopened`/`notReopenedReason`은 합의 `REJECTED`일 때만
+채우고, 그 외는 `null`.
 
 ### POST /api/v1/projects/:projectId/negotiation-offers/:offerId/accept — `acceptNegotiationOffer`
 
@@ -370,6 +373,13 @@ type CurrentNegotiationOfferResponse = {
   offer: { offerId: string; round: number; amount: number; currency: 'KRW'; offeredByUserId: string } | null;
   contractId: string | null;
   contractStatus: ContractStatus | null;
+  projectTitle: string;
+  recruitmentStatus: RecruitmentStatus;
+  transactionStatus: ProjectTransactionStatus;
+  canceledAt: string | null;
+  applicationId: string | null;
+  reopened: boolean | null;
+  notReopenedReason: NotReopenedReason | null;
 };
 type AcceptNegotiationOfferInput = { expectedRound: number };
 type RejectNegotiationOfferInput = { reasonCode: string; reason?: string };
