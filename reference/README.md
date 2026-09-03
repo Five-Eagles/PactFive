@@ -41,6 +41,26 @@ base64로 욱여넣지 않는다"고 못박아 둔 것과 같은 문제다(2026-
 **필요한 화면만 골라 읽는다.** 목록류 화면을 만든다면 `browse.html` 하나만 읽으면 되고,
 7장을 전부 한 번에 읽을 필요는 거의 없다.
 
+### 어떤 화면을 만들 때 어떤 파일을 보는가
+
+| 지금 만드는 화면 유형 | 볼 파일 | 정적 파일만 읽어도 되는가 | 이 파일에서 확인할 패턴 |
+|---|---|---|---|
+| 대표·랜딩류 (히어로·배너·카테고리 목록) | `main.html` | **된다** — 정적 마크업이 가장 많다(약 11,000자) | `.hero`·`.banner`·`.cats__grid`·`.grid3`/`.grid4` |
+| 목록·브라우즈류 (필터·정렬·카드 목록) | `browse.html` | **대체로 된다** — 필터 바·카드 그리드 셸이 정적으로 있다 | `.card.filters`·`.sorts`·`.grid` 카드 그리드 |
+| 상세류 (단일 항목 상세, 2단 레이아웃) | `detail.html` | **CSS 규칙만** — 실제 마크업 조합은 `demo/engine.js`가 런타임에 채운다 | `.kv`/`.kv__k`/`.kv__v`(키-값 행), `.card.client`/`.card.safety`/`.card.apply` |
+| 마이페이지·대시보드류 (탭 전환) | `mypage.html` | **CSS 규칙만** — `demo/manage.js`가 채운다 | `.tabs`, `.grid3` |
+| 다단계 입력 폼 (등록·신청 등) | `register.html` | **CSS 규칙만** — `demo/register.js`가 채운다 | `.field`/`.two`/`.help`, sessionStorage 임시 저장(아래 원본 README "등록 3단계" 절 참고) |
+| 단일 항목 수정 폼 | `edit.html` | **거의 안 된다** — `<main>`이 완전히 빈 셸이다 | `.field`/`.two`/`.crumb`/`.note`, 잠긴 필드는 숨기지 않고 이유를 말하는 패턴(SCR-B06) |
+| 상태 전환·재개 액션 흐름 | `reopen.html` | **거의 안 된다** — `<main>`이 완전히 빈 셸이다 | `.field`/`.two`/`.crumb`/`.note`, "왜 이 화면이 떴는지" 먼저 설명하는 패턴(SCR-B10) |
+
+**"CSS 규칙만"·"거의 안 된다"로 표시된 파일**은 정적 파일에 클래스별 CSS 값(간격·그리드 열
+수 등)은 있지만, 그 클래스들이 실제로 어떻게 겹쳐 쓰이는지는 `demo/` 안의 JS 엔진이 브라우저에서
+렌더링해야 보인다 — 이 JS 엔진 파일은 `reference/`에 옮겨 두지 않았다(용도가 project-management
+고유의 데이터 로직이라 다른 기능에 그대로 참고할 게 아니기도 하고, 옮기면 또 파일이 늘어난다).
+**실제 조합을 눈으로 봐야 한다면 `project-management-bundle.html`을 브라우저로 열어 해당
+화면으로 이동해 확인한다** — 이건 사람이 하는 일이다. AI가 필요한 건 대부분 클래스별 CSS 값
+(간격·정렬·그리드 규칙)이고, 이건 정적 파일의 `<style>` 블록만으로 충분한 경우가 많다.
+
 ## project-management-bundle.html (한 파일 — 사람이 보는 대상)
 
 `demo/build-bundle.js`가 원본 10장(위 7장 + `experts.html`·`expert.html`·`guide.html`)을
