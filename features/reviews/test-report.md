@@ -30,6 +30,7 @@
 
 - `prototype/`은 HTTP·DB 없는 Mock이다. `review.repository.ts`는 호출하면 not implemented다.
 - 단독 공개 14일은 ASSUMPTION (PRD에 기간 없음).
+- 빈·제출 14일 안내 문구는 시안(high-fi 필수 표)과 ReviewPanel이 같다. 일수는 ASSUMPTION.
 - `REVIEW_REQUESTED` 알림 발송은 팀장. 발행은 contracts-payments 포트.
 - `REVIEW_CREATED`는 발행만 한다. 합계는 `getPublishedRatingAggregate`. users UPDATE는 오민혁.
 - `app/` 미통합. 통합 요청: `review/teamlead-review-panel-api-2026-09-03.md`.

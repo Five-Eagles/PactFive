@@ -39,3 +39,4 @@
 | 2026-09-03 | 회신 대기 중 재실측. `run.tsx` PASS 40. repository not implemented는 유지 |
 | 2026-09-03 | 팀장 통합 요청 1장 (`review/teamlead-review-panel-api-2026-09-03.md`) |
 | 2026-09-03 | `REVIEW_REQUESTED` 발송 담당을 팀장으로. applications 손잡이는 조준영 확정 |
+| 2026-09-03 | 시안↔패널 14일 안내 문구 일치. ASSUMPTION 유지 |
