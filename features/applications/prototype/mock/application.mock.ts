@@ -1,3 +1,7 @@
+import type {
+  AcceptProjectApplicationPort,
+  AcceptProjectApplicationResult,
+} from "../server/accept-project-application.port";
 import {
   MOCK_CLIENT_USER_ID,
   MOCK_FREELANCER_USER_ID,
@@ -12,14 +16,15 @@ import {
   rejectPendingApplications,
   type ApplicationServiceDeps,
 } from "../server/application.service";
-import type {
-  ApplicationNotificationEvent,
-  ApplicationNotificationPort,
-  ApplicationRow,
-  ApplicationStore,
-  CreateApplicationInput,
-  ProjectApplicationContext,
-  RejectPendingApplicationsResult,
+import {
+  ApplicationApiError,
+  type ApplicationNotificationEvent,
+  type ApplicationNotificationPort,
+  type ApplicationRow,
+  type ApplicationStore,
+  type CreateApplicationInput,
+  type ProjectApplicationContext,
+  type RejectPendingApplicationsResult,
 } from "../server/application.types";
 
 function createMemoryStore(): ApplicationStore {
@@ -155,13 +160,68 @@ function createRecordingNotifications(events: ApplicationNotificationEvent[]): A
   };
 }
 
+function createStandInProjectApplications(store: ApplicationStore): AcceptProjectApplicationPort {
+  return {
+    async acceptProjectApplication(projectId, applicationId) {
+      const project = store.getProject(projectId);
+      if (!project) {
+        throw new ApplicationApiError("PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다.");
+      }
+      if (project.acceptedApplicationId === applicationId) {
+        return {
+          projectId,
+          acceptedApplicationId: applicationId,
+          recruitmentStatus: "CLOSED",
+          transactionStatus: "CONTRACT_PENDING",
+          alreadyProcessed: true,
+        };
+      }
+      if (project.acceptedApplicationId && project.acceptedApplicationId !== applicationId) {
+        throw new ApplicationApiError(
+          "PROJECT_TRANSITION_CONFLICT",
+          "다른 지원자가 먼저 수락되었습니다",
+        );
+      }
+      if (project.recruitmentStatus !== "OPEN" || project.transactionStatus !== "NONE") {
+        throw new ApplicationApiError(
+          "PROJECT_TRANSITION_CONFLICT",
+          "다른 지원자가 먼저 수락되었습니다",
+        );
+      }
+      // 모집 마감·계약 대기만 심고, 잔여 거절은 호출자가 한다.
+      store.saveProject({
+        ...project,
+        recruitmentStatus: "CLOSED",
+        transactionStatus: "CONTRACT_PENDING",
+        acceptedApplicationId: applicationId,
+      });
+      const result: AcceptProjectApplicationResult = {
+        projectId,
+        acceptedApplicationId: applicationId,
+        recruitmentStatus: "CLOSED",
+        transactionStatus: "CONTRACT_PENDING",
+        alreadyProcessed: false,
+      };
+      return result;
+    },
+  };
+}
+
+export type ApplicationApiMockOptions = {
+  projectApplications?: AcceptProjectApplicationPort;
+};
+
 /** Increment 공개 API 스탠드인. 발송하지 않는다. */
-export function createApplicationApiMock(nowIso: string = MOCK_NOW) {
+export function createApplicationApiMock(
+  nowIso: string = MOCK_NOW,
+  options: ApplicationApiMockOptions = {},
+) {
   const store = createMemoryStore();
   const published: ApplicationNotificationEvent[] = [];
   const deps: ApplicationServiceDeps = {
     store,
     notifications: createRecordingNotifications(published),
+    projectApplications: options.projectApplications ?? createStandInProjectApplications(store),
     now: () => nowIso,
   };
 

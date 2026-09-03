@@ -10,7 +10,11 @@ import {
   MOCK_OUTSIDER_USER_ID,
 } from "./server/application.constants";
 import { createApplicationApiMock } from "./mock/application.mock";
-import { isApplicationApiError, type ApplicationApiErrorCode } from "./server/application.types";
+import {
+  ApplicationApiError,
+  isApplicationApiError,
+  type ApplicationApiErrorCode,
+} from "./server/application.types";
 
 function ensurePackagesInstalled(): void {
   const here = path.dirname(fileURLToPath(import.meta.url));
@@ -111,6 +115,49 @@ async function main() {
       pass("규칙 3: 수락 후 잔여 자동 거절");
     } else {
       fail("규칙 3: 수락 후 잔여 자동 거절", { accepted, listed, events: api.getPublishedEvents() });
+    }
+  }
+
+  // 규칙 3 — C-01 실패 시 잔여 거절·알림 금지
+  {
+    const api = createApplicationApiMock(MOCK_NOW, {
+      projectApplications: {
+        async acceptProjectApplication() {
+          throw new ApplicationApiError(
+            "PROJECT_TRANSITION_CONFLICT",
+            "다른 지원자가 먼저 수락되었습니다",
+          );
+        },
+      },
+    });
+    const first = await api.createApplication("prj_open", MOCK_FREELANCER_USER_ID, APPLY_BODY, "idem-c01-a");
+    const second = await api.createApplication("prj_open", MOCK_FREELANCER_2_USER_ID, APPLY_BODY, "idem-c01-b");
+    let threw = false;
+    try {
+      await api.acceptApplication(first.body.applicationId, MOCK_CLIENT_USER_ID);
+    } catch (err) {
+      threw = isApplicationApiError(err) && err.body.error.code === "PROJECT_TRANSITION_CONFLICT";
+      if (!threw) fail("규칙 3: C-01 실패 시 잔여 유지", err);
+    }
+    if (!threw) {
+      fail("규칙 3: C-01 실패 시 잔여 유지", "오류가 나지 않았습니다");
+    } else {
+      const listed = await api.listProjectApplications("prj_open", MOCK_CLIENT_USER_ID);
+      const project = api.getProject("prj_open");
+      const events = api.getPublishedEvents();
+      const remainingPending = listed.items.every((item) => item.status === "PENDING");
+      const noAcceptNotify = !events.some(
+        (event) => event.type === "APPLICATION_ACCEPTED" || event.type === "APPLICATION_AUTO_REJECTED",
+      );
+      const projectUntouched =
+        project?.recruitmentStatus === "OPEN" &&
+        project.acceptedApplicationId === null &&
+        project.pendingApplicationCount === 2;
+      if (remainingPending && noAcceptNotify && projectUntouched) {
+        pass("규칙 3: C-01 실패 시 잔여 유지");
+      } else {
+        fail("규칙 3: C-01 실패 시 잔여 유지", { listed, project, events });
+      }
     }
   }
 

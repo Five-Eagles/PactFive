@@ -1,4 +1,5 @@
 export { createApplicationApiMock } from "./mock/application.mock";
+export type { ApplicationApiMockOptions } from "./mock/application.mock";
 export {
   MOCK_CLIENT_USER_ID,
   MOCK_FREELANCER_2_USER_ID,
@@ -14,3 +15,7 @@ export type {
   RejectPendingApplicationsInput,
   RejectPendingApplicationsResult,
 } from "./server/application.types";
+export type {
+  AcceptProjectApplicationPort,
+  AcceptProjectApplicationResult,
+} from "./server/accept-project-application.port";

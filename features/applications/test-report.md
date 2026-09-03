@@ -5,7 +5,7 @@
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 30, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 31, FAIL 개수: 0)
 
 ## spec.md 규칙별 확인
 
@@ -13,7 +13,7 @@
 |---|---|---|
 | 1 OPEN만 생성 | `run.tsx` OPEN 작성 · 마감 거부 | 통과 |
 | 2 프리랜서 1건 | 같은 키 멱등 200 · 다른 본문 409 | 통과 |
-| 3 수락 순서 | 수락 후 잔여 `AUTO_OTHER_ACCEPTED` · ACCEPTED 발행 | 통과 |
+| 3 수락 순서 | 수락 후 잔여 `AUTO_OTHER_ACCEPTED` · ACCEPTED 발행. C-01 실패 시 PENDING 유지·알림 없음 | 통과 |
 | 4 C-01 멱등 | 같은 지원 재시도 200 · 다른 지원 409 | 통과 |
 | 5 OPEN 아닌 생성·수락 | CLOSED 수락 409 · SCHEDULED 생성 409 | 통과 |
 | 6 손잡이 | `CONTRACT_PENDING` + acceptedApplicationId · pending 0 | 통과 |
@@ -38,8 +38,10 @@
 
 - `prototype/`은 HTTP·DB 없는 Mock이다. `application.repository.ts`는 호출하면 not implemented다.
 - 알림은 배열에만 쌓는다. 발송은 notifications.
-- `app/` 미통합. C-01 실제 HTTP는 유동우 포트 Mock이다.
+- `app/` 미통합. 통합 요청: `review/teamlead-public-api-panels-2026-09-03.md`.
+  C-01 실제 HTTP는 유동우 포트 Mock이다. 실패 시 거절·알림 금지는 Mock만 검증.
 
 ## 팀장에게 물어봐야 하는 것
 
 - `app/` 통합 시점. 조준영은 `features/applications/` DoD만 닫는다.
+  요청 전문: `review/teamlead-public-api-panels-2026-09-03.md`.

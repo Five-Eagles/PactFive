@@ -1,3 +1,4 @@
+import type { AcceptProjectApplicationPort } from "./accept-project-application.port";
 import {
   ApplicationApiError,
   type AcceptApplicationResponse,
@@ -16,6 +17,7 @@ import {
 export type ApplicationServiceDeps = {
   store: ApplicationStore;
   notifications: ApplicationNotificationPort;
+  projectApplications: AcceptProjectApplicationPort;
   now: () => string;
 };
 
@@ -223,15 +225,16 @@ export async function acceptApplication(
       "다른 지원자가 먼저 수락되었습니다",
     );
   }
+  // ① C-01이 성공한 뒤에만 잔여를 거절한다.
+  await deps.projectApplications.acceptProjectApplication(row.projectId, applicationId);
   const nowIso = deps.now();
-  const accepted: ApplicationRow = {
+  deps.store.saveApplication({
     ...row,
     status: "ACCEPTED",
     rejectionType: null,
     decidedAt: nowIso,
-  };
-  deps.store.saveApplication(accepted);
-  let pendingLeft = project.pendingApplicationCount - 1;
+  });
+  const autoRejectedIds: string[] = [];
   for (const other of deps.store.getByProject(row.projectId)) {
     if (other.applicationId === applicationId || other.status !== "PENDING") continue;
     deps.store.saveApplication({
@@ -240,22 +243,26 @@ export async function acceptApplication(
       rejectionType: "AUTO_OTHER_ACCEPTED",
       decidedAt: nowIso,
     });
-    pendingLeft -= 1;
+    autoRejectedIds.push(other.applicationId);
+  }
+  const projectAfter = requireProject(deps.store, row.projectId);
+  deps.store.saveProject({
+    ...projectAfter,
+    pendingApplicationCount: Math.max(
+      projectAfter.pendingApplicationCount - 1 - autoRejectedIds.length,
+      0,
+    ),
+  });
+  deps.store.setIdempotency(acceptKey, applicationId, applicationId);
+  // ③ 잔여 거절이 끝난 뒤에만 알림을 발행한다.
+  for (const rejectedId of autoRejectedIds) {
     await publish(deps, {
       type: "APPLICATION_AUTO_REJECTED",
       projectId: row.projectId,
-      applicationId: other.applicationId,
+      applicationId: rejectedId,
       occurredAt: nowIso,
     });
   }
-  deps.store.saveProject({
-    ...project,
-    recruitmentStatus: "CLOSED",
-    transactionStatus: "CONTRACT_PENDING",
-    acceptedApplicationId: applicationId,
-    pendingApplicationCount: Math.max(pendingLeft, 0),
-  });
-  deps.store.setIdempotency(acceptKey, applicationId, applicationId);
   await publish(deps, {
     type: "APPLICATION_ACCEPTED",
     projectId: row.projectId,
