@@ -35,3 +35,4 @@
 | 2026-09-02 | 레퍼런스 오버레이·reduced-motion만 패널에 이식. 앱 셸·카드 그리드 없음 |
 | 2026-09-02 | 토큰 정본 hex·Pretendard. 별점 입력 오류 예. 메타 리듬 데모 제거 |
 | 2026-09-02 | 빈·제출 화면에 14일 단독 공개 안내. ASSUMPTION 유지 |
+| 2026-09-03 | 회신 대기 중 재실측. `run.tsx` PASS 40. repository not implemented는 유지 |
