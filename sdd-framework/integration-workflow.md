@@ -93,7 +93,11 @@
 
 `ux-philosophy/AGENTS.md`·`sdd-framework/feature-workflow.md`·`design-system/design-tokens.md`
 헤더·`app/web/AGENTS.md` 정본 표, 이 넷이 목록·상세류 화면의 구현 예시로
-`reference/project-management-bundle.html`(리포 루트의 **고정 스냅샷**)을 가리킨다.
+`reference/project-management/*.html`(리포 루트의 **고정 스냅샷**, 개별 파일 7장)을
+가리킨다. 같은 폴더의 `project-management-bundle.html`(화면 10장을 base64 이미지까지
+인라인한 400KB 단일 파일)도 같은 시점에 같이 고정해 두지만, 이건 사람이 브라우저로
+인터랙션을 확인할 때만 쓰는 것이고 AI가 구조 참고용으로 읽는 대상이 아니다(개별 파일이 훨씬
+가볍다 — `reference/README.md` 참고).
 
 **처음엔 `features/project-management/design/reference-proposal/`의 원본 파일을 직접
 가리켰다.** 원본은 담당자(유동우)가 계속 갱신하는 살아있는 파일이라 최신성은 보장되지만,
@@ -105,10 +109,13 @@
 얼리기 전까지 그대로다. 팀이 "지금 버전이 오래돼 실제 구현과 너무 벌어졌다"고 판단하면
 아래 절차로 다시 얼린다.
 
-- [ ] `node features/project-management/design/reference-proposal/demo/build-bundle.js`로
-      원본 최신 상태에서 `bundle.html`을 다시 만든다
-- [ ] 새로 만든 파일을 `reference/project-management-bundle.html`에 덮어쓴다 (원본은 건드리지
-      않는다)
+- [ ] 원본 `features/project-management/design/reference-proposal/`에서 확정 7장
+      (`main.html`·`browse.html`·`detail.html`·`register.html`·`mypage.html`·`edit.html`·
+      `reopen.html`) + `_tokens.css` + 그 화면들이 실제로 쓰는 이미지를
+      `reference/project-management/`에 다시 복사한다 (원본은 건드리지 않는다)
+- [ ] (선택) `node features/project-management/design/reference-proposal/demo/build-bundle.js`로
+      `bundle.html`도 다시 만들어 `reference/project-management-bundle.html`에 덮어쓴다 —
+      사람이 인터랙션을 확인할 용도라 매번 갱신이 필수는 아니다
 - [ ] `reference/README.md`의 "고정 시점"·"고정 시점 커밋" 표를 갱신한다
 - [ ] `reference/README.md`의 "범위" 표 — `experts.html`·`expert.html`·`guide.html` 3장이
       그사이 ERD·PRD 근거가 생기고 담당자가 정해졌는지 확인해 반영한다 (아직이면 그대로 둔다)

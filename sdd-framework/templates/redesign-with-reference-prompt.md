@@ -1,9 +1,11 @@
 # 기존 구현 화면을 레퍼런스에 맞춰 재설계하는 프롬프트
 
 > 용도: `design/*.html`·`prototype/web/*.tsx`를 이미 만들어 둔 기능 담당자가, 새로 고정된
-> 공통 레퍼런스(`reference/project-management-bundle.html`)에 맞춰 **이미 만든 화면**을
-> 다시 다듬을 때 씁니다. 처음부터 새 화면을 설계할 때 쓰는 프롬프트가 아닙니다 — 화면이 이미
-> 있고, 그걸 프로젝트 전체와 같은 룩앤필로 맞추는 것이 목적입니다.
+> 공통 레퍼런스(`reference/project-management/*.html`)에 맞춰 **이미 만든 화면**을 다시
+> 다듬을 때 씁니다. 처음부터 새 화면을 설계할 때 쓰는 프롬프트가 아닙니다 — 화면이 이미
+> 있고, 그걸 프로젝트 전체와 같은 룩앤필로 맞추는 것이 목적입니다. (`reference/`에
+> `project-management-bundle.html`도 있지만 그건 사람이 브라우저로 인터랙션을 확인할 때
+> 쓰는 400KB짜리 단일 파일입니다 — 이 프롬프트는 그 파일을 읽게 하지 않습니다.)
 >
 > 사용법: 아래 코드 블록을 복사해서 담당 기능의 AI 툴(Claude, Cursor, Codex 등)에 그대로
 > 붙여넣습니다. `{기능명}`만 자신의 기능(예: `contracts-payments`, `reviews`,
@@ -17,10 +19,15 @@
 ## 0. 먼저 읽으세요 (실제로 파일을 열어서 확인하세요 — 이 프롬프트의 설명만으로 판단하지 마세요)
 
 1. `reference/README.md` — 레퍼런스가 무엇이고, 왜 고정본인지, 어디까지가 확정 참고 대상인지
-2. `reference/project-management-bundle.html` — 더블클릭하면 브라우저에서 바로 열립니다.
-   화면 10장이 들어 있지만 **확정 참고 대상은 7장뿐**입니다(main·browse·detail·register·
-   mypage·edit·reopen). `experts`·`expert`·`guide` 3장은 ERD·PRD 근거가 없는 향후 검토
-   대상이니 참고하지 마세요 — `reference/README.md`의 범위 표에 표시돼 있습니다.
+2. `reference/project-management/*.html` — **필요한 화면 파일만 골라서 여세요.** 예를 들어
+   목록류 화면을 만든다면 `browse.html`만 열면 됩니다. 여기엔 확정 참고 대상 7장만 있습니다
+   (main·browse·detail·register·mypage·edit·reopen). **같은 폴더의
+   `project-management-bundle.html`(화면 10장을 base64 이미지까지 인라인한 400KB 단일
+   파일)은 절대 통째로 읽지 마세요** — 사람이 브라우저로 인터랙션을 확인할 때 쓰는 파일이지,
+   AI가 구조를 읽는 용도가 아닙니다. 이 파일을 읽으면 컨텍스트 토큰을 크게 낭비합니다.
+   `experts`·`expert`·`guide` 3장(번들에는 있지만 개별 파일 폴더에는 없습니다)은 ERD·PRD
+   근거가 없는 향후 검토 대상이니 참고하지 마세요 — `reference/README.md`의 범위 표에
+   표시돼 있습니다.
 3. `design-system/design-tokens.md` — 색·간격·컴포넌트 치수·모션 규칙의 **정본**입니다.
    레퍼런스와 이 문서가 다르게 보이는 부분이 있다면 이 문서가 이깁니다. 레퍼런스는 그 정본을
    "실제 화면에서 어떻게 조합해 쓰는가"를 보여주는 예시일 뿐, 색상·치수 값 자체의 정본이
