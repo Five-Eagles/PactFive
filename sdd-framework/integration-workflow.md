@@ -88,3 +88,28 @@
 - `features/*/prototype/`, `features/*/api-contract.md` 등 원본 브랜치는 force-push(rebase 등)
   금지 — `sync-log.md`에 기록된 커밋 해시가 무효해질 수 있다.
 - 반영이 밀리면(팀장 처리 용량 병목) `change-requests/`에 조정안을 기록하고 팀 논의로 조정한다.
+
+## 임시 — UX 레퍼런스(reference-proposal) 최신화 확인 (2026-09-03 추가)
+
+`ux-philosophy/AGENTS.md`·`sdd-framework/feature-workflow.md`·`design-system/design-tokens.md`
+헤더·`app/web/AGENTS.md` 정본 표, 이 넷이 목록·상세류 화면의 구현 예시로
+`features/project-management/design/reference-proposal/{browse,detail}.html`을 **원본 위치
+그대로** 가리키고 있다(복사본 아님). 이 폴더는 유동우가 계속 갱신하는 살아있는 원본이라,
+넷 중 하나만 갱신되고 나머지가 뒤처지면 "구현 예시가 이미 바뀐 걸 다른 담당자는 모른다"는
+문제가 생긴다.
+
+**project-management를 통합할 때마다**(위 절차 1~6과 별개로, `reference-proposal/` 경로가
+diff에 포함돼 있으면) 아래를 함께 확인한다.
+
+- [ ] `reference-proposal/README.md` 상단 "상태" 필드가 "제안, 확정 아님"에서 바뀌었는가 —
+      바뀌었으면 위 넷에 있는 "제안, 확정 아님" 캐비어트를 함께 갱신(또는 제거)한다.
+- [ ] README.md "확인이 필요한 것" 표의 항목(카테고리 종류·기획전 배너 등)이 해소됐는가 —
+      해소된 항목이 있으면 위 넷의 관련 캐비어트를 그만큼 덜어낸다.
+- [ ] `main.html`도 구현 예시 목록에 같이 들어 있다 — `browse.html`·`detail.html`과 같은
+      기준으로 함께 확인한다.
+- [ ] CR-0011(대표페이지 담당을 유동우로) 상태가 바뀌었는가 — 바뀌었으면 PRD §7.1과 위 넷의
+      "담당(유동우)" 표기를 함께 맞춘다.
+
+**이 절차는 임시다.** `reference-proposal/`이 "확정" 상태로 바뀌거나 `design-system/` 등
+정식 위치로 옮겨지면, 이 섹션은 지우고 그 시점의 정식 규칙(예: 다른 구현 예시들처럼 일반
+캐비어트만 남기기)으로 대체한다.

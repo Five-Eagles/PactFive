@@ -6,10 +6,12 @@
 - 시각 기준: `../../design-concepts/imagegen-kmong-v5/`의 V5 시안 5종
 - UX 원칙: `../ux-philosophy/ux-philosophy.md`
 - 사람용 프리뷰: `design-system-preview.html`
-- 구현 예시: `../ux-philosophy/reference-main.html` (PactFive 메인 페이지를 정적 HTML로 재구성한
-  파일 — 색상·컴포넌트 값의 정본은 아니며, 이 문서와 다르면 이 문서를 따른다. 2026-09-02:
-  이전에 있던 화면 단위·규칙 설명 참고 자료 두 종은 팀 회의에서 반려되어 제거했다 — 경위는
-  `docs/decisions/0012-*.md` 참고)
+- 구현 예시: `../ux-philosophy/reference-main.html`(메인/홈 화면),
+  `../features/project-management/design/reference-proposal/browse.html`(목록류),
+  `../features/project-management/design/reference-proposal/detail.html`(상세류, 2026-09-03 추가)
+  — 전부 색상·컴포넌트 값의 정본은 아니며, 이 문서와 다르면 이 문서를 따른다. 2026-09-02: 이전에
+  있던 화면 단위·규칙 설명 참고 자료 두 종은 팀 회의에서 반려되어 제거했다 — 경위는
+  `docs/decisions/0012-*.md` 참고
 
 ## 1. 시스템 목적
 
