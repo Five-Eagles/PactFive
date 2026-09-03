@@ -189,18 +189,29 @@ app 에는 이미 대응물이 있습니다. **CR-0010 이관 표에서 그 줄�
 
 ---
 
-## 항목 5 — `reference-proposal/bundle.html`의 2026-09-03 버전을 프로젝트 공통 참고 자료로 고정했다
+## 항목 5 — `reference-proposal/`의 2026-09-03 버전을 프로젝트 공통 참고 자료로 고정했다
 
 상태: 미확인
 
 **Fact — 원본은 그대로, 다른 기능이 보는 참고 자료만 스냅샷으로 바꿨다**
 - `reference-proposal/`은 계속 유동우가 갱신하는 살아있는 원본이다. **이 원본은 건드리지
   않았다.**
-- 리포 루트에 `reference/` 폴더를 새로 만들고, 2026-09-03 시점(`39a5e14`, PR #46)의
-  `bundle.html`을 `reference/project-management-bundle.html`로 복사해 고정했다.
+- 리포 루트에 `reference/` 폴더를 새로 만들고, 2026-09-03 시점(`39a5e14`, PR #46)의 화면을
+  두 형태로 고정했다.
+  - `reference/project-management/*.html` — 확정 7장(main·browse·detail·register·mypage·
+    edit·reopen)을 원본과 동일하게 개별 파일로 복사(+`_tokens.css`, 필요한 이미지). **AI가
+    구조 참고용으로 읽는 대상은 이쪽이다.**
+  - `reference/project-management-bundle.html` — `bundle.html`을 그대로 복사. 화면 10장이
+    base64 이미지까지 인라인된 400KB 단일 파일이라, 사람이 브라우저로 인터랙션까지 확인하고
+    싶을 때만 쓴다.
+  - 처음에는 `bundle.html`만 고정해 AI 참고 대상으로도 가리켰는데, 파일이 400KB에 최대 줄이
+    6만 자라 AI가 읽으면 토큰을 크게 낭비한다는 지적을 받고 그날 바로 개별 파일 쪽을 추가해
+    분리했다 — `sdd-framework/feature-workflow.md`가 이미 같은 이유로 금지해 둔 base64 인라인
+    문제(2026-09-02, `reference-main.html` 사례)를 이 스냅샷에서 그대로 반복할 뻔했다.
 - `ux-philosophy/AGENTS.md`·`sdd-framework/feature-workflow.md`·`design-system/design-tokens.md`·
   `app/web/AGENTS.md` 4곳이 목록·상세류 구현 예시로 가리키던 대상을
-  `reference-proposal/browse.html`·`detail.html`(원본, 실시간)에서 `reference/project-management-bundle.html`(고정본)로 바꿨다.
+  `reference-proposal/browse.html`·`detail.html`(원본, 실시간)에서
+  `reference/project-management/*.html`(고정본, 개별 파일)로 바꿨다.
 
 **어떻게·왜 그렇게 했는지**
 - 여러 기능 담당자가 동시에 화면을 구현하는 스프린트 기간에는 참고 기준이 계속 바뀌는 것보다

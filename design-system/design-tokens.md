@@ -7,8 +7,10 @@
 - UX 원칙: `../ux-philosophy/ux-philosophy.md`
 - 사람용 프리뷰: `design-system-preview.html`
 - 구현 예시: `../ux-philosophy/reference-main.html`(메인/홈 화면),
-  `../reference/project-management-bundle.html`(목록·상세류 포함 화면 10장, 그중 확정 참고
-  대상 7장, 2026-09-03 고정 스냅샷으로 전환 — `../reference/README.md` 참고)
+  `../reference/project-management/*.html`(목록·상세류 포함 개별 파일 7장, 2026-09-03 고정
+  스냅샷 — `../reference/README.md` 참고. **AI는 이 개별 파일만 읽는다**, 같은 폴더의
+  `project-management-bundle.html`은 base64 이미지가 인라인된 400KB 파일이라 사람이
+  브라우저로 확인할 때만 연다)
   — 전부 색상·컴포넌트 값의 정본은 아니며, 이 문서와 다르면 이 문서를 따른다. 2026-09-02: 이전에
   있던 화면 단위·규칙 설명 참고 자료 두 종은 팀 회의에서 반려되어 제거했다 — 경위는
   `docs/decisions/0012-*.md` 참고

@@ -10,16 +10,64 @@
 스프린트 기간 동안은 기준을 고정해 흔들리지 않게 하고, 원본 쪽 갱신은 그 담당자의 작업에는
 계속 반영되도록 둔다(아래 "원본과의 관계" 참고).
 
-## project-management-bundle.html
+## 이 폴더에 파일이 두 종류로 들어 있는 이유 — 용도가 다르다
+
+| | `project-management/*.html` (개별 파일 7장) | `project-management-bundle.html` (한 파일) |
+|---|---|---|
+| 누가 쓰는가 | **AI 툴이 구조·CSS를 읽고 참고할 때** | **사람이 브라우저로 클릭해 보며 확인할 때** |
+| 크기 | 파일당 4~34KB, base64 없음 | 400KB, 이미지가 base64로 전부 인라인돼 있다 |
+| 한 줄 최대 길이 | 167자 (정상) | **59,823자** (base64 한 줄) |
+| 특징 | 원본과 동일 — `_tokens.css`를 상대경로로 링크, 이미지도 `assets/` 상대경로 | 검색·필터·북마크 등 실제 동작함(더블클릭으로 바로 열림) |
+
+**AI 툴로 화면을 참고·재설계할 때는 반드시 `project-management/` 안의 개별 파일을 읽는다.
+`project-management-bundle.html` 전체를 통째로 읽지 않는다** — 파일이 400KB이고 그중
+167KB가 base64 이미지 데이터라, 이 파일 하나를 전부 컨텍스트에 넣으면 토큰을 크게 낭비한다.
+`sdd-framework/feature-workflow.md`가 이미 같은 이유로 "`design/*.html` 안에 이미지를
+base64로 욱여넣지 않는다"고 못박아 둔 것과 같은 문제다(2026-09-02, `reference-main.html`
+147KB·최대 6만 자 한 줄 사례). `bundle.html`은 인터랙션까지 눈으로 직접 확인하고 싶은
+사람을 위한 것이지, AI가 구조를 읽는 용도가 아니다.
+
+## project-management/ (개별 파일 — AI가 읽는 대상)
 
 | | |
 |---|---|
-| 원본 위치 | `features/project-management/design/reference-proposal/bundle.html` |
-| 원본 생성 방식 | `demo/build-bundle.js`가 `main.html`·`browse.html`·`detail.html`·`experts.html`·`expert.html`·`mypage.html`·`register.html`·`guide.html`·`edit.html`·`reopen.html` 10장을 한 파일로 합친 빌드 산출물 (사람이 손으로 짜깁기한 게 아니다) |
+| 원본 위치 | `features/project-management/design/reference-proposal/` |
+| 포함 파일 | `main.html`·`browse.html`·`detail.html`·`register.html`·`mypage.html`·`edit.html`·`reopen.html` (확정 7장만 — 아래 "범위" 참고) + `_tokens.css` + 그 화면들이 실제로 쓰는 이미지 3장(`assets/`) |
 | 고정 시점 | 2026-09-03 |
 | 고정 시점 커밋 | `39a5e14` (`design(project-management): 시안 10화면을 동작하게 · 검색 결함 수정 · CR 4건 (#46)`) |
 | 담당자 확인 | 유동우 — 현재 버전으로 고정해 진행하는 데 동의 (2026-09-03, 팀장 경유로 전달받음. 형식상 `feedback_loop/2026-09-03/project-management.md` 항목 5에도 기록) |
-| 상태 | **고정.** 이 폴더의 파일은 팀장이 다시 얼리기 전까지 바뀌지 않는다 |
+| 상태 | **고정.** 팀장이 다시 얼리기 전까지 바뀌지 않는다 |
+
+**필요한 화면만 골라 읽는다.** 목록류 화면을 만든다면 `browse.html` 하나만 읽으면 되고,
+7장을 전부 한 번에 읽을 필요는 거의 없다.
+
+### 어떤 화면을 만들 때 어떤 파일을 보는가
+
+| 지금 만드는 화면 유형 | 볼 파일 | 정적 파일만 읽어도 되는가 | 이 파일에서 확인할 패턴 |
+|---|---|---|---|
+| 대표·랜딩류 (히어로·배너·카테고리 목록) | `main.html` | **된다** — 정적 마크업이 가장 많다(약 11,000자) | `.hero`·`.banner`·`.cats__grid`·`.grid3`/`.grid4` |
+| 목록·브라우즈류 (필터·정렬·카드 목록) | `browse.html` | **대체로 된다** — 필터 바·카드 그리드 셸이 정적으로 있다 | `.card.filters`·`.sorts`·`.grid` 카드 그리드 |
+| 상세류 (단일 항목 상세, 2단 레이아웃) | `detail.html` | **CSS 규칙만** — 실제 마크업 조합은 `demo/engine.js`가 런타임에 채운다 | `.kv`/`.kv__k`/`.kv__v`(키-값 행), `.card.client`/`.card.safety`/`.card.apply` |
+| 마이페이지·대시보드류 (탭 전환) | `mypage.html` | **CSS 규칙만** — `demo/manage.js`가 채운다 | `.tabs`, `.grid3` |
+| 다단계 입력 폼 (등록·신청 등) | `register.html` | **CSS 규칙만** — `demo/register.js`가 채운다 | `.field`/`.two`/`.help`, sessionStorage 임시 저장(아래 원본 README "등록 3단계" 절 참고) |
+| 단일 항목 수정 폼 | `edit.html` | **거의 안 된다** — `<main>`이 완전히 빈 셸이다 | `.field`/`.two`/`.crumb`/`.note`, 잠긴 필드는 숨기지 않고 이유를 말하는 패턴(SCR-B06) |
+| 상태 전환·재개 액션 흐름 | `reopen.html` | **거의 안 된다** — `<main>`이 완전히 빈 셸이다 | `.field`/`.two`/`.crumb`/`.note`, "왜 이 화면이 떴는지" 먼저 설명하는 패턴(SCR-B10) |
+
+**"CSS 규칙만"·"거의 안 된다"로 표시된 파일**은 정적 파일에 클래스별 CSS 값(간격·그리드 열
+수 등)은 있지만, 그 클래스들이 실제로 어떻게 겹쳐 쓰이는지는 `demo/` 안의 JS 엔진이 브라우저에서
+렌더링해야 보인다 — 이 JS 엔진 파일은 `reference/`에 옮겨 두지 않았다(용도가 project-management
+고유의 데이터 로직이라 다른 기능에 그대로 참고할 게 아니기도 하고, 옮기면 또 파일이 늘어난다).
+**실제 조합을 눈으로 봐야 한다면 `project-management-bundle.html`을 브라우저로 열어 해당
+화면으로 이동해 확인한다** — 이건 사람이 하는 일이다. AI가 필요한 건 대부분 클래스별 CSS 값
+(간격·정렬·그리드 규칙)이고, 이건 정적 파일의 `<style>` 블록만으로 충분한 경우가 많다.
+
+## project-management-bundle.html (한 파일 — 사람이 보는 대상)
+
+`demo/build-bundle.js`가 원본 10장(위 7장 + `experts.html`·`expert.html`·`guide.html`)을
+한 파일로 합치고 이미지를 base64로 인라인한 빌드 산출물이다. 더블클릭하면 브라우저에서 바로
+열리고 검색·필터·정렬·북마크·등록 검증까지 실제로 동작한다 — 화면끼리 어떻게 이어지는지
+**눈으로 직접 확인**하고 싶을 때만 연다. 고정 시점·커밋은 위 표와 같다(같은 시점에 함께
+고정했다).
 
 ### 원본과의 관계
 
@@ -32,14 +80,16 @@
 - **project-management 본인은 계속 원본을 본다.** 담당자 본인의 작업 기준은 여전히
   `reference-proposal/`의 살아있는 원본이다. 이 폴더는 담당자 본인의 작업 기준을 대체하지
   않는다.
-- **다시 얼리려면**: 팀장이 원본에서 `bundle.html`을 다시 빌드해 이 폴더의 파일을 교체하고,
-  이 표의 "고정 시점"·"고정 시점 커밋"을 갱신한다. 자동으로 갱신되지 않는다 — 갱신이 필요하다고
-  판단되면(예: 원본에 구조적으로 중요한 변경이 생겼을 때) 팀 논의를 거쳐 결정한다.
+- **다시 얼리려면**: 팀장이 원본에서 개별 파일 7장(+ `_tokens.css`, 필요한 이미지)을 다시
+  복사하고, `bundle.html`도 원한다면 `node demo/build-bundle.js`로 다시 만들어 이 폴더의
+  파일을 교체한다. 이 표의 "고정 시점"·"고정 시점 커밋"도 함께 갱신한다. 자동으로 갱신되지
+  않는다 — 갱신이 필요하다고 판단되면(예: 원본에 구조적으로 중요한 변경이 생겼을 때) 팀
+  논의를 거쳐 결정한다.
 
-### 범위 — 화면 10장 중 확정 참고 대상은 7장
+### 범위 — 원본 화면 10장 중 확정 참고 대상은 7장
 
-번들에는 화면 10장이 들어 있지만, 이 중 3장(`experts.html`·`expert.html`·`guide.html`)은
-**확정된 참고 대상이 아니다.**
+`bundle.html`에는 화면 10장이 들어 있지만(개별 파일 폴더에는 7장만 있다), 이 중 3장
+(`experts.html`·`expert.html`·`guide.html`)은 **확정된 참고 대상이 아니다.**
 
 | 화면 | ERD·PRD 근거 | 담당 | 참고 대상 여부 |
 |---|---|---|---|
@@ -48,4 +98,4 @@
 
 이 3장은 유동우가 "형식만 제안"이라고 스스로 표시해 둔 것이지, 팀이 확정한 기능 범위가
 아니다. ERD·PRD에 근거가 생기고 담당자가 정해진 뒤에 다시 검토한다 — 지금 이 화면들을 다른
-기능의 구현 근거로 삼지 않는다.
+기능의 구현 근거로 삼지 않는다. (그래서 개별 파일 폴더에도 이 3장은 애초에 복사하지 않았다.)
