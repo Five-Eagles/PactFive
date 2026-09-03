@@ -65,6 +65,16 @@
 .panel .notice { margin: 0 0 16px; }
 .panel .btn-row { margin-top: 4px; flex-wrap: wrap; }
 .panel .helper { margin-top: 0; margin-bottom: 16px; }
+.meta .btn-row { margin-top: 12px; }
+
+.field.error { border-color: var(--danger); }
+.field.success { border-color: var(--success); }
+.helper.error { color: var(--danger); }
+.helper.success { color: var(--success); }
+
+.btn.primary:active:not(:disabled) { background: var(--action-pressed); }
+.btn[aria-busy="true"] { background: var(--action-disabled); color: var(--action-disabled-text);
+  border-color: transparent; cursor: not-allowed; pointer-events: none; }
 
 .badge.success { background: var(--success-surface); color: var(--success); }
 .badge.warning { background: var(--warning-surface); color: var(--warning); }
@@ -77,4 +87,48 @@
   border-radius: 4px;
   background: var(--surface-subtle);
   margin-bottom: 8px;
+}
+
+/* 오버레이 — 딤과 본체 동시 240ms. stagger·앱 셸·카드 그리드는 넣지 않는다. */
+.overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: var(--z-overlay);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-slow) var(--ease-entrance);
+}
+.overlay-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.dialog {
+  width: 400px;
+  max-width: 100%;
+  border-radius: var(--dialog-radius);
+  padding: var(--dialog-pad);
+  background: var(--surface);
+  box-shadow: var(--shadow-overlay);
+  z-index: var(--z-modal);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity var(--dur-slow) var(--ease-entrance),
+              transform var(--dur-slow) var(--ease-entrance);
+}
+.overlay-backdrop.open .dialog {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay-backdrop,
+  .dialog,
+  .btn {
+    transition-duration: 0ms !important;
+  }
 }

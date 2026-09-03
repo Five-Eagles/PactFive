@@ -12,6 +12,12 @@
 
 export type RecruitmentStatus = 'SCHEDULED' | 'OPEN' | 'CLOSED';
 
+/**
+ * 예산이 어디서 왔는가. **등록 의뢰인 전용** — 공개 응답에는 없다(CR-0006 결함 2, CR-0007).
+ * 의뢰인이 AI 를 썼는지는 프리랜서가 알 필요가 없고, 알면 지원 금액 판단에 영향을 준다.
+ */
+export type BudgetSource = 'CLIENT_INPUT' | 'AI_ANALYSIS';
+
 export type ProjectTransactionStatus =
   | 'NONE'
   | 'CONTRACT_PENDING'
@@ -31,6 +37,14 @@ export type ClientPublicProfile = {
   reviewCount: number;
 };
 
+/*
+ * 북마크 여부는 여기에 없다 (CR-0008, 2026-09-03 반영).
+ *
+ * 채우려면 project-management 서비스가 engagement 를 불러야 하는데, 그것은 담당 경계를
+ * 넘는다(app/web/AGENTS.md "폴더 간 접점"과 같은 원칙이 서버에도 적용된다). 화면은
+ * engagement 의 `GET /api/v1/bookmarks/ids` 로 대조한다 — `features/engagement/useBookmark.ts`
+ * 의 `useBookmarkIds`, 연결은 `App.tsx` 의 `renderBookmark` 슬롯이 한다.
+ */
 export type PublicProjectItem = {
   projectId: string;
   title: string;
@@ -41,7 +55,6 @@ export type PublicProjectItem = {
   skills: SkillRef[];
   applicationCount: number;
   client: ClientPublicProfile;
-  isBookmarked?: boolean;
 };
 
 export type PublicProjectDetail = PublicProjectItem & {
@@ -67,6 +80,9 @@ export type ClientProjectDetail = PublicProjectDetail & {
   /** 서버가 계산한 잠금 결과. 화면이 다시 계산하지 않는다 (규칙 13·15) */
   editableFields: string[];
   availableActions: ProjectAction[];
+  /** 예산 출처. 등록 시 CLIENT_INPUT, AI 분석 연결 시 AI_ANALYSIS 로 서버가 채운다 (CR-0006 결함 2) */
+  budgetSource: BudgetSource;
+  budgetSourceAt: string;
 };
 
 export type ProjectListResponse = {
@@ -106,7 +122,16 @@ export type CreateProjectRequest = {
 };
 
 export type UpdateProjectRequest = Partial<
-  Pick<CreateProjectRequest, 'title' | 'description' | 'category' | 'budgetAmount' | 'skillIds'>
+  Pick<
+    CreateProjectRequest,
+    | 'title'
+    | 'description'
+    | 'category'
+    | 'recruitmentStartAt'
+    | 'recruitmentDeadlineAt'
+    | 'budgetAmount'
+    | 'skillIds'
+  >
 >;
 
 export type CloseRecruitmentResponse = {

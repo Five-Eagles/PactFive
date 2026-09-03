@@ -13,15 +13,17 @@ export function Button({
   variant,
   type = "button",
   disabled = false,
+  onClick,
   children,
 }: {
   variant: ButtonVariant;
   type?: "button" | "submit";
   disabled?: boolean;
+  onClick?: () => void;
   children: ReactNode;
 }) {
   return (
-    <button type={type} className={`btn ${variant}`} disabled={disabled}>
+    <button type={type} className={`btn ${variant}`} disabled={disabled} onClick={onClick}>
       {children}
     </button>
   );

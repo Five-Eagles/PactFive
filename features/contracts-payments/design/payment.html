@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>contracts-payments — 결제 (high-fi)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
 <link rel="stylesheet" href="_tokens.css" />
 <link rel="stylesheet" href="panel.css" />
 </head>
@@ -22,14 +23,18 @@
       <h2 class="title">결제</h2>
       <span class="badge neutral">결제 전</span>
     </div>
-    <p class="status-copy">계약이 체결되었습니다. <strong>의뢰인이 결제</strong>하면 작업이 시작됩니다.</p>
+    <p class="status-copy">의뢰인이 결제하면 거래가 <strong>진행 중</strong>으로 바뀝니다.</p>
     <dl class="facts">
       <dt>프로젝트 제목</dt>
       <dd>쇼핑몰 웹사이트 구축</dd>
       <dt>결제 금액</dt>
       <dd><span class="money">100,000원</span></dd>
+      <dt>플랫폼 수수료</dt>
+      <dd><span class="money">10,000원</span></dd>
+      <dt>정산액</dt>
+      <dd><span class="money">90,000원</span></dd>
     </dl>
-    <p class="helper">이 금액은 합의에서 확정된 값입니다. 화면에서 바꾸지 않습니다.</p>
+    <p class="helper">이 금액은 합의에서 확정된 값입니다. 수수료는 10%(원 미만 버림)이며 화면에서 바꾸지 않습니다.</p>
     <div class="btn-row">
       <button type="button" class="btn primary">결제하기</button>
     </div>
@@ -51,6 +56,76 @@
   </article>
 </section>
 
+<section class="screen">
+  <div class="id">처리 중</div>
+  <article class="panel" aria-busy="true">
+    <div class="panel-head">
+      <h2 class="title">결제</h2>
+      <span class="badge warning">처리 중</span>
+    </div>
+    <p class="status-copy">결제를 확인하고 있습니다. <strong>잠시만 기다려 주세요</strong>.</p>
+    <dl class="facts">
+      <dt>프로젝트 제목</dt>
+      <dd>쇼핑몰 웹사이트 구축</dd>
+      <dt>결제 금액</dt>
+      <dd><span class="money">100,000원</span></dd>
+      <dt>플랫폼 수수료</dt>
+      <dd><span class="money">10,000원</span></dd>
+      <dt>정산액</dt>
+      <dd><span class="money">90,000원</span></dd>
+    </dl>
+    <div class="btn-row">
+      <button type="button" class="btn primary" aria-busy="true" disabled>결제하기</button>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">결제 완료</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">결제</h2>
+      <span class="badge success">결제 완료</span>
+    </div>
+    <p class="status-copy">결제가 완료되었습니다. 거래가 <strong>진행 중</strong>입니다.</p>
+    <dl class="facts">
+      <dt>프로젝트 제목</dt>
+      <dd>쇼핑몰 웹사이트 구축</dd>
+      <dt>결제 금액</dt>
+      <dd><span class="money">100,000원</span></dd>
+      <dt>플랫폼 수수료</dt>
+      <dd><span class="money">10,000원</span></dd>
+      <dt>정산액</dt>
+      <dd><span class="money">90,000원</span></dd>
+    </dl>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">결제 실패</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">결제</h2>
+      <span class="badge danger">결제 실패</span>
+    </div>
+    <p class="notice danger" role="alert">결제 실패</p>
+    <p class="status-copy">실패한 결제는 쓰지 않고, 같은 결제로 다시 시도합니다.</p>
+    <dl class="facts">
+      <dt>프로젝트 제목</dt>
+      <dd>쇼핑몰 웹사이트 구축</dd>
+      <dt>결제 금액</dt>
+      <dd><span class="money">100,000원</span></dd>
+      <dt>플랫폼 수수료</dt>
+      <dd><span class="money">10,000원</span></dd>
+      <dt>정산액</dt>
+      <dd><span class="money">90,000원</span></dd>
+    </dl>
+    <div class="btn-row">
+      <button type="button" class="btn primary">다시 결제</button>
+    </div>
+  </article>
+</section>
+
 <section class="required">
   <h2>필수 요소 목록</h2>
   <p class="lead">기본 렌더링(체크아웃)과 키 없음 상태의 <strong>정확한 텍스트</strong>다.
@@ -58,14 +133,20 @@
   <table>
     <thead><tr><th>화면</th><th>종류</th><th>텍스트</th></tr></thead>
     <tbody>
-      <tr><td rowspan="2">체크아웃</td><td>금액</td><td>결제 금액</td></tr>
+      <tr><td rowspan="4">체크아웃</td><td>금액</td><td>결제 금액</td></tr>
+      <tr><td>금액</td><td>플랫폼 수수료</td></tr>
+      <tr><td>금액</td><td>정산액</td></tr>
       <tr><td>버튼</td><td>결제하기</td></tr>
       <tr><td rowspan="2">키 없음</td><td>안내</td><td>연동 준비 중</td></tr>
       <tr><td>버튼</td><td>다시 시도</td></tr>
+      <tr><td>처리 중</td><td>배지</td><td>처리 중</td></tr>
+      <tr><td>완료</td><td>배지</td><td>결제 완료</td></tr>
+      <tr><td rowspan="2">실패</td><td>안내</td><td>결제 실패</td></tr>
+      <tr><td>버튼</td><td>다시 결제</td></tr>
     </tbody>
   </table>
   <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
-  프로젝트 제목·금액 숫자(데이터). 키 없음 화면에는 결제하기가 <strong>없어야</strong> 한다.
+  프로젝트 제목·금액 숫자(데이터). 키 없음 화면에는 결제하기와 금액 줄이 <strong>없어야</strong> 한다.
   프론트는 시크릿을 읽지 않는다.</p>
 </section>
 

@@ -18,6 +18,9 @@ export function createEngagementRouter(
 
   router.put('/api/v1/projects/:projectId/bookmarks', middleware.requireAuth, controller.add);
   router.delete('/api/v1/projects/:projectId/bookmarks', middleware.requireAuth, controller.remove);
+  // /bookmarks/ids 를 /bookmarks 보다 먼저 등록할 필요는 없다 — 리터럴 경로 세그먼트라 겹치지
+  // 않는다(:projectId 처럼 파라미터 구간과 겹칠 때만 순서가 문제된다).
+  router.get('/api/v1/bookmarks/ids', middleware.requireAuth, controller.ids);
   router.get('/api/v1/bookmarks', middleware.requireAuth, controller.list);
   router.get('/api/v1/projects/:projectId/recommendations', controller.recommendations);
 

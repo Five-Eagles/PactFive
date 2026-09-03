@@ -1,6 +1,6 @@
 import { Badge, Button, Money, Notice } from "./ui";
 
-export type ContractSignView = "ready" | "waiting" | "canceled";
+export type ContractSignView = "ready" | "waiting" | "canceled" | "loading" | "loadFailed";
 
 type ContractSignPanelProps = {
   view?: ContractSignView;
@@ -17,6 +17,36 @@ export function ContractSignPanel({
   amount = DEFAULT_AMOUNT,
   projectTitle = DEFAULT_TITLE,
 }: ContractSignPanelProps) {
+  if (view === "loading") {
+    return (
+      <article className="panel" aria-busy="true">
+        <div className="panel-head">
+          <h2 className="title">계약 서명</h2>
+        </div>
+        <p className="helper">계약 내용을 불러오는 중입니다.</p>
+        <div className="skeleton" />
+        <div className="skeleton" />
+      </article>
+    );
+  }
+
+  if (view === "loadFailed") {
+    return (
+      <article className="panel">
+        <div className="panel-head">
+          <h2 className="title">계약 서명</h2>
+        </div>
+        <Notice tone="danger">계약 내용을 불러오지 못했습니다</Notice>
+        <p className="status-copy">
+          네트워크를 확인한 뒤 다시 시도해 주세요.
+        </p>
+        <div className="btn-row">
+          <Button variant="primary">다시 시도</Button>
+        </div>
+      </article>
+    );
+  }
+
   if (view === "canceled") {
     return (
       <article className="panel">
