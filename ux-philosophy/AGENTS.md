@@ -18,15 +18,14 @@
   `teal[700]: #006D70`(`design-system/design-tokens.md`)이 서로 다르다 — 확인됨(2026-09-02).
   구현 시 실제 색상·컴포넌트 규격은 반드시 `design-system/design-tokens.md`를 따르고, 이 파일은
   "원칙이 화면에서 어떻게 드러나는가"를 볼 때만 참고한다.
-- `../features/project-management/design/reference-proposal/browse.html`(목록/브라우즈류 화면)·
-  `../features/project-management/design/reference-proposal/detail.html`(상세류 화면): 위
-  `reference-main.html`이 메인/홈 화면만 다루고 목록·상세 화면에는 구현 예시가 없다는 공백을
-  메우는 **구현 예시** (2026-09-03 추가). `ux-philosophy/` 안에 파일을 복사해 두지 않고 이 두
-  파일을 직접 가리킨다 — 담당자(유동우)가 지금도 계속 갱신하는 살아있는 원본이라, 복사본을 두면
-  바로 갱신이 어긋난다. 이 파일들이 무엇을 왜 바꿨는지는 같은 폴더의 `README.md`(근거·측정치·
-  "확인이 필요한 것" 포함)를 함께 읽는다.
-  **`reference-main.html`과 다른 점**: 이 두 파일은 처음부터 `design-tokens.md` 정본 토큰만
+- `../reference/project-management-bundle.html`(목록/상세류를 포함한 화면 10장 — 그중 확정
+  참고 대상은 7장): 위 `reference-main.html`이 메인/홈 화면만 다루고 목록·상세 화면에는 구현
+  예시가 없다는 공백을 메우는 **구현 예시** (2026-09-03 추가, 2026-09-03 고정본으로 전환).
+  `features/project-management/design/reference-proposal/`(담당자 유동우가 계속 갱신하는
+  살아있는 원본)을 직접 가리키던 것을 **2026-09-03에 고정 스냅샷으로 바꿨다** — 여러 기능
+  담당자가 동시에 구현하는 스프린트 기간 동안 참고 기준이 계속 바뀌면 혼란이 생기기 때문이다
+  (원본은 담당자 본인의 계속되는 작업 기준으로 그대로 살아있다. 다른 기능 담당자만 고정본을
+  본다). 고정 시점·범위·다시 얼리는 절차는 `../reference/README.md` 참고.
+  **`reference-main.html`과 다른 점**: 이 파일은 처음부터 `design-tokens.md` 정본 토큰만
   쓰도록 만들어졌다(본문 원시 색상값 0개, `npm run check:design` 통과) — 색상 불일치 문제가
-  없다. 다만 **상태는 여전히 "제안, 확정 아님"**이다(`README.md` 상단 표) — 카테고리 10종→6종,
-  기획전 배너, 인기 검색 키워드처럼 ERD·PRD 근거가 아직 없어 "확인이 필요한 것"으로 남겨둔
-  항목이 있으니, 그 항목들은 구조·원칙 참고용으로만 보고 그대로 베끼지 않는다.
+  없다.
