@@ -1733,6 +1733,57 @@ async function main() {
     check(api.listProjects({ keyword: "Figma" }).body.totalCount > 0, "Figma 가 0건이 아니다");
   }
 
+  section("비파괴성 — 모집 마감도 확인을 거친다");
+  {
+    const { MyProjectList } = await import("./web/ProjectManage");
+    const { closeRecruitmentEffects } = await import("./web/DestructiveActionSummary");
+
+    // 처음에는 확인 없이 바로 실행했다. 재모집으로 되돌릴 수 있다고 봤기 때문인데,
+    // 지원자에게 간 거절 알림은 되돌아가지 않는다 (2026-09-03 항목 1)
+    let ran: string[] = [];
+    const item = {
+      ...manageItem,
+      pendingApplicationCount: 3,
+      availableActions: ["CLOSE_RECRUITMENT"],
+    };
+    const html = decode(
+      renderToStaticMarkup(
+        React.createElement(MyProjectList, {
+          items: [item],
+          onAction: (a: string) => ran.push(a),
+        }),
+      ),
+    );
+    check(html.includes("모집 마감"), "모집 마감 버튼이 있다");
+    check(
+      !html.includes("모집을 마감할까요?"),
+      "누르기 전에는 확인 화면이 없다",
+    );
+
+    const effects = closeRecruitmentEffects({ pendingApplicationCount: 3 });
+    check(
+      effects.some((e) => e.includes("3건이 거절 처리됩니다")),
+      "몇 건이 거절되는지 숫자로 말한다",
+    );
+    check(
+      effects.some((e) => e.includes("다시 모집하려면")),
+      "되돌리려면 무엇을 해야 하는지 말한다",
+    );
+    check(
+      closeRecruitmentEffects({ pendingApplicationCount: 0 }).every(
+        (e) => !e.includes("거절"),
+      ),
+      "지원이 없으면 거절 문구를 붙이지 않는다",
+    );
+
+    // 항목 2 — 사람에게 가는 일이 먼저다
+    const { cancelEffects } = await import("./web/DestructiveActionSummary");
+    const both = cancelEffects({ pendingApplicationCount: 2, hasContract: true });
+    check(both[0]!.includes("지원"), "취소 문구: 지원자 거절이 첫 줄이다");
+    check(both[1]!.includes("계약"), "취소 문구: 계약 무효가 둘째 줄이다");
+    check(both[2]!.includes("모집"), "취소 문구: 프로젝트 상태가 마지막이다");
+  }
+
   section("결과");
   console.log(`PASS ${passCount} · FAIL ${failCount}`);
   if (failCount > 0) {

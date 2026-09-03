@@ -22,6 +22,7 @@ import {
 import {
   DestructiveActionSummary,
   cancelEffects,
+  closeRecruitmentEffects,
   deleteEffects,
   type DestructiveAction,
 } from "./DestructiveActionSummary";
@@ -61,7 +62,9 @@ function blockedReason(action: string, item: ManageItem): string | undefined {
 /* ═══════════ SCR-B07 — 내 프로젝트 ═══════════ */
 
 /** 확인 단계를 거쳐야 하는 행동. 되돌릴 수 없는 것만이다 (CR-0006 결함 1) */
-const DESTRUCTIVE = new Set(["CANCEL", "DELETE"]);
+// 모집 마감도 넣는다. 재모집으로 프로젝트는 되돌아가도 **지원자에게 간 거절 알림은
+// 되돌아가지 않는다** (feedback_loop 2026-09-03 항목 1 · design/high-fi-manage.html 3종)
+const DESTRUCTIVE = new Set(["CLOSE_RECRUITMENT", "CANCEL", "DELETE"]);
 
 export type MyProjectListProps = {
   items?: ManageItem[];
@@ -140,6 +143,14 @@ export function MyProjectList({ items = [], onAction }: MyProjectListProps) {
  * 계약 관련 문구는 서버가 거래 상태를 내려주면 그때 붙인다.
  */
 function toDestructiveAction(actionId: string, item: ManageItem): DestructiveAction {
+  if (actionId === "CLOSE_RECRUITMENT") {
+    return {
+      title: "모집을 마감할까요?",
+      subject: item.title,
+      effects: closeRecruitmentEffects({ pendingApplicationCount: item.pendingApplicationCount }),
+      confirmLabel: "마감하기",
+    };
+  }
   if (actionId === "DELETE") {
     return {
       title: "삭제",
