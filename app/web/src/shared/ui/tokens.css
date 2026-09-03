@@ -31,6 +31,12 @@
   --rust-50: #fdeeea;
   --rust-700: #c9472e;
   --white: #ffffff;
+  /* design-tokens.md 정본 primitive.color.campaign (2026-09-04 추가 — 대표 페이지 기획전
+     배너가 처음 쓴다). 파생 색조(soft/edge/deep)는 정본에 없어 여기 두지 않는다 — 그게
+     필요한 화면(features/project-management/home/)이 자기 CSS에서 지역적으로 파생시킨다. */
+  --campaign-yellow: #f4c430;
+  --campaign-plum: #4b173c;
+  --campaign-lavender: #e9ddfb;
 
   /* ── semantic ─────────────────────────────────────── */
   --canvas: var(--navy-50);
@@ -800,6 +806,18 @@ select.field {
   .dialog {
     transition-duration: 0ms !important;
   }
+}
+
+/* ═══════════ ComingSoonOverlay — 화면은 있으나 로직 미완성 (app/web/AGENTS.md 참고) ═══════════
+   블러 처리된 실제 내용 위에 .overlay-backdrop/.dialog 를 그대로 올린다 — 새 시각 언어를
+   만들지 않는다. blur 대상은 pointer-events 도 막는다 — 안 그러면 안 보이는 버튼이 눌린다. */
+.comingsoon {
+  position: relative;
+}
+.comingsoon__content {
+  filter: blur(6px);
+  pointer-events: none;
+  user-select: none;
 }
 
 /* ═══════════ 빈 상태 ═══════════ */

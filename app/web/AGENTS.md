@@ -75,6 +75,26 @@ app/web/src/features/{기능명}/          # 예: user-management (features/ 폴
 폴더 **안**의 세부 구성(컴포넌트를 몇 개로 쪼갤지, 하위 폴더를 더 팔지)은 기능마다 자유다.
 아래 "폴더 간 접점"만 공통 규칙으로 고정한다.
 
+### 섹션이 여러 개인 화면 — `{screenName}/` 하위 폴더로 쪼갠다 (2026-09-04 추가)
+
+한 화면의 JSX가 대략 300줄을 넘거나, 시각적으로 독립된 섹션이 3개 이상이면
+`{screenName}/` 하위 폴더를 만들어 섹션별 파일로 쪼갠다. 최상위 `{Screen}Page.tsx`는
+데이터 패칭·상태·섹션 조립만 하고, 각 섹션 파일은 props로 받은 것만 그린다(자체 fetch
+금지 — Page가 내려준다). 배너 캐러셀처럼 화면 밖으로 나갈 일 없는 로컬 UI 상태(현재 슬라이드
+인덱스 등)는 섹션 파일이 직접 가져도 된다. 예시(project-management의 대표 페이지):
+
+```
+features/project-management/
+  HomePage.tsx     # 섹션 조립 + 데이터 패칭만
+  home/
+    Hero.tsx        # 섹션 하나, 상태 없음
+    PromoCarousel.tsx  # 섹션 하나, 로컬 UI 상태 있음
+    ...
+```
+
+(근거: `features/project-management/design/homepage-transplant-plan.md` 7번 절 — 화면 하나가
+6개 섹션·약 11,000자였던 첫 사례에서 정한 규칙)
+
 ## 폴더 간 접점 — 기능끼리 직접 참조하지 않는다
 
 **다른 기능 폴더의 파일을 import하지 않는다. 배럴(`index.ts`)도 두지 않는다.** 배럴을 두면
@@ -117,6 +137,31 @@ base URL·인증 헤더 주입·에러 처리는 **횡단 관심사**다. 기능
 - 인증 헤더 주입 (Supabase 세션 토큰 — 컴포넌트가 토큰을 직접 다루지 않는다)
 - 공통 에러 처리 (401 → 로그인 화면으로, 그 외 4xx/5xx → 일관된 에러 객체로 변환)
 - 요청/응답 JSON 직렬화
+
+## 시안에는 있지만 아직 없는 화면 — 숨기지 않고 안내한다 (2026-09-04 추가)
+
+시안(`design/*.html`)에는 있는데 실제로 아직 없는 화면·기능을 가리키는 버튼/링크가 종종
+나온다(예: 대표 페이지의 "전문가 찾기" nav — PRD §7.1에 화면 자체가 없다). **`href="#"`나
+빈 `onClick`으로 조용히 죽이지 않는다** — 사용자는 그걸 고장으로 읽는다. 대신 상태에 따라
+둘 중 하나로 안내한다. 두 상태는 다르다:
+
+**Case 1 — 화면 자체가 없다** (기능 폴더도, spec도, prototype도 없다)
+→ `shared/ui/NotYetDialog.tsx` + `<NotYetTrigger screenKey="...">`. 제자리에서 모달만
+뜨고 이동하지 않는다. "닫기"로 그냥 닫힌다.
+
+**Case 2 — 경로·기능 폴더·spec/prototype은 있는데 `app/`에 화면이 아직 안 붙었다**
+(`App.tsx`의 `NOT_INTEGRATED_ROUTES`가 정확히 이 상태)
+→ `shared/ui/ComingSoonOverlay.tsx`. 실제로 그 라우트로 이동은 시키되(주소가 바뀐다),
+렌더된 내용을 블러 처리하고 모달을 강제로 띄운다. 바깥 클릭·Esc로는 안 닫히고, "뒤로가기"
+버튼(`navigate(-1)`, 방문 기록이 없으면 `APP_ROUTES.home`)으로만 닫힌다.
+
+두 컴포넌트 모두 `shared/notYetScreens.ts`(이름·담당·명세 위치·`hasRoute` 레지스트리)를
+같이 참조한다 — 어느 화면이 어느 Case인지는 이 레지스트리의 `hasRoute` 값이 정한다. 새 키를
+추가할 때 담당이 아직 없으면 "담당 미정"으로 정직하게 적는다 — 지어내지 않는다.
+
+(근거·전례: `features/project-management/design/reference-proposal/bundle.html`의
+`demo/notyet.js`가 Case 1을 이미 이 방식으로 구현해 뒀었다. `features/project-management/
+design/homepage-transplant-plan.md` 6·6-1번 절 참고.)
 
 ## 외부 벤더(Supabase 등) 접근
 
@@ -162,6 +207,8 @@ Vite는 `VITE_`로 시작하는 변수만 클라이언트에 노출한다. 뒤�
 - [ ] Supabase 등 벤더 SDK를 컴포넌트가 직접 import하지 않는다
 - [ ] `VITE_` 변수에 비밀값이 들어가 있지 않다
 - [ ] `shared/`에 새로 추가된 게 있다면 팀장이 직접 추가했거나 관련 담당자와 협의한 것이다
+- [ ] 시안에 있지만 아직 없는 화면을 가리키는 버튼/링크가 `href="#"`나 빈 `onClick`으로 죽어
+      있지 않다 — `NotYetDialog`(화면 없음) 또는 `ComingSoonOverlay`(라우트는 있음)로 안내한다
 
 (2026-08-27 작성 — `app/server/AGENTS.md`와 짝을 이루는 문서. 근거: "기능 담당자 통제성 확보"
 원칙 — 폴더 안은 담당자 재량, 폴더 간 접점만 팀 공통 규칙으로 고정한다.)
