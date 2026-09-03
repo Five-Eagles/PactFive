@@ -132,3 +132,241 @@
     transition-duration: 0ms !important;
   }
 }
+
+/* AGR-01 페이지 본문. 앱 셸 없음. .panel 560px 제한은 서명·결제용으로 유지한다. */
+.agreement-page {
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 32px;
+}
+
+.agreement-page .panel {
+  max-width: none;
+  padding: 24px;
+}
+
+.agreement-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.agreement-page .page-title {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  margin: 0;
+}
+
+.agreement-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-areas:
+    "main side"
+    "cta side";
+  gap: 24px;
+  align-items: start;
+}
+
+.agreement-main { grid-area: main; }
+.agreement-side { grid-area: side; }
+.agreement-cta-bar { grid-area: cta; }
+
+.agreement-main,
+.agreement-side {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.agreement-side {
+  position: sticky;
+  top: 24px;
+}
+
+.agreement-card-title {
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  margin: 0 0 12px;
+}
+
+.offer-amount {
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.history li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.history li:first-child { padding-top: 0; }
+.history li:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+
+.history .money { font-size: 16px; line-height: 24px; }
+
+.notes {
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--content-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.notes li + li { margin-top: 8px; }
+
+.notes strong {
+  color: var(--content);
+  font-weight: 600;
+}
+
+.agreement-side .body-strong { margin: 0; }
+.agreement-side .caption { margin: 4px 0 0; }
+.offer-kicker { margin: 0 0 8px; }
+.panel .btn-row.after-offer { margin-top: 16px; }
+.helper.after-amount { margin-top: 12px; margin-bottom: 0; }
+
+.agreement-cta-bar { margin-top: 0; width: 100%; }
+
+.choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.choice-list legend {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--btn-radius);
+  cursor: pointer;
+  background: var(--surface);
+}
+
+.choice:hover { background: var(--surface-subtle); }
+
+.choice:has(input:checked) {
+  border-color: var(--border-focus);
+  background: var(--surface-selected);
+}
+
+.choice input {
+  margin: 3px 0 0;
+  accent-color: var(--action);
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.choice span { font-size: 14px; line-height: 20px; }
+
+.dialog-md { width: 560px; max-height: min(90vh, 720px); overflow: auto; }
+
+/* 시안 단면용: fixed 오버레이가 문서 전체를 가리지 않게 한다. */
+.overlay-demo {
+  position: relative;
+  min-height: 420px;
+  border-radius: var(--card-radius);
+  overflow: hidden;
+  background: var(--surface-subtle);
+}
+
+.overlay-demo .overlay-backdrop {
+  position: absolute;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.overlay-demo .dialog {
+  opacity: 1;
+  transform: none;
+}
+
+.screen:has(.agreement-page) { max-width: 1200px; }
+
+@media (max-width: 1000px) {
+  .agreement-page { padding-inline: 16px; }
+
+  .agreement-page .panel { padding: 16px; }
+
+  .agreement-page .page-title {
+    font-size: 20px;
+    line-height: 28px;
+  }
+
+  .agreement-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "main"
+      "side"
+      "cta";
+  }
+
+  .agreement-side { position: static; }
+
+  .agreement-card-title {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  .offer-amount {
+    font-size: 28px;
+    line-height: 36px;
+  }
+
+  .has-fixed-cta .agreement-cta-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    margin-inline: -16px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+
+  .has-fixed-cta .agreement-cta-bar .btn {
+    flex: 1;
+    height: 48px;
+    min-height: 48px;
+  }
+
+  /* 스크롤 컨테이너에서 바가 본문을 가리지 않도록 같은 높이 여백을 둔다. */
+  .has-fixed-cta .agreement-side { padding-bottom: 72px; }
+}

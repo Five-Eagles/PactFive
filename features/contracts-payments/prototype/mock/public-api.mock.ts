@@ -5,7 +5,11 @@ import {
   type PreparePaymentResponse,
 } from "./payment-record.mock";
 import type { ConfirmPaymentInput, ConfirmPaymentResponse } from "../server/payment.port";
-import { DomainContractError } from "../server/project-transaction.types";
+import {
+  DomainContractError,
+  type NotReopenedReason,
+  type ProjectNegotiationContextResponse,
+} from "../server/project-transaction.types";
 import type { ContractStatus } from "../server/contract.types";
 import {
   PublicApiError,
@@ -88,6 +92,10 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
   const audits: SignatureAudit[] = [];
   const acceptIdempotency = new Map<string, CurrentNegotiationOfferResponse>();
   const rejectIdempotency = new Map<string, CurrentNegotiationOfferResponse>();
+  const restoreByProject = new Map<
+    string,
+    { reopened: boolean; notReopenedReason: NotReopenedReason | null }
+  >();
   const signIdempotency = new Map<string, SignContractResponse>();
   const invalidateIdempotency = new Map<string, InvalidateAgreementResponse>();
 
@@ -114,10 +122,18 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
     return row.offers[row.offers.length - 1];
   }
 
-  function toCurrent(projectId: string): CurrentNegotiationOfferResponse {
+  function toCurrent(
+    projectId: string,
+    ctx: ProjectNegotiationContextResponse,
+  ): CurrentNegotiationOfferResponse {
     const agreement = agreementFor(projectId);
     const contract = [...contracts.values()].find((row) => row.projectId === projectId);
     const offer = agreement ? latestOffer(agreement) : undefined;
+    const rejected = agreement?.status === "REJECTED";
+    const restore = restoreByProject.get(projectId);
+    // REJECTED만 restore 결과를 채운다. prj_restore는 재개, prj_deadline은 종료.
+    const reopened = rejected ? (restore?.reopened ?? ctx.recruitmentStatus === "OPEN") : null;
+    const notReopenedReason = rejected ? (restore?.notReopenedReason ?? null) : null;
     return {
       projectId,
       agreementId: agreement?.agreementId ?? null,
@@ -133,6 +149,13 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
         : null,
       contractId: contract?.contractId ?? null,
       contractStatus: contract?.status ?? null,
+      projectTitle: MOCK_PROJECT_TITLE,
+      recruitmentStatus: ctx.recruitmentStatus,
+      transactionStatus: ctx.transactionStatus,
+      canceledAt: ctx.canceledAt,
+      applicationId: agreement?.applicationId ?? ctx.acceptedApplicationId,
+      reopened,
+      notReopenedReason,
     };
   }
 
@@ -160,8 +183,8 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
       projectId: string,
       actorUserId: string,
     ): Promise<CurrentNegotiationOfferResponse> {
-      await requireParty(projectId, actorUserId);
-      return toCurrent(projectId);
+      const ctx = await requireParty(projectId, actorUserId);
+      return toCurrent(projectId, ctx);
     },
 
     async proposeNegotiationOffer(
@@ -208,7 +231,7 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
         respondedAt: null,
         offers: [offer],
       });
-      return toCurrent(projectId);
+      return toCurrent(projectId, ctx);
     },
 
     async acceptNegotiationOffer(
@@ -236,7 +259,7 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
         throw new PublicApiError("PROJECT_FORBIDDEN", "이 프로젝트에 대한 권한이 없습니다.");
       }
       if (agreement.status === "ACCEPTED") {
-        const current = toCurrent(projectId);
+        const current = toCurrent(projectId, ctx);
         acceptIdempotency.set(idemKey, current);
         return current;
       }
@@ -273,7 +296,7 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
         freelancerSignedAt: null,
         signedAt: null,
       });
-      const current = toCurrent(projectId);
+      const current = toCurrent(projectId, ctx);
       acceptIdempotency.set(idemKey, current);
       return current;
     },
@@ -310,7 +333,7 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
       agreement.status = "REJECTED";
       agreement.respondedAt = nowIso;
       offer.rejectedReason = input.reason ?? input.reasonCode;
-      await projects.restorePreContractProject(projectId, {
+      const restored = await projects.restorePreContractProject(projectId, {
         negotiationId: agreement.agreementId,
         offerId,
         actorUserId,
@@ -319,7 +342,12 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
         idempotencyKey: idemKey,
         occurredAt: nowIso,
       });
-      const current = toCurrent(projectId);
+      restoreByProject.set(projectId, {
+        reopened: restored.reopened,
+        notReopenedReason: restored.notReopenedReason,
+      });
+      const ctx = await projects.getProjectNegotiationContext(projectId);
+      const current = toCurrent(projectId, ctx);
       rejectIdempotency.set(idemKey, current);
       return current;
     },

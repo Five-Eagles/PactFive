@@ -26,6 +26,7 @@
   공개 API 스탠드인은 `createPublicApiMock` (`prototype/index.ts` export).
   GET `/api/v1/payments/:paymentId` (`getPayment`)와 POST 준비·승인 (`preparePayment`·`confirmPayment`) 포함.
   `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~22 Mock을 확인한다.
+  합의 화면은 하이브리드 AGR-01(페이지 본문, ViewModel). `/agreements` 5종 폐기 유지.
 
 ### Mock 시드 (성공·실패 재현)
 
@@ -45,7 +46,8 @@
 | `prj_pending_apps` | restore `PENDING_APPLICATIONS_REMAIN` |
 
 - design/: high-fi 3화면 (`agreement.html` · `contract-sign.html` · `payment.html`).
-  패널만 (앱 셸 없음). `_tokens.css`는 design-system v1.0 사본. 키 없음 UX는
+  합의는 AGR-01 페이지 본문(최대 1200px, 8:4). 서명·결제는 패널. 앱 셸 없음.
+  `_tokens.css`는 design-system v1.0 사본. 키 없음 UX는
   `prototype/web/PaymentPanel.tsx` `view="keyMissing"`.
   오버레이·reduced-motion은 `design/panel.css`. 합의 거절은 확인 다이얼로그 (앱 셸·stagger 없음).
   화면 카피는 상황 문장. 합의·서명·결제 응답 기한은 스펙에 없어 미표시.
@@ -92,3 +94,4 @@
 | 2026-09-03 | 회신 대기 중 재실측. `run.tsx` PASS 89. mock-stub-import-guide 검증 수를 89로 맞춤 |
 | 2026-09-03 | 공개 API Mock에 `preparePayment`·`confirmPayment` 파사드. 팀장 통합 요청 `review/teamlead-public-api-panels-2026-09-03.md`. 실측 PASS 91 |
 | 2026-09-03 | 알림 발송 담당을 팀장으로. applications 손잡이·S1·S2는 조준영 확정 |
+| 2026-09-03 | 하이브리드 AGR-01. `/agreements` 5종 폐기 유지. `run.tsx` 상태 산정·필수 카피. 실측 PASS 120 |

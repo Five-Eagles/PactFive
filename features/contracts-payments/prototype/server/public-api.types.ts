@@ -1,6 +1,12 @@
 import type { ContractStatus } from "./contract.types";
+import type {
+  NotReopenedReason,
+  ProjectTransactionStatus,
+  RecruitmentStatus,
+} from "./project-transaction.types";
 
 export type { AgreementStatus, ContractStatus } from "./contract.types";
+export type { NotReopenedReason, ProjectTransactionStatus, RecruitmentStatus };
 
 export type PublicApiErrorCode = "AUTH_REQUIRED" | "PROJECT_FORBIDDEN";
 
@@ -46,6 +52,13 @@ export type CurrentNegotiationOfferResponse = {
   offer: NegotiationOfferView | null;
   contractId: string | null;
   contractStatus: ContractStatus | null;
+  projectTitle: string;
+  recruitmentStatus: RecruitmentStatus;
+  transactionStatus: ProjectTransactionStatus;
+  canceledAt: string | null;
+  applicationId: string | null;
+  reopened: boolean | null;
+  notReopenedReason: NotReopenedReason | null;
 };
 
 export type AcceptNegotiationOfferInput = { expectedRound: number };

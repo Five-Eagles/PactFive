@@ -8,7 +8,10 @@ body {
 .preview-root {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  /* 합의 8:4 그리드가 하네스 420px에 갇히지 않게 한다. */
+  width: min(1168px, calc(100vw - 304px));
+  max-width: none;
 }
 
 .preview-switcher {
@@ -20,10 +23,11 @@ body {
 .preview-switcher button {
   height: 32px;
   padding: 0 12px;
-  border-radius: var(--btn-radius);
   border: 1px solid var(--border);
+  border-radius: var(--btn-radius);
   background: var(--surface);
   color: var(--content-secondary);
+  font: inherit;
   font-size: 13px;
   line-height: 20px;
   cursor: pointer;
