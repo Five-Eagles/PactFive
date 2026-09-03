@@ -30,6 +30,13 @@ export type ButtonProps = {
   loading?: boolean;
   type?: 'button' | 'submit';
   onClick?: () => void;
+  /**
+   * 보이는 글자와 다른 것을 읽어 줘야 할 때만 쓴다 (2026-09-03 추가 — CR-0010).
+   * 막힌 버튼의 사유처럼, 화면에 보이는 문구만으로 접근성이 충족되지 않는 경우에 쓴다.
+   */
+  ariaLabel?: string;
+  /** 마우스 사용자용 보조 설명. 이것만으로는 접근성이 충족되지 않는다 — `ariaLabel` 과 함께 쓴다 */
+  title?: string;
   children: ReactNode;
 };
 
@@ -41,6 +48,8 @@ export function Button({
   loading = false,
   type = 'button',
   onClick,
+  ariaLabel,
+  title,
   children,
 }: ButtonProps) {
   const sizeClass = size === 'md' ? '' : ` btn--${size}`;
@@ -50,6 +59,8 @@ export function Button({
       className={`btn btn--${variant}${sizeClass}${fullWidth ? ' btn--full' : ''}`}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
+      aria-label={ariaLabel}
+      title={title}
       onClick={onClick}
     >
       {children}
@@ -241,7 +252,15 @@ export function EmptyState({
  *
  * **막힌 행동은 숨기지 않고 이유를 붙인다** — 버튼이 사라지면 왜 못 하는지 알 수 없다.
  * 시안 SCR-B07 은 행 오른쪽에 버튼만 늘어놓지만, 그건 "허용된 것만" 그린 상태다.
- * 이유는 `title` 로 붙여 좁은 행에서도 레이아웃을 깨지 않게 한다.
+ *
+ * 사유를 **두 경로로** 전한다 (2026-09-03 추가 — CR-0010, feedback_loop 2026-08-28
+ * project-management 항목 5).
+ *
+ * - 바깥 `<span title=…>` — 마우스 사용자용. 버튼이 `disabled` 면 포인터 이벤트를 못 받아
+ *   `title` 이 안 뜨는 브라우저가 있어, 버튼을 감싸는 span 에 둔다.
+ * - `Button` 의 `ariaLabel` — 키보드·보조 기술용. `title` 은 이 경로에 전달되지 않는다.
+ *
+ * 눈으로 보든 읽어 주든 같은 이유를 듣게 한다.
  */
 export type ActionSpec = {
   id: string;
@@ -262,6 +281,11 @@ export function PermissionAwareActions({ actions }: { actions: ActionSpec[] }) {
             size="sm"
             disabled={!action.available}
             onClick={action.onClick}
+            ariaLabel={
+              !action.available && action.blockedReason
+                ? `${action.label} — ${action.blockedReason}`
+                : undefined
+            }
           >
             {action.label}
           </Button>

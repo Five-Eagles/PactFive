@@ -19,8 +19,11 @@ import {
   type BookmarkItem,
   type BookmarkListQuery,
   type BookmarkListResponse,
+  type BookmarkIdsResponse,
   type BookmarkToggleResponse,
   type EngagementErrorCode,
+  type RecommendationReason,
+  type RecommendedItem,
   type RecommendationResponse,
 } from "./bookmark.types";
 import type { EngagementPorts, ProjectCardData } from "./ports/project-read.port";
@@ -177,6 +180,25 @@ export function createEngagementService(deps: EngagementServiceDeps) {
     };
   }
 
+  /* ═══════════ 3-2. 저장한 프로젝트 id (규칙 35·36) ═══════════ */
+
+  /**
+   * 화면이 카드마다 북마크 여부를 대조하는 데 쓴다.
+   *
+   * **삭제된 프로젝트도 걸러내지 않는다.** 여기서 걸러내려면 프로젝트를 조회해야 하는데,
+   * 이 조회의 목적은 "지금 보고 있는 카드가 저장돼 있는가"뿐이다.
+   * 화면에 없는 id 가 섞여 있어도 대조 결과는 같다.
+   */
+  async function listBookmarkedProjectIds(
+    auth: AuthContext | null,
+  ): Promise<Responded<BookmarkIdsResponse>> {
+    const me = await requireFreelancer(auth);
+    return {
+      status: 200,
+      body: { projectIds: repo.findByFreelancer(me.userId).map((b) => b.projectId) },
+    };
+  }
+
   /* ═══════════ 4. 추천 프로젝트 (규칙 16~26) ═══════════ */
 
   /**
@@ -192,6 +214,19 @@ export function createEngagementService(deps: EngagementServiceDeps) {
     if (sameCategory) return 2;
     return 3;
   }
+
+  /**
+   * 순위를 사유로 바꾼다.
+   *
+   * **숫자를 내보내지 않는다** (규칙 28). 1·2·3 은 정렬에만 쓰고,
+   * 밖으로는 무엇이 겹쳤는지만 말한다. 나중에 우선순위를 바꿔도
+   * 화면이 숫자에 기대고 있지 않아서 깨지지 않는다.
+   */
+  const REASON_BY_TIER: Record<number, RecommendationReason> = {
+    1: "SAME_CATEGORY_AND_SKILL",
+    2: "SAME_CATEGORY",
+    3: "SHARED_SKILL",
+  };
 
   async function getRecommendations(projectId: string): Promise<Responded<RecommendationResponse>> {
     // 규칙 16 — 로그인이 필요 없다.
@@ -218,9 +253,24 @@ export function createEngagementService(deps: EngagementServiceDeps) {
     // 규칙 28 — 순위값을 응답에 넣지 않는다. 순서로만 표현한다.
     return {
       status: 200,
-      body: { items: ranked.slice(0, RECOMMENDATION_COUNT).map(toBookmarkedProject) },
+      body: {
+        items: ranked.slice(0, RECOMMENDATION_COUNT).map((c): RecommendedItem => {
+          const tier = tierOf(c, base.category.category, skillIds);
+          return {
+            ...toBookmarkedProject(c),
+            reason: REASON_BY_TIER[tier]!,
+            matchedSkills: c.skills.filter((s) => skillIds.includes(s.skillId)).map((s) => s.displayName),
+          };
+        }),
+      },
     };
   }
 
-  return { addBookmark, removeBookmark, listBookmarks, getRecommendations };
+  return {
+    addBookmark,
+    removeBookmark,
+    listBookmarks,
+    listBookmarkedProjectIds,
+    getRecommendations,
+  };
 }

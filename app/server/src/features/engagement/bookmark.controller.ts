@@ -63,6 +63,19 @@ export function createBookmarkController(service: EngagementService) {
       }
     },
 
+    /**
+     * GET /api/v1/bookmarks/ids — 저장한 프로젝트 id 목록 (규칙 36, CR-0008).
+     * 화면이 카드마다 북마크 여부를 대조하는 데 쓴다. 페이지를 나누지 않는다.
+     */
+    async ids(req: Request, res: Response): Promise<void> {
+      try {
+        const result = await service.listBookmarkedProjectIds(toAuth(req));
+        res.status(result.status).json(result.body);
+      } catch (error) {
+        sendDomainError(res, error);
+      }
+    },
+
     /** GET /api/v1/projects/:projectId/recommendations — 비로그인도 볼 수 있다 (규칙 16) */
     async recommendations(req: Request, res: Response): Promise<void> {
       try {

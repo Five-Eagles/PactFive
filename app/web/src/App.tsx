@@ -12,6 +12,7 @@ import { projectRoutes, PROJECT_ROUTES } from './features/project-management/pro
 import { engagementRoutes, ENGAGEMENT_ROUTES } from './features/engagement/bookmark.routes';
 import { BookmarkButton } from './features/engagement/BookmarkButton';
 import { RecommendationSection } from './features/engagement/RecommendationSection';
+import { useBookmarkedIds } from './features/engagement/useBookmark';
 
 // 401을 받으면 로그인 화면으로 보낸다.
 // shared/http.ts가 라우터를 직접 import하지 않도록 여기서 주입한다.
@@ -94,6 +95,11 @@ function AppRoutes() {
 
   const viewer = state.status === 'authenticated' ? state.session.user : null;
 
+  // 카드마다 북마크 초기 상태를 넘긴다 (CR-0008) — `PublicProjectItem` 에는
+  // `isBookmarked` 가 없어 engagement 의 `GET /bookmarks/ids` 로 화면이 직접 대조한다.
+  // 프리랜서가 아니면 부르지 않는다 — 서버가 401·403 을 주기 전에 막는다.
+  const bookmarkedIds = useBookmarkedIds(viewer?.role === 'FREELANCER');
+
   // 시안의 nav는 "프로젝트 찾기 · 내 프로젝트" 두 개다. 프리랜서에게는 "내 프로젝트"가
   // 의뢰인 전용이라 대신 "내 북마크"를 둔다 — 누를 수 없는 메뉴를 두지 않는다.
   const navItems = [
@@ -107,6 +113,7 @@ function AppRoutes() {
     <BookmarkButton
       projectId={projectId}
       viewer={viewer ? { role: viewer.role } : null}
+      initialBookmarked={bookmarkedIds.has(projectId)}
       onRequireLogin={() => navigate(AUTH_ROUTES.login)}
     />
   );

@@ -43,6 +43,39 @@ import type { AuthContext, ExternalPorts, TransactionContext } from './project.p
 const DAY = 24 * 60 * 60 * 1000;
 const MAX_RECRUITMENT_DAYS = 365;
 
+/**
+ * 검색어 판정 (규칙 62·63, 2026-09-03 반영 — CR-0010 추가분).
+ *
+ * **기술 이름도 본다.** 사람들이 검색창에 가장 먼저 치는 것이 기술 이름인데
+ * 제목·설명만 보면 "React" 가 0건으로 나온다 — React 를 요구하는 프로젝트가
+ * 실제로 있는데도 그렇다. 2026-09-03 배포 화면 실측으로 확인했다(CR-0010).
+ *
+ * **띄어쓰기로 끊어 전부 만족하는 것만 남긴다.** 통째로 찾으면
+ * "브랜드 디자인" 이 "브랜드 리뉴얼 디자인" 을 못 찾는다.
+ *
+ * 낱말끼리는 AND 다. OR 로 하면 낱말 하나만 걸려도 나와서 결과가 넓어진다 —
+ * 목록의 목적은 지원할 곳을 좁히는 것이다 (규칙 58 의 AND 와 같은 이유).
+ */
+function matchesKeyword(
+  project: { title: string; description: string; skillIds: string[] },
+  keyword: string,
+  toSkillRefs: (skillIds: string[]) => { skillId: string; displayName: string }[],
+): boolean {
+  const words = keyword.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+
+  const haystack = [
+    project.title,
+    project.description,
+    // 표시 이름과 코드를 둘 다 넣는다 — "Node.js" 로도 "NODEJS" 로도 찾는다
+    ...toSkillRefs(project.skillIds).flatMap((s) => [s.displayName, s.skillId]),
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  return words.every((w) => haystack.includes(w));
+}
+
 export type ProjectServiceDeps = {
   repo: ProjectRepository;
   ports: ExternalPorts;
@@ -201,8 +234,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
       recruitmentStartAt: p.recruitmentStartAt,
     };
     if (auth?.role === 'FREELANCER') {
-      // isBookmarked 는 engagement 담당이다. 여기서 그 기능을 부르면 서버 기능 간
-      // 직접 의존이 생기므로 넣지 않는다 — 화면은 engagement API 로 따로 조회한다.
+      // 북마크 여부는 넣지 않는다 (CR-0008). engagement 담당이라, 여기서 그 기능을 부르면
+      // 서버 기능 간 직접 의존이 생긴다 — 화면이 `GET /api/v1/bookmarks/ids` 로 따로 대조한다.
       detail.canApply =
         effectiveRecruitmentStatus(p, at) === 'OPEN' && p.transactionStatus === 'NONE';
     }
@@ -258,6 +291,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
       description: p.description,
       recruitmentStartAt: p.recruitmentStartAt,
       transactionStatus: p.transactionStatus,
+      budgetSource: p.budgetSource,
+      budgetSourceAt: p.budgetSourceAt,
       pendingApplicationCount: p.pendingApplicationCount,
       recruitmentClosedAt: p.recruitmentClosedAt,
       canceledAt: p.canceledAt,
@@ -307,6 +342,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
       description: input.description,
       category: input.category,
       budgetAmount: input.budgetAmount,
+      // 분석을 연결하면 아래에서 AI_ANALYSIS 로 바뀐다 (규칙 8)
+      budgetSource: 'CLIENT_INPUT',
+      budgetSourceAt: at,
       recruitmentStartAt: input.recruitmentStartAt,
       recruitmentDeadlineAt: input.recruitmentDeadlineAt,
       recruitmentStatus: startsLater ? 'SCHEDULED' : 'OPEN',
@@ -335,7 +373,14 @@ export function createProjectService(deps: ProjectServiceDeps) {
           requesterId: me.userId,
         });
         // 클라이언트가 보낸 금액을 덮어쓴다. 표시용으로만 받았다.
-        repo.update(projectId, { budgetAmount: claimed.recommendedAmount });
+        //
+        // **덮어썼다는 사실도 함께 남긴다** (CR-0006 결함 2).
+        // 남기지 않으면 의뢰인이 자기 화면의 숫자가 어디서 왔는지 알 수 없다.
+        repo.update(projectId, {
+          budgetAmount: claimed.recommendedAmount,
+          budgetSource: 'AI_ANALYSIS',
+          budgetSourceAt: at,
+        });
       } catch {
         // 연결 실패면 프로젝트 생성까지 되돌린다. Prisma 트랜잭션이 아직 없어
         // 소프트 삭제로 대신한다 — 트랜잭션이 생기면 이 줄이 rollback 으로 바뀐다.
@@ -387,11 +432,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
 
     if (query.keyword) {
-      const keyword = query.keyword.toLowerCase();
-      rows = rows.filter(
-        (p) =>
-          p.title.toLowerCase().includes(keyword) || p.description.toLowerCase().includes(keyword),
-      );
+      rows = rows.filter((p) => matchesKeyword(p, query.keyword!, ports.catalog.toSkillRefs));
     }
     if (query.category) rows = rows.filter((p) => p.category === query.category);
     if (query.skills?.length) {

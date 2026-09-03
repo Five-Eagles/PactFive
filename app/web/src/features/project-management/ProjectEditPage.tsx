@@ -3,9 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
 import { Button, EmptyState, Field, Notice } from '../../shared/ui/primitives';
 import { ApiError } from '../../shared/http';
+import { toIsoOrEmpty } from '../../shared/date';
 import { updateProject } from './api/project';
 import { useProject, isClientDetail } from './useProject';
 import { PROJECT_ROUTES } from './project.routes';
+import { MoneyBreakdown } from './MoneyBreakdown';
 import type { UpdateProjectRequest } from './project.types';
 
 /**
@@ -15,7 +17,7 @@ import type { UpdateProjectRequest } from './project.types';
  * ("필수 요소 목록" 5개: 제목/라벨 2개/버튼 2개 — 예산·마감일 라벨은 조건부라 목록에서 뺐다).
  *
  * sync-log.md 2026-08-27/28 비고에 "SCR-B06·B10 미반영 — 다음 통합 대상"으로 남아 있던 것을
- * 오늘 반영한다. 서버 엔드포인트(`PATCH /api/v1/projects/:projectId`)·API 클라이언트
+ * 2026-08-29에 반영했다. 서버 엔드포인트(`PATCH /api/v1/projects/:projectId`)·API 클라이언트
  * (`api/project.ts`의 `updateProject`)·타입(`UpdateProjectRequest`)은 이미 1차 반영에서
  * 갖춰져 있었다 — 화면만 없었다.
  *
@@ -23,11 +25,17 @@ import type { UpdateProjectRequest } from './project.types';
  * 목록을 그대로 따른다(spec.md 규칙 13·15). 원본 `prototype/web/ProjectManage.tsx`의
  * `ProjectEditForm`과 같은 방식이다.
  *
- * feedback_loop 참고: api-contract.md의 PATCH 요청 필드 목록은 `recruitmentStartAt`·
- * `recruitmentDeadlineAt`도 포함하지만, 1차 반영에서 `UpdateProjectRequest` 타입과
- * 원본 `ProjectEditForm`이 이미 title·description·budgetAmount로 범위를 좁혀 두었다 —
- * 이 화면도 그 범위를 그대로 따른다. 마감일 수정을 이 화면에 열지는 담당자 확인이 필요해
- * `feedback_loop/2026-08-29/project-management.md`에 남겼다.
+ * ## 모집 일정 칸 (2026-09-03 반영, ef1411e)
+ *
+ * 2026-08-29 반영은 title·description·budgetAmount 세 필드만 다뤘다.
+ * `feedback_loop/2026-08-29/project-management.md` 항목 2에서 담당자가 확인해 준 대로,
+ * 규칙 15를 뒤집으면 **대기 지원이 0건일 때 모집 일정도 수정 가능**이고 `editableFields`가
+ * 이미 `recruitmentStartAt`·`recruitmentDeadlineAt`를 함께 내려보낸다 — 세 필드로 좁힌 것은
+ * 의도적 설계가 아니라 프로토타입의 누락이었다. 서버(`project.controller.ts`의 `update`
+ * 핸들러)는 이미 두 필드를 받고 있어 이 화면에 입력만 더한다.
+ *
+ * 입력 칸 옆에는 `MoneyBreakdown`으로 예산 출처를 보여준다(CR-0006 결함 2) — 이 숫자가
+ * 의뢰인이 직접 넣은 값인지 AI 단가 분석이 바꾼 값인지 여기서 구분된다.
  */
 export function ProjectEditPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -37,6 +45,8 @@ export function ProjectEditPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [budgetAmount, setBudgetAmount] = useState('');
+  const [startAt, setStartAt] = useState('');
+  const [deadlineAt, setDeadlineAt] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -46,6 +56,8 @@ export function ProjectEditPage() {
       setTitle(project.title);
       setDescription(project.description);
       setBudgetAmount(String(project.budgetAmount));
+      setStartAt(project.recruitmentStartAt ? project.recruitmentStartAt.slice(0, 10) : '');
+      setDeadlineAt(project.recruitmentDeadlineAt.slice(0, 10));
     }
   }, [project]);
 
@@ -93,6 +105,12 @@ export function ProjectEditPage() {
     const patch: UpdateProjectRequest = { title, description };
     if (canEdit('budgetAmount')) {
       patch.budgetAmount = Number(budgetAmount.replace(/,/g, '').trim());
+    }
+    if (canEdit('recruitmentStartAt')) {
+      patch.recruitmentStartAt = toIsoOrEmpty(startAt) || null;
+    }
+    if (canEdit('recruitmentDeadlineAt')) {
+      patch.recruitmentDeadlineAt = toIsoOrEmpty(deadlineAt);
     }
 
     try {
@@ -152,6 +170,53 @@ export function ProjectEditPage() {
             value={budgetAmount}
             readOnly={!canEdit('budgetAmount')}
             onChange={(event) => setBudgetAmount(event.target.value)}
+          />
+        </Field>
+
+        {/* 입력 칸 옆에 출처를 붙인다 — 이 숫자가 직접 입력한 값인지 AI가 바꾼 값인지
+            여기서 구분된다 (CR-0006 결함 2). */}
+        <MoneyBreakdown
+          amount={project.budgetAmount}
+          source={project.budgetSource}
+          sourceAt={project.budgetSourceAt}
+          label="현재 예산"
+        />
+
+        <Field
+          id="edit-start"
+          label="모집 시작일 (선택)"
+          state={canEdit('recruitmentStartAt') ? 'default' : 'readOnly'}
+          helperText={canEdit('recruitmentStartAt') ? '비워두면 바로 모집을 시작합니다' : undefined}
+        >
+          <input
+            id="edit-start"
+            className="field"
+            type="date"
+            value={startAt}
+            readOnly={!canEdit('recruitmentStartAt')}
+            onChange={(event) => setStartAt(event.target.value)}
+          />
+        </Field>
+
+        <Field
+          id="edit-deadline"
+          label="모집 마감일"
+          required
+          state={canEdit('recruitmentDeadlineAt') ? 'default' : 'readOnly'}
+          helperText={
+            canEdit('recruitmentDeadlineAt')
+              ? '모집 기간은 7일 이상을 권장합니다. 최대 1년까지 설정할 수 있습니다.'
+              : `지원자 ${project.pendingApplicationCount}명이 있어 모집 일정은 변경할 수 없습니다.`
+          }
+        >
+          <input
+            id="edit-deadline"
+            className="field"
+            type="date"
+            value={deadlineAt}
+            readOnly={!canEdit('recruitmentDeadlineAt')}
+            onChange={(event) => setDeadlineAt(event.target.value)}
+            required
           />
         </Field>
 

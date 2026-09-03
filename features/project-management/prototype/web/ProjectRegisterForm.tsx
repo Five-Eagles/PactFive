@@ -11,6 +11,7 @@
 
 import { useState } from "react";
 import { Button, Field } from "./ui";
+import { useDraft, type DraftStore } from "./useDraft";
 
 export type RegisterDraft = {
   title: string;
@@ -54,11 +55,35 @@ export type ProjectRegisterFormProps = {
   onSubmit?: (draft: RegisterDraft) => void;
   /** 기본은 1단계. 테스트에서 특정 단계를 바로 열 때 쓴다 */
   initialStep?: 1 | 2 | 3;
+  /** 브라우저 없이 초안 보존을 확인할 때 넣는다 */
+  draftStore?: DraftStore;
 };
 
-export function ProjectRegisterForm({ onSubmit, initialStep = 1 }: ProjectRegisterFormProps) {
+/** 필드 구성이 바뀌면 올린다. 옛 초안은 되살리지 않는다 */
+const DRAFT_VERSION = 1;
+
+export function ProjectRegisterForm({
+  onSubmit,
+  initialStep = 1,
+  draftStore,
+}: ProjectRegisterFormProps) {
   const [step, setStep] = useState<1 | 2 | 3>(initialStep);
-  const [draft, setDraft] = useState<RegisterDraft>(EMPTY_DRAFT);
+
+  // 규칙 1 은 **서버** 임시 저장을 금지한다. 브라우저 보존은 그 대상이 아니다.
+  // 새로고침·뒤로 가기로 20자 넘는 설명을 다시 쓰게 하지 않는다 (CR-0006 결함 3).
+  const {
+    value: draft,
+    setValue: setDraft,
+    restored,
+    restoredAt,
+    discard,
+    clear,
+  } = useDraft<RegisterDraft>({
+    name: "project-register",
+    version: DRAFT_VERSION,
+    initial: EMPTY_DRAFT,
+    ...(draftStore ? { store: draftStore } : {}),
+  });
 
   function set<K extends keyof RegisterDraft>(key: K, value: RegisterDraft[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -79,8 +104,23 @@ export function ProjectRegisterForm({ onSubmit, initialStep = 1 }: ProjectRegist
       onSubmit={(e) => {
         e.preventDefault();
         onSubmit?.(draft);
+        // 등록에 성공했으면 초안은 역할이 끝났다.
+        clear();
       }}
     >
+      {/* 몰래 되살리지 않는다 — 무엇이 복원됐는지 알리고 버릴 길을 준다.
+          §6 상태 이해 · 선택권 */}
+      {restored && (
+        <div className="draft-restored" role="status">
+          <span>
+            작성 중이던 내용을 불러왔습니다
+            {restoredAt && <span className="draft-restored__at"> · {restoredAt.slice(0, 16).replace("T", " ")}</span>}
+          </span>
+          <Button variant="quiet" onClick={discard}>
+            처음부터 작성
+          </Button>
+        </div>
+      )}
       {/* 세 단계를 모두 렌더링하고 현재 단계만 보인다.
           입력값이 단계를 오갈 때 사라지지 않게 한다 (§11 "입력 보존"). */}
 

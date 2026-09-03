@@ -30,6 +30,8 @@ function base(overrides: Partial<ProjectRecord> & { projectId: string }): Projec
     description: "자사 브랜드 온라인 스토어를 새로 만들려고 합니다. 상품 등록과 결제 연동이 필요합니다.",
     category: "WEB_DEVELOPMENT",
     budgetAmount: 5_000_000,
+    budgetSource: "CLIENT_INPUT",
+    budgetSourceAt: CREATED,
     recruitmentStartAt: null,
     recruitmentDeadlineAt: DEADLINE_FUTURE,
     recruitmentStatus: "CLOSED",

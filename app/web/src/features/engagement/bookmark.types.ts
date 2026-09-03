@@ -46,7 +46,31 @@ export type BookmarkListResponse = {
   totalPages: number;
 };
 
+/**
+ * 왜 추천됐는가 (CR-0006).
+ *
+ * 규칙 28 이 금지한 것은 **내부 점수와 순위값**이다. "같은 카테고리" 같은
+ * 사유 문구는 금지 대상이 아니다 — §6 근거 이해가 요구한다.
+ */
+export type RecommendationReason = 'SAME_CATEGORY_AND_SKILL' | 'SAME_CATEGORY' | 'SHARED_SKILL';
+
+export type RecommendedItem = BookmarkedProject & {
+  reason: RecommendationReason;
+  /** 겹친 기술 이름. 사유가 기술일 때만 채운다 */
+  matchedSkills: string[];
+};
+
 /** 페이지 껍데기를 쓰지 않는다 — 고정 4건이라 넘길 페이지가 없다 (규칙 22) */
 export type RecommendationResponse = {
-  items: BookmarkedProject[];
+  items: RecommendedItem[];
+};
+
+/**
+ * 저장한 프로젝트 id 목록 (CR-0008).
+ *
+ * project-management 화면이 카드마다 북마크 여부를 대조하는 데 쓴다 — `PublicProjectItem` 에는
+ * `isBookmarked` 가 없다(계약에서 뺐다). 페이지를 나누지 않는다.
+ */
+export type BookmarkIdsResponse = {
+  projectIds: string[];
 };
