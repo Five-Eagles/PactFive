@@ -6,7 +6,7 @@
 ## 스펙 (features/contracts-payments/)
 - spec.md: 합의·서명·샌드박스 결제 설계 확정 + 4함수·PG 포트 FACT.
   정본 고정은 `review/spec-design-eval.md`. 규칙 19~22는 전이표·필드·FAILED·백로그.
-- api-contract.md: 내부 4함수 + 공개 API 초안 (`negotiation-offers`, `signContract`, 결제).
+- api-contract.md: 내부 4함수 + 공개 API 초안 (`negotiation-offers`, `signContract`, 결제, 납품 4종).
   프론트 `/agreements` 5종은 폐기.
 - review/: 교차 담당 확인 요청·회신.
   Mock import 안내는 `review/mock-stub-import-guide.md` (유동우·조준영 지원·팀장 알림).
@@ -25,8 +25,11 @@
   `NotificationTriggerPort`는 publish만. 발송은 팀장.
   공개 API 스탠드인은 `createPublicApiMock` (`prototype/index.ts` export).
   GET `/api/v1/payments/:paymentId` (`getPayment`)와 POST 준비·승인 (`preparePayment`·`confirmPayment`) 포함.
-  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~22 Mock을 확인한다.
+  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~23 Mock을 확인한다.
   합의 화면은 하이브리드 AGR-01(페이지 본문, ViewModel). `/agreements` 5종 폐기 유지.
+  납품 화면은 하이브리드 DLV-01(페이지 본문, ViewModel). 네이밍 2경로
+  (`POST /contracts/:id/deliveries` + `POST /deliveries/:id/approve`)는 쓰지 않는다.
+  I-30은 화면에서 `APPROVED`+`PAID`(정산 대기)와 `APPROVED`+`RELEASED`(완료)를 나눈다.
 
 ### Mock 시드 (성공·실패 재현)
 
@@ -45,8 +48,8 @@
 | `prj_deadline` | restore `DEADLINE_PASSED` |
 | `prj_pending_apps` | restore `PENDING_APPLICATIONS_REMAIN` |
 
-- design/: high-fi 3화면 (`agreement.html` · `contract-sign.html` · `payment.html`).
-  합의는 AGR-01 페이지 본문(최대 1200px, 8:4). 서명·결제는 패널. 앱 셸 없음.
+- design/: high-fi (`agreement.html` · `contract-sign.html` · `payment.html` · `delivery.html`).
+  합의·납품은 페이지 본문(최대 1200px, 8:4). 서명·결제는 패널. 앱 셸 없음.
   `_tokens.css`는 design-system v1.0 사본. 키 없음 UX는
   `prototype/web/PaymentPanel.tsx` `view="keyMissing"`.
   오버레이·reduced-motion은 `design/panel.css`. 합의 거절은 확인 다이얼로그 (앱 셸·stagger 없음).
@@ -95,3 +98,4 @@
 | 2026-09-03 | 공개 API Mock에 `preparePayment`·`confirmPayment` 파사드. 팀장 통합 요청 `review/teamlead-public-api-panels-2026-09-03.md`. 실측 PASS 91 |
 | 2026-09-03 | 알림 발송 담당을 팀장으로. applications 손잡이·S1·S2는 조준영 확정 |
 | 2026-09-03 | 하이브리드 AGR-01. `/agreements` 5종 폐기 유지. `run.tsx` 상태 산정·필수 카피. 실측 PASS 120 |
+| 2026-09-03 | 하이브리드 DLV-01. 네이밍 2경로 미사용. I-30 화면 구분. `run.tsx` 실측 PASS 160 |

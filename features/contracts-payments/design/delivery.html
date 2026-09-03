@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>contracts-payments — 납품 관리 (high-fi)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+<link rel="stylesheet" href="_tokens.css" />
+<link rel="stylesheet" href="panel.css" />
+<style>
+  body { padding-inline: 0; }
+  .meta, .required { max-width: 1200px; margin-inline: auto; padding-inline: 32px; }
+  @media (max-width: 1000px) {
+    .meta, .required { padding-inline: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="meta">
+  <h1>납품 관리</h1>
+  <p>페이지 본문 · 앱 셸 없음 · 8:4 그리드 · /projects/:projectId/contracts/:contractId/delivery · 규칙 23</p>
+  <span class="fi">high-fi</span>
+</div>
+
+<section class="screen">
+  <div class="id">프리랜서 납품 전 · READY_TO_DELIVER</div>
+  <article class="delivery-page has-fixed-cta">
+    <header class="delivery-page-head">
+      <h2 class="page-title">납품 관리</h2>
+      <span class="badge info">작업 중</span>
+    </header>
+    <div class="delivery-grid">
+      <div class="delivery-main">
+        <section class="panel">
+          <p class="status-copy" role="status">계약과 결제가 끝났습니다. <strong>결과물을 납품</strong>하면 의뢰인이 확인하고 승인합니다. 제출 뒤에는 파일을 바꿀 수 없습니다.</p>
+        </section>
+      </div>
+      <aside class="delivery-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">거래 진행</h3>
+          <ol class="progress-steps">
+            <li class="done"><span>계약</span><span>계약 완료</span></li>
+            <li class="done"><span>결제</span><span>결제 완료</span></li>
+            <li><span>납품</span><span>결과물 제출</span></li>
+            <li><span>승인</span><span>완료 승인</span></li>
+            <li><span>정산</span><span>정산 완료</span></li>
+          </ol>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>거래</dt>
+            <dd>작업 중</dd>
+          </dl>
+          <p class="caption"><a href="#contract">계약 확인</a></p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김의뢰</p>
+          <p class="caption">의뢰인</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>납품은 한 번만 할 수 있습니다. 반려·재납품은 없습니다.</li>
+            <li>의뢰인이 승인하면 정산이 시작됩니다.</li>
+          </ul>
+        </section>
+      </aside>
+      <div class="delivery-cta-bar btn-row">
+        <button type="button" class="btn primary" id="deliver-open">결과물 납품</button>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">의뢰인 작업 중 · WORK_IN_PROGRESS</div>
+  <article class="delivery-page">
+    <header class="delivery-page-head">
+      <h2 class="page-title">납품 관리</h2>
+      <span class="badge info">작업 중</span>
+    </header>
+    <div class="delivery-grid">
+      <div class="delivery-main">
+        <section class="panel">
+          <p class="status-copy" role="status">프리랜서가 작업 중입니다. 결과물이 도착하면 여기에서 확인하고 승인할 수 있습니다.</p>
+        </section>
+      </div>
+      <aside class="delivery-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">거래 진행</h3>
+          <ol class="progress-steps">
+            <li class="done"><span>계약</span><span>계약 완료</span></li>
+            <li class="done"><span>결제</span><span>결제 완료</span></li>
+            <li><span>납품</span><span>결과물 제출</span></li>
+            <li><span>승인</span><span>완료 승인</span></li>
+            <li><span>정산</span><span>정산 완료</span></li>
+          </ol>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>거래</dt>
+            <dd>작업 중</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김프리</p>
+          <p class="caption">프리랜서</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>지금은 납품하거나 승인할 수 없습니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">프리랜서 검토 대기 · WAITING_REVIEW</div>
+  <article class="delivery-page">
+    <header class="delivery-page-head">
+      <h2 class="page-title">납품 관리</h2>
+      <span class="badge warning">검토 요청</span>
+    </header>
+    <div class="delivery-grid">
+      <div class="delivery-main">
+        <section class="panel">
+          <p class="status-copy" role="status">결과물을 제출했습니다. <strong>의뢰인의 완료 승인</strong>을 기다리는 중입니다.</p>
+          <div class="delivery-file">
+            <p class="file-name">final-deliverable.zip</p>
+            <p class="caption">ZIP · 1.0MB</p>
+          </div>
+          <p class="status-copy">작업 산출물을 첨부했습니다.</p>
+          <div class="btn-row">
+            <button type="button" class="btn secondary" id="download-open-wait">다운로드</button>
+          </div>
+        </section>
+      </div>
+      <aside class="delivery-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">거래 진행</h3>
+          <ol class="progress-steps">
+            <li class="done"><span>계약</span><span>계약 완료</span></li>
+            <li class="done"><span>결제</span><span>결제 완료</span></li>
+            <li class="done"><span>납품</span><span>결과물 제출</span></li>
+            <li><span>승인</span><span>완료 승인</span></li>
+            <li><span>정산</span><span>정산 완료</span></li>
+          </ol>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>거래</dt>
+            <dd>작업 중</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김의뢰</p>
+          <p class="caption">의뢰인</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>제출한 파일은 바꿀 수 없습니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">의뢰인 검토 · ACTION_REQUIRED</div>
+  <article class="delivery-page has-fixed-cta">
+    <header class="delivery-page-head">
+      <h2 class="page-title">납품 관리</h2>
+      <span class="badge warning">검토 요청</span>
+    </header>
+    <div class="delivery-grid">
+      <div class="delivery-main">
+        <section class="panel">
+          <p class="status-copy" role="status">프리랜서가 결과물을 보냈습니다. 파일을 확인한 뒤 <strong>완료 승인</strong>할 수 있습니다. 승인하면 되돌릴 수 없습니다.</p>
+          <div class="delivery-file">
+            <p class="file-name">final-deliverable.zip</p>
+            <p class="caption">ZIP · 1.0MB</p>
+          </div>
+          <p class="status-copy">작업 산출물을 첨부했습니다.</p>
+        </section>
+      </div>
+      <aside class="delivery-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">거래 진행</h3>
+          <ol class="progress-steps">
+            <li class="done"><span>계약</span><span>계약 완료</span></li>
+            <li class="done"><span>결제</span><span>결제 완료</span></li>
+            <li class="done"><span>납품</span><span>결과물 제출</span></li>
+            <li><span>승인</span><span>완료 승인</span></li>
+            <li><span>정산</span><span>정산 완료</span></li>
+          </ol>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>거래</dt>
+            <dd>작업 중</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김프리</p>
+          <p class="caption">프리랜서</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>승인 후 납품을 되돌리거나 반려할 수 없으며 정산 절차가 시작됩니다.</li>
+          </ul>
+        </section>
+      </aside>
+      <div class="delivery-cta-bar btn-row">
+        <button type="button" class="btn secondary" id="download-open">다운로드</button>
+        <button type="button" class="btn primary" id="approve-open">완료 승인</button>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">M01 결과물 납품</div>
+  <div class="overlay-demo">
+    <div class="overlay-backdrop open" aria-hidden="false">
+      <div class="dialog dialog-md" role="dialog" aria-modal="true" aria-labelledby="m01-title">
+        <h2 class="title" id="m01-title">결과물 납품</h2>
+        <p class="status-copy">파일 1개와 메시지를 보낸 뒤에는 교체할 수 없습니다. 서버가 허용한 형식만 올릴 수 있습니다. 크기 상한은 100MB입니다.</p>
+        <div class="field-row">
+          <label class="label" for="m01-file">결과물 파일</label>
+          <input class="field" id="m01-file" name="file" type="file" />
+        </div>
+        <div class="field-row">
+          <label class="label" for="m01-message">납품 메시지</label>
+          <textarea class="field" id="m01-message" name="message" maxlength="1000" rows="4" placeholder="전달할 내용을 적어 주세요."></textarea>
+        </div>
+        <label class="choice"><input type="checkbox" name="confirm-once" /><span>제출 후 파일 교체·재납품이 불가함을 확인했습니다</span></label>
+        <div class="btn-row">
+          <button type="button" class="btn quiet">닫기</button>
+          <button type="button" class="btn primary">납품 요청</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen">
+  <div class="id">M02 납품 완료 승인</div>
+  <div class="overlay-demo">
+    <div class="overlay-backdrop open" aria-hidden="false">
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="m02-title">
+        <h2 class="title" id="m02-title">납품을 승인할까요?</h2>
+        <p class="status-copy">파일 <strong>final-deliverable.zip</strong>, 금액 <strong class="money">1,000,000원</strong>. 승인 후 납품을 되돌리거나 반려할 수 없으며 정산 절차가 시작됩니다.</p>
+        <div class="btn-row">
+          <button type="button" class="btn quiet">닫기</button>
+          <button type="button" class="btn primary">완료 승인</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen">
+  <div class="id">M03 결과물 다운로드</div>
+  <div class="overlay-demo">
+    <div class="overlay-backdrop open" aria-hidden="false">
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="m03-title">
+        <h2 class="title" id="m03-title">결과물을 받을까요?</h2>
+        <p class="status-copy">final-deliverable.zip · ZIP · 1.0MB. 받은 파일은 브라우저에서 자동으로 실행하지 마세요.</p>
+        <div class="btn-row">
+          <button type="button" class="btn quiet">닫기</button>
+          <button type="button" class="btn primary">다운로드</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen">
+  <div class="id">정산 대기 · SETTLEMENT_PENDING</div>
+  <article class="delivery-page">
+    <header class="delivery-page-head">
+      <h2 class="page-title">납품 관리</h2>
+      <span class="badge success">승인</span>
+    </header>
+    <div class="delivery-grid">
+      <div class="delivery-main">
+        <section class="panel">
+          <p class="status-copy" role="status">납품이 승인되었습니다. <strong>정산 처리 중</strong>입니다. 정산이 끝나야 거래가 완료됩니다.</p>
+          <div class="delivery-file">
+            <p class="file-name">final-deliverable.zip</p>
+            <p class="caption">ZIP · 1.0MB</p>
+          </div>
+          <div class="btn-row after-offer">
+            <button type="button" class="btn secondary">결제·정산 확인</button>
+          </div>
+        </section>
+      </div>
+      <aside class="delivery-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">거래 진행</h3>
+          <ol class="progress-steps">
+            <li class="done"><span>계약</span><span>계약 완료</span></li>
+            <li class="done"><span>결제</span><span>결제 완료</span></li>
+            <li class="done"><span>납품</span><span>결과물 제출</span></li>
+            <li class="done"><span>승인</span><span>완료 승인</span></li>
+            <li><span>정산</span><span>정산 완료</span></li>
+          </ol>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>거래</dt>
+            <dd>작업 중</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김프리</p>
+          <p class="caption">프리랜서</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>지금은 납품하거나 다시 승인할 수 없습니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">거래 완료 · COMPLETED</div>
+  <article class="delivery-page">
+    <header class="delivery-page-head">
+      <h2 class="page-title">납품 관리</h2>
+      <span class="badge success">완료</span>
+    </header>
+    <div class="delivery-grid">
+      <div class="delivery-main">
+        <section class="panel">
+          <p class="status-copy" role="status">정산까지 끝났습니다. 이 거래는 <strong>완료</strong>입니다. 상대를 평가해 주세요.</p>
+          <div class="delivery-file">
+            <p class="file-name">final-deliverable.zip</p>
+            <p class="caption">ZIP · 1.0MB</p>
+          </div>
+          <div class="btn-row after-offer">
+            <button type="button" class="btn primary">리뷰 작성</button>
+          </div>
+        </section>
+      </div>
+      <aside class="delivery-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">거래 진행</h3>
+          <ol class="progress-steps">
+            <li class="done"><span>계약</span><span>계약 완료</span></li>
+            <li class="done"><span>결제</span><span>결제 완료</span></li>
+            <li class="done"><span>납품</span><span>결과물 제출</span></li>
+            <li class="done"><span>승인</span><span>완료 승인</span></li>
+            <li class="done"><span>정산</span><span>정산 완료</span></li>
+          </ol>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>거래</dt>
+            <dd>완료</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김프리</p>
+          <p class="caption">프리랜서</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>리뷰는 거래가 완료된 뒤에만 작성합니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">불러오는 중</div>
+  <article class="delivery-page" aria-busy="true">
+    <header class="delivery-page-head">
+      <h2 class="page-title">납품 관리</h2>
+    </header>
+    <div class="delivery-grid">
+      <div class="delivery-main">
+        <section class="panel">
+          <p class="helper">납품 내용을 불러오는 중입니다.</p>
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+        </section>
+      </div>
+      <aside class="delivery-side">
+        <section class="panel">
+          <div class="skeleton"></div>
+        </section>
+      </aside>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">불러오기 실패</div>
+  <article class="delivery-page">
+    <header class="delivery-page-head">
+      <h2 class="page-title">납품 관리</h2>
+    </header>
+    <div class="delivery-grid">
+      <div class="delivery-main">
+        <section class="panel">
+          <p class="notice danger" role="alert">납품 내용을 불러오지 못했습니다</p>
+          <p class="status-copy">네트워크를 확인한 뒤 다시 시도해 주세요.</p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">다시 시도</button>
+          </div>
+        </section>
+      </div>
+      <aside class="delivery-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>다시 불러온 뒤 이어서 진행할 수 있습니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">409 재조회 · STALE</div>
+  <article class="delivery-page">
+    <header class="delivery-page-head">
+      <h2 class="page-title">납품 관리</h2>
+    </header>
+    <div class="delivery-grid">
+      <div class="delivery-main">
+        <section class="panel">
+          <p class="notice warning" role="status">내용이 바뀌었습니다</p>
+          <p class="status-copy">다른 당사자가 먼저 응답했거나 프로젝트가 바뀌었습니다. 최신 내용을 확인한 뒤 이어서 진행하세요.</p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">다시 불러오기</button>
+          </div>
+        </section>
+      </div>
+      <aside class="delivery-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>오래된 내용으로는 납품하거나 승인할 수 없습니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">취소 후 변경 숨김</div>
+  <article class="delivery-page">
+    <header class="delivery-page-head">
+      <h2 class="page-title">납품 관리</h2>
+      <span class="badge danger">취소됨</span>
+    </header>
+    <div class="delivery-grid">
+      <div class="delivery-main">
+        <section class="panel">
+          <p class="notice danger" role="alert">프로젝트가 취소되었습니다</p>
+          <p class="status-copy">이 프로젝트는 더 이상 납품하거나 승인할 수 없습니다.</p>
+        </section>
+      </div>
+      <aside class="delivery-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>거래</dt>
+            <dd>취소됨</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>취소된 프로젝트에서는 납품·승인을 할 수 없습니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">권한 없음 · 403</div>
+  <article class="delivery-page">
+    <header class="delivery-page-head">
+      <h2 class="page-title">납품 관리</h2>
+    </header>
+    <div class="delivery-grid">
+      <div class="delivery-main">
+        <section class="panel">
+          <p class="notice warning" role="status">이 납품을 볼 수 있는 권한이 없습니다</p>
+          <p class="status-copy">계약 당사자만 파일과 메시지를 확인할 수 있습니다.</p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">프로젝트 확인</button>
+          </div>
+        </section>
+      </div>
+      <aside class="delivery-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>권한이 없는 화면에는 파일과 금액을 보여 주지 않습니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">계약 없음 · 404</div>
+  <article class="delivery-page">
+    <header class="delivery-page-head">
+      <h2 class="page-title">납품 관리</h2>
+    </header>
+    <div class="delivery-grid">
+      <div class="delivery-main">
+        <section class="panel">
+          <p class="notice info" role="status">납품을 찾을 수 없습니다</p>
+          <p class="status-copy">주소가 바뀌었거나 계약이 없을 수 있습니다. 프로젝트 화면에서 다시 들어와 주세요.</p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">프로젝트 확인</button>
+          </div>
+        </section>
+      </div>
+      <aside class="delivery-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>없는 납품 주소로는 파일을 보여 주지 않습니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </article>
+</section>
+
+<section class="required">
+  <h2>필수 요소 목록</h2>
+  <p class="lead">기본 렌더링(프리랜서 납품 전) 시 화면에 반드시 보여야 하는 <strong>정확한 텍스트</strong>다.
+  <code>prototype/run.tsx</code>가 <code>DeliveryPanel</code>을 렌더링해 확인한다.</p>
+  <table>
+    <thead><tr><th>화면</th><th>종류</th><th>텍스트</th></tr></thead>
+    <tbody>
+      <tr><td>납품 전</td><td>버튼</td><td>결과물 납품</td></tr>
+      <tr><td>M01</td><td>버튼</td><td>납품 요청</td></tr>
+      <tr><td>의뢰인 검토</td><td>버튼</td><td>완료 승인</td></tr>
+      <tr><td>M02</td><td>제목</td><td>납품을 승인할까요?</td></tr>
+      <tr><td>거래 완료</td><td>버튼</td><td>리뷰 작성</td></tr>
+      <tr><td>불러오는 중</td><td>안내</td><td>납품 내용을 불러오는 중입니다.</td></tr>
+      <tr><td>불러오기 실패</td><td>버튼</td><td>다시 시도</td></tr>
+      <tr><td>409</td><td>버튼</td><td>다시 불러오기</td></tr>
+      <tr><td>취소</td><td>안내</td><td>프로젝트가 취소되었습니다</td></tr>
+    </tbody>
+  </table>
+  <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
+  프로젝트 제목·파일명·금액 숫자. 취소·정산 대기·완료 화면에는 결과물 납품·완료 승인이
+  <strong>없어야</strong> 한다. 권한 없음·계약 없음 화면에는 파일과 금액을 넣지 않는다.</p>
+</section>
+
+<div class="overlay-backdrop" id="deliver-overlay" aria-hidden="true">
+  <div class="dialog dialog-md" role="dialog" aria-modal="true" aria-labelledby="deliver-overlay-title">
+    <h2 class="title" id="deliver-overlay-title">결과물 납품</h2>
+    <p class="status-copy">파일 1개와 메시지를 보낸 뒤에는 교체할 수 없습니다. 서버가 허용한 형식만 올릴 수 있습니다. 크기 상한은 100MB입니다.</p>
+    <div class="field-row">
+      <label class="label" for="deliver-file">결과물 파일</label>
+      <input class="field" id="deliver-file" name="file" type="file" />
+    </div>
+    <div class="field-row">
+      <label class="label" for="deliver-message">납품 메시지</label>
+      <textarea class="field" id="deliver-message" name="message" maxlength="1000" rows="4" placeholder="전달할 내용을 적어 주세요."></textarea>
+    </div>
+    <label class="choice"><input type="checkbox" id="deliver-confirm" /><span>제출 후 파일 교체·재납품이 불가함을 확인했습니다</span></label>
+    <div class="btn-row">
+      <button type="button" class="btn quiet" id="deliver-overlay-close">닫기</button>
+      <button type="button" class="btn primary" id="deliver-confirm-btn">납품 요청</button>
+    </div>
+  </div>
+</div>
+<div class="overlay-backdrop" id="approve-overlay" aria-hidden="true">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="approve-overlay-title">
+    <h2 class="title" id="approve-overlay-title">납품을 승인할까요?</h2>
+    <p class="status-copy">승인 후 납품을 되돌리거나 반려할 수 없으며 정산 절차가 시작됩니다.</p>
+    <div class="btn-row">
+      <button type="button" class="btn quiet" id="approve-overlay-close">닫기</button>
+      <button type="button" class="btn primary" id="approve-confirm">완료 승인</button>
+    </div>
+  </div>
+</div>
+<div class="overlay-backdrop" id="download-overlay" aria-hidden="true">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="download-overlay-title">
+    <h2 class="title" id="download-overlay-title">결과물을 받을까요?</h2>
+    <p class="status-copy">받은 파일은 브라우저에서 자동으로 실행하지 마세요.</p>
+    <div class="btn-row">
+      <button type="button" class="btn quiet" id="download-overlay-close">닫기</button>
+      <button type="button" class="btn primary" id="download-confirm">다운로드</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  function bind(openId, overlayId, closeId) {
+    var overlay = document.getElementById(overlayId);
+    var openBtn = document.getElementById(openId);
+    if (!overlay || !openBtn) return;
+    function open() { overlay.classList.add("open"); overlay.setAttribute("aria-hidden", "false"); }
+    function close() { overlay.classList.remove("open"); overlay.setAttribute("aria-hidden", "true"); }
+    openBtn.addEventListener("click", open);
+    document.getElementById(closeId).addEventListener("click", close);
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
+  }
+  bind("deliver-open", "deliver-overlay", "deliver-overlay-close");
+  bind("approve-open", "approve-overlay", "approve-overlay-close");
+  bind("download-open", "download-overlay", "download-overlay-close");
+  bind("download-open-wait", "download-overlay", "download-overlay-close");
+  document.getElementById("deliver-confirm-btn").addEventListener("click", function () {
+    document.getElementById("deliver-overlay").classList.remove("open");
+  });
+  document.getElementById("approve-confirm").addEventListener("click", function () {
+    document.getElementById("approve-overlay").classList.remove("open");
+  });
+  document.getElementById("download-confirm").addEventListener("click", function () {
+    document.getElementById("download-overlay").classList.remove("open");
+  });
+})();
+</script>
+</body>
+</html>

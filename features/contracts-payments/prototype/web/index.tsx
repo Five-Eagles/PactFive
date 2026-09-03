@@ -5,36 +5,69 @@ import "./preview.css";
 import { AgreementPanel, type AgreementView } from "./AgreementPanel";
 import type { AgreementUiState } from "./agreement.view-model";
 import { ContractSignPanel } from "./ContractSignPanel";
+import { DeliveryPanel } from "./DeliveryPanel";
+import type { DeliveryUiState } from "./delivery.view-model";
 import { PaymentPanel } from "./PaymentPanel";
 
-export { AgreementPanel, ContractSignPanel, PaymentPanel };
+export { AgreementPanel, ContractSignPanel, DeliveryPanel, PaymentPanel };
 
 type PreviewScreen =
-  | { id: "payment"; label: string }
-  | { id: "sign"; label: string }
-  | { id: "agreement"; label: string; uiState?: AgreementUiState; view?: AgreementView; amountError?: boolean };
+  | { id: "payment"; label: string; slug: string }
+  | { id: "sign"; label: string; slug: string }
+  | { id: "agreement"; label: string; slug: string; uiState?: AgreementUiState; view?: AgreementView; amountError?: boolean }
+  | {
+      id: "delivery";
+      label: string;
+      slug: string;
+      uiState?: DeliveryUiState;
+      loading?: boolean;
+      modal?: "deliver" | "approve" | "download";
+    };
 
 const PREVIEW_SCREENS: PreviewScreen[] = [
-  { id: "payment", label: "결제" },
-  { id: "sign", label: "서명" },
-  { id: "agreement", label: "합의 · 제안 전", uiState: "NOT_PROPOSED" },
-  { id: "agreement", label: "합의 · 입력 오류", uiState: "NOT_PROPOSED", amountError: true },
-  { id: "agreement", label: "합의 · 응답 대기", uiState: "WAITING_RESPONSE" },
-  { id: "agreement", label: "합의 · 프리랜서 응답", uiState: "ACTION_REQUIRED" },
-  { id: "agreement", label: "합의 · 완료", uiState: "AGREED" },
-  { id: "agreement", label: "합의 · 거절 재개", uiState: "REJECTED_REOPENED" },
-  { id: "agreement", label: "합의 · 거절 종료", uiState: "REJECTED_CLOSED" },
-  { id: "agreement", label: "합의 · 불러오는 중", view: "loading" },
-  { id: "agreement", label: "합의 · 실패", uiState: "LOAD_FAILED" },
-  { id: "agreement", label: "합의 · 409", uiState: "STALE" },
-  { id: "agreement", label: "합의 · 취소", uiState: "PROJECT_CANCELED" },
-  { id: "agreement", label: "합의 · 403", uiState: "FORBIDDEN" },
-  { id: "agreement", label: "합의 · 404", uiState: "NOT_FOUND" },
+  { id: "payment", label: "결제", slug: "pay" },
+  { id: "sign", label: "서명", slug: "sign" },
+  { id: "agreement", label: "합의 · 제안 전", slug: "agr-create", uiState: "NOT_PROPOSED" },
+  { id: "agreement", label: "합의 · 입력 오류", slug: "agr-error", uiState: "NOT_PROPOSED", amountError: true },
+  { id: "agreement", label: "합의 · 응답 대기", slug: "agr-wait", uiState: "WAITING_RESPONSE" },
+  { id: "agreement", label: "합의 · 프리랜서 응답", slug: "agr-respond", uiState: "ACTION_REQUIRED" },
+  { id: "agreement", label: "합의 · 완료", slug: "agr-done", uiState: "AGREED" },
+  { id: "agreement", label: "합의 · 거절 재개", slug: "agr-reopen", uiState: "REJECTED_REOPENED" },
+  { id: "agreement", label: "합의 · 거절 종료", slug: "agr-closed", uiState: "REJECTED_CLOSED" },
+  { id: "agreement", label: "합의 · 불러오는 중", slug: "agr-loading", view: "loading" },
+  { id: "agreement", label: "합의 · 실패", slug: "agr-fail", uiState: "LOAD_FAILED" },
+  { id: "agreement", label: "합의 · 409", slug: "agr-stale", uiState: "STALE" },
+  { id: "agreement", label: "합의 · 취소", slug: "agr-canceled", uiState: "PROJECT_CANCELED" },
+  { id: "agreement", label: "합의 · 403", slug: "agr-403", uiState: "FORBIDDEN" },
+  { id: "agreement", label: "합의 · 404", slug: "agr-404", uiState: "NOT_FOUND" },
+  { id: "delivery", label: "납품 · 납품 전", slug: "dlv-ready", uiState: "READY_TO_DELIVER" },
+  { id: "delivery", label: "납품 · M01", slug: "dlv-m01", uiState: "READY_TO_DELIVER", modal: "deliver" },
+  { id: "delivery", label: "납품 · 작업 중", slug: "dlv-work", uiState: "WORK_IN_PROGRESS" },
+  { id: "delivery", label: "납품 · 검토 대기", slug: "dlv-wait", uiState: "WAITING_REVIEW" },
+  { id: "delivery", label: "납품 · 의뢰인 검토", slug: "dlv-action", uiState: "ACTION_REQUIRED" },
+  { id: "delivery", label: "납품 · M03", slug: "dlv-m03", uiState: "ACTION_REQUIRED", modal: "download" },
+  { id: "delivery", label: "납품 · M02", slug: "dlv-m02", uiState: "ACTION_REQUIRED", modal: "approve" },
+  { id: "delivery", label: "납품 · 정산 대기", slug: "dlv-settle", uiState: "SETTLEMENT_PENDING" },
+  { id: "delivery", label: "납품 · 완료", slug: "dlv-done", uiState: "COMPLETED" },
+  { id: "delivery", label: "납품 · 불러오는 중", slug: "dlv-loading", loading: true },
+  { id: "delivery", label: "납품 · 실패", slug: "dlv-fail", uiState: "LOAD_FAILED" },
+  { id: "delivery", label: "납품 · 409", slug: "dlv-stale", uiState: "STALE" },
+  { id: "delivery", label: "납품 · 취소", slug: "dlv-canceled", uiState: "PROJECT_CANCELED" },
+  { id: "delivery", label: "납품 · 403", slug: "dlv-403", uiState: "FORBIDDEN" },
+  { id: "delivery", label: "납품 · 404", slug: "dlv-404", uiState: "NOT_FOUND" },
 ];
 
-/** preview:dev. 기본은 결제 패널. 합의는 상태 전환으로 본다. 앱 셸은 없다. */
+function initialScreenIndex(): number {
+  if (typeof window === "undefined") return 0;
+  const wanted = new URLSearchParams(window.location.search).get("screen");
+  if (!wanted) return 0;
+  const match = PREVIEW_SCREENS.findIndex((opt) => opt.slug === wanted);
+  return match >= 0 ? match : 0;
+}
+
+/** preview:dev. 기본은 결제 패널. 합의·납품은 상태 전환으로 본다. 앱 셸은 없다. */
 export default function PaymentsPreview() {
-  const [screenIndex, setScreenIndex] = useState(0);
+  const [screenIndex, setScreenIndex] = useState(initialScreenIndex);
   const screen = PREVIEW_SCREENS[screenIndex] ?? PREVIEW_SCREENS[0];
 
   return (
@@ -59,6 +92,14 @@ export default function PaymentsPreview() {
           uiState={screen.uiState}
           view={screen.view}
           amountError={screen.amountError}
+        />
+      ) : null}
+      {screen.id === "delivery" ? (
+        <DeliveryPanel
+          key={screen.label}
+          uiState={screen.uiState}
+          loading={screen.loading}
+          initialModal={screen.modal}
         />
       ) : null}
     </div>
