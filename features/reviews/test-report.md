@@ -32,8 +32,11 @@
 - 단독 공개 14일은 ASSUMPTION (PRD에 기간 없음).
 - `REVIEW_REQUESTED` 알림 발송은 최윤석. 발행은 contracts-payments 포트.
 - `REVIEW_CREATED`는 발행만 한다. 합계는 `getPublishedRatingAggregate`. users UPDATE는 오민혁.
+- `app/` 미통합. 통합 요청: `review/teamlead-review-panel-api-2026-09-03.md`.
 
 ## 팀장에게 물어봐야 하는 것
 
 - 규칙 6 단독 공개 14일을 확정할 것인지, 다른 일수인지.
   Discord·예/아니오: `features/contracts-payments/review/external-wait-2026-08-31.md` §2.
+- `app/` 통합 시점. 조준영은 `features/reviews/` DoD만 닫는다.
+  요청 전문: `review/teamlead-review-panel-api-2026-09-03.md`.

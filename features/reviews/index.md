@@ -13,6 +13,7 @@
   low-fi는 `low-fi.html`에 남김.
   오버레이·reduced-motion은 `design/panel.css` (앱 셸·stagger 없음).
   빈·제출 화면에 14일 단독 공개 안내를 넣었다. 일수는 ASSUMPTION이다.
+- review/: 팀장 통합 요청 `review/teamlead-review-panel-api-2026-09-03.md`.
 
 ## 교차 담당
 - 유동우: `transactionStatus` 읽기 (`COMPLETED` · `CANCELED`).
@@ -36,3 +37,4 @@
 | 2026-09-02 | 토큰 정본 hex·Pretendard. 별점 입력 오류 예. 메타 리듬 데모 제거 |
 | 2026-09-02 | 빈·제출 화면에 14일 단독 공개 안내. ASSUMPTION 유지 |
 | 2026-09-03 | 회신 대기 중 재실측. `run.tsx` PASS 40. repository not implemented는 유지 |
+| 2026-09-03 | 팀장 통합 요청 1장 (`review/teamlead-review-panel-api-2026-09-03.md`) |
