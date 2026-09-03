@@ -19,7 +19,7 @@
 - 유동우: `transactionStatus` 읽기 (`COMPLETED` · `CANCELED`).
 - 오민혁: 회신 반영. `REVIEW_CREATED` 소비·`users` 캐시 UPDATE는 오민혁(미구현).
   조준영은 `getPublishedRatingAggregate`만 제공. 계약: `../contracts-payments/review/external-wait-2026-08-31.md` §3.
-- 최윤석: `REVIEW_REQUESTED` 알림 발송. 발행은 contracts-payments `publishReviewRequested`.
+- 팀장: `REVIEW_REQUESTED` 알림 발송. 발행은 contracts-payments `publishReviewRequested`.
   계약: `../contracts-payments/review/yoonseok-ports-contract.md`.
 - 팀장: sandbox 키 · 단독 공개 14일 ASSUMPTION. 같은 파일 §1·§2.
 
@@ -38,3 +38,4 @@
 | 2026-09-02 | 빈·제출 화면에 14일 단독 공개 안내. ASSUMPTION 유지 |
 | 2026-09-03 | 회신 대기 중 재실측. `run.tsx` PASS 40. repository not implemented는 유지 |
 | 2026-09-03 | 팀장 통합 요청 1장 (`review/teamlead-review-panel-api-2026-09-03.md`) |
+| 2026-09-03 | `REVIEW_REQUESTED` 발송 담당을 팀장으로. applications 손잡이는 조준영 확정 |

@@ -16,7 +16,7 @@
 
 ## Discord
 
-조준영(reviews)입니다. 리뷰 패널과 공개 API가 `app/`에 없습니다. 웹 `/reviews`는 `NotIntegratedPage`입니다. 시안 정본은 `design/high-fi.html`, prototype 참고는 `ReviewPanel.tsx`, Mock은 `createReviewApiMock`입니다. 공개는 create/list/review-summary, 내부는 `getPublishedRatingAggregate`입니다. PATCH 없습니다. 결제 완료 후 작성 진입은 CP `publishReviewRequested`입니다. 14일은 ASSUMPTION입니다. 발송은 최윤석, `REVIEW_CREATED` 소비는 오민혁입니다. `app/`은 팀장님만 수정해 주세요. 정본: `features/reviews/review/teamlead-review-panel-api-2026-09-03.md`.
+조준영(reviews)입니다. 리뷰 패널과 공개 API가 `app/`에 없습니다. 웹 `/reviews`는 `NotIntegratedPage`입니다. 시안 정본은 `design/high-fi.html`, prototype 참고는 `ReviewPanel.tsx`, Mock은 `createReviewApiMock`입니다. 공개는 create/list/review-summary, 내부는 `getPublishedRatingAggregate`입니다. PATCH 없습니다. 결제 완료 후 작성 진입은 CP `publishReviewRequested`입니다. 14일은 ASSUMPTION입니다. `REVIEW_REQUESTED` 발송은 팀장, `REVIEW_CREATED` 소비는 오민혁입니다. `app/`은 팀장님만 수정해 주세요. 정본: `features/reviews/review/teamlead-review-panel-api-2026-09-03.md`.
 
 ---
 
@@ -72,7 +72,7 @@ PATCH/PUT/DELETE `/reviews` 없음. 호출하면 405. 공개 라우트로 다시
 ## 교차 · 알림
 
 작성 진입은 결제 완료 후다. contracts-payments가 `publishReviewRequested`를 발행하면
-당사자가 리뷰를 쓴다. 발행은 CP, 발송(`REVIEW_REQUESTED`)은 최윤석.
+당사자가 리뷰를 쓴다. 발행은 CP, 발송(`REVIEW_REQUESTED`)은 팀장.
 
 `REVIEW_CREATED`는 공개 커밋 이후 5필드만 발행한다
 (`reviewId` · `projectId` · `revieweeId` · `rating` · `publishedAt`).
@@ -98,6 +98,6 @@ PATCH/PUT/DELETE `/reviews` 없음. 호출하면 405. 공개 라우트로 다시
 | I1 | `design/high-fi.html`을 패널 구조 정본으로 웹에 넣을 수 있는가 | | | |
 | I2 | 공개 create/list/review-summary만 서빙하고 PATCH는 없는가. 내부는 `getPublishedRatingAggregate`인가 | | | |
 | I3 | 단독 공개 14일을 ASSUMPTION으로 두고 회신 전 상수를 바꾸지 않는가 | | | |
-| I4 | `REVIEW_REQUESTED` 발송은 최윤석, `REVIEW_CREATED` 소비는 오민혁인가 | | | |
+| I4 | `REVIEW_REQUESTED` 발송은 팀장, `REVIEW_CREATED` 소비는 오민혁인가 | | | |
 
 회신 전에도 `features/reviews/` 원본은 유지한다. `app/` 반영은 팀장만 한다.

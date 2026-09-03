@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| 받는 사람 | 유동우 (project-management) · 최윤석 (applications · notifications) |
+| 받는 사람 | 유동우 (project-management) · 조준영 (applications) · 팀장 (notifications) |
 | 보내는 사람 | 조준영 (contracts-payments) |
 | 날짜 | 2026-08-26 |
 | 갱신 | 2026-09-03 검증 PASS 91 (공개 API `preparePayment`·`confirmPayment` 파사드) |
@@ -96,7 +96,7 @@ markPaymentPending 본문에는 `contractId`가 있어야 합니다. 없으면 4
 
 ---
 
-## 최윤석님께 (지원 수락 선행)
+## 조준영님께 (지원 수락 선행)
 
 네 함수를 **호출하거나 구현하지 않습니다.** 수락이 끝난 뒤에만 조준영이 계약 흐름에 들어갑니다.
 
@@ -120,9 +120,9 @@ restore 때 알아 두실 것:
 
 ---
 
-## 최윤석님께 (알림 포트 · 수락 손잡이)
+## 팀장님께 (알림 포트 · 수락 손잡이)
 
-`features/applications/` · `features/notifications/`는 조준영이 채우지 않습니다. **맞출 계약**만 있습니다. 구현 요청이 아닙니다. Y1·Y3·Y4는 회신 전제.
+`features/notifications/`는 조준영이 채우지 않습니다. **맞출 계약**만 있습니다. 구현 요청이 아닙니다. Y1·Y3·Y4·Y5는 팀장 회신 전제. 지원 손잡이·S1·S2는 조준영이 2026-09-03 예로 닫았습니다.
 
 입구는 **`prototype/index.ts`만**. `createPublicApiMock` · `AcceptedApplicationHandoff` · `NotificationTriggerPort`.
 
@@ -150,7 +150,7 @@ const notifications: NotificationTriggerPort = createNotificationTriggerMock();
 |---|---|
 | `createPublicApiMock` | 합의·서명·결제 스탠드인. 손잡이 없으면 `proposeNegotiationOffer` 409 |
 | `AcceptedApplicationHandoff` | 수락이 끝난 뒤에만 합의 진입. `toAcceptedApplicationHandoff`가 null이면 들어가지 않음 |
-| `NotificationTriggerPort` | 조준영 `publish*`만. 최윤석 `createPaymentCompletedNotification` · `createReviewRequestedNotification` |
+| `NotificationTriggerPort` | 조준영 `publish*`만. 팀장 `createPaymentCompletedNotification` · `createReviewRequestedNotification` |
 
 호출 순서 한 장: 수락 → `CONTRACT_PENDING` + `acceptedApplicationId` → `proposeNegotiationOffer` → 수락·서명·`markPaymentPending`·confirm → `PAID` → `publishPaymentCompleted` → `startProjectTransaction` → (납품 2종은 시그니처만) → `COMPLETED` → `publishReviewRequested`. 표는 `yoonseok-ports-contract.md` §3.
 
