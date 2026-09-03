@@ -23,6 +23,11 @@ import { createEngagementService } from './features/engagement/bookmark.service'
 import { InMemoryBookmarkRepository } from './features/engagement/in-memory-bookmark.repository';
 import { InMemoryProjectTransactionCallLogRepository } from './features/contracts-payments/in-memory-project-transaction-call-log.repository';
 import { createProjectManagementAdapter } from './features/contracts-payments/project-management.adapter';
+import { InMemoryContractsPaymentsRepository } from './features/contracts-payments/in-memory-contracts-payments.repository';
+import { createPublicApiService } from './features/contracts-payments/public-api.service';
+import { createPublicApiRouter } from './features/contracts-payments/public-api.routes';
+import { hasPgSecretKey, createTossPaymentsAdapter } from './features/contracts-payments/toss-payments.adapter';
+import type { PaymentGateway } from './features/contracts-payments/payment.port';
 
 /**
  * Express 앱 — 순수 모듈. 여기서 `app.listen()`을 호출하지 않는다.
@@ -243,6 +248,52 @@ app.use(createEngagementRouter(engagementService, { requireAuth }));
 
 export const projectTransactionPort = createProjectManagementAdapter(projectContractService);
 export const projectTransactionCallLog = new InMemoryProjectTransactionCallLogRepository();
+
+// ---------------------------------------------------------------------------
+// contracts-payments — 공개 API 7종(합의·서명·결제). api-contract.md "공개 API 초안" 절.
+//
+// sync-log.md 2026-09-01 반영에서 여기가 빠져 있었다 — 이번 반영으로 라우팅을 연결한다
+// (CR-0010과 같은 종류의 "다음 통합 대상"이었으나 별도 CR 문서 없이 sync-log 자체에
+// 예고돼 있던 항목이다).
+//
+// 결제 게이트웨이는 `PG_SECRET_KEY`가 없으면 만들지 않는다 — toss-payments.adapter.ts
+// 주석대로, 키 없이 조용히 성공하는 가짜 결제보다 라우트 단계에서 503으로 끊는 쪽이 안전하다
+// (public-api.controller.ts의 requirePgConfigured).
+// ---------------------------------------------------------------------------
+
+const paymentGatewayConfigured = hasPgSecretKey();
+let paymentGateway: PaymentGateway | null = null;
+if (paymentGatewayConfigured) {
+  try {
+    paymentGateway = createTossPaymentsAdapter();
+  } catch (error) {
+    console.warn(
+      '[contracts-payments] PaymentGateway를 준비하지 못해 결제 라우트를 503으로 막습니다:',
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
+
+const contractsPaymentsRepository = new InMemoryContractsPaymentsRepository();
+
+function contractsPaymentsRandomId(prefix: string): string {
+  return `${prefix}_${randomId()}`;
+}
+
+const publicApiService = createPublicApiService({
+  repo: contractsPaymentsRepository,
+  projectPort: projectTransactionPort,
+  paymentGateway,
+  now: projectNow,
+  randomId: contractsPaymentsRandomId,
+});
+
+app.use(
+  createPublicApiRouter(publicApiService, {
+    requireAuth,
+    paymentGatewayConfigured: paymentGateway !== null,
+  }),
+);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ message: 'Not Found' });

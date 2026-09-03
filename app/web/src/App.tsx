@@ -10,6 +10,7 @@ import { authRoutes, AUTH_ROUTES } from './features/user-management/auth.routes'
 import { useAuth } from './features/user-management/useAuth';
 import { projectRoutes, PROJECT_ROUTES } from './features/project-management/project.routes';
 import { engagementRoutes, ENGAGEMENT_ROUTES } from './features/engagement/bookmark.routes';
+import { contractRoutes } from './features/contracts-payments/contract.routes';
 import { BookmarkButton } from './features/engagement/BookmarkButton';
 import { RecommendationSection } from './features/engagement/RecommendationSection';
 import { useBookmarkedIds } from './features/engagement/useBookmark';
@@ -31,7 +32,6 @@ const NOT_INTEGRATED_ROUTES: Array<{ path: string; featureName: string }> = [
   { path: '/ai-pricing', featureName: 'ai-pricing' },
   { path: '/reviews', featureName: 'reviews' },
   { path: '/notifications', featureName: 'notifications' },
-  { path: '/contracts-payments', featureName: 'contracts-payments' },
 ];
 
 function NotFoundPage() {
@@ -123,6 +123,8 @@ function AppRoutes() {
           browseHref: PROJECT_ROUTES.browse,
           detailHref: PROJECT_ROUTES.detail,
         })}
+
+        {contractRoutes({ viewerId: viewer?.userId ?? null })}
 
         {NOT_INTEGRATED_ROUTES.map(({ path, featureName }) => (
           <Route key={path} path={path} element={<NotIntegratedPage featureName={featureName} />} />
