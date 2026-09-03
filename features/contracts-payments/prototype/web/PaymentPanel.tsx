@@ -118,6 +118,7 @@ export function PaymentPanel({
     );
   }
 
+  // 체크아웃. 보관 한 줄만 두고 에스크로 UI는 넣지 않는다.
   return (
     <article className="panel">
       <div className="panel-head">
@@ -132,6 +133,7 @@ export function PaymentPanel({
         이 금액은 합의에서 확정된 값입니다. 수수료는 10%(원 미만 버림)이며 화면에서 바꾸지
         않습니다.
       </p>
+      <p className="helper">결제해도 바로 넘어가지 않습니다. 납품 승인 뒤에 정산됩니다.</p>
       <div className="btn-row">
         <Button variant="primary">결제하기</Button>
       </div>

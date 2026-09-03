@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Money, Notice } from "./ui";
 
 export type AgreementView =
@@ -163,6 +163,34 @@ function AgreementRespondPanel({
   amount: number;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const rejectTriggerRef = useRef<HTMLButtonElement>(null);
+  const wasOpenRef = useRef(false);
+
+  // 열리면 거절 확인으로 초점을 옮기고, 닫히면 거절하기로 되돌린다.
+  useEffect(() => {
+    if (confirmOpen) {
+      confirmRef.current?.focus();
+      wasOpenRef.current = true;
+      return;
+    }
+    if (wasOpenRef.current) {
+      rejectTriggerRef.current?.focus();
+      wasOpenRef.current = false;
+    }
+  }, [confirmOpen]);
+
+  // Esc로 닫는다. 숨겨진 다이얼로그에 초점이 남지 않게 한다.
+  useEffect(() => {
+    if (!confirmOpen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setConfirmOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [confirmOpen]);
 
   return (
     <>
@@ -185,7 +213,7 @@ function AgreementRespondPanel({
         </dl>
         <div className="btn-row">
           <Button variant="primary">수락하기</Button>
-          <Button variant="danger" onClick={() => setConfirmOpen(true)}>
+          <Button variant="danger" ref={rejectTriggerRef} onClick={() => setConfirmOpen(true)}>
             거절하기
           </Button>
         </div>
@@ -209,7 +237,7 @@ function AgreementRespondPanel({
             <Button variant="quiet" onClick={() => setConfirmOpen(false)}>
               닫기
             </Button>
-            <Button variant="danger" onClick={() => setConfirmOpen(false)}>
+            <Button variant="danger" ref={confirmRef} onClick={() => setConfirmOpen(false)}>
               거절 확인
             </Button>
           </div>

@@ -876,6 +876,7 @@ async function main() {
     hasText("규칙 17: 결제 플랫폼 수수료", checkout, "플랫폼 수수료");
     hasText("규칙 17: 결제 정산액", checkout, "정산액");
     hasText("규칙 17: 결제하기", checkout, "결제하기");
+    hasText("규칙 17: 결제 보관 안내", checkout, "결제해도 바로 넘어가지 않습니다");
     const payFailed = htmlOf(React.createElement(PaymentPanel, { view: "failed" }));
     hasText("규칙 17: 결제 실패", payFailed, "결제 실패");
     hasText("규칙 17: 결제 다시 결제", payFailed, "다시 결제");
