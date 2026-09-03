@@ -1048,6 +1048,33 @@ async function main() {
     );
   }
 
+  // 규칙 16 — 공개 POST /payments · /payments/confirm (파사드)
+  {
+    const api = createPublicApiMock();
+    const prepared = await api.preparePayment("prj_alive", MOCK_CLIENT_USER_ID);
+    if (
+      prepared.paymentId === MOCK_PAYMENT_ID &&
+      prepared.orderId &&
+      prepared.amount === MOCK_CONFIRMED_AMOUNT &&
+      prepared.clientKey
+    ) {
+      pass("규칙 16: POST payments 준비 당사자 200");
+    } else {
+      fail("규칙 16: POST payments 준비 당사자 200", prepared);
+    }
+    const paid = await api.confirmPayment(MOCK_CLIENT_USER_ID, {
+      orderId: prepared.orderId,
+      amount: prepared.amount,
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+    });
+    const row = await api.getPayment(prepared.paymentId, MOCK_CLIENT_USER_ID);
+    if (paid.status === "PAID" && row.status === "PAID" && row.orderId === prepared.orderId) {
+      pass("규칙 16: POST payments/confirm 당사자 PAID");
+    } else {
+      fail("규칙 16: POST payments/confirm 당사자 PAID", { paid, row });
+    }
+  }
+
   // 규칙 12·13 — 서명 전이·멱등 최초 시각
   {
     const api = createPublicApiMock();

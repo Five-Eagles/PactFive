@@ -5,7 +5,7 @@
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 89, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 91, FAIL 개수: 0)
 
 키 없는 환경. 규칙 9 sandbox는 「해당 없음」 1건 PASS.
 
@@ -28,7 +28,7 @@
 | 13 signContract | `run.tsx` 「서명 멱등 최초 시각」 | 통과 |
 | 14 샌드박스 결제 범위 | 규칙 9 Mock. 웹훅 E2E·결제 취소·PG 환불 없음 | 안 함 (해당 없음) |
 | 15 취소 무효화 | `run.tsx` 「무효화 NOT_NEEDED」·「DONE」·멱등 | 통과 |
-| 16 공개 API 경로 | `run.tsx` 「현재 조회」 (`getCurrentNegotiationOffer`). GET payment 당사자 200 · 비당사자 403 · 없음 404 | 통과 |
+| 16 공개 API 경로 | `run.tsx` 「현재 조회」 (`getCurrentNegotiationOffer`). GET payment 당사자 200 · 비당사자 403 · 없음 404. POST payments 준비 당사자 200 · confirm 당사자 PAID | 통과 |
 | 17 라우트·UX | `run.tsx` 합의 로딩·불러오지 못했습니다·409 재조회·취소 후 변경 숨김. 서명 근거·서명하기·불러오지 못했습니다·취소 안내. 결제 금액·플랫폼 수수료·정산액·결제하기·FAILED 다시 결제 | 통과 |
 | 18 Increment 1 테스트 목록 | 규칙 22로 이동 | 안 함 (해당 없음) |
 | 19 계약·결제 전이표 | `run.tsx` PG 실패 키면 FAILED · 재시도 후 승인 성공 PAID. 계약 전이는 규칙 12·15 | 통과 (결제 행 Mock) |
@@ -46,6 +46,7 @@
 ## 아직 안 되는 것 (Known Issues)
 
 - `prototype/`은 유동우 포트 스탠드인 Mock이다. 실제 HTTP·DB는 없다.
+- 웹 패널 3종·공개 API 라우트는 app 미반영. 팀장 통합 요청: `review/teamlead-public-api-panels-2026-09-03.md`.
 - Toss sandbox 실호출은 루트 `.env`의 `PG_SECRET_KEY`가 있을 때만. 지금은 해당 없음.
 - 알림 발송·지원 수락 구현은 최윤석. 이번 Increment는 포트 발행만.
 - 위젯 실연동·에스크로·PG 환불·재제안은 Increment 1 밖이다.

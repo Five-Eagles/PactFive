@@ -8,6 +8,8 @@ export {
 } from "./mock/public-api.mock";
 export { PublicApiError, isPublicApiError } from "./server/public-api.types";
 export type { GetPaymentResponse } from "./server/public-api.types";
+export type { PreparePaymentResponse } from "./mock/payment-record.mock";
+export type { ConfirmPaymentInput, ConfirmPaymentResponse } from "./server/payment.port";
 export type { ProjectTransactionMockOptions } from "./mock/project-transaction.mock";
 export { createNotificationTriggerMock } from "./mock/notification.mock";
 export type { NotificationTriggerMock } from "./mock/notification.mock";

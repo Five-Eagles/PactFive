@@ -5,7 +5,7 @@
 | 받는 사람 | 유동우 (project-management) · 최윤석 (applications · notifications) |
 | 보내는 사람 | 조준영 (contracts-payments) |
 | 날짜 | 2026-08-26 |
-| 갱신 | 2026-09-03 검증 PASS 89 (2026-09-02 알림 포트 · 수락 손잡이 import) |
+| 갱신 | 2026-09-03 검증 PASS 91 (공개 API `preparePayment`·`confirmPayment` 파사드) |
 | 정본 | `features/contracts-payments/api-contract.md` · `prototype/` · `review/yoonseok-ports-contract.md` |
 
 4함수 Mock 스텁을 붙였습니다. 정본은 API 계약 문서이고, Mock은 그 계약의 스탠드인입니다.
@@ -21,7 +21,7 @@ import {
 import type { ProjectTransactionPort } from "../../contracts-payments/prototype";
 ```
 
-검증: 리포 루트에서 `npx tsx features/contracts-payments/prototype/run.tsx` → PASS 89.
+검증: 리포 루트에서 `npx tsx features/contracts-payments/prototype/run.tsx` → PASS 91.
 
 ---
 
