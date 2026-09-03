@@ -297,6 +297,8 @@
 
 .choice span { font-size: 14px; line-height: 20px; }
 
+.dialog .choice { margin-top: 16px; }
+
 .dialog-md { width: 560px; max-height: min(90vh, 720px); overflow: auto; }
 
 /* 시안 단면용: fixed 오버레이가 문서 전체를 가리지 않게 한다. */
@@ -369,4 +371,140 @@
 
   /* 스크롤 컨테이너에서 바가 본문을 가리지 않도록 같은 높이 여백을 둔다. */
   .has-fixed-cta .agreement-side { padding-bottom: 72px; }
+}
+
+/* DLV-01 페이지 본문. 앱 셸 없음. agreement-page와 값을 맞추되 선택자는 분리한다. */
+.delivery-page {
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 32px;
+}
+
+.delivery-page .panel {
+  max-width: none;
+  padding: 24px;
+}
+
+.delivery-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.delivery-page .page-title {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  margin: 0;
+}
+
+.delivery-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-areas:
+    "main side"
+    "cta side";
+  gap: 24px;
+  align-items: start;
+}
+
+.delivery-main { grid-area: main; }
+.delivery-side { grid-area: side; }
+.delivery-cta-bar { grid-area: cta; }
+
+.delivery-main,
+.delivery-side {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.delivery-side { position: sticky; top: 24px; }
+
+.delivery-file {
+  margin: 0 0 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--btn-radius);
+  background: var(--surface-subtle);
+}
+
+.delivery-file .file-name {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.progress-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.progress-steps li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--content-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.progress-steps li:last-child { border-bottom: 0; padding-bottom: 0; }
+.progress-steps li.done { color: var(--content); font-weight: 600; }
+
+.delivery-cta-bar { margin-top: 0; width: 100%; }
+
+.screen:has(.delivery-page) { max-width: 1200px; }
+
+@media (max-width: 1000px) {
+  .delivery-page { padding-inline: 16px; }
+
+  .delivery-page .panel { padding: 16px; }
+
+  .delivery-page .page-title {
+    font-size: 20px;
+    line-height: 28px;
+  }
+
+  .delivery-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "main"
+      "side"
+      "cta";
+  }
+
+  .delivery-side { position: static; }
+
+  .delivery-file .file-name {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  .has-fixed-cta .delivery-cta-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    margin-inline: -16px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+
+  .has-fixed-cta .delivery-cta-bar .btn {
+    flex: 1;
+    height: 48px;
+    min-height: 48px;
+  }
+
+  .has-fixed-cta .delivery-side { padding-bottom: 72px; }
 }

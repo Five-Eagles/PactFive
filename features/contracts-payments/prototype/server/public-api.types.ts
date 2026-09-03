@@ -109,3 +109,50 @@ export type InvalidateAgreementResponse = {
   alreadyProcessed: boolean;
   result: "DONE" | "NOT_NEEDED" | "FAILED";
 };
+
+export type DeliveryStatus = "IN_PROGRESS" | "DELIVERY_REQUESTED" | "APPROVED";
+
+export type DeliveryPaymentStatus = "READY" | "PENDING" | "PAID" | "FAILED" | "RELEASED";
+
+export type DeliveryFileView = {
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+};
+
+export type DeliveryView = {
+  deliveryId: string;
+  status: DeliveryStatus;
+  version: number;
+  message: string | null;
+  requestedAt: string | null;
+  approvedAt: string | null;
+  file: DeliveryFileView | null;
+};
+
+export type GetDeliveryResponse = {
+  contractId: string;
+  projectId: string;
+  projectTitle: string;
+  transactionStatus: ProjectTransactionStatus;
+  canceledAt: string | null;
+  contractStatus: ContractStatus;
+  agreedAmount: number;
+  delivery: DeliveryView | null;
+  paymentStatus: DeliveryPaymentStatus;
+  downloadUrl: string | null;
+  canRequestDelivery: boolean;
+  canApprove: boolean;
+  canDownload: boolean;
+  canReview: boolean;
+};
+
+export type PrepareDeliveryUploadResponse = {
+  uploadUrl: string;
+  objectKey: string;
+  expiresAt: string;
+};
+
+export type RequestDeliveryInput = { objectKey: string; message: string };
+
+export type ApproveDeliveryInput = { expectedVersion?: number };

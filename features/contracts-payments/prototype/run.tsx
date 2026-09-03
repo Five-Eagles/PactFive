@@ -17,9 +17,18 @@ import {
   MOCK_PAYMENT_ID,
   toAcceptedApplicationHandoff,
   type DomainContractErrorCode,
+  type GetDeliveryResponse,
 } from "./index";
 import { createPaymentRecordMock } from "./mock/payment-record.mock";
-import { MOCK_OFFER_AMOUNT, MOCK_PROJECT_TITLE } from "./mock/public-api.mock";
+import {
+  MOCK_DELIVERY_CONTRACT_CANCELED,
+  MOCK_DELIVERY_CONTRACT_COMPLETED,
+  MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
+  MOCK_DELIVERY_FILE_NAME,
+  MOCK_DELIVERY_MESSAGE,
+  MOCK_OFFER_AMOUNT,
+  MOCK_PROJECT_TITLE,
+} from "./mock/public-api.mock";
 import {
   createPaymentGatewayMock,
   MOCK_CONFIRMED_AMOUNT,
@@ -46,6 +55,7 @@ import {
   toAgreementViewModel,
   type AgreementViewerSession,
 } from "./web/agreement.view-model";
+import { deriveDeliveryUiState, toDeliveryViewModel } from "./web/delivery.view-model";
 
 function findRepoRoot(startDir: string): string {
   let dir = startDir;
@@ -153,6 +163,14 @@ function hasMutationCta(html: string): boolean {
 
 function hasEditCta(html: string): boolean {
   return html.includes("프로젝트 수정") || html.includes("수정하기");
+}
+
+function hasDeliveryMutationCta(html: string): boolean {
+  return (
+    html.includes('class="btn primary">결과물 납품') ||
+    html.includes('class="btn primary">완료 승인') ||
+    html.includes('class="btn primary">납품 요청')
+  );
 }
 
 let passCount = 0;
@@ -1445,6 +1463,336 @@ async function main() {
     }
     hasText("규칙 17: 결제 필수 결제 금액", htmlOf(React.createElement(PaymentPanel)), "결제 금액");
     hasText("규칙 17: 결제 필수 결제하기", htmlOf(React.createElement(PaymentPanel)), "결제하기");
+  }
+
+  // 규칙 23 — 납품 Increment. 취소 우선 · APPROVED+PAID는 완료가 아님 · Mock 4종.
+  {
+    function sampleDeliveryDto(
+      overrides: Partial<GetDeliveryResponse> = {},
+    ): GetDeliveryResponse {
+      return {
+        contractId: "ctr_1",
+        projectId: "prj_1",
+        projectTitle: MOCK_PROJECT_TITLE,
+        transactionStatus: "IN_PROGRESS",
+        canceledAt: null,
+        contractStatus: "SIGNED",
+        agreedAmount: MOCK_OFFER_AMOUNT,
+        delivery: null,
+        paymentStatus: "PAID",
+        downloadUrl: null,
+        canRequestDelivery: false,
+        canApprove: false,
+        canDownload: false,
+        canReview: false,
+        ...overrides,
+      };
+    }
+
+    const cancelFirst = deriveDeliveryUiState({
+      transactionStatus: "CANCELED",
+      deliveryStatus: "APPROVED",
+      paymentStatus: "RELEASED",
+      hasDelivery: true,
+      viewerRole: "CLIENT",
+    });
+    if (cancelFirst === "PROJECT_CANCELED") pass("규칙 23: 상태 산정 취소 우선");
+    else fail("규칙 23: 상태 산정 취소 우선", cancelFirst);
+
+    const paidApproved = deriveDeliveryUiState({
+      transactionStatus: "IN_PROGRESS",
+      deliveryStatus: "APPROVED",
+      paymentStatus: "PAID",
+      hasDelivery: true,
+      viewerRole: "CLIENT",
+    });
+    if (paidApproved === "SETTLEMENT_PENDING") pass("규칙 23: APPROVED+PAID는 정산 대기");
+    else fail("규칙 23: APPROVED+PAID는 정산 대기", paidApproved);
+
+    const released = deriveDeliveryUiState({
+      transactionStatus: "IN_PROGRESS",
+      deliveryStatus: "APPROVED",
+      paymentStatus: "RELEASED",
+      hasDelivery: true,
+      viewerRole: "CLIENT",
+    });
+    if (released === "COMPLETED") pass("규칙 23: APPROVED+RELEASED는 완료");
+    else fail("규칙 23: APPROVED+RELEASED는 완료", released);
+
+    const action = deriveDeliveryUiState({
+      transactionStatus: "IN_PROGRESS",
+      deliveryStatus: "DELIVERY_REQUESTED",
+      paymentStatus: "PAID",
+      hasDelivery: true,
+      viewerRole: "CLIENT",
+    });
+    if (action === "ACTION_REQUIRED") pass("규칙 23: 의뢰인 ACTION_REQUIRED");
+    else fail("규칙 23: 의뢰인 ACTION_REQUIRED", action);
+
+    const waiting = deriveDeliveryUiState({
+      transactionStatus: "IN_PROGRESS",
+      deliveryStatus: "DELIVERY_REQUESTED",
+      paymentStatus: "PAID",
+      hasDelivery: true,
+      viewerRole: "FREELANCER",
+    });
+    if (waiting === "WAITING_REVIEW") pass("규칙 23: 프리랜서 WAITING_REVIEW");
+    else fail("규칙 23: 프리랜서 WAITING_REVIEW", waiting);
+
+    const ready = deriveDeliveryUiState({
+      transactionStatus: "IN_PROGRESS",
+      contractStatus: "SIGNED",
+      paymentStatus: "PAID",
+      hasDelivery: false,
+      viewerRole: "FREELANCER",
+    });
+    if (ready === "READY_TO_DELIVER") pass("규칙 23: 프리랜서 READY_TO_DELIVER");
+    else fail("규칙 23: 프리랜서 READY_TO_DELIVER", ready);
+
+    const work = deriveDeliveryUiState({
+      transactionStatus: "IN_PROGRESS",
+      contractStatus: "SIGNED",
+      paymentStatus: "PAID",
+      hasDelivery: false,
+      viewerRole: "CLIENT",
+    });
+    if (work === "WORK_IN_PROGRESS") pass("규칙 23: 의뢰인 WORK_IN_PROGRESS");
+    else fail("규칙 23: 의뢰인 WORK_IN_PROGRESS", work);
+
+    const forbiddenVm = toDeliveryViewModel(
+      sampleDeliveryDto({
+        agreedAmount: 1_000_000,
+        delivery: {
+          deliveryId: "dlv_secret",
+          status: "DELIVERY_REQUESTED",
+          version: 1,
+          message: MOCK_DELIVERY_MESSAGE,
+          requestedAt: MOCK_NOW,
+          approvedAt: null,
+          file: { fileName: MOCK_DELIVERY_FILE_NAME, mimeType: "application/zip", sizeBytes: 10 },
+        },
+      }),
+      CLIENT_SESSION,
+      "FORBIDDEN",
+    );
+    if (
+      forbiddenVm.uiState === "FORBIDDEN" &&
+      forbiddenVm.delivery.file == null &&
+      forbiddenVm.delivery.message == null &&
+      forbiddenVm.contract.amount === 0
+    ) {
+      pass("규칙 23: 403 ViewModel 민감 정보 없음");
+    } else {
+      fail("규칙 23: 403 ViewModel 민감 정보 없음", forbiddenVm);
+    }
+
+    const settleVm = toDeliveryViewModel(
+      sampleDeliveryDto({
+        delivery: {
+          deliveryId: "dlv_1",
+          status: "APPROVED",
+          version: 1,
+          message: MOCK_DELIVERY_MESSAGE,
+          requestedAt: MOCK_NOW,
+          approvedAt: MOCK_NOW,
+          file: { fileName: MOCK_DELIVERY_FILE_NAME, mimeType: "application/zip", sizeBytes: 10 },
+        },
+      }),
+      CLIENT_SESSION,
+    );
+    if (
+      settleVm.uiState === "SETTLEMENT_PENDING" &&
+      !settleVm.permissions.canRequestDelivery &&
+      !settleVm.permissions.canApprove
+    ) {
+      pass("규칙 23: 정산 대기 변경 권한 없음");
+    } else {
+      fail("규칙 23: 정산 대기 변경 권한 없음", settleVm.permissions);
+    }
+  }
+
+  {
+    const notifications = createNotificationTriggerMock();
+    const api = createPublicApiMock(MOCK_NOW, { notifications });
+    const beforeComplete = api.projects.getCallCounts().completeProjectTransaction;
+
+    const empty = await api.getDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_FREELANCER_USER_ID);
+    if (empty.delivery === null && empty.contractStatus === "SIGNED") {
+      pass("규칙 23: GET 납품 없음 200");
+    } else {
+      fail("규칙 23: GET 납품 없음 200", empty);
+    }
+    const readyVm = toDeliveryViewModel(empty, FREELANCER_SESSION);
+    if (readyVm.uiState === "READY_TO_DELIVER") pass("규칙 23: GET 프리랜서 납품 전");
+    else fail("규칙 23: GET 프리랜서 납품 전", readyVm.uiState);
+    const workVm = toDeliveryViewModel(empty, CLIENT_SESSION);
+    if (workVm.uiState === "WORK_IN_PROGRESS") pass("규칙 23: GET 의뢰인 작업 중");
+    else fail("규칙 23: GET 의뢰인 작업 중", workVm.uiState);
+
+    try {
+      await api.getDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_OUTSIDER_USER_ID);
+      fail("규칙 23: GET 비당사자 403", "오류가 나지 않았습니다");
+    } catch (err) {
+      if (isPublicApiError(err) && err.body.error.code === "PROJECT_FORBIDDEN" && err.httpStatus === 403) {
+        pass("규칙 23: GET 비당사자 403");
+      } else {
+        fail("규칙 23: GET 비당사자 403", err);
+      }
+    }
+    await expectCode("규칙 23: GET 없는 계약 404", "PROJECT_NOT_FOUND", () =>
+      api.getDelivery("ctr_missing", MOCK_CLIENT_USER_ID),
+    );
+
+    const prepared = await api.prepareDeliveryUpload(
+      MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
+      MOCK_FREELANCER_USER_ID,
+    );
+    const requested = await api.requestDelivery(
+      MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
+      MOCK_FREELANCER_USER_ID,
+      { objectKey: prepared.objectKey, message: MOCK_DELIVERY_MESSAGE },
+    );
+    if (requested.delivery?.status === "DELIVERY_REQUESTED") {
+      pass("규칙 23: 납품 요청 DELIVERY_REQUESTED");
+    } else {
+      fail("규칙 23: 납품 요청 DELIVERY_REQUESTED", requested);
+    }
+    const waitVm = toDeliveryViewModel(requested, FREELANCER_SESSION);
+    if (waitVm.uiState === "WAITING_REVIEW") pass("규칙 23: 요청 후 프리랜서 검토 대기");
+    else fail("규칙 23: 요청 후 프리랜서 검토 대기", waitVm.uiState);
+    const actionDto = await api.getDelivery(
+      MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
+      MOCK_CLIENT_USER_ID,
+    );
+    const actionVm = toDeliveryViewModel(actionDto, CLIENT_SESSION);
+    if (actionVm.uiState === "ACTION_REQUIRED") pass("규칙 23: 요청 후 의뢰인 검토");
+    else fail("규칙 23: 요청 후 의뢰인 검토", actionVm.uiState);
+
+    const approved = await api.approveDelivery(
+      MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
+      MOCK_CLIENT_USER_ID,
+    );
+    const afterComplete = api.projects.getCallCounts().completeProjectTransaction;
+    if (
+      approved.delivery?.status === "APPROVED" &&
+      approved.transactionStatus === "IN_PROGRESS" &&
+      approved.paymentStatus === "PAID" &&
+      afterComplete === beforeComplete
+    ) {
+      pass("규칙 23: 승인 PAID는 complete 미호출");
+    } else {
+      fail("규칙 23: 승인 PAID는 complete 미호출", {
+        approved,
+        beforeComplete,
+        afterComplete,
+      });
+    }
+    const settleAfter = toDeliveryViewModel(approved, CLIENT_SESSION);
+    if (settleAfter.uiState === "SETTLEMENT_PENDING") pass("규칙 23: 승인 후 정산 대기");
+    else fail("규칙 23: 승인 후 정산 대기", settleAfter.uiState);
+
+    const types = notifications.getPublished().map((event) => event.type);
+    if (types.includes("DELIVERY_REQUESTED") && types.includes("DELIVERY_APPROVED")) {
+      pass("규칙 23: 납품 경로에서만 납품 publish");
+    } else {
+      fail("규칙 23: 납품 경로에서만 납품 publish", types);
+    }
+
+    const completedDto = await api.getDelivery(
+      MOCK_DELIVERY_CONTRACT_COMPLETED,
+      MOCK_CLIENT_USER_ID,
+    );
+    const doneVm = toDeliveryViewModel(completedDto, CLIENT_SESSION);
+    if (doneVm.uiState === "COMPLETED" && doneVm.permissions.canReview) {
+      pass("규칙 23: RELEASED 시드는 완료");
+    } else {
+      fail("규칙 23: RELEASED 시드는 완료", doneVm);
+    }
+
+    const canceledDto = await api.getDelivery(
+      MOCK_DELIVERY_CONTRACT_CANCELED,
+      MOCK_FREELANCER_USER_ID,
+    );
+    const canceledVm = toDeliveryViewModel(canceledDto, FREELANCER_SESSION);
+    if (
+      canceledVm.uiState === "PROJECT_CANCELED" &&
+      !canceledVm.permissions.canRequestDelivery &&
+      !canceledVm.permissions.canApprove
+    ) {
+      pass("규칙 23: 취소 프로젝트 변경 숨김");
+    } else {
+      fail("규칙 23: 취소 프로젝트 변경 숨김", canceledVm);
+    }
+  }
+
+  {
+    const React = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { DeliveryPanel } = await import("./web/DeliveryPanel");
+
+    function htmlOf(node: React.ReactElement): string {
+      return renderToStaticMarkup(node);
+    }
+    function hasText(name: string, html: string, text: string): void {
+      if (html.includes(text)) pass(name);
+      else fail(name, html);
+    }
+
+    const ready = htmlOf(React.createElement(DeliveryPanel));
+    hasText("규칙 23: 필수 결과물 납품", ready, "결과물 납품");
+    hasText("규칙 23: 필수 납품 요청", ready, "납품 요청");
+    const action = htmlOf(React.createElement(DeliveryPanel, { uiState: "ACTION_REQUIRED" }));
+    hasText("규칙 23: 필수 완료 승인", action, "완료 승인");
+    hasText("규칙 23: 필수 승인 확인", action, "납품을 승인할까요?");
+    hasText(
+      "규칙 23: 필수 리뷰 작성",
+      htmlOf(React.createElement(DeliveryPanel, { uiState: "COMPLETED" })),
+      "리뷰 작성",
+    );
+    hasText(
+      "규칙 23: 로딩",
+      htmlOf(React.createElement(DeliveryPanel, { loading: true })),
+      "납품 내용을 불러오는 중입니다.",
+    );
+    const loadFailed = htmlOf(React.createElement(DeliveryPanel, { uiState: "LOAD_FAILED" }));
+    hasText("규칙 23: LOAD_FAILED 재시도", loadFailed, "다시 시도");
+    hasText(
+      "규칙 23: 409 재조회",
+      htmlOf(React.createElement(DeliveryPanel, { uiState: "STALE" })),
+      "다시 불러오기",
+    );
+    const canceled = htmlOf(React.createElement(DeliveryPanel, { uiState: "PROJECT_CANCELED" }));
+    hasText("규칙 23: 취소 안내", canceled, "프로젝트가 취소되었습니다");
+    if (!hasDeliveryMutationCta(canceled)) pass("규칙 23: 취소 후 변경 숨김");
+    else fail("규칙 23: 취소 후 변경 숨김", canceled);
+
+    const settlement = htmlOf(React.createElement(DeliveryPanel, { uiState: "SETTLEMENT_PENDING" }));
+    hasText("규칙 23: 정산 대기 안내", settlement, "정산 처리 중");
+    if (!hasDeliveryMutationCta(settlement)) pass("규칙 23: 정산 대기 변경 숨김");
+    else fail("규칙 23: 정산 대기 변경 숨김", settlement);
+
+    const completed = htmlOf(React.createElement(DeliveryPanel, { uiState: "COMPLETED" }));
+    if (!hasDeliveryMutationCta(completed)) pass("규칙 23: 완료 후 변경 숨김");
+    else fail("규칙 23: 완료 후 변경 숨김", completed);
+
+    const work = htmlOf(React.createElement(DeliveryPanel, { uiState: "WORK_IN_PROGRESS" }));
+    hasText("규칙 23: 의뢰인 작업 중 안내", work, "프리랜서가 작업 중입니다.");
+    if (!hasDeliveryMutationCta(work)) pass("규칙 23: 작업 중 변경 숨김");
+    else fail("규칙 23: 작업 중 변경 숨김", work);
+
+    const forbidden = htmlOf(React.createElement(DeliveryPanel, { uiState: "FORBIDDEN" }));
+    hasText("규칙 23: 403 안내", forbidden, "이 납품을 볼 수 있는 권한이 없습니다");
+    if (!forbidden.includes(MOCK_DELIVERY_FILE_NAME) && !forbidden.includes("money")) {
+      pass("규칙 23: 403 민감 정보 없음");
+    } else {
+      fail("규칙 23: 403 민감 정보 없음", forbidden);
+    }
+    const notFound = htmlOf(React.createElement(DeliveryPanel, { uiState: "NOT_FOUND" }));
+    if (!notFound.includes(MOCK_DELIVERY_FILE_NAME) && !notFound.includes("money")) {
+      pass("규칙 23: 404 민감 정보 없음");
+    } else {
+      fail("규칙 23: 404 민감 정보 없음", notFound);
+    }
   }
 
   console.log(`PASS ${passCount} / FAIL ${failCount}`);

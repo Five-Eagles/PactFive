@@ -6,16 +6,23 @@ import {
   type ProjectNegotiationContextResponse,
 } from "../server/project-transaction.types";
 import type { ContractStatus } from "../server/contract.types";
+import { completeProjectTransactionIfSettled } from "../server/project-transaction.service";
+import { ignoreNotificationFailure, type NotificationTriggerPort } from "../server/notification.port";
 import {
   PublicApiError,
   type AcceptNegotiationOfferInput,
+  type ApproveDeliveryInput,
   type CurrentNegotiationOfferResponse,
+  type DeliveryPaymentStatus,
+  type DeliveryStatus,
   type GetContractResponse,
+  type GetDeliveryResponse,
   type GetPaymentResponse,
   type InvalidateAgreementInput,
   type InvalidateAgreementResponse,
   type ProposeNegotiationOfferInput,
   type RejectNegotiationOfferInput,
+  type RequestDeliveryInput,
   type SignContractResponse,
 } from "../server/public-api.types";
 
@@ -26,6 +33,11 @@ export const MOCK_FREELANCER_USER_ID = "usr_freelancer_b";
 export const MOCK_OUTSIDER_USER_ID = "usr_outsider";
 export const MOCK_PROJECT_TITLE = "브랜드 사이트 리뉴얼";
 export const MOCK_OFFER_AMOUNT = 100_000;
+export const MOCK_DELIVERY_CONTRACT_IN_PROGRESS = "ctr_prj_in_progress";
+export const MOCK_DELIVERY_CONTRACT_COMPLETED = "ctr_prj_completed";
+export const MOCK_DELIVERY_CONTRACT_CANCELED = "ctr_prj_canceled";
+export const MOCK_DELIVERY_FILE_NAME = "final-deliverable.zip";
+export const MOCK_DELIVERY_MESSAGE = "작업 산출물을 첨부했습니다.";
 
 type OfferRow = {
   offerId: string;
@@ -69,6 +81,32 @@ type SignatureAudit = {
   signedAt: string;
 };
 
+type DeliveryContractSeed = {
+  contractId: string;
+  projectId: string;
+  status: ContractStatus;
+  agreedAmount: number;
+  paymentStatus: DeliveryPaymentStatus;
+};
+
+type DeliveryRow = {
+  deliveryId: string;
+  contractId: string;
+  status: DeliveryStatus;
+  version: number;
+  message: string | null;
+  requestedAt: string | null;
+  approvedAt: string | null;
+  objectKey: string | null;
+  fileName: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+};
+
+export type PublicApiMockOptions = {
+  notifications?: NotificationTriggerPort;
+};
+
 function utcDate(iso: string): string {
   return iso.slice(0, 10);
 }
@@ -77,8 +115,11 @@ function laterDate(start: string, end: string): string {
   return end < start ? start : end;
 }
 
-/** Increment 1 공개 API 스탠드인. 프로젝트 4함수 Mock을 거절·무효화에 재사용한다. */
-export function createPublicApiMock(nowIso: string = MOCK_NOW) {
+/** 공개 API 스탠드인. 프로젝트 4함수 Mock을 거절·무효화·납품 완료에 재사용한다. */
+export function createPublicApiMock(
+  nowIso: string = MOCK_NOW,
+  options: PublicApiMockOptions = {},
+) {
   const projects = createProjectTransactionMock(nowIso);
   const payments = createPaymentRecordMock();
   const paymentProjectIds = new Map<string, string>();
@@ -93,10 +134,48 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
   >();
   const signIdempotency = new Map<string, SignContractResponse>();
   const invalidateIdempotency = new Map<string, InvalidateAgreementResponse>();
+  const deliveryContracts = new Map<string, DeliveryContractSeed>();
+  const deliveries = new Map<string, DeliveryRow>();
+  const requestIdempotency = new Map<string, GetDeliveryResponse>();
+  const approveIdempotency = new Map<string, GetDeliveryResponse>();
+  const preparedUploads = new Map<string, { objectKey: string; ready: boolean }>();
 
   // GET payment 시드. 준비 API와 같은 결제 행 저장소를 쓴다.
   const seededPayment = payments.preparePayment();
   paymentProjectIds.set(seededPayment.paymentId, "prj_alive");
+
+  function seedDeliveryContract(
+    contractId: string,
+    projectId: string,
+    paymentStatus: DeliveryPaymentStatus,
+    delivery?: Omit<DeliveryRow, "contractId">,
+  ) {
+    deliveryContracts.set(contractId, {
+      contractId,
+      projectId,
+      status: "SIGNED",
+      agreedAmount: MOCK_OFFER_AMOUNT,
+      paymentStatus,
+    });
+    if (delivery) {
+      deliveries.set(contractId, { ...delivery, contractId });
+    }
+  }
+
+  seedDeliveryContract(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, "prj_in_progress", "PAID");
+  seedDeliveryContract(MOCK_DELIVERY_CONTRACT_CANCELED, "prj_canceled", "PAID");
+  seedDeliveryContract(MOCK_DELIVERY_CONTRACT_COMPLETED, "prj_completed", "RELEASED", {
+    deliveryId: "dlv_prj_completed",
+    status: "APPROVED",
+    version: 1,
+    message: MOCK_DELIVERY_MESSAGE,
+    requestedAt: nowIso,
+    approvedAt: nowIso,
+    objectKey: "obj_completed",
+    fileName: MOCK_DELIVERY_FILE_NAME,
+    mimeType: "application/zip",
+    sizeBytes: 1_048_576,
+  });
 
   async function requireParty(projectId: string, actorUserId: string | undefined) {
     if (!actorUserId) {
@@ -168,6 +247,60 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
       freelancerSignedAt: row.freelancerSignedAt,
       signedAt: row.signedAt,
       alreadyProcessed,
+    };
+  }
+
+  async function requireDeliveryContract(contractId: string, actorUserId: string) {
+    const seed = deliveryContracts.get(contractId);
+    if (!seed) {
+      throw new DomainContractError("PROJECT_NOT_FOUND", "계약을 찾을 수 없습니다.");
+    }
+    const ctx = await requireParty(seed.projectId, actorUserId);
+    return { seed, ctx };
+  }
+
+  function toDeliveryResponse(
+    seed: DeliveryContractSeed,
+    ctx: ProjectNegotiationContextResponse,
+    actorUserId: string,
+  ): GetDeliveryResponse {
+    const row = deliveries.get(seed.contractId) ?? null;
+    const isClient = actorUserId === ctx.clientId;
+    const file =
+      row?.fileName && row.mimeType != null && row.sizeBytes != null
+        ? { fileName: row.fileName, mimeType: row.mimeType, sizeBytes: row.sizeBytes }
+        : null;
+    const approved = row?.status === "APPROVED";
+    const requested = row?.status === "DELIVERY_REQUESTED";
+    const released = seed.paymentStatus === "RELEASED";
+    const inProgress = ctx.transactionStatus === "IN_PROGRESS";
+    const signed = seed.status === "SIGNED";
+    const paid = seed.paymentStatus === "PAID" || released;
+    return {
+      contractId: seed.contractId,
+      projectId: seed.projectId,
+      projectTitle: MOCK_PROJECT_TITLE,
+      transactionStatus: ctx.transactionStatus,
+      canceledAt: ctx.canceledAt,
+      contractStatus: seed.status,
+      agreedAmount: seed.agreedAmount,
+      delivery: row
+        ? {
+            deliveryId: row.deliveryId,
+            status: row.status,
+            version: row.version,
+            message: row.message,
+            requestedAt: row.requestedAt,
+            approvedAt: row.approvedAt,
+            file,
+          }
+        : null,
+      paymentStatus: seed.paymentStatus,
+      downloadUrl: file ? `https://download.example/${row?.deliveryId}?exp=short` : null,
+      canRequestDelivery: !row && !isClient && signed && paid && inProgress && !ctx.canceledAt,
+      canApprove: Boolean(requested && isClient && !ctx.canceledAt),
+      canDownload: Boolean(file),
+      canReview: ctx.transactionStatus === "COMPLETED" || (approved && released),
     };
   }
 
@@ -447,6 +580,155 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
 
     getSignatureAudits(): SignatureAudit[] {
       return [...audits];
+    },
+
+    async getDelivery(contractId: string, actorUserId: string): Promise<GetDeliveryResponse> {
+      const { seed, ctx } = await requireDeliveryContract(contractId, actorUserId);
+      return toDeliveryResponse(seed, ctx, actorUserId);
+    },
+
+    async prepareDeliveryUpload(
+      contractId: string,
+      actorUserId: string,
+    ): Promise<{ uploadUrl: string; objectKey: string; expiresAt: string }> {
+      const { seed, ctx } = await requireDeliveryContract(contractId, actorUserId);
+      if (actorUserId === ctx.clientId) {
+        throw new PublicApiError("PROJECT_FORBIDDEN", "이 프로젝트에 대한 권한이 없습니다.");
+      }
+      if (deliveries.has(contractId) || ctx.transactionStatus !== "IN_PROGRESS" || ctx.canceledAt) {
+        throw new DomainContractError(
+          "PROJECT_TRANSITION_CONFLICT",
+          "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+        );
+      }
+      const objectKey = `obj_${contractId}_${nowIso}`;
+      preparedUploads.set(objectKey, { objectKey, ready: true });
+      return {
+        uploadUrl: `https://upload.example/${objectKey}`,
+        objectKey,
+        expiresAt: nowIso,
+      };
+    },
+
+    async requestDelivery(
+      contractId: string,
+      actorUserId: string,
+      input: RequestDeliveryInput,
+    ): Promise<GetDeliveryResponse> {
+      const { seed, ctx } = await requireDeliveryContract(contractId, actorUserId);
+      const idemKey = `delivery-request-${contractId}`;
+      const cached = requestIdempotency.get(idemKey);
+      if (cached) return { ...cached };
+      if (actorUserId === ctx.clientId) {
+        throw new PublicApiError("PROJECT_FORBIDDEN", "이 프로젝트에 대한 권한이 없습니다.");
+      }
+      if (!input.objectKey || !input.message?.trim()) {
+        throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
+          { field: input.objectKey ? "message" : "objectKey", reason: "required" },
+        ]);
+      }
+      if (!preparedUploads.get(input.objectKey)?.ready) {
+        throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
+          { field: "objectKey", reason: "not_ready" },
+        ]);
+      }
+      if (deliveries.has(contractId) || ctx.transactionStatus !== "IN_PROGRESS" || ctx.canceledAt) {
+        throw new DomainContractError(
+          "PROJECT_TRANSITION_CONFLICT",
+          "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+        );
+      }
+      deliveries.set(contractId, {
+        deliveryId: `dlv_${contractId}`,
+        contractId,
+        status: "DELIVERY_REQUESTED",
+        version: 1,
+        message: input.message.trim(),
+        requestedAt: nowIso,
+        approvedAt: null,
+        objectKey: input.objectKey,
+        fileName: MOCK_DELIVERY_FILE_NAME,
+        mimeType: "application/zip",
+        sizeBytes: 1_048_576,
+      });
+      const current = toDeliveryResponse(seed, ctx, actorUserId);
+      requestIdempotency.set(idemKey, current);
+      const notifications = options.notifications;
+      if (notifications) {
+        await ignoreNotificationFailure(() =>
+          notifications.publishDeliveryRequested({
+            type: "DELIVERY_REQUESTED",
+            projectId: seed.projectId,
+            clientId: ctx.clientId,
+            occurredAt: nowIso,
+          }),
+        );
+      }
+      return current;
+    },
+
+    async approveDelivery(
+      contractId: string,
+      actorUserId: string,
+      input: ApproveDeliveryInput = {},
+    ): Promise<GetDeliveryResponse> {
+      const { seed, ctx } = await requireDeliveryContract(contractId, actorUserId);
+      const idemKey = `delivery-approve-${contractId}`;
+      const cached = approveIdempotency.get(idemKey);
+      if (cached) return { ...cached };
+      if (actorUserId !== ctx.clientId) {
+        throw new PublicApiError("PROJECT_FORBIDDEN", "이 프로젝트에 대한 권한이 없습니다.");
+      }
+      const row = deliveries.get(contractId);
+      if (!row || row.status === "IN_PROGRESS") {
+        throw new DomainContractError(
+          "PROJECT_TRANSITION_CONFLICT",
+          "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+        );
+      }
+      if (input.expectedVersion != null && input.expectedVersion !== row.version) {
+        throw new DomainContractError(
+          "PROJECT_TRANSITION_CONFLICT",
+          "프로젝트 정보가 변경되었습니다. 새로고침 후 다시 시도해 주세요.",
+        );
+      }
+      if (row.status !== "APPROVED") {
+        row.status = "APPROVED";
+        row.approvedAt = nowIso;
+      }
+      if (seed.paymentStatus === "RELEASED") {
+        await completeProjectTransactionIfSettled(
+          projects,
+          seed.projectId,
+          {
+            contractId,
+            requestId: `req_complete_${contractId}`,
+            idempotencyKey: `transaction-complete-${contractId}`,
+            occurredAt: nowIso,
+            expectedProjectVersion: ctx.projectVersion,
+          },
+          "APPROVED",
+          "RELEASED",
+          options.notifications
+            ? { notifications: options.notifications, freelancerId: MOCK_FREELANCER_USER_ID }
+            : undefined,
+        );
+      }
+      const latest = await projects.getProjectNegotiationContext(seed.projectId);
+      const current = toDeliveryResponse(seed, latest, actorUserId);
+      approveIdempotency.set(idemKey, current);
+      const notifications = options.notifications;
+      if (notifications) {
+        await ignoreNotificationFailure(() =>
+          notifications.publishDeliveryApproved({
+            type: "DELIVERY_APPROVED",
+            projectId: seed.projectId,
+            freelancerId: MOCK_FREELANCER_USER_ID,
+            occurredAt: nowIso,
+          }),
+        );
+      }
+      return current;
     },
   };
 }

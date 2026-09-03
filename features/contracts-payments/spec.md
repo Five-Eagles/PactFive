@@ -6,19 +6,20 @@
 
 ## 목적
 
-조준영 도메인(합의·계약·서명·결제)의 상태·API·화면 계약을 고정한다.
+조준영 도메인(합의·계약·서명·결제·납품)의 상태·API·화면 계약을 고정한다.
 유동우 4함수 호출 계약은 규칙 1~8, PG 승인은 규칙 9다.
 
 ## 범위
 
 - 포함: 4함수 호출 계약, `PaymentGateway.confirmPayment`·`retrievePayment`, 금액 합의·계약 서명·
-  샌드박스 결제 Mock, `design/` low-fi 3화면.
-- 제외: 위젯 구현, 에스크로·지급대행·실정산, PG 환불, 납품·리뷰, `acceptProjectApplication` 구현,
-  `projects` 테이블 직접 UPDATE. 제안 철회는 Increment 1 제외.
+  샌드박스 결제 Mock, 납품 Increment(조회·요청·승인 Mock + DLV-01 시안).
+- 제외: 위젯 구현, 에스크로·지급대행 실연동, PG 환불, 리뷰, `acceptProjectApplication` 구현,
+  `projects` 테이블 직접 UPDATE. 제안 철회는 Increment 1 제외. 납품 반려·재납품은 MVP 제외.
 
 ## 관련 엔티티 (근거: `docs/domain/erd.md`)
 
-조준영: `agreements`, `negotiation_offer`, `contracts`, `contract_signature_audits`, `payments`.
+조준영: `agreements`, `negotiation_offer`, `contracts`, `contract_signature_audits`, `payments`,
+`deliveries`.
 유동우: `projects`의 `recruitment_status`, `transaction_status`, `payment_pending_at`,
 `project_version`, `canceled_at`, `deleted_at`, `recruitment_deadline_at`,
 `pending_application_count`, `accepted_application_id`.
@@ -208,13 +209,18 @@
     `GET /api/v1/contracts/:contractId` (규칙 20), `POST /api/v1/contracts/:contractId/sign`,
     `POST /api/v1/payments` (준비), `GET /api/v1/payments/:paymentId` (규칙 21),
     `POST /api/v1/payments/confirm` (규칙 9).
+    납품 Increment: `GET /api/v1/contracts/:contractId/delivery`,
+    `POST .../deliveries/upload-prepare`, `POST .../deliveries/request`,
+    `POST .../deliveries/approve` (규칙 23). 네이밍 예시 2경로
+    (`POST /contracts/:id/deliveries` + `POST /deliveries/:id/approve`)는 쓰지 않는다.
     프론트 설계서 `/agreements` 5종은 **폐기**한다. 내부 4함수는 `/internal/v1/...` (규칙 1).
     무효화 inbound는 `POST /internal/v1/projects/:projectId/invalidate-agreement` (규칙 22).
 
 17. **프론트 라우트 초안.** `/projects/:projectId/agreements` (생성 모드),
     `/projects/:projectId/agreements/:agreementId` (AGR-01 상세),
     `/projects/:projectId/contracts/:contractId` (CTR-01 서명),
-    `/projects/:projectId/payments/:paymentId` (체크아웃, `payments.id`).
+    `/projects/:projectId/payments/:paymentId` (체크아웃, `payments.id`),
+    `/projects/:projectId/contracts/:contractId/delivery` (DLV-01, 식별자는 `contractId`).
     Toss `orderId`는 `pg_order_id`이며 화면 경로에 쓰지 않는다.
     UX: 로딩, 빈 생성 모드, `LOAD_FAILED` 재시도, `STALE`/409 후 재조회, 프로젝트 취소 시
     변경 버튼 숨김 (프론트 v2.0). 서명·결제도 같은 패턴. 취소된 프로젝트 서명은
@@ -261,6 +267,12 @@
     비당사자 403. 서명 2 + 결제 Mock(규칙 9, 기존) + `FAILED` 후 같은 행 새 `orderId` `READY` 1.
     restore는 규칙 5 기존.
 
+23. **납품 Increment.** 계약당 1건, 프리랜서 1회 요청 → 의뢰인 명시적 승인. 반려·재납품 없음.
+    선행: 계약 `SIGNED` ∧ 결제 `PAID` ∧ 프로젝트 `IN_PROGRESS`. GET은 납품 행이 없어도 200
+    (`delivery: null`). 화면은 `APPROVED`∧`PAID`를 완료로 보지 않는다. `RELEASED`일 때만
+    규칙 4 complete. 오류 코드는 규칙 8 5종(+공개 401·403). 납품 요청·승인 경로에서만
+    `publishDeliveryRequested`·`publishDeliveryApproved`. 실저장소·실에스크로는 Mock 스텁.
+
 ## 크기 기준
 
 같은 엔티티(`projects` 거래 상태)의 생애주기라 한 파일로 유지한다.
@@ -281,7 +293,8 @@ applications 범위 밖. restore 시 기존 `REJECTED`는 되살리지 않음. �
 
 멱등 키·버전 비증가·내부 경로·`notReopenedReason`·start/complete 버전 필수·최윤석 호출 순서는
 FACT다. 합의·서명·결제 정본은 `review/spec-design-eval.md` 최적안이다.
-알림 4종은 포트 발행 / 발송은 최윤석 (`NotificationTriggerPort`). 납품 2종은 시그니처만.
+알림 4종은 포트 발행 / 발송은 최윤석 (`NotificationTriggerPort`). 납품 2종은 납품 Increment
+경로에서만 발행한다.
 대기 정본은 `review/external-wait-2026-08-31.md`.
 
 추가 제안 2건 — **조준영 동의.**
