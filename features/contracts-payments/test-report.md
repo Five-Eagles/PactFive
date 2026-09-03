@@ -5,7 +5,7 @@
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 160, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 163, FAIL 개수: 0)
 
 키 없는 환경. 규칙 9 sandbox는 「해당 없음」 1건 PASS.
 

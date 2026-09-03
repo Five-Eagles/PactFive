@@ -98,4 +98,4 @@
 | 2026-09-03 | 공개 API Mock에 `preparePayment`·`confirmPayment` 파사드. 팀장 통합 요청 `review/teamlead-public-api-panels-2026-09-03.md`. 실측 PASS 91 |
 | 2026-09-03 | 알림 발송 담당을 팀장으로. applications 손잡이·S1·S2는 조준영 확정 |
 | 2026-09-03 | 하이브리드 AGR-01. `/agreements` 5종 폐기 유지. `run.tsx` 상태 산정·필수 카피. 실측 PASS 120 |
-| 2026-09-03 | 하이브리드 DLV-01. 네이밍 2경로 미사용. I-30 화면 구분. `run.tsx` 실측 PASS 160 |
+| 2026-09-03 | 하이브리드 DLV-01. 네이밍 2경로 미사용. I-30 화면 구분. `run.tsx` 실측 PASS 163 |
