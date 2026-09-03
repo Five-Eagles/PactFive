@@ -12,6 +12,7 @@ import { projectRoutes, PROJECT_ROUTES } from './features/project-management/pro
 import { engagementRoutes, ENGAGEMENT_ROUTES } from './features/engagement/bookmark.routes';
 import { BookmarkButton } from './features/engagement/BookmarkButton';
 import { RecommendationSection } from './features/engagement/RecommendationSection';
+import { useBookmarkedIds } from './features/engagement/useBookmark';
 
 // 401을 받으면 로그인 화면으로 보낸다.
 // shared/http.ts가 라우터를 직접 import하지 않도록 여기서 주입한다.
@@ -20,25 +21,6 @@ import { RecommendationSection } from './features/engagement/RecommendationSecti
 setUnauthorizedHandler(() => {
   window.location.assign(AUTH_ROUTES.login);
 });
-
-function HomePage() {
-  return (
-    <PageBody>
-      <h1 className="h2">프리랜서와 의뢰인을 잇습니다</h1>
-      <p className="helper" style={{ marginBottom: 24 }}>
-        프로젝트를 등록하고 지원자를 만나거나, 관심 있는 프로젝트를 찾아 지원해 보세요.
-      </p>
-      <div className="btn-row">
-        <Link to={PROJECT_ROUTES.browse}>
-          <Button variant="primary">프로젝트 찾기</Button>
-        </Link>
-        <Link to={PROJECT_ROUTES.register}>
-          <Button variant="secondary">프로젝트 등록</Button>
-        </Link>
-      </div>
-    </PageBody>
-  );
-}
 
 /**
  * 아직 설계/통합되지 않은 기능 라우트 — 경로 slug는 각 기능 폴더명을 그대로 kebab-case로 쓴다.
@@ -94,6 +76,11 @@ function AppRoutes() {
 
   const viewer = state.status === 'authenticated' ? state.session.user : null;
 
+  // 카드마다 북마크 초기 상태를 넘긴다 (CR-0008) — `PublicProjectItem` 에는
+  // `isBookmarked` 가 없어 engagement 의 `GET /bookmarks/ids` 로 화면이 직접 대조한다.
+  // 프리랜서가 아니면 부르지 않는다 — 서버가 401·403 을 주기 전에 막는다.
+  const bookmarkedIds = useBookmarkedIds(viewer?.role === 'FREELANCER');
+
   // 시안의 nav는 "프로젝트 찾기 · 내 프로젝트" 두 개다. 프리랜서에게는 "내 프로젝트"가
   // 의뢰인 전용이라 대신 "내 북마크"를 둔다 — 누를 수 없는 메뉴를 두지 않는다.
   const navItems = [
@@ -107,6 +94,7 @@ function AppRoutes() {
     <BookmarkButton
       projectId={projectId}
       viewer={viewer ? { role: viewer.role } : null}
+      initialBookmarked={bookmarkedIds.has(projectId)}
       onRequireLogin={() => navigate(AUTH_ROUTES.login)}
     />
   );
@@ -118,11 +106,12 @@ function AppRoutes() {
   return (
     <AppShell items={navItems} homeHref={APP_ROUTES.home}>
       <Routes>
-        <Route path={APP_ROUTES.home} element={<HomePage />} />
-
         {authRoutes}
 
         {projectRoutes({
+          // 대표페이지는 project-management 화면이다. 다만 `/` 라는 **주소**는
+          // 앱 껍데기(로고 링크)와 "없는 페이지"가 같이 쓰므로 앱이 계속 소유한다.
+          homePath: APP_ROUTES.home,
           // 내 프로젝트 목록은 의뢰인 것만 의미가 있다.
           clientId: viewer?.role === 'CLIENT' ? viewer.userId : null,
           renderBookmark,

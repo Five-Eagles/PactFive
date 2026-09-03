@@ -4,6 +4,7 @@ import {
   type ConfirmPaymentResponse,
   type PaymentGateway,
 } from "../server/payment.port";
+import { ignoreNotificationFailure, type NotificationTriggerPort } from "../server/notification.port";
 import { DomainContractError } from "../server/project-transaction.types";
 import { createPaymentGatewayMock, MOCK_CONFIRMED_AMOUNT } from "./payment.mock";
 
@@ -33,12 +34,24 @@ type PaymentRecord = {
   rawResponse: { code: string; message: string } | null;
 };
 
-const MOCK_PAYMENT_ID = "pay_mock_01";
+export const MOCK_PAYMENT_ID = "pay_mock_01";
 const MOCK_CLIENT_KEY = "mock_pg_client_key";
 const MOCK_FAILED_AT = "2026-08-25T05:10:00Z";
+const MOCK_PAID_AT = "2026-08-25T05:12:00Z";
+const MOCK_NOTIFY_PROJECT_ID = "prj_alive";
+const MOCK_NOTIFY_FREELANCER_ID = "usr_freelancer_b";
+
+export type PaymentRecordMockOptions = {
+  notifications?: NotificationTriggerPort;
+  projectId?: string;
+  freelancerId?: string;
+};
 
 /** 테스트마다 새 결제 행을 만든다. I-17 계약당 1행. */
-export function createPaymentRecordMock(gateway: PaymentGateway = createPaymentGatewayMock()): {
+export function createPaymentRecordMock(
+  gateway: PaymentGateway = createPaymentGatewayMock(),
+  options: PaymentRecordMockOptions = {},
+): {
   preparePayment(amount?: number): PreparePaymentResponse;
   confirmPayment(input: ConfirmPaymentInput): Promise<ConfirmPaymentResponse>;
   retryPayment(paymentId: string): GetPaymentResponse;
@@ -46,6 +59,8 @@ export function createPaymentRecordMock(gateway: PaymentGateway = createPaymentG
 } {
   let orderSeq = 0;
   let row: PaymentRecord | null = null;
+  const projectId = options.projectId ?? MOCK_NOTIFY_PROJECT_ID;
+  const freelancerId = options.freelancerId ?? MOCK_NOTIFY_FREELANCER_ID;
 
   function nextOrderId(): string {
     orderSeq += 1;
@@ -127,6 +142,20 @@ export function createPaymentRecordMock(gateway: PaymentGateway = createPaymentG
         row.failedAt = null;
         row.failureCode = null;
         row.rawResponse = null;
+        const notifications = options.notifications;
+        const paymentId = row.paymentId;
+        // PAID 확정 뒤에만 발행한다. throw여도 행은 PAID로 둔다.
+        if (notifications) {
+          await ignoreNotificationFailure(() =>
+            notifications.publishPaymentCompleted({
+              type: "PAYMENT_COMPLETED",
+              projectId,
+              paymentId,
+              freelancerId,
+              occurredAt: MOCK_PAID_AT,
+            }),
+          );
+        }
         return paid;
       } catch (err) {
         if (err instanceof PaymentGatewayError) {

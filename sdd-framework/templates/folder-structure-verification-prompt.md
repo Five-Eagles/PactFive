@@ -64,7 +64,9 @@ Mock+구현 초안 코드)는 `sdd-framework/feature-workflow.md` 참고"
 레포지토리**입니다 (ADR-0006, 2026-08-18 재정의). 화면 디자인 시안은 `features/{기능}/design/`에
 작성하며, design-system 확정 전에는 low-fi, 확정 후에는 high-fi로 만듭니다. 팀원이 `prototype/`,
 `design/`, `api-contract.md`, `spec.md`에서 작업하고, 팀장이 검토해 `app/`에 반영합니다. `app/`은
-팀장만 직접 수정합니다."
+팀장만 직접 수정합니다. 이미지 등 자산 파일이 추가로 필요하면 `features/{기능}/assets/{카테고리}/`에
+카테고리별로 나눠 둡니다(예: `assets/images/`) — `design/`·`prototype/`은 파일 안에 base64로
+욱여넣지 않고 이 폴더를 상대경로로 참조합니다 (2026-09-02 추가)."
 
 **R13** — "design-system/, ux-philosophy/ ... 두 폴더는 의도적으로 분리되어 있습니다 — ux-philosophy는
 design-system의 특정 컴포넌트와 결합되지 않도록 추상 수준을 유지합니다."

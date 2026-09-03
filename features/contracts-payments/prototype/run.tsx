@@ -3,21 +3,23 @@ import { execSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  canProposeNegotiationOffer,
+  createNotificationTriggerMock,
   createProjectTransactionMock,
+  createPublicApiMock,
   DomainContractError,
   isDomainContractError,
+  isPublicApiError,
+  MOCK_CLIENT_USER_ID,
+  MOCK_FREELANCER_USER_ID,
   MOCK_NOW,
+  MOCK_OUTSIDER_USER_ID,
+  MOCK_PAYMENT_ID,
+  toAcceptedApplicationHandoff,
   type DomainContractErrorCode,
 } from "./index";
 import { createPaymentRecordMock } from "./mock/payment-record.mock";
-import {
-  createPublicApiMock,
-  MOCK_CLIENT_USER_ID,
-  MOCK_FREELANCER_USER_ID,
-  MOCK_OFFER_AMOUNT,
-  MOCK_OUTSIDER_USER_ID,
-  MOCK_PROJECT_TITLE,
-} from "./mock/public-api.mock";
+import { MOCK_OFFER_AMOUNT, MOCK_PROJECT_TITLE } from "./mock/public-api.mock";
 import {
   createPaymentGatewayMock,
   MOCK_CONFIRMED_AMOUNT,
@@ -31,13 +33,28 @@ import {
   restorePreContractProjectAfterReject,
   startProjectTransactionIfAccepted,
 } from "./server/project-transaction.service";
-import { PaymentGatewayError } from "./server/payment.port";
-import { isPublicApiError } from "./server/public-api.types";
-import { createTossPaymentsAdapter, hasPgSecretKey } from "./server/toss-payments.adapter";
+import { PaymentGatewayError, type PaymentGateway } from "./server/payment.port";
+import {
+  createTossPaymentsAdapter,
+  hasPgSecretKey,
+  isPgKeyMissingError,
+} from "./server/toss-payments.adapter";
 
-/** 기능 폴더 `.env`만 읽는다. 값은 로그에 남기지 않는다. */
+function findRepoRoot(startDir: string): string {
+  let dir = startDir;
+  while (!existsSync(path.join(dir, "scripts", "ensure-deps.js"))) {
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      throw new Error("scripts/ensure-deps.js를 찾지 못했습니다. 리포 루트 구조를 확인하세요.");
+    }
+    dir = parent;
+  }
+  return dir;
+}
+
+/** 리포 루트 `.env`만 읽는다. 값은 로그에 남기지 않는다. */
 function loadFeatureEnv(): void {
-  const envPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".env");
+  const envPath = path.join(findRepoRoot(path.dirname(fileURLToPath(import.meta.url))), ".env");
   if (!existsSync(envPath)) return;
   for (const rawLine of readFileSync(envPath, "utf8").split("\n")) {
     const line = rawLine.trim();
@@ -57,16 +74,25 @@ function loadFeatureEnv(): void {
 }
 
 function ensurePackagesInstalled(): void {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  let dir = here;
-  while (!existsSync(path.join(dir, "scripts", "ensure-deps.js"))) {
-    const parent = path.dirname(dir);
-    if (parent === dir) {
-      throw new Error("scripts/ensure-deps.js를 찾지 못했습니다. 리포 루트 구조를 확인하세요.");
-    }
-    dir = parent;
-  }
+  const dir = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
   execSync(`node ${JSON.stringify(path.join(dir, "scripts", "ensure-deps.js"))}`, { stdio: "inherit" });
+}
+
+/** 키 없으면 Mock. 키 있으면 토스 어댑터. */
+function assemblePaymentGateway(): PaymentGateway {
+  if (!hasPgSecretKey()) return createPaymentGatewayMock();
+  return createTossPaymentsAdapter();
+}
+
+async function withClearedPgSecretKey<T>(run: () => Promise<T> | T): Promise<T> {
+  const previous = process.env.PG_SECRET_KEY;
+  delete process.env.PG_SECRET_KEY;
+  try {
+    return await run();
+  } finally {
+    if (previous === undefined) delete process.env.PG_SECRET_KEY;
+    else process.env.PG_SECRET_KEY = previous;
+  }
 }
 
 const ALLOWED_CODES: DomainContractErrorCode[] = [
@@ -483,6 +509,109 @@ async function main() {
     }
   }
 
+  // 규칙 7 — AcceptedApplicationHandoff (A1–A4). propose는 이 손잡이일 때만.
+  {
+    const mock = createProjectTransactionMock();
+    const alive = await mock.getProjectNegotiationContext("prj_alive");
+    const nullAccept = await mock.getProjectNegotiationContext("prj_null_accept");
+    const inProgress = await mock.getProjectNegotiationContext("prj_in_progress");
+    const handoff = toAcceptedApplicationHandoff(alive);
+    if (
+      canProposeNegotiationOffer(alive) &&
+      handoff?.acceptedApplicationId === "app_123" &&
+      handoff.transactionStatus === "CONTRACT_PENDING" &&
+      !canProposeNegotiationOffer(nullAccept) &&
+      !canProposeNegotiationOffer(inProgress)
+    ) {
+      pass("규칙 7: AcceptedApplicationHandoff만 propose 진입");
+    } else {
+      fail("규칙 7: AcceptedApplicationHandoff만 propose 진입", { alive, nullAccept, inProgress });
+    }
+  }
+
+  // 규칙 7 — PAID·COMPLETED 직후 publish. 납품 2종은 호출하지 않는다.
+  {
+    const notifications = createNotificationTriggerMock();
+    const records = createPaymentRecordMock(createPaymentGatewayMock(), {
+      notifications,
+      projectId: "prj_seq",
+      freelancerId: "usr_freelancer_b",
+    });
+    const prepared = records.preparePayment(MOCK_CONFIRMED_AMOUNT);
+    const paid = await records.confirmPayment({
+      orderId: prepared.orderId,
+      amount: MOCK_CONFIRMED_AMOUNT,
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+    });
+    const txn = createProjectTransactionMock();
+    await completeProjectTransactionIfSettled(
+      txn,
+      "prj_in_progress",
+      {
+        contractId: "ctr_notify",
+        requestId: "req_notify_complete",
+        idempotencyKey: "transaction-complete-notify",
+        occurredAt: "2026-08-25T06:00:00Z",
+        expectedProjectVersion: 8,
+      },
+      "APPROVED",
+      "RELEASED",
+      { notifications, freelancerId: "usr_freelancer_b" },
+    );
+    const published = notifications.getPublished();
+    const types = published.map((event) => event.type);
+    if (
+      paid.status === "PAID" &&
+      types.includes("PAYMENT_COMPLETED") &&
+      types.includes("REVIEW_REQUESTED") &&
+      !types.includes("DELIVERY_REQUESTED") &&
+      !types.includes("DELIVERY_APPROVED")
+    ) {
+      pass("규칙 7: PAID·COMPLETED 직후 publish (납품 미호출)");
+    } else {
+      fail("규칙 7: PAID·COMPLETED 직후 publish (납품 미호출)", { paid, published });
+    }
+  }
+
+  // 규칙 7 — 포트 throw여도 PAID·COMPLETED를 되돌리지 않는다.
+  {
+    const notifications = createNotificationTriggerMock({ throwOnPublish: true });
+    const records = createPaymentRecordMock(createPaymentGatewayMock(), { notifications });
+    const prepared = records.preparePayment(MOCK_CONFIRMED_AMOUNT);
+    const paid = await records.confirmPayment({
+      orderId: prepared.orderId,
+      amount: MOCK_CONFIRMED_AMOUNT,
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+    });
+    const row = records.getPayment(prepared.paymentId);
+    const txn = createProjectTransactionMock();
+    const completed = await completeProjectTransactionIfSettled(
+      txn,
+      "prj_in_progress",
+      {
+        contractId: "ctr_notify_throw",
+        requestId: "req_notify_throw",
+        idempotencyKey: "transaction-complete-throw",
+        occurredAt: "2026-08-25T06:00:00Z",
+        expectedProjectVersion: 8,
+      },
+      "APPROVED",
+      "RELEASED",
+      { notifications, freelancerId: "usr_freelancer_b" },
+    );
+    const ctx = await txn.getProjectNegotiationContext("prj_in_progress");
+    if (
+      paid.status === "PAID" &&
+      row.status === "PAID" &&
+      completed.transactionStatus === "COMPLETED" &&
+      ctx.transactionStatus === "COMPLETED"
+    ) {
+      pass("규칙 7: 알림 throw여도 PAID·COMPLETED 유지");
+    } else {
+      fail("규칙 7: 알림 throw여도 PAID·COMPLETED 유지", { paid, row, completed, ctx });
+    }
+  }
+
   // 규칙 8 — 오류 코드 5종만
   {
     const mock = createProjectTransactionMock();
@@ -646,6 +775,120 @@ async function main() {
     }
   }
 
+  // 규칙 9 — 키 없음이면 어댑터를 만들지 않고 Mock
+  await withClearedPgSecretKey(async () => {
+    const gateway = assemblePaymentGateway();
+    const paid = await gateway.confirmPayment({
+      orderId: "ord_no_key_01",
+      amount: MOCK_CONFIRMED_AMOUNT,
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+    });
+    if (!hasPgSecretKey() && paid.status === "PAID") {
+      pass("규칙 9: 키 없음 → Mock 유지");
+    } else {
+      fail("규칙 9: 키 없음 → Mock 유지", { hasKey: hasPgSecretKey(), paid });
+    }
+    try {
+      createTossPaymentsAdapter();
+      fail("규칙 9: 키 없이 어댑터 생성", "오류가 나지 않았습니다");
+    } catch (err) {
+      if (isPgKeyMissingError(err) && err.field === "PG_SECRET_KEY") {
+        pass("규칙 9: 키 없이 어댑터 생성 → PgKeyMissingError");
+      } else {
+        fail("규칙 9: 키 없이 어댑터 생성 → PgKeyMissingError", err);
+      }
+    }
+  });
+
+  // 규칙 9 — 키 없음 UX. 프론트는 시크릿을 읽지 않는다.
+  {
+    const React = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { PaymentPanel } = await import("./web/PaymentPanel");
+    const missing = renderToStaticMarkup(React.createElement(PaymentPanel, { view: "keyMissing" }));
+    if (
+      missing.includes("연동 준비 중") &&
+      missing.includes("다시 시도") &&
+      !missing.includes("결제하기")
+    ) {
+      pass("규칙 9: 키 없음 UX 결제하기 숨김");
+    } else {
+      fail("규칙 9: 키 없음 UX 결제하기 숨김", missing);
+    }
+  }
+
+  // 규칙 17 — 합의·서명·결제 패널 필수 요소. 앱 셸 없이 상태 분기만.
+  {
+    const React = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { AgreementPanel } = await import("./web/AgreementPanel");
+    const { ContractSignPanel } = await import("./web/ContractSignPanel");
+    const { PaymentPanel } = await import("./web/PaymentPanel");
+
+    function htmlOf(node: React.ReactElement): string {
+      return renderToStaticMarkup(node);
+    }
+    function hasText(name: string, html: string, text: string): void {
+      if (html.includes(text)) pass(name);
+      else fail(name, html);
+    }
+
+    const create = htmlOf(React.createElement(AgreementPanel));
+    hasText("규칙 17: 합의 필수 금액", create, "금액");
+    hasText("규칙 17: 합의 필수 제안하기", create, "제안하기");
+    hasText("규칙 17: 합의 로딩", htmlOf(React.createElement(AgreementPanel, { view: "loading" })), "불러오는 중");
+    const loadFailed = htmlOf(React.createElement(AgreementPanel, { view: "loadFailed" }));
+    hasText("규칙 17: 합의 LOAD_FAILED", loadFailed, "불러오지 못했습니다");
+    hasText("규칙 17: 합의 LOAD_FAILED 재시도", loadFailed, "다시 시도");
+    hasText(
+      "규칙 17: 합의 409 재조회",
+      htmlOf(React.createElement(AgreementPanel, { view: "stale" })),
+      "다시 불러오기",
+    );
+    const canceled = htmlOf(React.createElement(AgreementPanel, { view: "canceled" }));
+    hasText("규칙 17: 합의 취소 안내", canceled, "프로젝트가 취소되었습니다");
+    if (!canceled.includes("제안하기") && !canceled.includes("수락하기") && !canceled.includes("거절하기")) {
+      pass("규칙 17: 합의 취소 후 변경 숨김");
+    } else {
+      fail("규칙 17: 합의 취소 후 변경 숨김", canceled);
+    }
+    const respond = htmlOf(React.createElement(AgreementPanel, { view: "respond" }));
+    hasText("규칙 17: 합의 수락하기", respond, "수락하기");
+    hasText("규칙 17: 합의 거절하기", respond, "거절하기");
+
+    const sign = htmlOf(React.createElement(ContractSignPanel));
+    hasText("규칙 17: 서명 프로젝트 제목", sign, "프로젝트 제목");
+    hasText("규칙 17: 서명 합의 금액", sign, "합의 금액");
+    hasText("규칙 17: 서명하기", sign, "서명하기");
+    const signFailed = htmlOf(React.createElement(ContractSignPanel, { view: "loadFailed" }));
+    hasText("규칙 17: 서명 LOAD_FAILED", signFailed, "불러오지 못했습니다");
+    hasText("규칙 17: 서명 LOAD_FAILED 재시도", signFailed, "다시 시도");
+    const signCanceled = htmlOf(React.createElement(ContractSignPanel, { view: "canceled" }));
+    hasText("규칙 17: 서명 취소 안내", signCanceled, "프로젝트가 취소되었습니다");
+    if (!signCanceled.includes("서명하기")) {
+      pass("규칙 17: 서명 취소 후 서명하기 숨김");
+    } else {
+      fail("규칙 17: 서명 취소 후 서명하기 숨김", signCanceled);
+    }
+
+    const checkout = htmlOf(React.createElement(PaymentPanel));
+    hasText("규칙 17: 결제 금액", checkout, "결제 금액");
+    hasText("규칙 17: 결제 플랫폼 수수료", checkout, "플랫폼 수수료");
+    hasText("규칙 17: 결제 정산액", checkout, "정산액");
+    hasText("규칙 17: 결제하기", checkout, "결제하기");
+    hasText("규칙 17: 결제 보관 안내", checkout, "결제해도 바로 넘어가지 않습니다");
+    const payFailed = htmlOf(React.createElement(PaymentPanel, { view: "failed" }));
+    hasText("규칙 17: 결제 실패", payFailed, "결제 실패");
+    hasText("규칙 17: 결제 다시 결제", payFailed, "다시 결제");
+
+    const allHtml = [create, canceled, respond, sign, signFailed, signCanceled, checkout, payFailed].join("\n");
+    if (!/#[0-9A-Fa-f]{6}/.test(allHtml)) {
+      pass("규칙 17: 화면에 원시 색상값 없음");
+    } else {
+      fail("규칙 17: 화면에 원시 색상값 없음", allHtml);
+    }
+  }
+
   // sandbox 실호출 — 시크릿이 없으면 해당 없음
   if (!hasPgSecretKey()) {
     pass("규칙 9: PG sandbox 실호출 해당 없음 (PG_SECRET_KEY 없음)");
@@ -782,6 +1025,57 @@ async function main() {
     }
   }
 
+  // 규칙 16·21 — 공개 GET /payments/:paymentId (웹훅 없음)
+  {
+    const api = createPublicApiMock();
+    const row = await api.getPayment(MOCK_PAYMENT_ID, MOCK_CLIENT_USER_ID);
+    if (row.paymentId === MOCK_PAYMENT_ID && row.status === "READY" && row.orderId) {
+      pass("규칙 16: GET payment 당사자 200");
+    } else {
+      fail("규칙 16: GET payment 당사자 200", row);
+    }
+    try {
+      await api.getPayment(MOCK_PAYMENT_ID, MOCK_OUTSIDER_USER_ID);
+      fail("규칙 16: GET payment 비당사자 403", "오류가 나지 않았습니다");
+    } catch (err) {
+      if (isPublicApiError(err) && err.body.error.code === "PROJECT_FORBIDDEN" && err.httpStatus === 403) {
+        pass("규칙 16: GET payment 비당사자 403");
+      } else {
+        fail("규칙 16: GET payment 비당사자 403", err);
+      }
+    }
+    await expectCode("규칙 16: GET payment 없음 404", "PROJECT_NOT_FOUND", () =>
+      api.getPayment("pay_missing", MOCK_CLIENT_USER_ID),
+    );
+  }
+
+  // 규칙 16 — 공개 POST /payments · /payments/confirm (파사드)
+  {
+    const api = createPublicApiMock();
+    const prepared = await api.preparePayment("prj_alive", MOCK_CLIENT_USER_ID);
+    if (
+      prepared.paymentId === MOCK_PAYMENT_ID &&
+      prepared.orderId &&
+      prepared.amount === MOCK_CONFIRMED_AMOUNT &&
+      prepared.clientKey
+    ) {
+      pass("규칙 16: POST payments 준비 당사자 200");
+    } else {
+      fail("규칙 16: POST payments 준비 당사자 200", prepared);
+    }
+    const paid = await api.confirmPayment(MOCK_CLIENT_USER_ID, {
+      orderId: prepared.orderId,
+      amount: prepared.amount,
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+    });
+    const row = await api.getPayment(prepared.paymentId, MOCK_CLIENT_USER_ID);
+    if (paid.status === "PAID" && row.status === "PAID" && row.orderId === prepared.orderId) {
+      pass("규칙 16: POST payments/confirm 당사자 PAID");
+    } else {
+      fail("규칙 16: POST payments/confirm 당사자 PAID", { paid, row });
+    }
+  }
+
   // 규칙 12·13 — 서명 전이·멱등 최초 시각
   {
     const api = createPublicApiMock();
@@ -894,13 +1188,12 @@ async function main() {
     }
   }
 
-  // 규칙 17·22 — UX 상태와 design 필수 요소
+  // 규칙 22 — Increment 백로그 UX. 합의·서명은 규칙 17, 결제는 PaymentPanel.
   {
     const React = await import("react");
     const { renderToStaticMarkup } = await import("react-dom/server");
     const { AgreementPanel } = await import("./web/AgreementPanel");
-    const { ContractSignPanel } = await import("./web/ContractSignPanel");
-    const { PaymentCheckoutPanel } = await import("./web/PaymentCheckoutPanel");
+    const { PaymentPanel } = await import("./web/PaymentPanel");
 
     function htmlOf(node: React.ReactElement): string {
       return renderToStaticMarkup(node);
@@ -910,12 +1203,10 @@ async function main() {
       else fail(name, html);
     }
 
-    hasText("규칙 17: 합의 필수 제안 금액", htmlOf(React.createElement(AgreementPanel)), "제안 금액");
-    hasText("규칙 17: 합의 필수 제안하기", htmlOf(React.createElement(AgreementPanel)), "제안하기");
     hasText(
       "규칙 22: 로딩",
       htmlOf(React.createElement(AgreementPanel, { view: "loading" })),
-      "로딩",
+      "불러오는 중",
     );
     hasText(
       "규칙 22: LOAD_FAILED 재시도",
@@ -925,7 +1216,7 @@ async function main() {
     hasText(
       "규칙 22: 409 재조회",
       htmlOf(React.createElement(AgreementPanel, { view: "stale" })),
-      "다시 조회",
+      "다시 불러오기",
     );
     const canceled = htmlOf(React.createElement(AgreementPanel, { view: "canceled" }));
     if (canceled.includes("프로젝트가 취소되었습니다") && !canceled.includes("제안하기")) {
@@ -933,10 +1224,8 @@ async function main() {
     } else {
       fail("규칙 22: 취소 후 변경 숨김", canceled);
     }
-    hasText("규칙 17: 서명 필수 계약 조건", htmlOf(React.createElement(ContractSignPanel)), "계약 조건");
-    hasText("규칙 17: 서명 필수 서명하기", htmlOf(React.createElement(ContractSignPanel)), "서명하기");
-    hasText("규칙 17: 결제 필수 결제 금액", htmlOf(React.createElement(PaymentCheckoutPanel)), "결제 금액");
-    hasText("규칙 17: 결제 필수 결제하기", htmlOf(React.createElement(PaymentCheckoutPanel)), "결제하기");
+    hasText("규칙 17: 결제 필수 결제 금액", htmlOf(React.createElement(PaymentPanel)), "결제 금액");
+    hasText("규칙 17: 결제 필수 결제하기", htmlOf(React.createElement(PaymentPanel)), "결제하기");
   }
 
   console.log(`PASS ${passCount} / FAIL ${failCount}`);

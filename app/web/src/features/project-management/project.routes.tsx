@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { Route } from 'react-router-dom';
+import { HomePage } from './HomePage';
 import { ProjectBrowsePage } from './ProjectBrowsePage';
 import { ProjectDetailPage } from './ProjectDetailPage';
+import { ProjectEditPage } from './ProjectEditPage';
 import { ProjectManagePage } from './ProjectManagePage';
 import { ProjectRegisterForm } from './ProjectRegisterForm';
 
@@ -19,9 +21,18 @@ export const PROJECT_ROUTES = {
   detail: (projectId: string) => `/projects/${projectId}`,
   register: '/projects/new',
   manage: '/my/projects',
+  edit: (projectId: string) => `/my/projects/${projectId}/edit`,
 } as const;
 
 export type ProjectRouteSlots = {
+  /**
+   * 앱 루트 경로. 대표페이지를 이 자리에 건다.
+   *
+   * **주소는 앱 소유, 화면은 이 기능 소유다.** `/` 는 앱 껍데기의 로고 링크와
+   * "없는 페이지"의 홈 버튼이 함께 쓰는 자리라 `APP_ROUTES.home` 에 남는다.
+   * 그래서 여기서 경로 문자열을 만들지 않고 App.tsx 에게 받는다.
+   */
+  homePath: string;
   /** 로그인한 의뢰인의 id. 내 프로젝트 목록을 부를 때 쓴다 */
   clientId: string | null;
   renderBookmark?: (projectId: string) => ReactNode;
@@ -29,12 +40,15 @@ export type ProjectRouteSlots = {
 };
 
 export function projectRoutes({
+  homePath,
   clientId,
   renderBookmark,
   renderRecommendations,
 }: ProjectRouteSlots) {
   return (
     <>
+      {/* 대표페이지 — 주소만 앱에서 받고 화면은 이 폴더 것이다 (위 homePath 주석 참고) */}
+      <Route path={homePath} element={<HomePage />} />
       <Route
         path={PROJECT_ROUTES.browse}
         element={<ProjectBrowsePage renderBookmark={renderBookmark} />}
@@ -51,6 +65,8 @@ export function projectRoutes({
         }
       />
       <Route path={PROJECT_ROUTES.manage} element={<ProjectManagePage clientId={clientId} />} />
+      {/* 등록(/projects/new)과 마찬가지로 :projectId 라우트보다 더 구체적인 경로다 */}
+      <Route path="/my/projects/:projectId/edit" element={<ProjectEditPage />} />
     </>
   );
 }

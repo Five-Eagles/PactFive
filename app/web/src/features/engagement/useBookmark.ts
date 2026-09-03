@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../../shared/http';
-import { fetchMyBookmarks, fetchRecommendations } from './api/bookmark';
-import type { BookmarkItem, BookmarkedProject } from './bookmark.types';
+import { fetchBookmarkedProjectIds, fetchMyBookmarks, fetchRecommendations } from './api/bookmark';
+import type { BookmarkItem, RecommendedItem } from './bookmark.types';
 
 /**
  * engagement 조회 훅.
@@ -60,8 +60,8 @@ export function useMyBookmarks(enabled: boolean) {
  * 실패해도 화면을 막지 않는다 — 보조 섹션이라 빈 목록으로 두고 섹션을 감춘다 (규칙 24).
  * 상세 화면 전체가 추천 때문에 오류로 보이면 안 된다.
  */
-export function useRecommendations(projectId: string): BookmarkedProject[] {
-  const [items, setItems] = useState<BookmarkedProject[]>([]);
+export function useRecommendations(projectId: string): RecommendedItem[] {
+  const [items, setItems] = useState<RecommendedItem[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -78,4 +78,38 @@ export function useRecommendations(projectId: string): BookmarkedProject[] {
   }, [projectId]);
 
   return items;
+}
+
+/**
+ * 로그인한 프리랜서가 저장한 프로젝트 id 집합 (CR-0008).
+ *
+ * project-management 카드에 북마크 초기 상태(`initialBookmarked`)를 넘길 때 쓴다 — 연결은
+ * `App.tsx` 의 `renderBookmark` 슬롯이 한다(두 기능 폴더는 서로를 import 하지 않는다).
+ *
+ * **의뢰인·비로그인이면 아무것도 부르지 않는다.** 서버가 401·403 을 주기 전에 화면에서
+ * 막는다 — 실패를 기다렸다가 빈 Set 으로 처리하지 않는다.
+ */
+export function useBookmarkedIds(enabled: boolean): Set<string> {
+  const [ids, setIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!enabled) {
+      setIds(new Set());
+      return;
+    }
+    let alive = true;
+    fetchBookmarkedProjectIds()
+      .then((response) => {
+        if (alive) setIds(new Set(response.projectIds));
+      })
+      .catch(() => {
+        // 대조에 실패해도 화면을 막지 않는다 — 북마크 아이콘이 전부 비어 보일 뿐이다.
+        if (alive) setIds(new Set());
+      });
+    return () => {
+      alive = false;
+    };
+  }, [enabled]);
+
+  return ids;
 }

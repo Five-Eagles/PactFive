@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
 import { Button, Field, Notice } from '../../shared/ui/primitives';
 import { ApiError } from '../../shared/http';
+import { toIsoOrEmpty } from '../../shared/date';
 import { registerProject } from './api/project';
 import { PROJECT_ROUTES } from './project.routes';
 import { CATEGORY_OPTIONS, SKILL_OPTIONS } from './project.types';
+import { useDraft } from './useDraft';
 
 /**
  * SCR-B03 · B04 · B05 — 프로젝트 등록 3단계
@@ -19,6 +21,13 @@ import { CATEGORY_OPTIONS, SKILL_OPTIONS } from './project.types';
  * **세 단계를 한 컴포넌트에 둔다.** 규칙 1 이 "서버에는 마지막 단계에서 한 번만 저장한다"이므로
  * 단계 사이 상태가 한 곳에 있어야 한다. 파일을 나누면 중간 상태를 어딘가에 올려두게 되고,
  * 그게 서버 임시 저장으로 번진다.
+ *
+ * ## 입력 보존 (2026-09-03 반영, de5a001 · CR-0006 결함 3)
+ *
+ * 새로고침·뒤로 가기로 작성 중이던 입력을 잃지 않는다 — `useDraft`(`sessionStorage`,
+ * 탭 단위)가 매 입력마다 저장하고 첫 렌더에서 되살린다. 규칙 1 이 금지한 것은 **서버** 임시
+ * 저장이라 브라우저 보존은 대상이 아니다(`useDraft.ts` 주석 참고). 등록에 성공하면
+ * `clear()`로 지운다.
  */
 
 type Step = 1 | 2 | 3;
@@ -54,11 +63,6 @@ function toAmount(raw: string): number {
   return Number(raw.replace(/,/g, '').trim());
 }
 
-/** `<input type="date">` 는 `2026-09-20` 을 준다. 서버는 ISO 시각을 기대한다 */
-function toIsoOrEmpty(date: string): string {
-  return date ? new Date(`${date}T23:59:59Z`).toISOString() : '';
-}
-
 /** 단계 표시 — 시안의 `.steps` */
 function StepIndicator({ current }: { current: Step }) {
   return (
@@ -78,10 +82,24 @@ function StepIndicator({ current }: { current: Step }) {
   );
 }
 
+/** 필드 구성이 바뀌면 올린다. 옛 초안은 되살리지 않는다 */
+const DRAFT_VERSION = 1;
+
 export function ProjectRegisterForm() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>(1);
-  const [draft, setDraft] = useState<RegisterDraft>(EMPTY_DRAFT);
+  const {
+    value: draft,
+    setValue: setDraft,
+    restored,
+    restoredAt,
+    discard,
+    clear,
+  } = useDraft<RegisterDraft>({
+    name: 'project-register',
+    version: DRAFT_VERSION,
+    initial: EMPTY_DRAFT,
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -112,6 +130,8 @@ export function ProjectRegisterForm() {
         budgetAmount: toAmount(draft.budgetAmount),
         skillIds: draft.skillIds,
       });
+      // 등록에 성공했으면 초안은 역할이 끝났다.
+      clear();
       navigate(PROJECT_ROUTES.detail(created.projectId));
     } catch (failure) {
       // 실패해도 입력을 지우지 않는다 (ux-philosophy §6 "작업 보호") — draft 를 그대로 둔다.
@@ -123,6 +143,17 @@ export function ProjectRegisterForm() {
   return (
     <PageBody narrow>
       <StepIndicator current={step} />
+
+      {/* 몰래 되살리지 않는다 — 무엇이 복원됐는지 알리고 버릴 길을 준다 (§6 상태 이해·선택권) */}
+      {restored && (
+        <Notice tone="info">
+          작성 중이던 내용을 불러왔습니다
+          {restoredAt && ` · ${restoredAt.slice(0, 16).replace('T', ' ')}`}{' '}
+          <Button variant="quiet" size="sm" onClick={discard}>
+            처음부터 작성
+          </Button>
+        </Notice>
+      )}
 
       <form onSubmit={handleSubmit}>
         {/* 세 단계를 모두 렌더링하고 현재 단계만 보인다.

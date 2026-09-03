@@ -2,7 +2,7 @@
 
 형식은 `docs/naming-convention.md` §7(REST API), §6(DTO 패턴)을 따른다.
 브라우저. `Authorization: Bearer <accessToken>`. 상태 변경 POST는 `Idempotency-Key` 필수.
-설계 초안(규칙 9·7). Mock은 다음 스프린트.
+Mock: `prototype/mock/review.mock.ts` (`createReviewApiMock`).
 
 ## POST /api/v1/projects/:projectId/reviews — `createReview`
 
@@ -93,7 +93,24 @@
 
 ---
 
-PATCH/PUT/DELETE `/reviews` 없음 (규칙 4).
+## 내부 조회 — `getPublishedRatingAggregate`
+
+규칙 7. 브라우저 `/api/v1`이 아니다. 오민혁이 `REVIEW_CREATED` 수신 후 호출한다.
+정본은 함수명이다 (D-48). HTTP 어댑터는 팀장 통합. 타입: `prototype/server/published-rating.port.ts`.
+
+```ts
+getPublishedRatingAggregate(revieweeId: string): Promise<{
+  ratingSum: number;
+  reviewCount: number;
+}>
+```
+
+공개 리뷰만. 0건이면 `{ ratingSum: 0, reviewCount: 0 }`. 반올림 없음.
+`getReviewSummary`는 브라우저용 평균을 유지한다. 이 포트의 합계가 정본이다.
+
+---
+
+PATCH/PUT/DELETE `/reviews` 없음 (규칙 4). 호출하면 405 `METHOD_NOT_ALLOWED`.
 
 ---
 
@@ -142,6 +159,10 @@ type ListProjectReviewsResponse = {
 type GetReviewSummaryResponse = {
   userId: string;
   averageRating: number | null;
+  reviewCount: number;
+};
+type PublishedRatingAggregate = {
+  ratingSum: number;
   reviewCount: number;
 };
 ```

@@ -12,6 +12,18 @@
 
 export type RecruitmentStatus = 'SCHEDULED' | 'OPEN' | 'CLOSED';
 
+/**
+ * 예산이 어디서 왔는가.
+ *
+ * 규칙 8 이 AI 분석 금액으로 사용자 입력을 덮어쓰는데, 그 사실을 화면이 알 방법이 없었다
+ * (CR-0006 결함 2). 값을 저장해 등록 의뢰인에게만 내려보낸다.
+ *
+ * ERD(`docs/domain/erd.md`)에는 아직 이 컬럼이 없다 — 지금은 인메모리 저장소뿐이라 이 필드
+ * 추가가 실제 스키마에 영향을 주지 않지만, Prisma 도입 시점에는 CR-0007을 먼저 확정해야 한다
+ * (팀장 확인 필요 — 아래 project.service.ts 주석과 통합 보고 참고).
+ */
+export type BudgetSource = 'CLIENT_INPUT' | 'AI_ANALYSIS';
+
 export type ProjectTransactionStatus =
   | 'NONE'
   | 'CONTRACT_PENDING'
@@ -29,6 +41,10 @@ export type ProjectRecord = {
   description: string;
   category: string;
   budgetAmount: number;
+  /** ERD 추가 요청 중 — projects.budget_source (CR-0007, 팀장 확인 필요) */
+  budgetSource: BudgetSource;
+  /** 그 출처가 정해진 시각. AI 분석이면 분석 연결 시각이다 */
+  budgetSourceAt: string;
   recruitmentStartAt: string | null;
   recruitmentDeadlineAt: string;
   recruitmentStatus: RecruitmentStatus;
@@ -66,6 +82,12 @@ export type ClientPublicProfile = {
   reviewCount: number;
 };
 
+/*
+ * 북마크 여부는 여기에 없다 (2026-09-02 확정, CR-0008).
+ *
+ * 채우려면 이 서비스가 engagement 를 불러야 하는데, 그것은 담당 경계를 넘는다.
+ * 화면이 `GET /api/v1/bookmarks/ids` 로 대조한다 (engagement 규칙 35·36).
+ */
 /** 목록 카드. transactionStatus 가 없다 — 키 자체를 넣지 않는다 (규칙 9) */
 export type PublicProjectItem = {
   projectId: string;
@@ -77,8 +99,6 @@ export type PublicProjectItem = {
   skills: SkillRef[];
   applicationCount: number;
   client: ClientPublicProfile;
-  /** 로그인한 프리랜서일 때만 포함 */
-  isBookmarked?: boolean;
 };
 
 export type PublicProjectDetail = PublicProjectItem & {
@@ -97,6 +117,12 @@ export type ProjectAction =
 /** 등록 의뢰인 전용. 거래 상태는 여기에만 들어간다 (규칙 9) */
 export type ClientProjectDetail = PublicProjectDetail & {
   transactionStatus: ProjectTransactionStatus;
+  /**
+   * 예산 출처. **공개 응답에는 넣지 않는다** — 의뢰인이 AI 를 썼는지는
+   * 프리랜서가 알 필요가 없고, 알면 지원 금액 판단에 영향을 준다.
+   */
+  budgetSource: BudgetSource;
+  budgetSourceAt: string;
   pendingApplicationCount: number;
   recruitmentClosedAt: string | null;
   canceledAt: string | null;

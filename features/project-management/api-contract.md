@@ -78,6 +78,14 @@
 
 쿼리: `keyword` · `category` · `skills` · `minBudget` · `maxBudget` · `recruitmentStatus` · `deadlineBefore` · `sortBy` · `sortOrder` · `page` · `pageSize`
 
+> **`keyword` 는 제목 · 설명 · 요구 기술 이름에서 찾는다** (규칙 62).
+> 기술은 표시 이름(`Node.js`)과 코드(`NODEJS`) 둘 다 본다 — 사람들이 검색창에 가장 먼저
+> 치는 것이 기술 이름인데, 제목·설명만 보면 `React` 가 0건으로 나온다.
+>
+> **띄어쓰기가 있으면 낱말로 끊어 전부 만족하는 것만 남긴다** (규칙 63, AND).
+> 통째로 찾으면 `브랜드 디자인` 이 "브랜드 리뉴얼 디자인" 을 못 잡는다.
+> 공백만 넣으면 조건이 없는 것과 같다.
+
 | 파라미터 | 제약 |
 |---|---|
 | `page` | 1~1000 |
@@ -101,7 +109,7 @@
 | 보는 사람 | 응답 |
 |---|---|
 | 비로그인 · 다른 사용자 | `PublicProjectDetail` — `transactionStatus` 없음 |
-| 로그인한 프리랜서 | 위 + `isBookmarked` · `canApply` |
+| 로그인한 프리랜서 | 위 + `canApply` |
 | **등록 의뢰인** | `ClientProjectDetail` — `transactionStatus` · `pendingApplicationCount` · `editableFields` · `availableActions` 포함 |
 
 에러: 404 `PROJECT_NOT_FOUND`(없거나 삭제됨)
@@ -492,15 +500,30 @@ type PublicProjectItem = {
   budgetAmount: number; recruitmentDeadlineAt: string;
   recruitmentStatus: RecruitmentStatus; skills: SkillRef[];
   applicationCount: number; client: ClientPublicProfile;
-  isBookmarked?: boolean;   // 로그인한 프리랜서일 때만
+  // isBookmarked 는 없다 — 아래 참고
 };
 
 type PublicProjectDetail = PublicProjectItem & {
   description: string; recruitmentStartAt: string | null; canApply?: boolean;
 };
 
+// ── 북마크 여부는 이 응답에 없다 (2026-09-02 확정) ────────────────────
+// PRD v6.4 §4 는 PublicProjectItem 에 isBookmarked 를 두지만, 그러려면
+// project-management 서비스가 engagement 를 불러야 한다. 서버 기능 간 직접
+// 의존이 되고 담당 경계를 넘는다.
+//
+// 화면이 GET /api/v1/bookmarks/ids 를 한 번 불러 대조한다
+// (engagement api-contract.md · engagement spec 규칙 35·36).
+//
+// 계약에서 아예 뺀 이유: 서버가 채우지 않을 키를 남겨두면 다음 사람이 또 채우려 든다.
+// PRD 쪽 수정은 CR-0008 로 요청했다.
+
 // 등록 의뢰인 전용 — transactionStatus 포함
 type ClientProjectDetail = PublicProjectDetail & {
+  // 예산이 어디서 왔는가. 등록 의뢰인만 본다 — 프리랜서가 알면 지원 금액 판단에
+  // 영향을 준다. ERD 컬럼은 CR-0007 로 요청 중이다.
+  budgetSource: "CLIENT_INPUT" | "AI_ANALYSIS";
+  budgetSourceAt: string;
   transactionStatus: ProjectTransactionStatus;
   pendingApplicationCount: number;
   recruitmentClosedAt: string | null;

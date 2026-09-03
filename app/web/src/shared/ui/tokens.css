@@ -75,6 +75,14 @@
   --dialog-radius: 16px;
   --dialog-pad: 24px;
 
+  /* ── motion (design-tokens.md §13 모션 규칙) ──────── */
+  --dur-fast: 100ms; /* semantic.motion.feedback — hover/focus/pressed */
+  --dur-normal: 160ms; /* semantic.motion.transition — 리스트 등장/퇴장 */
+  --dur-slow: 240ms; /* semantic.motion.overlay — 다이얼로그 */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-entrance: cubic-bezier(0, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 1, 1);
+
   --font: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 }
 
@@ -227,6 +235,11 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  /* 마이크로 인터랙션 — 등장(160~240ms)보다 짧게 유지한다 (design-tokens.md §13) */
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
 }
 
 .btn:focus-visible {
@@ -423,6 +436,7 @@ select.field {
   flex-direction: column;
   gap: 10px;
   list-style: none;
+  transition: border-color var(--dur-fast) var(--ease-standard);
 }
 
 .pcard:hover {
@@ -716,6 +730,10 @@ select.field {
   line-height: 1;
   color: var(--content-tertiary);
   flex: none;
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard);
 }
 .bookmark.on {
   border-color: var(--action);
@@ -731,6 +749,57 @@ select.field {
   font-size: 12px;
   color: var(--danger);
   font-weight: 600;
+}
+
+/* ═══════════ 오버레이 · 다이얼로그 ═══════════
+ * design-tokens.md §13 오버레이 규칙 — 배경 딤 + 본체가 함께 --dur-slow(240ms) 로 페이드인.
+ * 첫 실사용: SCR-B10 재모집 확인(ReopenRecruitmentDialog). */
+
+.overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 19, 43, 0.56);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 80;
+  opacity: 0;
+  /* opacity: 0 만으로는 클릭·hover를 막지 못한다 — 닫힌 상태에서도 이 레이어가 화면 전체를
+     덮고 있어 아래 요소가 마우스 이벤트를 못 받는다(2026-09-01, design-system 모션 규칙 데모
+     화면에서 실제로 발견된 버그를 여기서도 방어). 열렸을 때만 포인터 이벤트를 받게 한다. */
+  pointer-events: none;
+  transition: opacity var(--dur-slow) var(--ease-entrance);
+}
+.overlay-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dialog {
+  width: 400px;
+  max-width: 100%;
+  border-radius: var(--dialog-radius);
+  padding: var(--dialog-pad);
+  background: var(--surface);
+  box-shadow: 0 18px 48px rgba(11, 19, 43, 0.18);
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity var(--dur-slow) var(--ease-entrance),
+    transform var(--dur-slow) var(--ease-entrance);
+}
+.overlay-backdrop.open .dialog {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 접근성 — OS 가 reduced motion 을 요청하면 모든 오버레이 전환을 즉시 처리한다 (§10, §13) */
+@media (prefers-reduced-motion: reduce) {
+  .overlay-backdrop,
+  .dialog {
+    transition-duration: 0ms !important;
+  }
 }
 
 /* ═══════════ 빈 상태 ═══════════ */

@@ -1,5 +1,6 @@
 import { http } from '../../../shared/http';
 import type {
+  BookmarkIdsResponse,
   BookmarkListResponse,
   BookmarkToggleResponse,
   RecommendationResponse,
@@ -28,6 +29,16 @@ export function removeBookmark(projectId: string): Promise<BookmarkToggleRespons
 /** 내 북마크 목록. 경로에 사용자 id 가 없다 — 토큰 주인 것만 나온다 (규칙 9) */
 export function fetchMyBookmarks(page = 1): Promise<BookmarkListResponse> {
   return http.get<BookmarkListResponse>('/v1/bookmarks', { query: { page } });
+}
+
+/**
+ * 저장한 프로젝트 id 목록 (CR-0008).
+ *
+ * 프로젝트 카드마다 북마크 여부를 대조하는 데 쓴다. `PublicProjectItem` 에는
+ * `isBookmarked` 가 없어 화면이 직접 대조해야 한다.
+ */
+export function fetchBookmarkedProjectIds(): Promise<BookmarkIdsResponse> {
+  return http.get<BookmarkIdsResponse>('/v1/bookmarks/ids');
 }
 
 /** 추천 프로젝트. 비로그인도 볼 수 있다 (규칙 16) */

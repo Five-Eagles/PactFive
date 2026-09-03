@@ -68,7 +68,10 @@ export function ProjectBrowse({ items = [], now = "2026-08-26T09:00:00Z" }: Proj
       </div>
 
       {items.length === 0 ? (
-        <EmptyState message="조건에 맞는 프로젝트가 없습니다" />
+        <EmptyState
+          title="조건에 맞는 프로젝트가 없습니다"
+          body="검색어나 필터를 조정해 보세요."
+        />
       ) : (
         <ul className="browse__list">
           {items.map((p) => (
