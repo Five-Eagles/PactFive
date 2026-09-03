@@ -20,6 +20,14 @@
   engagement 제공 읽기 3종 · 화면 6종.
   `run.tsx` **PASS 307 · FAIL 0**. 결과는 `test-report.md`.
 
+## 시드 데이터 (RFP §7.2 필수)
+
+`seed/` — PRD §9.3 프로젝트 12건. `node features/project-management/seed/seed-projects.mjs`
+로 실제 API 에 넣는다. **12건 완료 · 실패 0건** (2026-09-03 로컬 확인).
+
+계정(오민혁) → **프로젝트(여기)** → 지원(팀장) → 계약·결제(조준영) 순서다.
+지원 건수와 거래 상태는 이 스크립트가 채우지 못한다 — 돌리면 무엇이 남았는지 찍어 준다.
+
 ## 상태 모델 — 이 기능의 핵심
 
 ```text
