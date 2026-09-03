@@ -22,7 +22,7 @@ ADR-0006과 동일한 원칙). 담당자마다 폴더 구성이 달라도 통합
 | 화면 문구 | `design/*.html`의 "필수 요소 목록" (PRD §14를 옮긴 것) | 시안의 **일부**다 |
 | 색·간격·컴포넌트 치수 | `design-system/design-tokens.md` → `design/_tokens.css` | `app/web/src/shared/ui/tokens.css`가 그 사본 |
 | 모션 규칙(등장·퇴장·전환) | `design-system/design-tokens.md` §13 | 규칙은 텍스트가 정본 |
-| 구현 예시(참고용) | `ux-philosophy/reference-main.html` | PactFive 메인 페이지를 정적 HTML로 재구성 — 색상·컴포넌트 값의 정본은 아님. (2026-09-02: 이전에 있던 레이아웃 리듬·컴포넌트 조합 참고 자료는 팀 회의에서 반려되어 제거했다 — 경위는 `docs/decisions/0012-*.md` 참고) |
+| 구현 예시(참고용) | `ux-philosophy/reference-main.html`(메인/홈) · `reference/project-management/*.html`(목록·상세류 포함 개별 파일 7장, 2026-09-03 고정 스냅샷) | 전부 색상·컴포넌트 값의 정본은 아님. 처음부터 design-tokens.md 토큰만 써서 reference-main.html 같은 색상 불일치는 없다. **개별 파일만 읽는다** — 같은 폴더의 `project-management-bundle.html`은 base64 이미지가 인라인된 400KB·최대 줄 6만 자짜리 단일 파일이라 사람이 브라우저로 인터랙션을 확인할 때만 열고, AI가 구조 참고용으로 통째로 읽지 않는다(`reference/README.md` 참고). 원본(`features/project-management/design/reference-proposal/`)은 담당자(유동우)가 계속 갱신하지만, 스프린트 기간 참고 기준을 흔들지 않으려 2026-09-03 시점으로 고정했다 — 고정 시점·범위·다시 얼리는 절차는 `reference/README.md` 참고. (2026-09-02: 이전에 있던 레이아웃 리듬·컴포넌트 조합 참고 자료는 팀 회의에서 반려되어 제거했다 — 경위는 `docs/decisions/0012-*.md` 참고) |
 | 규칙·상태 판정 | `spec.md` | |
 | 요청/응답 형태 | `api-contract.md` | |
 

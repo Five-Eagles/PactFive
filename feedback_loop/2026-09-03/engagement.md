@@ -11,7 +11,7 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
 
 ## 항목 1 — 추천 사유 줄에 시안에 없는 `.caption` 클래스를 재사용했다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — design/*.html에 정의되지 않은 부분**
 - `features/engagement/design/high-fi-bookmarks.html`의 SCR-B09(추천 프로젝트)에는 추천
@@ -33,8 +33,19 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
   같은 보조 정보에 맞는 톤이라고 판단했다.
 
 **담당자 메모**
-- {검토 후 자유 기재. `.reco__why` 같은 전용 클래스가 필요하다고 보면(예: 다른 폰트 굵기·색이
-  필요하면) 시안에 반영해 주면 다음 통합에서 그대로 옮긴다}
+
+**`.caption` 재사용에 동의합니다. 시안에 그 줄을 넣었습니다.**
+
+전용 클래스를 새로 만들 이유가 없습니다. 추천 사유는 카드 안의 보조 정보고,
+`.caption`(12px · `--content-tertiary`)이 그 톤에 맞습니다.
+
+**뿌리는 시안에 그 줄이 없었다는 것**입니다. 없으니 팀장이 클래스를 임의로 골라야 했고,
+다음에도 같은 판단을 또 하게 됩니다. `features/engagement/design/high-fi-bookmarks.html`
+SCR-B09 에 추천 사유 줄을 `.caption` 으로 그려 넣고, 규칙도 적었습니다.
+
+- 1순위 `카테고리 · 기술 가 같아요` / 2순위 `카테고리 가 같아요` / 3순위 `기술 가 같아요`
+- **점수·순위값은 넣지 않는다** (규칙 28)
+- 사유를 모르면 줄 자체를 넣지 않는다
 
 ---
 
@@ -44,6 +55,10 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
 `budgetSource`/`budgetSourceAt`는 project-management 소유 필드이지만, engagement가 같은
 CR-0010으로 함께 반영돼 날짜 폴더가 겹쳐 참조만 남긴다.
 
-상태: 미확인
+상태: 반영완료
+
+**담당자 메모**
+
+project-management 항목 3 에 답했습니다. Prisma 도입 전 CR-0007 확정이 게이트입니다.
 
 ---

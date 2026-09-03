@@ -121,6 +121,10 @@ export function cancelEffects(input: {
   pendingApplicationCount: number;
   hasContract: boolean;
 }): string[] {
+  // 순서를 고정한다 — **사람에게 가는 일이 먼저다.**
+  // 지원자 거절 → 계약 무효 → 프로젝트 상태. 읽는 사람이 가장 먼저 알아야 하는 것은
+  // "내 결정이 남에게 무엇을 하는가"이지 프로젝트가 어떻게 되는가가 아니다
+  // (feedback_loop 2026-09-03 항목 2 — 시안이 조합 순서를 정하지 않았다).
   const out: string[] = [];
   if (input.pendingApplicationCount > 0) {
     out.push(`대기 중인 지원 ${input.pendingApplicationCount}건이 모두 거절되고 지원자에게 알림이 갑니다`);
@@ -135,4 +139,22 @@ export function cancelEffects(input: {
 /** 삭제가 무엇에 영향을 주는지 */
 export function deleteEffects(): string[] {
   return ["목록·검색·상세 어디에도 나타나지 않습니다"];
+}
+
+/**
+ * 모집 마감이 무엇에 영향을 주는지.
+ *
+ * **처음에는 확인을 붙이지 않았다.** 재모집(SCR-B10)으로 되돌릴 수 있다고 봤기 때문이다.
+ * 그것이 틀렸다 — 프로젝트 상태는 되돌아가도 **지원자에게 간 거절 알림은 되돌아가지 않는다.**
+ * 다시 열어도 거절당한 사람이 또 지원해 주지는 않는다.
+ * 되돌릴 수 없는 것은 프로젝트가 아니라 사람 쪽에 남는 일이다
+ * (feedback_loop 2026-09-03 항목 1).
+ */
+export function closeRecruitmentEffects(input: { pendingApplicationCount: number }): string[] {
+  const out: string[] = [];
+  if (input.pendingApplicationCount > 0) {
+    out.push(`대기 중인 지원 ${input.pendingApplicationCount}건이 거절 처리됩니다`);
+  }
+  out.push("다시 모집하려면 마감일을 새로 정해야 합니다");
+  return out;
 }

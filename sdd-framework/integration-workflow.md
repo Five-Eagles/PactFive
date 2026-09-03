@@ -88,3 +88,42 @@
 - `features/*/prototype/`, `features/*/api-contract.md` 등 원본 브랜치는 force-push(rebase 등)
   금지 — `sync-log.md`에 기록된 커밋 해시가 무효해질 수 있다.
 - 반영이 밀리면(팀장 처리 용량 병목) `change-requests/`에 조정안을 기록하고 팀 논의로 조정한다.
+
+## UX 레퍼런스(reference/) 재고정(re-freeze) 절차 (2026-09-03 추가, 2026-09-03 개정)
+
+`ux-philosophy/AGENTS.md`·`sdd-framework/feature-workflow.md`·`design-system/design-tokens.md`
+헤더·`app/web/AGENTS.md` 정본 표, 이 넷이 목록·상세류 화면의 구현 예시로
+`reference/project-management/*.html`(리포 루트의 **고정 스냅샷**, 개별 파일 7장)을
+가리킨다. 같은 폴더의 `project-management-bundle.html`(화면 10장을 base64 이미지까지
+인라인한 400KB 단일 파일)도 같은 시점에 같이 고정해 두지만, 이건 사람이 브라우저로
+인터랙션을 확인할 때만 쓰는 것이고 AI가 구조 참고용으로 읽는 대상이 아니다(개별 파일이 훨씬
+가볍다 — `reference/README.md` 참고).
+
+**처음엔 `features/project-management/design/reference-proposal/`의 원본 파일을 직접
+가리켰다.** 원본은 담당자(유동우)가 계속 갱신하는 살아있는 파일이라 최신성은 보장되지만,
+여러 기능 담당자가 동시에 구현하는 스프린트 기간에는 참고 기준이 계속 바뀌는 게 오히려
+혼란을 만든다는 판단으로 **2026-09-03에 `reference/`에 고정본을 만들어 전환했다** — 팀장·
+담당자(유동우) 확인 완료(`feedback_loop/2026-09-03/project-management.md` 항목 5).
+
+고정본은 **자동으로 갱신되지 않는다.** 원본이 계속 바뀌어도 `reference/`의 파일은 다시
+얼리기 전까지 그대로다. 팀이 "지금 버전이 오래돼 실제 구현과 너무 벌어졌다"고 판단하면
+아래 절차로 다시 얼린다.
+
+- [ ] 원본 `features/project-management/design/reference-proposal/`에서 확정 7장
+      (`main.html`·`browse.html`·`detail.html`·`register.html`·`mypage.html`·`edit.html`·
+      `reopen.html`) + `_tokens.css` + 그 화면들이 실제로 쓰는 이미지를
+      `reference/project-management/`에 다시 복사한다 (원본은 건드리지 않는다)
+- [ ] (선택) `node features/project-management/design/reference-proposal/demo/build-bundle.js`로
+      `bundle.html`도 다시 만들어 `reference/project-management-bundle.html`에 덮어쓴다 —
+      사람이 인터랙션을 확인할 용도라 매번 갱신이 필수는 아니다
+- [ ] `reference/README.md`의 "고정 시점"·"고정 시점 커밋" 표를 갱신한다
+- [ ] `reference/README.md`의 "범위" 표 — `experts.html`·`expert.html`·`guide.html` 3장이
+      그사이 ERD·PRD 근거가 생기고 담당자가 정해졌는지 확인해 반영한다 (아직이면 그대로 둔다)
+- [ ] CR-0011(대표페이지 담당을 유동우로) 상태가 바뀌었는가 — 바뀌었으면 PRD §7.1과 위 넷의
+      "담당(유동우)" 표기를 함께 맞춘다
+- [ ] `feedback_loop/{오늘 날짜}/project-management.md`에 재고정 사실을 기록한다 (무엇이
+      바뀌어서 다시 얼렸는지 — 담당자가 확인할 수 있어야 한다)
+
+이 재고정은 **매 통합마다 자동으로 하는 절차가 아니다** — 위 조건("실제 구현과 너무
+벌어졌다")을 팀이 판단했을 때만 한다. 매 통합 시 자동으로 원본과 대조하던 이전 절차(2026-09-03
+1차 버전)는 고정 모델로 바뀌면서 더 이상 맞지 않아 이 절차로 대체했다.
