@@ -89,27 +89,34 @@
   금지 — `sync-log.md`에 기록된 커밋 해시가 무효해질 수 있다.
 - 반영이 밀리면(팀장 처리 용량 병목) `change-requests/`에 조정안을 기록하고 팀 논의로 조정한다.
 
-## 임시 — UX 레퍼런스(reference-proposal) 최신화 확인 (2026-09-03 추가)
+## UX 레퍼런스(reference/) 재고정(re-freeze) 절차 (2026-09-03 추가, 2026-09-03 개정)
 
 `ux-philosophy/AGENTS.md`·`sdd-framework/feature-workflow.md`·`design-system/design-tokens.md`
 헤더·`app/web/AGENTS.md` 정본 표, 이 넷이 목록·상세류 화면의 구현 예시로
-`features/project-management/design/reference-proposal/{browse,detail}.html`을 **원본 위치
-그대로** 가리키고 있다(복사본 아님). 이 폴더는 유동우가 계속 갱신하는 살아있는 원본이라,
-넷 중 하나만 갱신되고 나머지가 뒤처지면 "구현 예시가 이미 바뀐 걸 다른 담당자는 모른다"는
-문제가 생긴다.
+`reference/project-management-bundle.html`(리포 루트의 **고정 스냅샷**)을 가리킨다.
 
-**project-management를 통합할 때마다**(위 절차 1~6과 별개로, `reference-proposal/` 경로가
-diff에 포함돼 있으면) 아래를 함께 확인한다.
+**처음엔 `features/project-management/design/reference-proposal/`의 원본 파일을 직접
+가리켰다.** 원본은 담당자(유동우)가 계속 갱신하는 살아있는 파일이라 최신성은 보장되지만,
+여러 기능 담당자가 동시에 구현하는 스프린트 기간에는 참고 기준이 계속 바뀌는 게 오히려
+혼란을 만든다는 판단으로 **2026-09-03에 `reference/`에 고정본을 만들어 전환했다** — 팀장·
+담당자(유동우) 확인 완료(`feedback_loop/2026-09-03/project-management.md` 항목 5).
 
-- [ ] `reference-proposal/README.md` 상단 "상태" 필드가 "제안, 확정 아님"에서 바뀌었는가 —
-      바뀌었으면 위 넷에 있는 "제안, 확정 아님" 캐비어트를 함께 갱신(또는 제거)한다.
-- [ ] README.md "확인이 필요한 것" 표의 항목(카테고리 종류·기획전 배너 등)이 해소됐는가 —
-      해소된 항목이 있으면 위 넷의 관련 캐비어트를 그만큼 덜어낸다.
-- [ ] `main.html`도 구현 예시 목록에 같이 들어 있다 — `browse.html`·`detail.html`과 같은
-      기준으로 함께 확인한다.
+고정본은 **자동으로 갱신되지 않는다.** 원본이 계속 바뀌어도 `reference/`의 파일은 다시
+얼리기 전까지 그대로다. 팀이 "지금 버전이 오래돼 실제 구현과 너무 벌어졌다"고 판단하면
+아래 절차로 다시 얼린다.
+
+- [ ] `node features/project-management/design/reference-proposal/demo/build-bundle.js`로
+      원본 최신 상태에서 `bundle.html`을 다시 만든다
+- [ ] 새로 만든 파일을 `reference/project-management-bundle.html`에 덮어쓴다 (원본은 건드리지
+      않는다)
+- [ ] `reference/README.md`의 "고정 시점"·"고정 시점 커밋" 표를 갱신한다
+- [ ] `reference/README.md`의 "범위" 표 — `experts.html`·`expert.html`·`guide.html` 3장이
+      그사이 ERD·PRD 근거가 생기고 담당자가 정해졌는지 확인해 반영한다 (아직이면 그대로 둔다)
 - [ ] CR-0011(대표페이지 담당을 유동우로) 상태가 바뀌었는가 — 바뀌었으면 PRD §7.1과 위 넷의
-      "담당(유동우)" 표기를 함께 맞춘다.
+      "담당(유동우)" 표기를 함께 맞춘다
+- [ ] `feedback_loop/{오늘 날짜}/project-management.md`에 재고정 사실을 기록한다 (무엇이
+      바뀌어서 다시 얼렸는지 — 담당자가 확인할 수 있어야 한다)
 
-**이 절차는 임시다.** `reference-proposal/`이 "확정" 상태로 바뀌거나 `design-system/` 등
-정식 위치로 옮겨지면, 이 섹션은 지우고 그 시점의 정식 규칙(예: 다른 구현 예시들처럼 일반
-캐비어트만 남기기)으로 대체한다.
+이 재고정은 **매 통합마다 자동으로 하는 절차가 아니다** — 위 조건("실제 구현과 너무
+벌어졌다")을 팀이 판단했을 때만 한다. 매 통합 시 자동으로 원본과 대조하던 이전 절차(2026-09-03
+1차 버전)는 고정 모델로 바뀌면서 더 이상 맞지 않아 이 절차로 대체했다.

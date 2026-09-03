@@ -188,3 +188,30 @@ app 에는 이미 대응물이 있습니다. **CR-0010 이관 표에서 그 줄�
 `.env.example` 에 `INTERNAL_SERVICE_TOKEN` 을 넣어 주신 것으로 CR-0005 는 닫습니다.
 
 ---
+
+## 항목 5 — `reference-proposal/bundle.html`의 2026-09-03 버전을 프로젝트 공통 참고 자료로 고정했다
+
+상태: 미확인
+
+**Fact — 원본은 그대로, 다른 기능이 보는 참고 자료만 스냅샷으로 바꿨다**
+- `reference-proposal/`은 계속 유동우가 갱신하는 살아있는 원본이다. **이 원본은 건드리지
+  않았다.**
+- 리포 루트에 `reference/` 폴더를 새로 만들고, 2026-09-03 시점(`39a5e14`, PR #46)의
+  `bundle.html`을 `reference/project-management-bundle.html`로 복사해 고정했다.
+- `ux-philosophy/AGENTS.md`·`sdd-framework/feature-workflow.md`·`design-system/design-tokens.md`·
+  `app/web/AGENTS.md` 4곳이 목록·상세류 구현 예시로 가리키던 대상을
+  `reference-proposal/browse.html`·`detail.html`(원본, 실시간)에서 `reference/project-management-bundle.html`(고정본)로 바꿨다.
+
+**어떻게·왜 그렇게 했는지**
+- 여러 기능 담당자가 동시에 화면을 구현하는 스프린트 기간에는 참고 기준이 계속 바뀌는 것보다
+  고정된 기준이 낫다고 판단했다 — 팀장 의견, 담당자(유동우)도 현재 버전으로 고정해 진행하는
+  데 동의함(대화로 확인).
+- **원본 쪽 담당자 작업에는 영향이 없다** — 계속 `reference-proposal/`을 갱신하면 된다.
+  다른 기능이 보는 것만 2026-09-03 버전에 멈춰 있다는 뜻이다.
+- 번들 10장 중 `experts.html`·`expert.html`·`guide.html` 3장은 ERD·PRD 근거·담당자가 없어
+  `reference/README.md`에 "향후 검토 대상, 확정 참고 자료 아님"으로 별도 표시했다 — 지금은
+  다른 기능의 구현 근거로 쓰지 않는다.
+- 다시 얼리는 절차(재고정)는 `sdd-framework/integration-workflow.md`의 "UX 레퍼런스 재고정
+  절차" 참고 — 팀 판단으로 필요할 때만 하고, 자동 갱신은 아니다.
+
+**담당자 메모** (확인 후 위 `상태:` 값만 바꿔 주세요 — 본문은 팀장 소유입니다)
