@@ -84,6 +84,15 @@
      (2026-09-02 강화: 이전엔 "정본이다"라는 캐비어트로만 있어서 명령형 지시가 아니었다 —
      reference-main.html은 확실히 읽으면서 정작 진짜 정본인 design-tokens.md는 안 읽고 넘어갈
      위험이 있었다).
+     **reference-main.html은 메인/홈 화면만 다룬다** — 목록·상세류 화면을 그릴 때는 대신
+     `features/project-management/design/reference-proposal/browse.html`(목록/브라우즈류)과
+     `.../detail.html`(상세류)을 구현 예시로 참고한다(2026-09-03 추가, 근거: `ux-philosophy/`
+     기존 구현 예시가 메인 화면 하나뿐이라 목록·상세 화면을 그릴 때 참고할 게 없었다). 이 두
+     파일은 담당자(유동우)가 만들 때부터 `design-tokens.md` 정본 토큰만 써서
+     reference-main.html 같은 색상 불일치가 없다 — 다만 같은 폴더 `README.md` 상단에 상태가
+     "제안, 확정 아님"이라고 적혀 있고, 카테고리 종류·기획전 배너처럼 ERD·PRD 근거가 아직 없어
+     "확인이 필요한 것"으로 남은 항목도 있다(README.md 해당 절 참고) — 구조·원칙 참고용으로
+     쓰고 그 항목들은 그대로 베끼지 않는다. 자세한 역할 구분은 `ux-philosophy/AGENTS.md` 참고.
      **design-system이 아직 없으면 low-fi(뼈대 수준)**로, **design-system이
      나온 뒤에는 high-fi(실제 컴포넌트 적용)**로 만든다. 두 산출물 다 같은 폴더에 쌓인다.
    - **형식은 항상 인터랙티브 HTML이다 (low-fi도 예외 아님).** md 텍스트로 필드를 나열하는 건
