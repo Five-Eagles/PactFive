@@ -37,6 +37,11 @@ export type ProjectRouteSlots = {
   clientId: string | null;
   renderBookmark?: (projectId: string) => ReactNode;
   renderRecommendations?: (projectId: string) => ReactNode;
+  /** 대표 페이지 전용 — 이 화면은 AppShell을 안 쓰고 자기 헤더를 그려서 세션 정보가 직접 필요하다
+   * (homepage-transplant-plan.md 4번 절 Option C). */
+  homeViewer: { email: string; role: 'CLIENT' | 'FREELANCER'; userId: string } | null;
+  homeMyActivityHref: string;
+  onHomeLogout: () => void;
 };
 
 export function projectRoutes({
@@ -44,11 +49,24 @@ export function projectRoutes({
   clientId,
   renderBookmark,
   renderRecommendations,
+  homeViewer,
+  homeMyActivityHref,
+  onHomeLogout,
 }: ProjectRouteSlots) {
   return (
     <>
       {/* 대표페이지 — 주소만 앱에서 받고 화면은 이 폴더 것이다 (위 homePath 주석 참고) */}
-      <Route path={homePath} element={<HomePage />} />
+      <Route
+        path={homePath}
+        element={
+          <HomePage
+            viewer={homeViewer}
+            myActivityHref={homeMyActivityHref}
+            onLogout={onHomeLogout}
+            renderBookmark={renderBookmark}
+          />
+        }
+      />
       <Route
         path={PROJECT_ROUTES.browse}
         element={<ProjectBrowsePage renderBookmark={renderBookmark} />}

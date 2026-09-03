@@ -1,15 +1,18 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import './shared/ui/tokens.css';
 import { APP_ROUTES } from './shared/routes';
 import { setUnauthorizedHandler } from './shared/http';
 import { NotIntegratedPage } from './shared/NotIntegratedPage';
 import { AppShell, PageBody } from './shared/ui/AppShell';
+import { ComingSoonOverlay } from './shared/ui/ComingSoonOverlay';
+import type { NotYetScreenKey } from './shared/notYetScreens';
 import { Button, EmptyState } from './shared/ui/primitives';
 import { authRoutes, AUTH_ROUTES } from './features/user-management/auth.routes';
 import { useAuth } from './features/user-management/useAuth';
 import { projectRoutes, PROJECT_ROUTES } from './features/project-management/project.routes';
 import { engagementRoutes, ENGAGEMENT_ROUTES } from './features/engagement/bookmark.routes';
+import { contractRoutes } from './features/contracts-payments/contract.routes';
 import { BookmarkButton } from './features/engagement/BookmarkButton';
 import { RecommendationSection } from './features/engagement/RecommendationSection';
 import { useBookmarkedIds } from './features/engagement/useBookmark';
@@ -24,14 +27,19 @@ setUnauthorizedHandler(() => {
 
 /**
  * 아직 설계/통합되지 않은 기능 라우트 — 경로 slug는 각 기능 폴더명을 그대로 kebab-case로 쓴다.
- * 실제 화면 구현이 생기면 이 배열에서 빼고 해당 기능의 `{도메인}.routes.tsx`로 옮긴다.
+ * `featureName`은 `shared/notYetScreens.ts`의 키와 같은 문자열이다(우연이 아니다 — 폴더명
+ * 그대로라 자연히 같다). 실제 화면 구현이 생기면 이 배열에서 빼고 해당 기능의
+ * `{도메인}.routes.tsx`로 옮긴다.
+ *
+ * 2026-09-04: `ComingSoonOverlay`로 감싸기 시작했다 — 경로·기능 폴더는 있는데 화면이 아직
+ * 안 붙은 상태(Case 2)라 `NotYetDialog`(화면 자체가 없는 Case 1)가 아니라 이쪽이다
+ * (app/web/AGENTS.md "시안에는 있지만 아직 없는 화면" 절).
  */
-const NOT_INTEGRATED_ROUTES: Array<{ path: string; featureName: string }> = [
+const NOT_INTEGRATED_ROUTES: Array<{ path: string; featureName: NotYetScreenKey }> = [
   { path: '/applications', featureName: 'applications' },
   { path: '/ai-pricing', featureName: 'ai-pricing' },
   { path: '/reviews', featureName: 'reviews' },
   { path: '/notifications', featureName: 'notifications' },
-  { path: '/contracts-payments', featureName: 'contracts-payments' },
 ];
 
 function NotFoundPage() {
@@ -65,7 +73,8 @@ function NotFoundPage() {
  */
 function AppRoutes() {
   const navigate = useNavigate();
-  const { state, restore } = useAuth();
+  const location = useLocation();
+  const { state, restore, logout } = useAuth();
 
   // 새로고침 후에도 로그인 상태를 이어간다 — Refresh Token은 HttpOnly 쿠키에 있고
   // Access Token은 메모리에만 있으므로, 앱이 뜰 때 한 번 복원해야 한다.
@@ -103,32 +112,58 @@ function AppRoutes() {
     <RecommendationSection projectId={projectId} detailHref={PROJECT_ROUTES.detail} />
   );
 
+  const routes = (
+    <Routes>
+      {authRoutes}
+
+      {projectRoutes({
+        // 대표페이지는 project-management 화면이다. 다만 `/` 라는 **주소**는
+        // 앱 껍데기(로고 링크)와 "없는 페이지"가 같이 쓰므로 앱이 계속 소유한다.
+        homePath: APP_ROUTES.home,
+        // 내 프로젝트 목록은 의뢰인 것만 의미가 있다.
+        clientId: viewer?.role === 'CLIENT' ? viewer.userId : null,
+        renderBookmark,
+        renderRecommendations,
+        // 대표 페이지 전용(Option C — 아래 참고).
+        homeViewer: viewer ? { email: viewer.email, role: viewer.role, userId: viewer.userId } : null,
+        homeMyActivityHref:
+          viewer?.role === 'FREELANCER' ? ENGAGEMENT_ROUTES.myBookmarks : PROJECT_ROUTES.manage,
+        onHomeLogout: () => {
+          void logout();
+        },
+      })}
+
+      {engagementRoutes({
+        isFreelancer: viewer?.role === 'FREELANCER',
+        browseHref: PROJECT_ROUTES.browse,
+        detailHref: PROJECT_ROUTES.detail,
+      })}
+
+      {contractRoutes({ viewerId: viewer?.userId ?? null })}
+
+      {NOT_INTEGRATED_ROUTES.map(({ path, featureName }) => (
+        <Route
+          key={path}
+          path={path}
+          element={
+            <ComingSoonOverlay screenKey={featureName}>
+              <NotIntegratedPage featureName={featureName} />
+            </ComingSoonOverlay>
+          }
+        />
+      ))}
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
+  );
+
+  // 대표 페이지(Option C)는 AppShell을 쓰지 않는다 — 시안 자신의 헤더를 그린다
+  // (features/project-management/design/homepage-transplant-plan.md 4번 절 2026-09-04 결정).
+  // 다른 모든 화면은 그대로 AppShell로 감싼다.
+  if (location.pathname === APP_ROUTES.home) return routes;
+
   return (
     <AppShell items={navItems} homeHref={APP_ROUTES.home}>
-      <Routes>
-        {authRoutes}
-
-        {projectRoutes({
-          // 대표페이지는 project-management 화면이다. 다만 `/` 라는 **주소**는
-          // 앱 껍데기(로고 링크)와 "없는 페이지"가 같이 쓰므로 앱이 계속 소유한다.
-          homePath: APP_ROUTES.home,
-          // 내 프로젝트 목록은 의뢰인 것만 의미가 있다.
-          clientId: viewer?.role === 'CLIENT' ? viewer.userId : null,
-          renderBookmark,
-          renderRecommendations,
-        })}
-
-        {engagementRoutes({
-          isFreelancer: viewer?.role === 'FREELANCER',
-          browseHref: PROJECT_ROUTES.browse,
-          detailHref: PROJECT_ROUTES.detail,
-        })}
-
-        {NOT_INTEGRATED_ROUTES.map(({ path, featureName }) => (
-          <Route key={path} path={path} element={<NotIntegratedPage featureName={featureName} />} />
-        ))}
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+      {routes}
     </AppShell>
   );
 }
