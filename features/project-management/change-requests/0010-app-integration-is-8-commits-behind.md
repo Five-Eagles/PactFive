@@ -40,7 +40,7 @@
 | `web/DestructiveActionSummary.tsx` | 삭제·취소 확인 화면 | `app/web/src/features/project-management/` |
 | `web/MoneyBreakdown.tsx` | 예산 출처 표시 | 같은 곳 |
 | `web/useDraft.ts` | 등록 입력 보존 | 같은 곳 |
-| `server/config.ts` | 환경변수 주입 | `app/server/src/features/project-management/` |
+| ~~`server/config.ts`~~ | ~~환경변수 주입~~ | **옮기지 않는다** — `app/server/src/shared/require-service-token.ts` 가 이미 같은 일을 더 엄격하게(503 fail-closed) 한다. 두 곳에서 같은 토큰을 다르게 검증하게 된다 (2026-09-03 항목 4) |
 
 ### 고친 파일
 

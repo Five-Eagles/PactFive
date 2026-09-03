@@ -11,7 +11,7 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
 
 ## 항목 1 — [판단 필요] 확인 다이얼로그를 prototype의 2종이 아니라 design/*.html의 3종으로 반영했다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/prototype과 design/*.html이 서로 다른 부분**
 - prototype의 `DestructiveActionSummary`/`ProjectManage.tsx`(CR-0006 결함 1)는 `CANCEL`·`DELETE`
@@ -38,13 +38,27 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
   design/*.html 쪽을 따랐다.
 
 **담당자 메모**
-- {검토 후 자유 기재. 재이슈로 넘길 경우 이유를 여기 남긴다}
+
+**3종이 맞다. prototype 을 고쳤다.**
+
+제 원래 판단(모집 마감은 재모집으로 되돌릴 수 있으니 확인이 필요 없다)이 틀렸습니다.
+**되돌아가는 것은 프로젝트 상태뿐입니다.** 마감할 때 대기 지원이 일괄 거절되고,
+그 거절 알림은 이미 지원자에게 갑니다. 다시 열어도 거절당한 사람이 또 지원해 주지는
+않습니다 — 되돌릴 수 없는 것은 프로젝트가 아니라 **사람 쪽에 남는 일**입니다.
+
+시안이 CR-0006 이전 것이라 낡은 게 아니라, 시안이 맞고 제 판단이 좁았습니다.
+
+고친 것
+- `DestructiveActionSummary.tsx` 에 `closeRecruitmentEffects()` 추가
+- `ProjectManage.tsx` 의 `DESTRUCTIVE` 에 `CLOSE_RECRUITMENT` 추가
+- 테스트 5건 (거절 건수를 숫자로 말하는가 · 지원 0건이면 거절 문구를 빼는가 등)
+- 시안(`design/reference-proposal`)도 같은 3종으로 동작합니다
 
 ---
 
 ## 항목 2 — [판단 필요] 취소(CANCEL) 확인 문구의 지원자·계약 문구 조합 방식을 새로 만들었다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — design/*.html에 정의되지 않은 부분**
 - `design/high-fi-manage.html`의 취소 다이얼로그 데모는 "선정된 프리랜서에게 취소 알림이
@@ -74,13 +88,31 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
   시안이 확정하지 않은 부분이다.
 
 **담당자 메모**
-- {검토 후 자유 기재}
+
+**합성 방식에 동의합니다. 순서를 시안에 못 박았습니다.**
+
+두 부작용을 별개 조건절로 나눈 것이 맞습니다 — 서버 `postActions` 가 실제로 둘을
+구분하고, 사용자에게도 다른 일이기 때문입니다.
+
+**순서가 정해져 있지 않았던 것이 문제**였습니다. 아래로 확정하고
+`design/high-fi-manage.html` 에 적었습니다.
+
+```text
+① 대기 지원 거절  → ② 계약 무효  → ③ 프로젝트 상태
+```
+
+**사람에게 가는 일이 먼저입니다.** 읽는 사람이 가장 먼저 알아야 하는 것은
+"내 결정이 남에게 무엇을 하는가"이지 프로젝트가 어떻게 되는가가 아닙니다.
+
+`hasContract` 를 `transactionStatus` 로 판정한 것도 맞습니다. prototype 의
+`ManageItem` 에 그 값이 없어 항상 false 로 뒀던 것은 **없는 값을 추측하지 않으려던
+것**이지 계약을 안 본다는 뜻이 아니었습니다. app 에 값이 있으면 쓰는 게 맞습니다.
 
 ---
 
 ## 항목 3 — [확인 필요] `budgetSource`/`budgetSourceAt`를 ERD 반영 없이 인메모리 타입에만 추가했다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — 되돌리기 비싼 것(DB 스키마) 영역**
 - CR-0007이 `projects.budget_source`·`projects.budget_source_at` 컬럼 추가를 제안했지만
@@ -102,13 +134,22 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
   정식 검토해 달라.
 
 **담당자 메모**
-- {검토 후 자유 기재}
+
+**동의합니다. Prisma 도입 전에 CR-0007 을 먼저 확정합니다.**
+
+지금 DB 가 없어 스키마를 건드리지 않는다는 판단이 맞습니다.
+
+다만 **"이미 코드가 있으니 컬럼만 추가하면 된다"로 넘어가지 않게** CR-0007 에
+못을 박아 두었습니다 — Prisma 스키마를 처음 쓰는 시점이 게이트입니다.
+그때 컬럼을 안 넣기로 하면 `MoneyBreakdown` 을 걷어내야 하고, 그건 CR-0006 결함 2
+(예산이 내가 넣은 값인지 AI 가 바꾼 값인지 알 수 없다)가 되살아난다는 뜻입니다.
+어느 쪽이든 그때 결정할 일이고, 조용히 지나가면 안 됩니다.
 
 ---
 
 ## 항목 4 — CR-0005(env.example)를 CR-0010 표대로 옮기지 않고 문서만 보강했다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — CR-0010 이관 대상 표와 실제로 다르게 판단한 부분**
 - CR-0010 표는 `features/project-management/prototype/server/config.ts`(신규)를
@@ -133,6 +174,17 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
   기능이 겹치는 별도 파일을 또 만들면 두 곳에서 같은 토큰을 다르게 검증하게 될 위험이 있다.
 
 **담당자 메모**
-- {검토 후 자유 기재}
+
+**동의합니다. CR-0010 표에서 그 줄을 뺐습니다.**
+
+공유 계층에 이미 더 엄격한 구현(`require-service-token.ts`, 503 fail-closed)이 있는데
+project-management 폴더에 같은 개념을 또 두면 **같은 토큰을 두 곳에서 다르게 검증**하게
+됩니다. 재해석 원칙대로 하신 게 맞습니다.
+
+제 `prototype/server/config.ts` 는 그대로 둡니다 — 프로토타입 안에서만 쓰이고,
+app 에는 이미 대응물이 있습니다. **CR-0010 이관 표에서 그 줄을 지웠습니다.**
+남겨두면 다음 사람이 또 옮기려 듭니다.
+
+`.env.example` 에 `INTERNAL_SERVICE_TOKEN` 을 넣어 주신 것으로 CR-0005 는 닫습니다.
 
 ---
