@@ -23,7 +23,8 @@ ERD v1.4 `applications`, PM 규칙 55–57. 함수명으로만 지칭한다 (D-4
 `application_status` = `PENDING` · `ACCEPTED` · `REJECTED`.
 `application_rejection_type` = `DIRECT` · `AUTO_OTHER_ACCEPTED` ·
 `AUTO_RECRUITMENT_CLOSED` · `AGREEMENT_DECLINED`.
-필드: `cover_letter`, `expected_amount`, `expected_duration_days`, `decided_at`.
+필드: `freelancer_id`, `cover_letter`, `expected_amount`, `expected_duration_days`,
+`decided_at`, `created_at`, `updated_at`.
 
 캐시(조준영이 같은 트랜잭션에서 갱신, 규칙 56): `projects.application_count`(누적, 표시용),
 `projects.pending_application_count`(PENDING만, 잠금용). 원본과 어긋나면 원본이 옳다.
@@ -75,9 +76,10 @@ ERD v1.4 `applications`, PM 규칙 55–57. 함수명으로만 지칭한다 (D-4
    생성·내 지원 = 해당 프리랜서. 목록·수락·거절 = 해당 의뢰인. 비당사자 403. 무인증 401.
 
 10. **UX 필수 요소.** 지원하기: 자기소개 · 희망 금액 · 예상기간 · `지원하기`.
-    지원자 관리: 지원자 목록 · `수락` · `거절`. 내 지원 현황: 프로젝트 · 상태.
-    로딩 「불러오는 중」, 실패 「불러오지 못했습니다」, 수락 409 위 문구.
-    패널만. 앱 셸 없음.
+    지원자 관리: 지원자 목록 · `수락` · `거절`. 빈 목록 「아직 지원자가 없습니다」.
+    내 지원 현황: 프로젝트 · 상태. 삭제된 프로젝트 「의뢰인이 삭제한 프로젝트입니다.」
+    수락 전 확인 `수락 확인` · `취소`. 로딩 「불러오는 중」, 실패 「불러오지 못했습니다」,
+    수락 409 위 문구. 패널만. 앱 셸 없음.
 
 ## 비고
 

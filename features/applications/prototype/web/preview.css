@@ -3,3 +3,33 @@ body {
   padding: 0;
   margin: 0;
 }
+
+.preview-root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.preview-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preview-switcher button {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--btn-radius);
+  background: var(--surface);
+  color: var(--content-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.preview-switcher button[aria-pressed="true"] {
+  border-color: var(--action);
+  color: var(--action);
+  font-weight: 700;
+}

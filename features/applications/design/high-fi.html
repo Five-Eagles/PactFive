@@ -52,12 +52,33 @@
     <p class="status-copy"><strong>지원자 목록</strong>에서 한 명을 고르면 나머지는 자동으로 거절됩니다. 수락은 되돌릴 수 없습니다.</p>
     <dl class="facts">
       <dt>지원자 목록</dt>
-      <dd>usr_freelancer_b · 1,000,000원 · 30일</dd>
+      <dd>김하린 · 1,000,000원 · 30일</dd>
     </dl>
     <div class="btn-row">
-      <button type="button" class="btn primary">수락</button>
+      <button type="button" class="btn primary" id="accept-open">수락</button>
       <button type="button" class="btn">거절</button>
     </div>
+  </article>
+  <div class="overlay-backdrop" id="accept-overlay" aria-hidden="true">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="accept-title">
+      <h2 class="title" id="accept-title">이 지원자를 수락할까요?</h2>
+      <p class="status-copy">수락하면 나머지 지원은 거절되고 <strong>되돌릴 수 없습니다</strong>.</p>
+      <div class="btn-row">
+        <button type="button" class="btn" id="accept-cancel">취소</button>
+        <button type="button" class="btn primary" id="accept-confirm">수락 확인</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen">
+  <div class="id">지원자 관리 · 빈 목록</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">지원자 관리</h2>
+      <span class="badge info">대기 0</span>
+    </div>
+    <p class="status-copy">아직 지원자가 없습니다. 모집이 열려 있으면 프리랜서가 지원할 수 있습니다.</p>
   </article>
 </section>
 
@@ -83,10 +104,22 @@
     <p class="status-copy">제출한 지원은 프로젝트 상태와 함께 남습니다. 의뢰인이 삭제해도 이 목록에서 지워지지 않습니다.</p>
     <dl class="facts">
       <dt>프로젝트</dt>
-      <dd>prj_open</dd>
+      <dd>랜딩 페이지 리뉴얼</dd>
       <dt>상태</dt>
-      <dd>PENDING</dd>
+      <dd>대기</dd>
     </dl>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">내 지원 현황 · 삭제된 프로젝트</div>
+  <article class="panel">
+    <div class="panel-head">
+      <h2 class="title">내 지원 현황</h2>
+      <span class="badge neutral">삭제됨</span>
+    </div>
+    <p class="notice warning" role="status">의뢰인이 삭제한 프로젝트입니다.</p>
+    <p class="status-copy">지원 이력은 이 목록에 남습니다. 프로젝트 화면으로는 들어갈 수 없습니다.</p>
   </article>
 </section>
 
@@ -127,10 +160,14 @@
       <tr><td>placeholder</td><td>희망 금액</td></tr>
       <tr><td>placeholder</td><td>예상기간</td></tr>
       <tr><td>버튼</td><td>지원하기</td></tr>
-      <tr><td rowspan="3">지원자 관리</td><td>제목</td><td>지원자 목록</td></tr>
+      <tr><td rowspan="5">지원자 관리</td><td>제목</td><td>지원자 목록</td></tr>
       <tr><td>버튼</td><td>수락</td></tr>
       <tr><td>버튼</td><td>거절</td></tr>
+      <tr><td>버튼</td><td>수락 확인</td></tr>
+      <tr><td>버튼</td><td>취소</td></tr>
+      <tr><td>빈 목록</td><td>안내</td><td>아직 지원자가 없습니다</td></tr>
       <tr><td>내 지원 현황</td><td>제목</td><td>내 지원 현황</td></tr>
+      <tr><td>삭제된 프로젝트</td><td>안내</td><td>의뢰인이 삭제한 프로젝트입니다.</td></tr>
       <tr><td>불러오는 중</td><td>안내</td><td>지원 화면을 불러오는 중입니다.</td></tr>
       <tr><td rowspan="2">불러오기 실패</td><td>안내</td><td>불러오지 못했습니다</td></tr>
       <tr><td>버튼</td><td>다시 시도</td></tr>
@@ -140,6 +177,35 @@
   <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
   앱 셸·수정·삭제 버튼. 패널만 둔다.</p>
 </section>
+
+<script>
+(function () {
+  var overlay = document.getElementById("accept-overlay");
+  var openBtn = document.getElementById("accept-open");
+  var cancelBtn = document.getElementById("accept-cancel");
+  var confirmBtn = document.getElementById("accept-confirm");
+  if (!overlay || !openBtn || !cancelBtn || !confirmBtn) return;
+  function open() {
+    overlay.classList.add("open");
+    overlay.setAttribute("aria-hidden", "false");
+    confirmBtn.focus();
+  }
+  function close() {
+    overlay.classList.remove("open");
+    overlay.setAttribute("aria-hidden", "true");
+    openBtn.focus();
+  }
+  openBtn.addEventListener("click", open);
+  cancelBtn.addEventListener("click", close);
+  confirmBtn.addEventListener("click", close);
+  overlay.addEventListener("click", function (event) {
+    if (event.target === overlay) close();
+  });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && overlay.classList.contains("open")) close();
+  });
+})();
+</script>
 
 </body>
 </html>

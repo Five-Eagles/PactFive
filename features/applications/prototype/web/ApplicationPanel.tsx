@@ -1,4 +1,14 @@
-export type ApplicationView = "apply" | "manage" | "conflict" | "mine" | "loading" | "loadFailed";
+import { useEffect, useRef, useState } from "react";
+
+export type ApplicationView =
+  | "apply"
+  | "manage"
+  | "manageEmpty"
+  | "conflict"
+  | "mine"
+  | "mineDeleted"
+  | "loading"
+  | "loadFailed";
 
 type ApplicationPanelProps = {
   view?: ApplicationView;
@@ -53,29 +63,37 @@ export function ApplicationPanel({ view = "apply" }: ApplicationPanelProps) {
     );
   }
 
-  if (view === "manage") {
+  if (view === "manageEmpty") {
     return (
       <article className="panel">
         <div className="panel-head">
           <h2 className="title">지원자 관리</h2>
-          <span className="badge info">대기 1</span>
+          <span className="badge info">대기 0</span>
         </div>
         <p className="status-copy">
-          <strong>지원자 목록</strong>에서 한 명을 고르면 나머지는 자동으로 거절됩니다. 수락은 되돌릴 수
-          없습니다.
+          아직 지원자가 없습니다. 모집이 열려 있으면 프리랜서가 지원할 수 있습니다.
         </p>
-        <dl className="facts">
-          <dt>지원자 목록</dt>
-          <dd>usr_freelancer_b · 1,000,000원 · 30일</dd>
-        </dl>
-        <div className="btn-row">
-          <button type="button" className="btn primary">
-            수락
-          </button>
-          <button type="button" className="btn">
-            거절
-          </button>
+      </article>
+    );
+  }
+
+  if (view === "manage") {
+    return <ManagePanel />;
+  }
+
+  if (view === "mineDeleted") {
+    return (
+      <article className="panel">
+        <div className="panel-head">
+          <h2 className="title">내 지원 현황</h2>
+          <span className="badge neutral">삭제됨</span>
         </div>
+        <p className="notice warning" role="status">
+          의뢰인이 삭제한 프로젝트입니다.
+        </p>
+        <p className="status-copy">
+          지원 이력은 이 목록에 남습니다. 프로젝트 화면으로는 들어갈 수 없습니다.
+        </p>
       </article>
     );
   }
@@ -92,9 +110,9 @@ export function ApplicationPanel({ view = "apply" }: ApplicationPanelProps) {
         </p>
         <dl className="facts">
           <dt>프로젝트</dt>
-          <dd>prj_open</dd>
+          <dd>랜딩 페이지 리뉴얼</dd>
           <dt>상태</dt>
-          <dd>PENDING</dd>
+          <dd>대기</dd>
         </dl>
       </article>
     );
@@ -133,5 +151,99 @@ export function ApplicationPanel({ view = "apply" }: ApplicationPanelProps) {
         </button>
       </div>
     </form>
+  );
+}
+
+/** 수락은 확인 다이얼로그 뒤에만 진행한다. 거절은 다이얼로그 없이 둔다. */
+function ManagePanel() {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const acceptTriggerRef = useRef<HTMLButtonElement>(null);
+  const wasOpenRef = useRef(false);
+
+  // 열리면 수락 확인으로 초점을 옮기고, 닫히면 수락으로 되돌린다.
+  useEffect(() => {
+    if (confirmOpen) {
+      confirmRef.current?.focus();
+      wasOpenRef.current = true;
+      return;
+    }
+    if (wasOpenRef.current) {
+      acceptTriggerRef.current?.focus();
+      wasOpenRef.current = false;
+    }
+  }, [confirmOpen]);
+
+  // Esc로 닫는다. 숨겨진 다이얼로그에 초점이 남지 않게 한다.
+  useEffect(() => {
+    if (!confirmOpen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setConfirmOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [confirmOpen]);
+
+  return (
+    <>
+      <article className="panel">
+        <div className="panel-head">
+          <h2 className="title">지원자 관리</h2>
+          <span className="badge info">대기 1</span>
+        </div>
+        <p className="status-copy">
+          <strong>지원자 목록</strong>에서 한 명을 고르면 나머지는 자동으로 거절됩니다. 수락은 되돌릴 수
+          없습니다.
+        </p>
+        <dl className="facts">
+          <dt>지원자 목록</dt>
+          <dd>김하린 · 1,000,000원 · 30일</dd>
+        </dl>
+        <div className="btn-row">
+          <button
+            type="button"
+            className="btn primary"
+            ref={acceptTriggerRef}
+            onClick={() => setConfirmOpen(true)}
+          >
+            수락
+          </button>
+          <button type="button" className="btn">
+            거절
+          </button>
+        </div>
+      </article>
+      <div
+        className={confirmOpen ? "overlay-backdrop open" : "overlay-backdrop"}
+        aria-hidden={confirmOpen ? "false" : "true"}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) setConfirmOpen(false);
+        }}
+      >
+        <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="accept-title">
+          <h2 className="title" id="accept-title">
+            이 지원자를 수락할까요?
+          </h2>
+          <p className="status-copy">
+            수락하면 나머지 지원은 거절되고 <strong>되돌릴 수 없습니다</strong>.
+          </p>
+          <div className="btn-row">
+            <button type="button" className="btn" onClick={() => setConfirmOpen(false)}>
+              취소
+            </button>
+            <button
+              type="button"
+              className="btn primary"
+              ref={confirmRef}
+              onClick={() => setConfirmOpen(false)}
+            >
+              수락 확인
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

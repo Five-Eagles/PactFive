@@ -9,9 +9,10 @@
 - api-contract.md: `POST/GET .../applications`, accept·reject,
   내부 `rejectPendingApplications`. PATCH 없음.
 - prototype/: 공개 API Mock(`createApplicationApiMock`) + `run.tsx`.
-  `npx tsx prototype/run.tsx` → PASS 31.
+  `npx tsx prototype/run.tsx` → PASS 35.
   C-01 실패 시 잔여 거절·알림을 하지 않는다.
-- design/: high-fi 3뷰 (`design/high-fi.html`). 패널만. 앱 셸 없음.
+- design/: high-fi (`design/high-fi.html`). 패널만. 앱 셸 없음.
+  수락 확인 · 빈 목록 · 삭제된 프로젝트 포함.
 - review/: 팀장 통합 요청 `review/teamlead-public-api-panels-2026-09-03.md`.
 
 ## 교차 담당
@@ -29,3 +30,4 @@
 | 2026-09-03 | 팀장 통합 요청 1장 (`review/teamlead-public-api-panels-2026-09-03.md`) |
 | 2026-09-03 | C-01 실패 시 잔여 거절·알림 금지 Mock. PASS 31 |
 | 2026-09-03 | test-report Known Issues에 통합 요청 파일명. run.tsx 재실측 PASS 31 |
+| 2026-09-03 | 시안·패널에 수락 확인·빈 목록·삭제된 프로젝트·preview 전환. PASS 35 |

@@ -292,7 +292,11 @@ async function main() {
     hasText("규칙 10: LOAD_FAILED", htmlOf("loadFailed"), "불러오지 못했습니다");
     hasText("규칙 10: 다시 시도", htmlOf("loadFailed"), "다시 시도");
     hasText("규칙 10: 409 수락", htmlOf("conflict"), "다른 지원자가 먼저 수락되었습니다");
-    const allHtml = [apply, manage, htmlOf("loading")].join("\n");
+    hasText("규칙 10: 수락 확인", manage, "수락 확인");
+    hasText("규칙 10: 취소", manage, "취소");
+    hasText("규칙 10: 빈 목록", htmlOf("manageEmpty"), "아직 지원자가 없습니다");
+    hasText("규칙 10: 삭제된 프로젝트", htmlOf("mineDeleted"), "의뢰인이 삭제한 프로젝트입니다.");
+    const allHtml = [apply, manage, htmlOf("loading"), htmlOf("manageEmpty"), htmlOf("mineDeleted")].join("\n");
     if (!/#[0-9A-Fa-f]{6}/.test(allHtml)) {
       pass("규칙 10: 화면에 원시 색상값 없음");
     } else {
