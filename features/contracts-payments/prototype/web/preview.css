@@ -4,3 +4,34 @@ body {
   padding: 0;
   margin: 0;
 }
+
+.preview-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.preview-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preview-switcher button {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--btn-radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--content-secondary);
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.preview-switcher button[aria-pressed="true"] {
+  background: var(--surface-selected);
+  border-color: var(--border-focus);
+  color: var(--action-secondary-text);
+  font-weight: 600;
+}

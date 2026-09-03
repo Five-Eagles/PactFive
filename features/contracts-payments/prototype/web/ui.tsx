@@ -4,30 +4,27 @@
  * 색은 design/_tokens.css 변수 클래스만 쓴다. 다른 기능 폴더에서 import 하지 않는다.
  */
 
-import type { ReactNode } from "react";
+import { forwardRef, type ReactNode } from "react";
 
 export type ButtonVariant = "primary" | "secondary" | "quiet" | "danger";
 export type FeedbackTone = "neutral" | "info" | "success" | "warning" | "danger";
 
-export function Button({
-  variant,
-  type = "button",
-  disabled = false,
-  onClick,
-  children,
-}: {
-  variant: ButtonVariant;
-  type?: "button" | "submit";
-  disabled?: boolean;
-  onClick?: () => void;
-  children: ReactNode;
-}) {
+export const Button = forwardRef<
+  HTMLButtonElement,
+  {
+    variant: ButtonVariant;
+    type?: "button" | "submit";
+    disabled?: boolean;
+    onClick?: () => void;
+    children: ReactNode;
+  }
+>(function Button({ variant, type = "button", disabled = false, onClick, children }, ref) {
   return (
-    <button type={type} className={`btn ${variant}`} disabled={disabled} onClick={onClick}>
+    <button ref={ref} type={type} className={`btn ${variant}`} disabled={disabled} onClick={onClick}>
       {children}
     </button>
   );
-}
+});
 
 export function Badge({ tone, label }: { tone: FeedbackTone; label: string }) {
   return <span className={`badge ${tone}`}>{label}</span>;

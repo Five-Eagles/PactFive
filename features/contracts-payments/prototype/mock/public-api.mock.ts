@@ -1,5 +1,10 @@
 import { createProjectTransactionMock, MOCK_NOW } from "./project-transaction.mock";
-import { createPaymentRecordMock, MOCK_PAYMENT_ID } from "./payment-record.mock";
+import {
+  createPaymentRecordMock,
+  MOCK_PAYMENT_ID,
+  type PreparePaymentResponse,
+} from "./payment-record.mock";
+import type { ConfirmPaymentInput, ConfirmPaymentResponse } from "../server/payment.port";
 import { DomainContractError } from "../server/project-transaction.types";
 import type { ContractStatus } from "../server/contract.types";
 import {
@@ -341,6 +346,28 @@ export function createPublicApiMock(nowIso: string = MOCK_NOW) {
       const projectId = paymentProjectIds.get(paymentId) ?? "prj_alive";
       await requireParty(projectId, actorUserId);
       return row;
+    },
+
+    async preparePayment(
+      projectId: string,
+      actorUserId: string,
+    ): Promise<PreparePaymentResponse> {
+      // 당사자만 결제 행을 준비한다.
+      await requireParty(projectId, actorUserId);
+      const prepared = payments.preparePayment();
+      paymentProjectIds.set(prepared.paymentId, projectId);
+      return prepared;
+    },
+
+    async confirmPayment(
+      actorUserId: string,
+      input: ConfirmPaymentInput,
+    ): Promise<ConfirmPaymentResponse> {
+      // 시드 결제 행의 프로젝트로 당사자를 가린다.
+      const row = payments.getPayment(MOCK_PAYMENT_ID);
+      const projectId = paymentProjectIds.get(row.paymentId) ?? "prj_alive";
+      await requireParty(projectId, actorUserId);
+      return payments.confirmPayment(input);
     },
 
     async signContract(contractId: string, actorUserId: string): Promise<SignContractResponse> {

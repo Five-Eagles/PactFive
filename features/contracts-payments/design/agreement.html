@@ -189,19 +189,26 @@
 <script>
 (function () {
   var overlay = document.getElementById("overlay");
+  var confirmBtn = document.getElementById("reject-confirm");
+  var rejectOpen = document.getElementById("reject-open");
   function openOverlay() {
     overlay.classList.add("open");
     overlay.setAttribute("aria-hidden", "false");
+    confirmBtn.focus();
   }
   function closeOverlay() {
     overlay.classList.remove("open");
     overlay.setAttribute("aria-hidden", "true");
+    rejectOpen.focus();
   }
   document.getElementById("reject-open").addEventListener("click", openOverlay);
   document.getElementById("overlay-close").addEventListener("click", closeOverlay);
   document.getElementById("reject-confirm").addEventListener("click", closeOverlay);
   overlay.addEventListener("click", function (e) {
     if (e.target === overlay) closeOverlay();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && overlay.classList.contains("open")) closeOverlay();
   });
 })();
 </script>

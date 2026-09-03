@@ -876,6 +876,7 @@ async function main() {
     hasText("규칙 17: 결제 플랫폼 수수료", checkout, "플랫폼 수수료");
     hasText("규칙 17: 결제 정산액", checkout, "정산액");
     hasText("규칙 17: 결제하기", checkout, "결제하기");
+    hasText("규칙 17: 결제 보관 안내", checkout, "결제해도 바로 넘어가지 않습니다");
     const payFailed = htmlOf(React.createElement(PaymentPanel, { view: "failed" }));
     hasText("규칙 17: 결제 실패", payFailed, "결제 실패");
     hasText("규칙 17: 결제 다시 결제", payFailed, "다시 결제");
@@ -1046,6 +1047,33 @@ async function main() {
     await expectCode("규칙 16: GET payment 없음 404", "PROJECT_NOT_FOUND", () =>
       api.getPayment("pay_missing", MOCK_CLIENT_USER_ID),
     );
+  }
+
+  // 규칙 16 — 공개 POST /payments · /payments/confirm (파사드)
+  {
+    const api = createPublicApiMock();
+    const prepared = await api.preparePayment("prj_alive", MOCK_CLIENT_USER_ID);
+    if (
+      prepared.paymentId === MOCK_PAYMENT_ID &&
+      prepared.orderId &&
+      prepared.amount === MOCK_CONFIRMED_AMOUNT &&
+      prepared.clientKey
+    ) {
+      pass("규칙 16: POST payments 준비 당사자 200");
+    } else {
+      fail("규칙 16: POST payments 준비 당사자 200", prepared);
+    }
+    const paid = await api.confirmPayment(MOCK_CLIENT_USER_ID, {
+      orderId: prepared.orderId,
+      amount: prepared.amount,
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+    });
+    const row = await api.getPayment(prepared.paymentId, MOCK_CLIENT_USER_ID);
+    if (paid.status === "PAID" && row.status === "PAID" && row.orderId === prepared.orderId) {
+      pass("규칙 16: POST payments/confirm 당사자 PAID");
+    } else {
+      fail("규칙 16: POST payments/confirm 당사자 PAID", { paid, row });
+    }
   }
 
   // 규칙 12·13 — 서명 전이·멱등 최초 시각
