@@ -31,7 +31,7 @@
   `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~23 Mock을 확인한다.
   합의 화면은 하이브리드 AGR-01·AGR-02·AGR-03(페이지 본문, ViewModel). `/agreements` 5종 폐기 유지.
   재제안은 `POST .../negotiation-offers/:offerId/counter`. 설계서 `AGREEMENT_*` 코드는 쓰지 않는다.
-  서명 화면은 하이브리드 CTR-01(페이지 본문, ViewModel). 설계서 신설 `CONTRACT_*` 코드는 쓰지 않는다.
+  서명 화면은 하이브리드 CTR-01·CTR-02(페이지 본문, ViewModel). 설계서 신설 `CONTRACT_*` 코드는 쓰지 않는다.
   결제 화면은 하이브리드 PAY-01(페이지 본문, ViewModel). 설계서 신설 `PAYMENT_FORBIDDEN` 코드는 쓰지 않는다.
   정산 화면은 하이브리드 SET-01(페이지 본문, ViewModel). 설계서 신설 `SETTLEMENT_*` 코드·지급 버튼은 쓰지 않는다.
   취소 화면은 하이브리드 CAN-01(페이지 본문, ViewModel). 설계서 신설 `CANCEL_*` 코드·A-07 POST는 쓰지 않는다.
@@ -112,3 +112,4 @@
 | 2026-09-04 | 하이브리드 CAN-01. 취소 결과 GET 조립. A-07 POST·환불 없음 |
 | 2026-09-04 | 하이브리드 AGR-02. 수신자 재제안 Mock·화면. `/agreements` 5종·신설 오류 코드 없음 |
 | 2026-09-04 | 하이브리드 AGR-03. 과거 라운드 대체됨 표시. SUPERSEDED 저장 없음 |
+| 2026-09-04 | 하이브리드 CTR-02. 서명 순서 자유·취소 후 409. `CONTRACT_*` 코드 없음 |

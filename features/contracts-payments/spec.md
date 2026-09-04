@@ -183,8 +183,8 @@
     필드 복사는 규칙 20.
 
 12. **계약 상태.** `DRAFT` → 첫 서명 성공 시 `SIGNING` → 양쪽 서명 시 `SIGNED`.
-    `signed_at`은 양쪽이 채워진 순간에만 찍는다. 무효화·프로젝트 취소 경로는 `CANCELED`.
-    전이표는 규칙 19.
+    `signed_at`은 양쪽이 채워진 순간에만 찍는다. 서명 순서는 자유다 (CTR-02). 무효화·프로젝트
+    취소 경로는 `CANCELED`. 취소 후 서명은 409 `PROJECT_TRANSITION_CONFLICT`. 전이표는 규칙 19.
 
 13. **`signContract`.** 계약 당사자만. 멱등 키 `contract-sign-{contractId}-{signerId}`.
     같은 계약·같은 서명자 감사는 1건 (I-19). 재호출은 200, `client_signed_at` /

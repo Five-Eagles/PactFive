@@ -1072,6 +1072,7 @@ async function main() {
     hasText("규칙 17: 서명 LOAD_FAILED 재시도", signFailed, "다시 시도");
     const signCanceled = htmlOf(React.createElement(ContractSignPanel, { view: "canceled" }));
     hasText("규칙 17: 서명 취소 안내", signCanceled, "프로젝트가 취소되었습니다");
+    hasText("규칙 17: 서명 기록 보존", signCanceled, "기존 서명 기록은 보존됩니다");
     if (!signCanceled.includes("서명하기")) {
       pass("규칙 17: 서명 취소 후 서명하기 숨김");
     } else {
@@ -1102,6 +1103,19 @@ async function main() {
       pass("규칙 17: 서명 403 민감 정보 없음");
     } else {
       fail("규칙 17: 서명 403 민감 정보 없음", signForbidden);
+    }
+    hasText("규칙 17: 서명 공증 아님", sign, "공증이나 공인전자서명");
+    const signWait = htmlOf(React.createElement(ContractSignPanel, { uiState: "WAITING_COUNTERPART" }));
+    hasText("규칙 17: 서명 상대 대기", signWait, "상대방의 서명");
+    hasText("규칙 17: 서명 내 서명 완료", signWait, "내 서명은 완료되었습니다");
+    if (
+      !signWait.includes("서명하기") &&
+      !signWait.includes("CONTRACT_FORBIDDEN") &&
+      !signWait.includes("CONTRACT_CANCELED")
+    ) {
+      pass("규칙 17: 상대 대기 서명하기·CONTRACT_* 없음");
+    } else {
+      fail("규칙 17: 상대 대기 서명하기·CONTRACT_* 없음", signWait);
     }
 
     const checkout = htmlOf(React.createElement(PaymentPanel));
@@ -1879,6 +1893,100 @@ async function main() {
       pass("규칙 12: 양쪽 서명 SIGNED");
     } else {
       fail("규칙 12: 양쪽 서명 SIGNED", both);
+    }
+    const afterSigned = await api.projects.getProjectNegotiationContext("prj_alive");
+    if (afterSigned.transactionStatus === "CONTRACT_PENDING") {
+      pass("CTR-02: SIGNED 직후 CONTRACT_PENDING");
+    } else {
+      fail("CTR-02: SIGNED 직후 CONTRACT_PENDING", afterSigned);
+    }
+  }
+
+  // CTR-02 — 서명 순서 자유·취소 후 거부·감사 보존
+  {
+    const api = createPublicApiMock();
+    const proposed = await api.proposeNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    const accepted = await api.acceptNegotiationOffer(
+      "prj_seq",
+      proposed.offer?.offerId ?? "",
+      MOCK_FREELANCER_USER_ID,
+      { expectedRound: 1 },
+    );
+    const contractId = accepted.contractId ?? "";
+    const first = await api.signContract(contractId, MOCK_FREELANCER_USER_ID);
+    if (
+      first.status === "SIGNING" &&
+      first.freelancerSignedAt === MOCK_NOW &&
+      first.clientSignedAt === null
+    ) {
+      pass("CTR-02: 프리랜서 선서명 SIGNING");
+    } else {
+      fail("CTR-02: 프리랜서 선서명 SIGNING", first);
+    }
+    const firstAgain = await api.signContract(contractId, MOCK_FREELANCER_USER_ID);
+    const auditsAfterRetry = api.getSignatureAudits().filter((row) => row.contractId === contractId);
+    if (firstAgain.alreadyProcessed === true && auditsAfterRetry.length === 1) {
+      pass("CTR-02: 재서명 감사 1건");
+    } else {
+      fail("CTR-02: 재서명 감사 1건", { firstAgain, auditsAfterRetry });
+    }
+    const both = await api.signContract(contractId, MOCK_CLIENT_USER_ID);
+    if (both.status === "SIGNED" && both.clientSignedAt === MOCK_NOW && both.signedAt === MOCK_NOW) {
+      pass("CTR-02: 의뢰인 후서명 SIGNED");
+    } else {
+      fail("CTR-02: 의뢰인 후서명 SIGNED", both);
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    const proposed = await api.proposeNegotiationOffer("prj_restore", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    const accepted = await api.acceptNegotiationOffer(
+      "prj_restore",
+      proposed.offer?.offerId ?? "",
+      MOCK_FREELANCER_USER_ID,
+      { expectedRound: 1 },
+    );
+    const contractId = accepted.contractId ?? "";
+    const first = await api.signContract(contractId, MOCK_FREELANCER_USER_ID);
+    await api.invalidateAgreementAndContract("prj_restore", {
+      cancellationId: "cnl_sign_cancel",
+      actorUserId: MOCK_CLIENT_USER_ID,
+      reason: "PROJECT_CANCELED",
+      projectCanceledAt: MOCK_NOW,
+      requestId: "req_sign_cancel",
+      idempotencyKey: "invalidate-cnl_sign_cancel",
+      occurredAt: MOCK_NOW,
+    });
+    const afterCancel = await api.getContract(contractId, MOCK_FREELANCER_USER_ID);
+    const audits = api.getSignatureAudits().filter((row) => row.contractId === contractId);
+    try {
+      await api.signContract(contractId, MOCK_CLIENT_USER_ID);
+      fail("CTR-02: SIGNING 취소 후 서명 409", "오류가 나지 않았습니다");
+    } catch (err) {
+      const body = JSON.stringify(err);
+      if (
+        isDomainContractError(err) &&
+        err.body.error.code === "PROJECT_TRANSITION_CONFLICT" &&
+        !body.includes("CONTRACT_CANCELED") &&
+        afterCancel.status === "CANCELED" &&
+        afterCancel.freelancerSignedAt === first.freelancerSignedAt &&
+        audits.length === 1
+      ) {
+        pass("CTR-02: SIGNING 취소 후 서명 409 · 감사 보존");
+      } else {
+        fail("CTR-02: SIGNING 취소 후 서명 409 · 감사 보존", {
+          err,
+          afterCancel,
+          audits,
+        });
+      }
     }
   }
 
@@ -2822,11 +2930,6 @@ async function main() {
       "규칙 17: 합의 거절 재개 유지",
       htmlOf(React.createElement(AgreementPanel, { uiState: "REJECTED_REOPENED" })),
       "상대가 제안을 거절했습니다",
-    );
-    hasText(
-      "규칙 17: 서명 기록 보존",
-      htmlOf(React.createElement(ContractSignPanel, { uiState: "PROJECT_CANCELED" })),
-      "기존 서명 기록은 보존됩니다",
     );
   }
 
