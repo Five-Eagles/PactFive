@@ -58,6 +58,21 @@
 //   (Trust by Evidence 원칙 위반)를 막기 위한 컬럼 — 코드(`ProjectRecord.budgetSource`)엔
 //   이미 있고 Mock 기준으로 끝까지 동작을 확인했다. 이번에 정식 컬럼으로 승격했다.
 //
+// [PRISMA-GAP-5] pricing_analyses 5개 컬럼 nullable/신설 정정 — 2026-09-04 ERD에도 정식
+//   반영됨(E-32·E-34·E-35·E-37, ai-pricing CR-AP-001·004·005·006 채택)
+//   오민혁의 ai-pricing Step 2(동기식 MVP) 프로토타입(`pricing-analysis.types.ts`,
+//   in-memory 저장소)이 이미 이 모양(결과 nullable discriminated union, 실패 스냅샷,
+//   요청자별 복합 멱등키, fingerprint 스키마 버전)으로 구현·테스트돼 있었다 —
+//   PRISMA-GAP-1~4와 같은 성격의 "코드가 맞고 정본이 뒤처진" 정정이다.
+//
+// [PRISMA-GAP-6] pricing_application_receipts 테이블 신설 — 2026-09-04 ERD에도 정식
+//   반영됨(E-33·E-36, CR-AP-003 단순화 채택)
+//   기존 프로젝트에 AI 추천 예산을 적용할 때 project-management(projects.budget_amount)와
+//   ai-pricing(pricing_analyses.applied_at/project_id)이 함께 바뀐다. CR 원안은 saga/outbox
+//   보상 경계까지 요구했지만, 두 도메인이 이 파일 하나(같은 Postgres DB) 위에 있어 단일
+//   Prisma $transaction으로 충분하다고 판단해 단순화했다(팀장 판단) — 적용 멱등 결과만
+//   이 신설 테이블에 원자적으로 함께 저장한다.
+//
 // ─────────────────────────────────────────────────────────────────────
 // 2026-09-04 확인 완료 — ADR-0008 근거로 해결됨 (재확인 필요 목록에서 이동)
 // ─────────────────────────────────────────────────────────────────────
@@ -310,6 +325,7 @@ model User {
   reviewsGiven          Review[]             @relation("ReviewReviewer")
   reviewsReceived       Review[]             @relation("ReviewReviewee")
   pricingAnalyses        PricingAnalysis[]
+  pricingApplicationReceipts PricingApplicationReceipt[]
 
   @@unique([oauthProvider, oauthSubject], name: "uq_users_oauth")
   @@index([role])
@@ -464,6 +480,7 @@ model Project {
   contracts      Contract[]
   reviews        Review[]
   pricingAnalyses PricingAnalysis[]
+  pricingApplicationReceipts PricingApplicationReceipt[]
 
   @@index([recruitmentStatus, recruitmentDeadlineAt], name: "ix_projects_recruit")
   @@index([clientId, createdAt])
@@ -736,15 +753,25 @@ model PricingAnalysis {
   projectId             String?                     @map("project_id") @db.VarChar(30)
 
   inputSnapshot         Json                        @map("input_snapshot")
-  recommendedAmount     Int                         @map("recommended_amount")
-  breakdown             Json
+  /// [PRISMA-GAP-5] E-32 (CR-AP-001): PENDING/REJECTED엔 결과가 없다. NOT NULL → nullable.
+  recommendedAmount     Int?                        @map("recommended_amount")
+  /// [PRISMA-GAP-5] E-32 (CR-AP-001): 위와 동일.
+  breakdown             Json?
 
   modelName             String?                     @map("model_name") @db.VarChar(50)
   promptVersion          String?                     @map("prompt_version") @db.VarChar(20)
   resultSchemaVersion     String?                     @map("result_schema_version") @db.VarChar(20)
   failureCode              String?                     @map("failure_code") @db.VarChar(50)
-  idempotencyKey            String                      @unique @map("idempotency_key") @db.VarChar(100)
-  requestFingerprint        String?                     @map("request_fingerprint") @db.VarChar(64)
+  /// [PRISMA-GAP-5] E-34 (CR-AP-004) 신설. REJECTED exact replay용 최초 공개 실패 사본.
+  failureSnapshot           Json?                       @map("failure_snapshot")
+  /// [PRISMA-GAP-5] E-34 (CR-AP-004) 신설. REJECTED에서만 NOT NULL, 502|504.
+  failureHttpStatus         Int?                        @map("failure_http_status") @db.SmallInt
+  /// [PRISMA-GAP-5] E-35 (CR-AP-005): unique 범위를 요청자별 복합으로 변경 — 아래 @@index 참고.
+  idempotencyKey            String                      @map("idempotency_key") @db.VarChar(100)
+  /// [PRISMA-GAP-5] E-37 (CR-AP-006): 매 생성 시 항상 계산되므로 nullable → NOT NULL.
+  requestFingerprint        String                      @map("request_fingerprint") @db.VarChar(64)
+  /// [PRISMA-GAP-5] E-37 (CR-AP-006) 신설. requestFingerprint 계산 규칙 버전.
+  inputFingerprintSchemaVersion String                  @map("input_fingerprint_schema_version") @db.VarChar(20)
 
   reviewStatus           PricingAnalysisReviewStatus @default(PENDING) @map("review_status")
   reviewedAt              DateTime?                   @map("reviewed_at")
@@ -755,10 +782,40 @@ model PricingAnalysis {
 
   requester User     @relation(fields: [requesterId], references: [id])
   project   Project? @relation(fields: [projectId], references: [id])
+  applicationReceipts PricingApplicationReceipt[]
 
   @@index([requesterId, createdAt])
   @@index([projectId])
+  @@unique([requesterId, idempotencyKey], map: "uq_pricing_analyses_requester_idempotency")
   @@map("pricing_analyses")
+}
+
+/// [PRISMA-GAP-6] E-36 (CR-AP-003 단순화 채택) 신설 — 21번째 엔티티.
+/// 기존 프로젝트에 AI 추천 예산을 적용(POST /pricing-analyses/:id/apply)할 때의 멱등 결과
+/// 저장소. 분석 생성 멱등(PricingAnalysis.idempotencyKey)과는 작업·키 범위가 달라 분리했다.
+/// 이 행 저장과 PricingAnalysis.appliedAt/projectId 갱신, Project.budgetAmount 갱신은
+/// 같은 Prisma $transaction으로 함께 commit/rollback한다 — ai-pricing과 project-management가
+/// 같은 DB를 쓰므로 saga/outbox 없이 단일 트랜잭션으로 충분하다고 판단했다(ERD E-33).
+model PricingApplicationReceipt {
+  id                  String   @id @db.VarChar(30)
+  operation           String   @db.VarChar(30)
+  actorUserId         String   @map("actor_user_id") @db.VarChar(30)
+  idempotencyKey      String   @map("idempotency_key") @db.VarChar(100)
+  pricingAnalysisId   String   @map("pricing_analysis_id") @db.VarChar(30)
+  projectId           String   @map("project_id") @db.VarChar(30)
+  requestFingerprint  String   @map("request_fingerprint") @db.VarChar(64)
+  httpStatus          Int      @map("http_status") @db.SmallInt
+  responseBody        Json     @map("response_body")
+  processedAt         DateTime @map("processed_at")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  actor           User             @relation(fields: [actorUserId], references: [id])
+  pricingAnalysis PricingAnalysis  @relation(fields: [pricingAnalysisId], references: [id])
+  project         Project          @relation(fields: [projectId], references: [id])
+
+  @@unique([actorUserId, idempotencyKey], map: "uq_pricing_application_receipts_actor_idempotency")
+  @@index([pricingAnalysisId])
+  @@map("pricing_application_receipts")
 }
 
 // =====================================================================
@@ -783,8 +840,11 @@ model PricingAnalysis {
 //  users            : uq_users_email_active(부분 유니크 — email UNIQUE 컬럼 제약 대체)
 //  client_profiles  : business_field='ETC' ⇔ business_field_etc 페어링(E-14)
 //  skills           : uq_skills_official_name_key / uq_skills_custom_name_key(부분 유니크)
-//  pricing_analyses : recommended_amount>0, review_status⇔reviewed_at 페어링,
-//                     applied_at IS NULL OR review_status='APPROVED'
+//  pricing_analyses : recommended_amount IS NULL OR recommended_amount>0,
+//                     상태별 결과/실패/reviewed_at 조합 CHECK(E-32, CR-AP-001 — 상세는 ERD 부록),
+//                     applied_at IS NULL OR review_status='APPROVED',
+//                     uq_pricing_analyses_requester_idempotency는 @@unique로 이미 반영됨(E-35)
+//  pricing_application_receipts : http_status IN (200, 409) (E-36, CR-AP-003)
 //
 //  권한 회수(E-16, 오민혁 MUST) — 앱 실행 role에서:
 //    REVOKE UPDATE, DELETE ON reviews FROM app_role;

@@ -5,13 +5,13 @@
 | | |
 |---|---|
 | 팀명 · 서비스명 | **PactFive** `CONFIRMED` (2026-08-20 팀 확정) |
-| 버전 | **v6.5** (파일명은 v6.4 유지 — 내용은 개정됨) |
-| 작성일 | 2026-08-20 (v6.5 개정: 2026-09-04, 팀장) |
+| 버전 | **v6.6** (파일명은 v6.4 유지 — 내용은 개정됨) |
+| 작성일 | 2026-08-20 (v6.5 개정: 2026-09-04, v6.6 개정: 2026-09-04, 팀장) |
 | 작성 | **유동우** (PRD 작성 + project-management · engagement 구현) |
 | 상태 | **전 항목 확정.** 미확정 0건 · 공란 0건 |
 | 구현 단계 | **전 항목 Step 1** — §0.3 |
 | 상위 근거 | `assignment_overview(1).md` (과제/RFP 정본) |
-| 스키마 정본 | **ERD v1.5** (김락원 · 2026-08-25 확정, 2026-09-04 v1.5 개정). PRD와의 경계는 §6.11 · 매핑은 §6.12 |
+| 스키마 정본 | **ERD v1.6** (김락원 · 2026-08-25 확정, 2026-09-04 v1.6 개정). PRD와의 경계는 §6.11 · 매핑은 §6.12 |
 
 ### 버전 이력
 
@@ -35,6 +35,7 @@
 | v6.3 | 구현 초안 확정. ERD v1.4 · 네이밍 컨벤션 v1.4 대조 · TypeScript 확정 · 알림 enum 13값 통일 · 재모집 마감 기준 보정 |
 | **v6.4** | **v6.3 검토 3건 반영.** A-13에 `recruitmentStartAt` 갱신 규칙·응답 필드 추가 · I-28 결정 번호 D-85 통일 · API 13종 표기 정리 |
 | **v6.5** | **D-91.** 카테고리 6종 값 정정(§8.1·§14.3) — `APP_DEVELOPMENT`→`MOBILE_APP`, `ETC`→`DATA_AI`. 실제 구현 대조 중 발견한 드리프트를 문서에 반영(2026-09-04, 팀장) |
+| **v6.6** | **D-92·D-93.** ai-pricing Step 2 CR 6건 중 5건 채택 — `pricing_analyses` nullable화·실패 스냅샷·멱등키 범위·fingerprint 버전 정정, 기존 프로젝트 적용의 교차 도메인 원자성을 단일 DB 트랜잭션으로 확정(2026-09-04, 팀장) |
 
 ---
 
@@ -6320,6 +6321,18 @@ v3.0에서 **API 스키마 · 문구 정본 · 정합성 감사 · 시연 시나
 RFP §3 서두: *"어떤 근거와 논리로 그 선택을 했는지 회의록, PR 설명, 스프린트 회고 등에 **반드시 기록**해 주시기 바랍니다."*
 
 이 부록은 그 요구를 충족하기 위한 것이며, **발표 자료의 "모호하거나 명세에 없던 부분에 대한 팀의 자율 결정과 그 근거" 항목에 그대로 사용할 수 있습니다.**
+
+## v6.6 — 2026-09-04 (ai-pricing Step 2 CR 6건 채택)
+
+오민혁이 ai-pricing Step 2(동기식 MVP) 구현을 마치며 제기한 CR 6건(`features/ai-pricing/
+change-requests/0001~0006`) 중 카테고리 값(CR-AP-002)은 D-91로 이미 해결되어, 나머지 5건을 검토해
+전부 채택한 개정입니다. 5건 중 4건은 오민혁의 프로토타입 코드가 이미 구현·테스트한 모양으로
+ERD를 정정하는 것이고, CR-AP-003(교차 도메인 원자성)만 새 설계 판단이 필요했습니다.
+
+| ID | 결정 | 근거 | 기각한 대안 |
+|---|---|---|---|
+| **D-92** | **`pricing_analyses` 결과 컬럼 nullable화(CR-AP-001), 실패 재생 스냅샷 신설(CR-AP-004), 멱등키 unique 범위를 요청자별 복합으로 변경(CR-AP-005), `input_fingerprint_schema_version` 신설 + `request_fingerprint` NOT NULL 정정(CR-AP-006)을 채택한다** | Step 2는 분석을 `PENDING`으로 먼저 예약한 뒤 결과를 검증하므로 처리 중·실패 행에는 결과가 없다. 오민혁의 `pricing-analysis.types.ts`·in-memory 저장소가 이미 이 4건이 요청하는 모양(nullable 결과 discriminated union, `failureSnapshot`/`failureHttpStatus`, 요청자별 복합 키 조회, `requestFingerprint`)으로 구현·테스트돼 있어, ERD가 코드를 뒤늦게 따라가는 정정이다 — D-91과 같은 성격 | 가짜 금액·빈 breakdown을 PENDING/REJECTED에 채워 NOT NULL 유지 → 기각. 아직 없는 결과를 실제 결과처럼 저장해 부정확 |
+| **D-93** | **기존 프로젝트에 AI 추천 예산을 적용하는 교차 도메인 트랜잭션은 별도 `pricing_application_receipts` 테이블로 멱등 결과를 저장하고, 단일 DB 트랜잭션(Prisma `$transaction`)으로 `projects.budget_amount`와 `pricing_analyses.applied_at`/`project_id`를 함께 commit/rollback한다(CR-AP-003 단순화 채택)** | CR-AP-003 원안은 ai-pricing과 project-management가 미래에 서로 다른 DB로 분리될 가능성을 대비해 saga/outbox 보상 경계까지 요구했다. 그러나 두 도메인은 지금 같은 Postgres DB(`schema.prisma` 한 파일) 위에 있어, 표준 다중 테이블 트랜잭션으로 원자성을 충분히 보장할 수 있다 — 5인·22일 MVP 규모에 saga/outbox는 과한 설계라고 판단했다(팀장 판단, 배치 아키텍처 논의와 같은 원칙) | CR-AP-003 원안(saga/outbox 보상 경계 전제) 그대로 채택 → 기각. 실제로 여러 DB로 쪼개질 계획이 없는데 대비 설계부터 하는 것은 과설계. 원자적 포트가 없으면 `503 PRICING_APPLICATION_UNAVAILABLE`로 fail-closed하는 스펙 원안의 안전장치는 유지한다 |
 
 ## v6.5 — 2026-09-04 (실제 구현 대조 중 발견한 드리프트 정정)
 
