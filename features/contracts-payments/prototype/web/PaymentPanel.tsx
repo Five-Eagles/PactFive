@@ -525,7 +525,7 @@ function PaymentStatusBanner({ uiState }: { uiState: PaymentUiState }): ReactNod
     case "PAYMENT_CONFIRMING":
       return (
         <p className="status-copy" role="status">
-          결제 결과를 확인하고 있습니다. <strong>잠시만 기다려 주세요</strong>.
+          결제 결과를 확인하고 있습니다. <strong>다시 결제하지 마세요</strong>.
         </p>
       );
     case "PAID_SYNCING":

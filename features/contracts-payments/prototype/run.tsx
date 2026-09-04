@@ -34,6 +34,7 @@ import {
   MOCK_CONFIRMED_AMOUNT,
   MOCK_FAIL_PAYMENT_KEY,
   MOCK_OK_PAYMENT_KEY,
+  MOCK_RECOVER_PAID_KEY,
 } from "./mock/payment.mock";
 import {
   CallerGuardError,
@@ -72,8 +73,11 @@ import {
   createCheckoutOrchestrator,
   createTossCheckoutStub,
   failRedirectCopy,
+  hasPgClientKey,
   parseTossSuccessQuery,
   shouldConfirmRedirect,
+  shouldLoadTossWidget,
+  tossWidgetLoaderSrc,
   toTossCheckoutRequest,
 } from "./web/toss-checkout.stub";
 
@@ -233,6 +237,26 @@ async function expectCode(
     }
     fail(name, err);
   }
+}
+
+async function signBothSides(
+  api: ReturnType<typeof createPublicApiMock>,
+  projectId = "prj_alive",
+): Promise<string> {
+  const proposed = await api.proposeNegotiationOffer(projectId, MOCK_CLIENT_USER_ID, {
+    amount: MOCK_OFFER_AMOUNT,
+    currency: "KRW",
+  });
+  const accepted = await api.acceptNegotiationOffer(
+    projectId,
+    proposed.offer?.offerId ?? "",
+    MOCK_FREELANCER_USER_ID,
+    { expectedRound: 1 },
+  );
+  const contractId = accepted.contractId ?? "";
+  await api.signContract(contractId, MOCK_CLIENT_USER_ID);
+  await api.signContract(contractId, MOCK_FREELANCER_USER_ID);
+  return contractId;
 }
 
 async function main() {
@@ -822,7 +846,7 @@ async function main() {
     }
   }
 
-  // 규칙 19·21 — 결제 행 FAILED 재시도 (I-17)
+  // 규칙 19·21 — 결제 행 PENDING 복구·FAILED 재시도 (I-17)
   {
     const records = createPaymentRecordMock();
     const prepared = records.preparePayment(MOCK_CONFIRMED_AMOUNT);
@@ -832,19 +856,25 @@ async function main() {
         amount: MOCK_CONFIRMED_AMOUNT,
         paymentKey: MOCK_FAIL_PAYMENT_KEY,
       });
-      fail("규칙 19: PG 실패 키면 FAILED", "오류가 나지 않았습니다");
+      fail("규칙 19: PG 실패 키면 PENDING", "오류가 나지 않았습니다");
     } catch (err) {
       const row = records.getPayment(prepared.paymentId);
       if (
         err instanceof PaymentGatewayError &&
         err.code === "PAYMENT_CONFIRM_FAILED" &&
-        row.status === "FAILED" &&
+        row.status === "PENDING" &&
         row.orderId === prepared.orderId
       ) {
-        pass("규칙 19: PG 실패 키면 FAILED");
+        pass("규칙 19: PG 실패 키면 PENDING");
       } else {
-        fail("규칙 19: PG 실패 키면 FAILED", { err, row });
+        fail("규칙 19: PG 실패 키면 PENDING", { err, row });
       }
+    }
+    const reconciled = await records.reconcilePendingPayments();
+    if (reconciled?.status === "FAILED" && reconciled.orderId === prepared.orderId) {
+      pass("규칙 19: reconcile 후 FAILED");
+    } else {
+      fail("규칙 19: reconcile 후 FAILED", reconciled);
     }
     const oldOrderId = prepared.orderId;
     const retried = records.retryPayment(prepared.paymentId);
@@ -875,6 +905,29 @@ async function main() {
     } else {
       fail("규칙 19: 재시도 후 승인 성공 PAID", { paid, row });
     }
+  }
+
+  {
+    const records = createPaymentRecordMock();
+    const prepared = records.preparePayment(MOCK_CONFIRMED_AMOUNT);
+    try {
+      await records.confirmPayment({
+        orderId: prepared.orderId,
+        amount: MOCK_CONFIRMED_AMOUNT,
+        paymentKey: MOCK_RECOVER_PAID_KEY,
+      });
+      fail("PAY-02: timeout 후 PENDING", "오류가 나지 않았습니다");
+    } catch (err) {
+      const row = records.getPayment(prepared.paymentId);
+      if (row.status === "PENDING" && err instanceof PaymentGatewayError) {
+        pass("PAY-02: timeout 후 PENDING");
+      } else {
+        fail("PAY-02: timeout 후 PENDING", { err, row });
+      }
+    }
+    const recovered = await records.reconcilePendingPayments();
+    if (recovered?.status === "PAID") pass("PAY-02: retrieve DONE이면 PAID");
+    else fail("PAY-02: retrieve DONE이면 PAID", recovered);
   }
 
   // 규칙 9 — 키 없음이면 어댑터를 만들지 않고 Mock
@@ -1146,13 +1199,27 @@ async function main() {
     }
     const payPending = htmlOf(React.createElement(PaymentPanel, { view: "pending" }));
     if (
-      payPending.includes("결제 결과를 확인하고 있습니다") &&
+      payPending.includes("다시 결제하지 마세요") &&
       !payPending.includes("결제 실패") &&
       !payPending.includes("테스트 결제 진행")
     ) {
       pass("규칙 17: PENDING은 실패가 아님");
     } else {
       fail("규칙 17: PENDING은 실패가 아님", payPending);
+    }
+    const payUnsigned = htmlOf(React.createElement(PaymentPanel, { uiState: "CONTRACT_NOT_SIGNED" }));
+    hasText("규칙 17: 결제 미체결", payUnsigned, "양측 서명이 필요합니다");
+    if (!payUnsigned.includes("테스트 결제 진행") && !payUnsigned.includes("PAYMENT_FORBIDDEN")) {
+      pass("규칙 17: 미체결 결제 CTA·PAYMENT_FORBIDDEN 없음");
+    } else {
+      fail("규칙 17: 미체결 결제 CTA·PAYMENT_FORBIDDEN 없음", payUnsigned);
+    }
+    const paySyncing = htmlOf(React.createElement(PaymentPanel, { uiState: "PAID_SYNCING" }));
+    hasText("규칙 17: 결제 동기화", paySyncing, "새 결제는 만들지 않습니다");
+    if (!paySyncing.includes("테스트 결제 진행") && !paySyncing.includes("PAYMENT_FORBIDDEN")) {
+      pass("규칙 17: 동기화 결제 CTA·PAYMENT_FORBIDDEN 없음");
+    } else {
+      fail("규칙 17: 동기화 결제 CTA·PAYMENT_FORBIDDEN 없음", paySyncing);
     }
     const payFreelancer = htmlOf(
       React.createElement(PaymentPanel, { uiState: "PAYMENT_AVAILABLE", viewerRole: "FREELANCER" }),
@@ -1382,6 +1449,17 @@ async function main() {
         pass("규칙 9: sandbox 잘못된 키는 승인 실패");
       } else {
         fail("규칙 9: sandbox 잘못된 키는 승인 실패", err);
+      }
+    }
+    try {
+      const adapter = createTossPaymentsAdapter();
+      await adapter.retrievePayment("ord_sandbox_missing");
+      fail("규칙 9: sandbox retrieve 실패", "조회가 성공했습니다");
+    } catch (err) {
+      if (err instanceof PaymentGatewayError && err.code === "PAYMENT_CONFIRM_FAILED") {
+        pass("규칙 9: sandbox retrieve 실패");
+      } else {
+        fail("규칙 9: sandbox retrieve 실패", err);
       }
     }
   }
@@ -1835,16 +1913,45 @@ async function main() {
   // 규칙 16 — 공개 POST /payments · /payments/confirm (파사드)
   {
     const api = createPublicApiMock();
+    try {
+      await api.preparePayment("prj_alive", MOCK_CLIENT_USER_ID);
+      fail("PAY-02: 미서명 prepare 409", "오류가 나지 않았습니다");
+    } catch (err) {
+      const body = JSON.stringify(err);
+      if (
+        isDomainContractError(err) &&
+        err.body.error.code === "PROJECT_TRANSITION_CONFLICT" &&
+        !body.includes("CONTRACT_NOT_SIGNED") &&
+        !body.includes("PAYMENT_FORBIDDEN")
+      ) {
+        pass("PAY-02: 미서명 prepare 409");
+      } else {
+        fail("PAY-02: 미서명 prepare 409", err);
+      }
+    }
+    try {
+      await api.preparePayment("prj_alive", MOCK_FREELANCER_USER_ID);
+      fail("PAY-02: 프리랜서 prepare 403", "오류가 나지 않았습니다");
+    } catch (err) {
+      if (isPublicApiError(err) && err.body.error.code === "PROJECT_FORBIDDEN") {
+        pass("PAY-02: 프리랜서 prepare 403");
+      } else {
+        fail("PAY-02: 프리랜서 prepare 403", err);
+      }
+    }
+    await signBothSides(api, "prj_alive");
     const prepared = await api.preparePayment("prj_alive", MOCK_CLIENT_USER_ID);
+    const pendingAt = (await api.projects.getProjectNegotiationContext("prj_alive")).paymentPendingAt;
     if (
       prepared.paymentId === MOCK_PAYMENT_ID &&
       prepared.orderId &&
       prepared.amount === MOCK_CONFIRMED_AMOUNT &&
-      prepared.clientKey
+      prepared.clientKey &&
+      pendingAt
     ) {
       pass("규칙 16: POST payments 준비 당사자 200");
     } else {
-      fail("규칙 16: POST payments 준비 당사자 200", prepared);
+      fail("규칙 16: POST payments 준비 당사자 200", { prepared, pendingAt });
     }
     const paid = await api.confirmPayment(MOCK_CLIENT_USER_ID, {
       orderId: prepared.orderId,
@@ -1852,10 +1959,104 @@ async function main() {
       paymentKey: MOCK_OK_PAYMENT_KEY,
     });
     const row = await api.getPayment(prepared.paymentId, MOCK_CLIENT_USER_ID);
-    if (paid.status === "PAID" && row.status === "PAID" && row.orderId === prepared.orderId) {
+    const afterPay = await api.projects.getProjectNegotiationContext("prj_alive");
+    if (
+      paid.status === "PAID" &&
+      row.status === "PAID" &&
+      row.orderId === prepared.orderId &&
+      afterPay.transactionStatus === "IN_PROGRESS"
+    ) {
       pass("규칙 16: POST payments/confirm 당사자 PAID");
     } else {
-      fail("규칙 16: POST payments/confirm 당사자 PAID", { paid, row });
+      fail("규칙 16: POST payments/confirm 당사자 PAID", { paid, row, afterPay });
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    await expectCode("PAY-02: 취소 프로젝트 prepare 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      api.preparePayment("prj_canceled", MOCK_CLIENT_USER_ID),
+    );
+  }
+
+  {
+    const api = createPublicApiMock();
+    await signBothSides(api, "prj_alive");
+    const prepared = await api.preparePayment("prj_alive", MOCK_CLIENT_USER_ID);
+    try {
+      await api.confirmPayment(MOCK_CLIENT_USER_ID, {
+        orderId: prepared.orderId,
+        amount: prepared.amount,
+        paymentKey: MOCK_FAIL_PAYMENT_KEY,
+      });
+    } catch {
+      // PENDING 유지
+    }
+    const payload = {
+      eventType: "PAYMENT_STATUS_CHANGED",
+      paymentKey: MOCK_FAIL_PAYMENT_KEY,
+      orderId: prepared.orderId,
+      status: "DONE",
+      createdAt: MOCK_NOW,
+    };
+    const first = await api.receivePaymentWebhook(payload);
+    const second = await api.receivePaymentWebhook(payload);
+    let seventh = second;
+    for (let i = 0; i < 5; i += 1) seventh = await api.receivePaymentWebhook(payload);
+    const row = await api.getPayment(prepared.paymentId, MOCK_CLIENT_USER_ID);
+    if (
+      first.alreadyProcessed !== true &&
+      seventh.alreadyProcessed === true &&
+      row.status === "FAILED"
+    ) {
+      pass("PAY-02: 웹훅 7회 반영 1회");
+    } else {
+      fail("PAY-02: 웹훅 7회 반영 1회", { first, seventh, row });
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    await signBothSides(api, "prj_alive");
+    const prepared = await api.preparePayment("prj_alive", MOCK_CLIENT_USER_ID);
+    await api.confirmPayment(MOCK_CLIENT_USER_ID, {
+      orderId: prepared.orderId,
+      amount: prepared.amount,
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+    });
+    const reverse = await api.receivePaymentWebhook({
+      eventType: "PAYMENT_STATUS_CHANGED",
+      paymentKey: MOCK_OK_PAYMENT_KEY,
+      orderId: prepared.orderId,
+      status: "ABORTED",
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+    const row = await api.getPayment(prepared.paymentId, MOCK_CLIENT_USER_ID);
+    if (row.status === "PAID" && reverse.applied === false) {
+      pass("PAY-02: 역순 웹훅 PAID 비회귀");
+    } else {
+      fail("PAY-02: 역순 웹훅 PAID 비회귀", { reverse, row });
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    await signBothSides(api, "prj_alive");
+    api.tripPaymentCircuit();
+    try {
+      await api.preparePayment("prj_alive", MOCK_CLIENT_USER_ID);
+      fail("PAY-02: 회로 Open prepare 409", "오류가 나지 않았습니다");
+    } catch (err) {
+      const body = JSON.stringify(err);
+      if (
+        isDomainContractError(err) &&
+        err.body.error.code === "PROJECT_TRANSITION_CONFLICT" &&
+        !body.includes("PG_TEMPORARILY_UNAVAILABLE")
+      ) {
+        pass("PAY-02: 회로 Open prepare 409");
+      } else {
+        fail("PAY-02: 회로 Open prepare 409", err);
+      }
     }
   }
 
@@ -2602,7 +2803,9 @@ async function main() {
     if (stub.calls.length === 0) pass("규칙 16: 준비 실패 시 SDK 미호출");
     else fail("규칙 16: 준비 실패 시 SDK 미호출", stub.calls);
 
-    const prepared = await createPublicApiMock().preparePayment("prj_alive", MOCK_CLIENT_USER_ID);
+    const orchApi = createPublicApiMock();
+    await signBothSides(orchApi, "prj_alive");
+    const prepared = await orchApi.preparePayment("prj_alive", MOCK_CLIENT_USER_ID);
     const mapped = toTossCheckoutRequest(prepared);
     if (
       mapped.clientKey === prepared.clientKey &&
@@ -2640,6 +2843,23 @@ async function main() {
       pass("규칙 16: 실패 Redirect 승인 미호출 안내");
     } else {
       fail("규칙 16: 실패 Redirect 승인 미호출 안내", failRedirectCopy());
+    }
+    if (!shouldLoadTossWidget("mock_pg_client_key") && tossWidgetLoaderSrc().includes("tosspayments.com")) {
+      pass("PAY-02: mock 키는 위젯 CDN 미사용");
+    } else {
+      fail("PAY-02: mock 키는 위젯 CDN 미사용", {
+        load: shouldLoadTossWidget("mock_pg_client_key"),
+        src: tossWidgetLoaderSrc(),
+      });
+    }
+    if (hasPgClientKey()) {
+      if (shouldLoadTossWidget(process.env.PG_CLIENT_KEY ?? "")) {
+        pass("PAY-02: 클라이언트 키 있으면 위젯 로더");
+      } else {
+        fail("PAY-02: 클라이언트 키 있으면 위젯 로더", "로더 분기가 닫혀 있습니다");
+      }
+    } else {
+      pass("PAY-02: 클라이언트 키 없음 keyMissing 유지");
     }
   }
 

@@ -32,7 +32,7 @@
   합의 화면은 하이브리드 AGR-01·AGR-02·AGR-03(페이지 본문, ViewModel). `/agreements` 5종 폐기 유지.
   재제안은 `POST .../negotiation-offers/:offerId/counter`. 설계서 `AGREEMENT_*` 코드는 쓰지 않는다.
   서명 화면은 하이브리드 CTR-01·CTR-02(페이지 본문, ViewModel). 설계서 신설 `CONTRACT_*` 코드는 쓰지 않는다.
-  결제 화면은 하이브리드 PAY-01(페이지 본문, ViewModel). 설계서 신설 `PAYMENT_FORBIDDEN` 코드는 쓰지 않는다.
+  결제 화면은 하이브리드 PAY-01·PAY-02(페이지 본문, ViewModel). 설계서 신설 `PAYMENT_FORBIDDEN` 코드는 쓰지 않는다.
   정산 화면은 하이브리드 SET-01(페이지 본문, ViewModel). 설계서 신설 `SETTLEMENT_*` 코드·지급 버튼은 쓰지 않는다.
   취소 화면은 하이브리드 CAN-01(페이지 본문, ViewModel). 설계서 신설 `CANCEL_*` 코드·A-07 POST는 쓰지 않는다.
   납품 화면은 하이브리드 DLV-01(페이지 본문, ViewModel). 네이밍 2경로
@@ -113,3 +113,4 @@
 | 2026-09-04 | 하이브리드 AGR-02. 수신자 재제안 Mock·화면. `/agreements` 5종·신설 오류 코드 없음 |
 | 2026-09-04 | 하이브리드 AGR-03. 과거 라운드 대체됨 표시. SUPERSEDED 저장 없음 |
 | 2026-09-04 | 하이브리드 CTR-02. 서명 순서 자유·취소 후 409. `CONTRACT_*` 코드 없음 |
+| 2026-09-04 | 하이브리드 PAY-02. SIGNED 의뢰인 prepare·mark·PENDING 복구·웹훅 Mock. `PAYMENT_*` 신설 코드 없음 |

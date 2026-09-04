@@ -10,6 +10,8 @@ import { createPaymentGatewayMock, MOCK_CONFIRMED_AMOUNT } from "./payment.mock"
 
 export type PaymentRecordStatus = "READY" | "PENDING" | "PAID" | "FAILED";
 
+export type PaymentAttemptStatus = "CREATED" | "CONFIRMING" | "SUCCEEDED" | "FAILED";
+
 export type PreparePaymentResponse = {
   paymentId: string;
   orderId: string;
@@ -28,6 +30,12 @@ export type GetPaymentResponse = {
   platformFeeAmount: number;
   settlementAmount: number;
   status: PaymentRecordStatus;
+};
+
+type PaymentAttempt = {
+  attemptNo: number;
+  status: PaymentAttemptStatus;
+  orderId: string;
 };
 
 type PaymentRecord = {
@@ -58,6 +66,11 @@ export type PaymentRecordMockOptions = {
   freelancerId?: string;
 };
 
+function widgetClientKey(): string {
+  const fromEnv = process.env.PG_CLIENT_KEY?.trim();
+  return fromEnv || MOCK_CLIENT_KEY;
+}
+
 /** 테스트마다 새 결제 행을 만든다. I-17 계약당 1행. */
 export function createPaymentRecordMock(
   gateway: PaymentGateway = createPaymentGatewayMock(),
@@ -67,9 +80,12 @@ export function createPaymentRecordMock(
   confirmPayment(input: ConfirmPaymentInput): Promise<ConfirmPaymentResponse>;
   retryPayment(paymentId: string): GetPaymentResponse;
   getPayment(paymentId: string): GetPaymentResponse;
+  reconcilePendingPayments(): Promise<GetPaymentResponse | null>;
+  getActiveAttempt(): PaymentAttempt | null;
 } {
   let orderSeq = 0;
   let row: PaymentRecord | null = null;
+  let attempt: PaymentAttempt | null = null;
   const projectId = options.projectId ?? MOCK_NOTIFY_PROJECT_ID;
   const freelancerId = options.freelancerId ?? MOCK_NOTIFY_FREELANCER_ID;
 
@@ -95,7 +111,7 @@ export function createPaymentRecordMock(
       paymentId: record.paymentId,
       orderId: record.orderId,
       amount: record.amount,
-      clientKey: MOCK_CLIENT_KEY,
+      clientKey: widgetClientKey(),
       orderName: MOCK_ORDER_NAME,
       successUrl: MOCK_TOSS_SUCCESS_URL,
       failUrl: MOCK_TOSS_FAIL_URL,
@@ -114,6 +130,36 @@ export function createPaymentRecordMock(
     };
   }
 
+  async function markPaid(): Promise<ConfirmPaymentResponse> {
+    if (!row || !attempt) {
+      throw new DomainContractError("PROJECT_NOT_FOUND", "결제를 찾을 수 없습니다.");
+    }
+    row.status = "PAID";
+    row.failedAt = null;
+    row.failureCode = null;
+    row.rawResponse = null;
+    attempt.status = "SUCCEEDED";
+    const paymentId = row.paymentId;
+    const notifications = options.notifications;
+    if (notifications) {
+      await ignoreNotificationFailure(() =>
+        notifications.publishPaymentCompleted({
+          type: "PAYMENT_COMPLETED",
+          projectId,
+          paymentId,
+          freelancerId,
+          occurredAt: MOCK_PAID_AT,
+        }),
+      );
+    }
+    return {
+      orderId: row.orderId,
+      amount: row.amount,
+      paymentKey: "",
+      status: "PAID",
+    };
+  }
+
   return {
     preparePayment(amount: number = MOCK_CONFIRMED_AMOUNT): PreparePaymentResponse {
       // 이미 있으면 I-17대로 같은 행만 돌려준다.
@@ -127,9 +173,10 @@ export function createPaymentRecordMock(
         return toPrepareResponse(row);
       }
       const split = splitServerAmount(amount);
+      const orderId = nextOrderId();
       row = {
         paymentId: MOCK_PAYMENT_ID,
-        orderId: nextOrderId(),
+        orderId,
         amount,
         platformFeeAmount: split.platformFeeAmount,
         settlementAmount: split.settlementAmount,
@@ -138,6 +185,7 @@ export function createPaymentRecordMock(
         failureCode: null,
         rawResponse: null,
       };
+      attempt = { attemptNo: 1, status: "CREATED", orderId };
       return toPrepareResponse(row);
     },
 
@@ -160,33 +208,20 @@ export function createPaymentRecordMock(
         );
       }
       row.status = "PENDING";
+      if (attempt) attempt.status = "CONFIRMING";
       try {
         const paid = await gateway.confirmPayment(input);
-        row.status = "PAID";
-        row.failedAt = null;
-        row.failureCode = null;
-        row.rawResponse = null;
-        const notifications = options.notifications;
-        const paymentId = row.paymentId;
-        // PAID 확정 뒤에만 발행한다. throw여도 행은 PAID로 둔다.
-        if (notifications) {
-          await ignoreNotificationFailure(() =>
-            notifications.publishPaymentCompleted({
-              type: "PAYMENT_COMPLETED",
-              projectId,
-              paymentId,
-              freelancerId,
-              occurredAt: MOCK_PAID_AT,
-            }),
-          );
-        }
+        await markPaid();
         return paid;
       } catch (err) {
         if (err instanceof PaymentGatewayError) {
-          row.status = "FAILED";
-          row.failedAt = MOCK_FAILED_AT;
           row.failureCode = err.code;
           row.rawResponse = { code: err.code, message: err.message };
+          if (err.code === "PAYMENT_AMOUNT_MISMATCH") {
+            row.status = "FAILED";
+            row.failedAt = MOCK_FAILED_AT;
+            if (attempt) attempt.status = "FAILED";
+          }
         }
         throw err;
       }
@@ -206,11 +241,33 @@ export function createPaymentRecordMock(
       record.failedAt = null;
       record.failureCode = null;
       record.rawResponse = null;
+      attempt = {
+        attemptNo: (attempt?.attemptNo ?? 0) + 1,
+        status: "CREATED",
+        orderId: record.orderId,
+      };
       return toGetResponse(record);
     },
 
     getPayment(paymentId: string): GetPaymentResponse {
       return toGetResponse(requireRow(paymentId));
+    },
+
+    async reconcilePendingPayments(): Promise<GetPaymentResponse | null> {
+      if (!row || row.status !== "PENDING" || attempt?.status !== "CONFIRMING") return row ? toGetResponse(row) : null;
+      const retrieved = await gateway.retrievePayment(row.orderId);
+      if (retrieved.status === "PAID") {
+        await markPaid();
+      } else if (retrieved.status === "FAILED") {
+        row.status = "FAILED";
+        row.failedAt = MOCK_FAILED_AT;
+        if (attempt) attempt.status = "FAILED";
+      }
+      return toGetResponse(row);
+    },
+
+    getActiveAttempt(): PaymentAttempt | null {
+      return attempt ? { ...attempt } : null;
     },
   };
 }

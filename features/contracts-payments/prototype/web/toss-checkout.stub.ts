@@ -52,6 +52,20 @@ export function failRedirectCopy(): string {
   return "결제가 진행되지 않았습니다.";
 }
 
+export function hasPgClientKey(): boolean {
+  return Boolean(process.env.PG_CLIENT_KEY?.trim());
+}
+
+/** mock_ 키는 stub. 위젯 CDN은 실제 클라이언트 키일 때만. */
+export function shouldLoadTossWidget(clientKey: string): boolean {
+  const key = clientKey.trim();
+  return key.length > 0 && !key.startsWith("mock_");
+}
+
+export function tossWidgetLoaderSrc(): string {
+  return "https://js.tosspayments.com/v2/standard";
+}
+
 export type TossCheckoutStub = {
   calls: TossCheckoutRequest[];
   requestPayment(req: TossCheckoutRequest): Promise<void>;

@@ -194,9 +194,10 @@
 
 14. **샌드박스 결제는 승인까지다.** 준비 → 위젯/리다이렉트 → 규칙 9 `confirmPayment` → 웹훅은
     조회 API로 재검증 → `PAID` → 규칙 3 `startProjectTransaction`. 규칙 6은 PG 요청 직전.
-    에스크로·지급대행·실정산·PG 환불은 제외. `RELEASED`는 정산 설계서(다음 스프린트).
-    「결제 취소」는 계약 취소 설계서의 환불 경로이지 Toss MVP가 아니다.
-    전이·FAILED·조회는 규칙 19·21.
+    prepare는 계약 `SIGNED` 의뢰인만, PG 정보 전 `markPaymentPending`. Redirect·웹훅만으로
+    `PAID`가 되지 않는다 (PAY-02). 에스크로·지급대행·실정산·PG 환불은 제외. `RELEASED`는
+    정산 설계서(다음 스프린트). 「결제 취소」는 계약 취소 설계서의 환불 경로이지 Toss MVP가
+    아니다. 전이·FAILED·조회는 규칙 19·21.
 
 15. **프로젝트 취소 경로**는 `invalidateAgreementAndContract`다 (합의 `REJECTED`, 계약
     `CANCELED`, 서명 감사 보존). restore와 반대 방향이다 (규칙 5). `paymentPendingAt`이 있으면
@@ -241,7 +242,8 @@
     `payment_amount` = `agreed_amount`, `platform_fee_amount` = `floor(amount × 0.1)`(D-14),
     `settlement_amount` = 차액, `currency` = `KRW`, `pg_provider` = `TOSS_PAYMENTS`.
     `READY` —confirm 수신→ `PENDING` —규칙 9 성공→ `PAID` → `publishPaymentCompleted` → 규칙 3.
-    `PENDING` —금액 불일치·PG 실패→ `FAILED`(`failed_at`·`failure_code`·`raw_response`).
+    `PENDING` —금액 불일치→ `FAILED`. 승인 timeout·유실은 `PENDING` 유지 후 `retrievePayment`로
+    복구한다 (PAY-02). `PAID`는 `PENDING`/`FAILED`로 되돌리지 않는다.
     `FAILED` —같은 행에 새 `pg_order_id`를 넣고 `READY`로 되돌린다. 옛 `orderId` confirm은 409.
     같은 `pg_order_id`로 confirm 재시도 금지 (I-20).
 
@@ -255,8 +257,8 @@
     `terms_snapshot`을 보고 `signContract`. PDF 생성·대기 없음.
 
 21. **FAILED 재시도·웹훅.** 실패 주문은 재confirm하지 않는다. 재결제는 같은 `paymentId`에
-    새 `orderId`(규칙 19, I-17). 토스 웹훅은 브라우저 API가 아니다. 서버가
-    `PaymentGateway`로 재조회한 뒤 `payments`를 맞춘다. 포트 `retrievePayment`는 Mock에 있다.
+    새 `orderId`(규칙 19, I-17). 토스 웹훅은 브라우저 API가 아니다. prototype
+    `receivePaymentWebhook`이 수신 후 `retrievePayment`로 재검증한다 (PAY-02). 포트는 Mock에 있다.
     화면 폴링: `GET /api/v1/payments/:paymentId` → `READY`|`PENDING`|`PAID`|`FAILED`. 당사자만.
     `PAID`인데 start가 실패하면 PG를 되돌리지 않고 규칙 3을 재시도한다 (규칙 7).
 
@@ -265,7 +267,8 @@
     `design/` high-fi 3화면(합의·서명·결제, 규칙 17). inbound `invalidateAgreementAndContract`
     (`cancellationId`, `actorUserId`, `reason: PROJECT_CANCELED`, `projectCanceledAt` →
     `DONE`|`NOT_NEEDED`|`FAILED`, D-89). `PaymentGateway.retrievePayment`(규칙 21).
-    제외: 위젯 실연동, 에스크로·`RELEASED`, PG 환불, 철회. 재제안은 AGR-02.
+    제외: `app/` 미반영, 에스크로·`RELEASED`, PG 환불, 철회. 위젯은 `PG_CLIENT_KEY`가 있을 때만
+    prototype 패널. 키 없으면 stub/`keyMissing` (PAY-02). 재제안은 AGR-02.
     완료 기준 — 합의 12: 빈 생성 / 의뢰인 제안 / 현재 조회 / 수락→DRAFT / 수락 멱등 /
     거절→restore / 거절 멱등 / 로딩 / `LOAD_FAILED` 재시도 / 409 재조회 / 취소 후 변경 숨김 /
     비당사자 403. 서명 2 + 결제 Mock(규칙 9, 기존) + `FAILED` 후 같은 행 새 `orderId` `READY` 1.

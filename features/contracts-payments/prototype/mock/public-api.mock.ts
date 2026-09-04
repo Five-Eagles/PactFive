@@ -12,7 +12,12 @@ import {
   type ProjectTransactionStatus,
 } from "../server/project-transaction.types";
 import type { ContractStatus } from "../server/contract.types";
-import { completeProjectTransactionIfSettled } from "../server/project-transaction.service";
+import {
+  completeProjectTransactionIfSettled,
+  markPaymentPendingIfAlive,
+  startProjectTransactionIfAccepted,
+} from "../server/project-transaction.service";
+import { createPaymentGatewayMock } from "./payment.mock";
 import { ignoreNotificationFailure, type NotificationTriggerPort } from "../server/notification.port";
 import {
   PublicApiError,
@@ -150,8 +155,10 @@ export function createPublicApiMock(
   options: PublicApiMockOptions = {},
 ) {
   const projects = createProjectTransactionMock(nowIso);
-  const payments = createPaymentRecordMock();
+  const gateway = createPaymentGatewayMock();
+  const payments = createPaymentRecordMock(gateway, { notifications: options.notifications });
   const paymentProjectIds = new Map<string, string>();
+  const webhookInbox = new Set<string>();
   const agreements = new Map<string, AgreementRow>();
   const contracts = new Map<string, ContractRow>();
   const audits: SignatureAudit[] = [];
@@ -317,6 +324,28 @@ export function createPublicApiMock(
       signedAt: row.signedAt,
       alreadyProcessed,
     };
+  }
+
+  async function startIfPaid(projectId: string): Promise<void> {
+    const contract = [...contracts.values()].find((item) => item.projectId === projectId);
+    if (!contract || contract.status !== "SIGNED") return;
+    try {
+      const ctx = await projects.getProjectNegotiationContext(projectId);
+      await startProjectTransactionIfAccepted(
+        projects,
+        projectId,
+        {
+          contractId: contract.contractId,
+          requestId: `req_start_${contract.contractId}`,
+          idempotencyKey: `transaction-start-${contract.contractId}`,
+          occurredAt: nowIso,
+          expectedProjectVersion: ctx.projectVersion,
+        },
+        ctx.acceptedApplicationId ?? "",
+      );
+    } catch {
+      // PAID는 유지하고 화면은 PAID_SYNCING으로 둔다.
+    }
   }
 
   function paymentStatusFor(projectId: string): GetContractResponse["paymentStatus"] {
@@ -723,8 +752,29 @@ export function createPublicApiMock(
       projectId: string,
       actorUserId: string,
     ): Promise<PreparePaymentResponse> {
-      // 당사자만 결제 행을 준비한다.
-      await requireParty(projectId, actorUserId);
+      if (gateway.isCircuitOpen()) {
+        throw new DomainContractError(
+          "PROJECT_TRANSITION_CONFLICT",
+          "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+        );
+      }
+      const ctx = await requireParty(projectId, actorUserId);
+      if (actorUserId !== ctx.clientId) {
+        throw new PublicApiError("PROJECT_FORBIDDEN", "이 프로젝트에 대한 권한이 없습니다.");
+      }
+      const contract = [...contracts.values()].find((item) => item.projectId === projectId);
+      if (!contract || contract.status !== "SIGNED") {
+        throw new DomainContractError(
+          "PROJECT_TRANSITION_CONFLICT",
+          "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+        );
+      }
+      await markPaymentPendingIfAlive(projects, projectId, {
+        contractId: contract.contractId,
+        requestId: `req_pay_pending_${contract.contractId}`,
+        idempotencyKey: `payment-pending-${contract.contractId}`,
+        occurredAt: nowIso,
+      });
       const prepared = payments.preparePayment();
       paymentProjectIds.set(prepared.paymentId, projectId);
       return prepared;
@@ -734,11 +784,55 @@ export function createPublicApiMock(
       actorUserId: string,
       input: ConfirmPaymentInput,
     ): Promise<ConfirmPaymentResponse> {
-      // 시드 결제 행의 프로젝트로 당사자를 가린다.
       const row = payments.getPayment(MOCK_PAYMENT_ID);
       const projectId = paymentProjectIds.get(row.paymentId) ?? "prj_alive";
       await requireParty(projectId, actorUserId);
-      return payments.confirmPayment(input);
+      const paid = await payments.confirmPayment(input);
+      if (paid.status === "PAID") await startIfPaid(projectId);
+      return paid;
+    },
+
+    async reconcilePendingPayments() {
+      const before = payments.getPayment(MOCK_PAYMENT_ID);
+      const after = await payments.reconcilePendingPayments();
+      const projectId = paymentProjectIds.get(MOCK_PAYMENT_ID) ?? "prj_alive";
+      if (after?.status === "PAID" && before.status !== "PAID") await startIfPaid(projectId);
+      return after;
+    },
+
+    tripPaymentCircuit() {
+      gateway.tripCircuit();
+    },
+
+    async receivePaymentWebhook(payload: {
+      eventType?: string;
+      paymentKey?: string;
+      orderId?: string;
+      status?: string;
+      createdAt?: string;
+    }) {
+      if (!payload.eventType || !payload.paymentKey || !payload.status) {
+        return { accepted: true, applied: false };
+      }
+      const dedupeKey = `${payload.eventType}|${payload.paymentKey}|${payload.status}|${payload.createdAt ?? ""}`;
+      if (webhookInbox.has(dedupeKey)) {
+        return { accepted: true, applied: false, alreadyProcessed: true };
+      }
+      webhookInbox.add(dedupeKey);
+      let current: { status: string };
+      try {
+        current = payments.getPayment(MOCK_PAYMENT_ID);
+      } catch {
+        return { accepted: true, applied: false };
+      }
+      if (current.status === "PAID") {
+        return { accepted: true, applied: false };
+      }
+      const before = current.status;
+      const after = await payments.reconcilePendingPayments();
+      const projectId = paymentProjectIds.get(MOCK_PAYMENT_ID) ?? "prj_alive";
+      if (after?.status === "PAID" && before !== "PAID") await startIfPaid(projectId);
+      return { accepted: true, applied: after?.status !== before };
     },
 
     async signContract(contractId: string, actorUserId: string): Promise<SignContractResponse> {

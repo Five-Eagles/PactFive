@@ -1,13 +1,13 @@
 # contracts-payments 테스트 결과
 
 담당자: 조준영            테스트 날짜: 2026-09-04
-테스트한 커밋: 커밋 전 (`run.tsx` AGR-01·AGR-02·AGR-03·CTR-01·CTR-02·DLV-01·PAY-01·SET-01·CAN-01 검증 포함)
+테스트한 커밋: 커밋 전 (`run.tsx` AGR-01·AGR-02·AGR-03·CTR-01·CTR-02·DLV-01·PAY-01·PAY-02·SET-01·CAN-01 검증 포함)
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 263, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 279, FAIL 개수: 0)
 
-키 없는 환경. 규칙 9 sandbox는 「해당 없음」 1건 PASS.
+규칙 9 sandbox는 잘못된 paymentKey 승인 실패·retrieve 실패 프로브. 시크릿은 문서에 적지 않는다.
 
 정산은 slug `set-eligible` 등. `.settlement-grid`(본문 + 340px). 지급 실행 버튼 없음.
 
@@ -16,6 +16,8 @@
 합의 재제안은 slug `agr-counter`·`agr-client-action`. 이력은 `agr-history`. 과거 라운드는 「이후 제안으로 대체됨」만. `/agreements/{id}` 5종·`AGREEMENT_*`·`SUPERSEDED` 저장 없음.
 
 서명은 slug `ctr-wait`. 순서 자유·취소 후 409 `PROJECT_TRANSITION_CONFLICT`. `CONTRACT_*` 코드 없음. SIGNED만으로 `IN_PROGRESS`가 되지 않는다.
+
+결제는 slug `pay-confirming`·`pay-syncing`·`pay-unsigned`. SIGNED 의뢰인만 prepare, 직전 `markPaymentPending`. timeout은 `PENDING` 후 조회 복구. 웹훅 Mock 중복 1회·역순 비회귀. 회로 Open은 409. `PAYMENT_FORBIDDEN` 없음.
 
 ## spec.md 규칙별 확인
 
@@ -29,16 +31,16 @@
 | 6 markPaymentPending | 최초 기록·취소 409·contractId 누락 422 | 통과 |
 | 7 호출 순서 | mark → start → complete · 납품 Mock 경로만 납품 publish | 통과 |
 | 8 오류 코드 | 5종 코드·에러 봉투만 | 통과 |
-| 9 PaymentGateway | Mock 승인·키 없음 Mock 유지 | 통과 |
+| 9 PaymentGateway | Mock 승인·키 없음 Mock 유지·sandbox 잘못된 키 승인/조회 실패 | 통과 |
 | 10~13 합의·서명 | 제안·재제안·과거 라운드 대체됨·수락→DRAFT·순서 자유 서명·SIGNED 직후 CONTRACT_PENDING·취소 후 409 | 통과 |
-| 14 샌드박스 결제 범위 | 웹훅 E2E 없음 | 안 함 (해당 없음) |
+| 14 샌드박스 결제 범위 | SIGNED 의뢰인 prepare·mark·Redirect≠PAID·웹훅 Mock 재검증 | 통과 |
 | 15 취소 무효화 | NOT_NEEDED·DONE·멱등 | 통과 |
-| 16 공개 API 경로 | GET payment·settlement·cancellation 당사자 200 · 비당사자 403 · 없음 404 · counter 수신자만 | 통과 |
-| 17 라우트·UX | CAN-01 `.../cancellation`. 후처리≠실패. AGR 취소 vs 거절 구분. CTR 상대 대기·공증 아님·서명 보존 | 통과 |
+| 16 공개 API 경로 | GET payment·settlement·cancellation 당사자 200 · 비당사자 403 · 없음 404 · counter 수신자만 · SIGNED 후 prepare/confirm | 통과 |
+| 17 라우트·UX | CAN-01 `.../cancellation`. AGR 취소 vs 거절. CTR 상대 대기. PAY 확인 중·미체결·동기화 | 통과 |
 | 18 Increment 1 테스트 | 규칙 22로 이동 | 안 함 (해당 없음) |
-| 19~22 | FAILED 재시도·계약 필드·백로그 로딩/409/취소 숨김 | 통과 |
+| 19~22 | PENDING 복구·FAILED 재시도·웹훅 Mock·위젯 로더 분기·백로그 UX | 통과 |
 | 23 납품 Increment | APPROVED+PAID≠완료 · 정산 확인 링크 | 통과 |
-| UI(design/web) | AGR·AGR-02·AGR-03 이력·CTR-01·CTR-02 대기·DLV·PAY·SET·CAN-01. 1280 2열 / 모바일 스택 | 통과 |
+| UI(design/web) | AGR·CTR-02·PAY-02 확인 중·DLV·PAY·SET·CAN-01. 1280 2열 / 모바일 스택 | 통과 |
 
 규칙 4 I-30: APPROVED∧RELEASED 전에 complete 포트를 부르지 않는다.
 
