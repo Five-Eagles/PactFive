@@ -9,6 +9,7 @@ export const AUTH_ROUTES = {
   login: "/login",
   signUp: "/sign-up",
   emailConfirmation: "/auth/confirm",
+  accountWithdrawal: "/settings/account/withdrawal",
 } as const;
 
 export function buildLoginPath(returnTo?: string): string {

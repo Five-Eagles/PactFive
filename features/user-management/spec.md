@@ -3,7 +3,7 @@
 ## 문서 상태
 
 - 작성 기준일: 2026-09-04
-- 작업 단계: Step 4 — 가입·이메일 확인·가입 복구 high-fi와 기능 prototype 검증 + 회원 탈퇴 잠정 계약 검토
+- 작업 단계: Step 4 — 가입·이메일 확인·가입 복구 high-fi와 기능 prototype 검증 + 회원 탈퇴 비활성 UI 검토
 - 상태 표기:
   - **FACT**: 저장소 정본이나 확인 작업으로 검증된 내용
   - **DECISION**: 이 기능의 구현 기준으로 선택한 정책. 팀 공유 정본 반영은 팀장 통합 단계에서 수행
@@ -31,14 +31,15 @@ PactFive 사용자가 이메일 또는 Google/Kakao 계정으로 가입·로그�
 - **FACT (상위 요구사항)**: 탈퇴 계정과 OAuth-only 계정의 이메일 로그인 제한
 - **FACT (상위 요구사항)**: 로그인 유도 전 경로를 `returnTo`로 보존하고 인증 성공 후 복귀
 - **ASSUMPTION**: 웹 인증 화면의 초기 라우트 계약(`/login`, `/sign-up`, `/auth/confirm`)
-- **PROVISIONAL / TEAM REVIEW REQUIRED**: ERD I-31/E-13을 구체화한 회원 탈퇴의 문서 설계만 포함한다.
-  팀 승인 전에는 구현 계약이나 완료 범위로 간주하지 않는다.
+- **PROVISIONAL UI / TEAM REVIEW REQUIRED**: ERD I-31/E-13을 구체화한 회원 탈퇴 문서와
+  `/settings/account/withdrawal`의 비활성 상태 prototype을 포함한다. 화면은 네트워크 요청을 보내지
+  않으며 팀 승인 전에는 API 구현이나 배포 완료 범위로 간주하지 않는다.
 
 ### 제외
 
 - 프로필 상세 입력·수정, 프로필 완성도 게이트
 - 비밀번호 찾기·재설정·변경
-- 회원 탈퇴 UI·서버 구현·DB migration, 타 도메인 eligibility adapter, 공급자 정리 worker의 실제 구현
+- 회원 탈퇴 API client·서버 구현·DB migration, 타 도메인 eligibility adapter, 공급자 정리 worker의 실제 구현
 - 기기/세션 목록 화면, 특정 기기 강제 로그아웃, 전체 기기 로그아웃 UI
 - 관리자 기능과 역할 변경 기능
 - `app/` 통합 코드, 실제 Supabase/Google/Kakao 대시보드 설정, 배포 환경 변수 주입
@@ -327,14 +328,16 @@ Refresh 쿠키가 가리키는 `auth_sessions`를 Bearer Token 만료 여부와 
 E-13은 `users.deleted_at`, 전체 세션의 `USER_WITHDRAWN` 폐기, OAuth 연결 해제, 개인정보 마스킹,
 활성 사용자 범위 이메일 유일성과 새 `user_id` 재가입을 요구한다. 다만 상태별 "진행 중"의 정확한
 경계와 원자성 프로토콜은 타 도메인 담당자 승인이 없으므로 아래 `WD-*`는 기존 확정 규칙 1~23과
-52개 자동 검증 수치에 포함하지 않는다. 승인 전에는 이 문서를 근거로 endpoint, 화면, migration,
-worker를 구현하거나 배포하지 않는다.
+53개 자동 검증 중 서버 계약 완료 수치에는 포함하지 않는다. 사용자의 요청으로 영향·본인 확인·차단·
+복구 상태를 검토하는 비활성 high-fi/React 화면만 만들며, 승인 전에는 이 문서를 근거로 endpoint,
+API client, migration, worker를 구현하거나 배포하지 않는다.
 
 #### 잠정 범위와 규칙
 
 - **WD-01 [ASSUMPTION] 본인 요청만 허용** — 로그인한 현재 사용자가
   `DELETE /api/v1/users/current`로 자신의 계정을 탈퇴한다. 관리자 강제 탈퇴, 탈퇴 예약·철회,
-  설정 화면 경로는 이번 설계 밖이다. 상태 변경 전에 환경별 허용 `Origin`을 완전한 문자열로
+  실제 앱 router 연결은 이번 구현 밖이다. feature prototype의 화면 경로는
+  `/settings/account/withdrawal`로 가정한다. 상태 변경 전에 환경별 허용 `Origin`을 완전한 문자열로
   정확히 비교하고, 활성 Bearer Token과 동일한 현재 공급자/로컬 세션을 요구한다.
 - **WD-02 [ASSUMPTION] 재인증 필수** — 탈퇴 전 비밀번호 재입력 또는 연결된 OAuth 공급자의 새
   인증 왕복으로 5분 수명의 단일 목적 `reauthenticationProof`를 발급한다. proof는 `userId`, 현재
@@ -408,6 +411,7 @@ blocker가 아니라고 가정한다. 계정의 양 역할 관계를 모두 검�
 ## 웹 라우트 목록
 
 `/login`, `/sign-up`, `/auth/confirm`은 feature 원본의 high-fi 시안과 prototype 컴포넌트가 있다.
+`/settings/account/withdrawal`은 실제 API를 부르지 않는 PROVISIONAL UI prototype만 있다.
 가입·확인 화면은 `reference/project-management/register.html`의 폼 리듬과 `reopen.html`의
 “이유 → 현재 상태 → 다음 행동” 조합 패턴만 참고했고, 화면 구조는 최신 feature high-fi, 값과
 상태는 `design-system/design-tokens.md`를 따랐다. 이는 디자인·컴포넌트·라우트 helper 단계의
@@ -420,6 +424,7 @@ blocker가 아니라고 가정한다. 계정의 양 역할 관계를 모두 검�
 | `/login` | FACT — 시안·prototype 있음 | 이메일 로그인, Google/Kakao 로그인 시작, `returnTo` 수신 |
 | `/sign-up` | DECISION — feature 시안·prototype 있음, 앱 통합 대기 | 이메일/OAuth 가입, 고립 계정 복구, `CLIENT`/`FREELANCER` 역할 선택, `returnTo` 수신 |
 | `/auth/confirm` | DECISION — feature 시안·prototype 있음, 앱 통합 대기 | 렌더 전 fragment token hash를 메모리로 옮겨 주소에서 제거하고, 사용자의 명시적 확인 뒤 서버 POST 검증 |
+| `/settings/account/withdrawal` | PROVISIONAL UI — 상태 시안·presentational prototype 있음 | 탈퇴 영향, 비밀번호/연결 공급자 1개의 재인증 자리, 최종 확인, 차단·복구·완료 상태. API 요청은 보내지 않음 |
 | `/terms` | ASSUMPTION | 이용약관 읽기 전용 화면. 실제 소유 기능은 팀 통합 시 확정 |
 | `/privacy` | ASSUMPTION | 개인정보 처리방침 읽기 전용 화면. 실제 소유 기능은 팀 통합 시 확정 |
 | `/` | ASSUMPTION | 유효한 `returnTo`가 없을 때의 안전한 기본 복귀 경로 |
@@ -567,7 +572,7 @@ API 요청·응답 필드를 바꾸는 PR은 두 패키지의 DTO와 이 계약�
 
 이 문서는 오늘의 SPEC과 로컬 구현 초안의 정본이다. API 계약, 로그인·가입·이메일 확인 인터랙티브
 high-fi HTML, Q-02용 Mock 인증, 포트/서비스/인메모리 저장소/웹 훅 초안과 `prototype/run.tsx`를 같은
-규칙으로 작성했고, 2026-09-04 기준으로 로컬 자동 검증 52/52, strict scoped TypeScript 검사와 preview
+규칙으로 작성했고, 2026-09-04 기준으로 로컬 자동 검증 53/53, strict scoped TypeScript 검사와 preview
 build를 통과했다. 정확한 검증 범위와 미검증 항목은 `test-report.md`를 따른다.
 
 `@supabase/supabase-js` 2.112.4 기반 `supabase-auth.adapter.ts` 구현 초안과 결정적 fake-client PKCE
@@ -575,6 +580,7 @@ build를 통과했다. 정확한 검증 범위와 미검증 항목은 `test-repo
 성공 응답 전 cross-tab 경합 정책, DB 스키마와 7일 절대 TTL은 팀 승인 대기 중이므로 이 결과를
 라이브 인증 통합 완료나 배포 승인으로 표시하지 않는다.
 
-회원 탈퇴는 2026-09-04 기준 문서 잠정안만 추가했다. endpoint/DTO와 cross-domain port는 구현되지
-않았고 기존 52/52 검증 수치에도 포함되지 않는다. 위 review gate가 닫히기 전에는 회원 탈퇴를
-스프린트 구현 완료 또는 배포 가능으로 표시하지 않는다.
+회원 탈퇴는 2026-09-04 기준 문서 잠정안과 비활성 high-fi/React 상태 화면을 추가했다. endpoint/DTO,
+재인증 발급, cross-domain port, DB/worker와 API client는 구현되지 않았다. 53번째 자동 검증은 화면의
+필수 문구·상태·비밀값 비노출만 확인한다. 위 review gate가 닫히기 전에는 회원 탈퇴를 스프린트 구현
+완료 또는 배포 가능으로 표시하지 않는다.

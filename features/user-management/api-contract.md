@@ -596,9 +596,15 @@ HttpOnly 쿠키 때문에 로그아웃이 막혀서는 안 된다.
 ## DELETE /api/v1/users/current — PROVISIONAL / TEAM REVIEW REQUIRED
 
 현재 로그인한 사용자의 PactFive 계정을 탈퇴 상태로 전이한다. 이 endpoint는 ERD I-31/E-13을
-구체화한 **잠정안**이며 구현돼 있지 않다. 관리자 강제 탈퇴, 예약·철회, 화면 경로는 범위 밖이다.
+구체화한 **잠정안**이며 구현돼 있지 않다. 관리자 강제 탈퇴와 예약·철회는 범위 밖이다. feature에는
+`/settings/account/withdrawal` 비활성 UI prototype이 있지만 이 endpoint나 재인증 API를 호출하지 않는다.
 관련 도메인의 blocker 상태표, 공유 transaction/lock, 재인증 발급 흐름, idempotency/outbox schema,
 Supabase 계정 정리 방식과 개인정보 보존 정책이 승인되기 전에는 이 계약을 활성화하지 않는다.
+
+UI prototype은 서버 응답을 구현한 증거가 아니다. 화면은 내부 확인 문자열, 재인증 proof,
+`Idempotency-Key`, 리소스 ID·제목·금액·상대 사용자 정보를 표시하지 않고, blocker code는 고정
+allowlist의 개수·안전한 앱 내부 해결 경로로만 표현한다. 실제 API client와 오류 DTO parser는 review
+gate 승인 뒤 별도 구현한다.
 
 ### 요청과 사전 조건
 

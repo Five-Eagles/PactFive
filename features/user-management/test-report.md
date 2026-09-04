@@ -8,23 +8,24 @@
 
 ## 자동 검증
 
-- [x] 가입·확인 UI 보완 후 `npx tsx prototype/run.tsx` 통과
-  (PASS 개수: 52, FAIL 개수: 0)
+- [x] 가입·확인·회원 탈퇴 UI 보완 후 `npx tsx prototype/run.tsx` 통과
+  (PASS 개수: 53, FAIL 개수: 0)
 - [x] user-management `prototype/` 전체 범위 strict TypeScript 검사 통과 (scoped tsc: PASS)
 - [x] `npm run preview:build` 통과 (Vite production preview build)
 - [x] `flowId`와 PKCE SDK 저장소 snapshot 복원에 대한 결정적 fake-client 어댑터 테스트 통과
 - [x] 설치된 실제 SDK로 Kakao OAuth URL·PKCE snapshot 생성 no-network smoke 통과
 - [x] 로컬 브라우저 1280×720에서 로그인·가입·이메일 확인 기본 배치와 가입 복구·입력 오류·접수·
-  확인 복구·세션 충돌·로그아웃 실패 후 재시도 상태의 접근성 트리/초점 이동을 확인
+  확인 복구·세션 충돌·로그아웃 실패 후 재시도, 회원 탈퇴 기본·최종 확인·차단 상태의 접근성 트리와
+  초점 이동을 확인
 
-52건은 `spec.md` 규칙·포트·live 어댑터 경계 25건, 로그인 필수 텍스트 11건, 가입 UI 3건,
-확인 UI 3건, fragment 2건, route 1건, 웹 API 5건, 디자인 상태·금지 의존성 각 1건으로 구성된다. 이 결과는
+53건은 `spec.md` 규칙·포트·live 어댑터 경계 25건, 로그인 필수 텍스트 11건, 가입 UI 3건,
+회원 탈퇴 UI 1건, 확인 UI 3건, fragment 2건, route 1건, 웹 API 5건, 디자인 상태·금지 의존성 각 1건으로 구성된다. 이 결과는
 Mock 공급자와 인메모리 저장소를 사용한 feature 구현 초안 검증이다. 로컬 브라우저 확인도 정적
 high-fi의 배치·상태 전환만 대상으로 했으므로 실제 Supabase Auth, Google/Kakao OAuth, Postgres,
 HTTP 쿠키 왕복이나 배포 앱 통합을 통과했다는 의미는 아니다. scoped tsc와 preview build도
 `app/`의 실제 인증 라우트 통합 완료를 의미하지 않는다.
 
-## 가입·이메일 확인 UI 검증
+## 가입·이메일 확인·회원 탈퇴 UI 검증
 
 - 회원가입은 역할 → OAuth → 이름 → 이메일 → 비밀번호 순서를, 가입 복구는 이메일 → 비밀번호 →
   이름 → 역할 순서를 SSR과 브라우저 접근성 트리에서 확인했다. 복구 모드에는 OAuth가 없다.
@@ -41,18 +42,24 @@ HTTP 쿠키 왕복이나 배포 앱 통합을 통과했다는 의미는 아니�
 - 정적 CSS로 1200px shell, 840px 1열 전환, 767px/560px 모바일 규칙, 48px 입력, 44px 버튼,
   3:1 이상 interactive border 토큰, 100ms feedback과 reduced-motion 0ms 대체를 확인했다.
   실제 320px 장치와 200% 확대, 화면 읽기 도구 실사용은 아직 하지 않았다.
+- 회원 탈퇴는 영향 확인, 비밀번호 또는 연결된 공급자 1개의 재인증 자리, 최종 확인, 처리 중, 409
+  blocker, eligibility 실패, 재인증 만료, 요청 제한, 결과 불명, 로그인 필요, 완료 상태를 SSR과
+  interactive high-fi로 확인했다. 최종 확인 진입 시 “탈퇴 그만두기”로 포커스를 보내며, 탈퇴 사유,
+  내부 확인 문자열, proof, 멱등 키, blocker 식별 정보는 DOM에 렌더링하지 않는다.
+- 탈퇴 화면은 API를 호출하지 않는다. 53번째 검증은 UI 상태·필수 문구·내부 비밀값 비노출만 확인하며
+  WD-01~WD-08의 transaction, lock, idempotency/outbox, provider cleanup을 검증하지 않는다.
 
 ### ux-philosophy.md §6 자체 점검
 
 | 검증 대상 | 자체 점검 결과 |
 |---|---|
-| 상태 이해 | ready·처리 중·접수·완료·만료·확인 불가·복구·세션 충돌·요청 제한·일시 장애를 제목/notice/버튼 문구로 구분하고 다음 행동을 한 개씩 우선 표시한다. |
+| 상태 이해 | 인증 ready·처리·오류 상태와 탈퇴 영향 확인·본인 확인·최종 확인·차단·결과 불명·완료를 제목/notice/버튼 문구로 구분한다. |
 | 근거 이해 | 역할 불변, 202가 접수일 뿐 완료가 아님, 링크 방문과 명시적 POST의 차이를 화면에서 설명한다. |
 | 작업 보호 | 검증된 `returnTo`와 작성 맥락을 표시하고 일시 장애·입력 오류에서는 값을 보존한다. 비밀번호는 성공 또는 복구 권한 종료 때만 지운다. |
-| 복구 가능성 | 확인 메일 재전송·이메일 수정·가입 재시작·로그인에서 복구 시작·503 재시도 경로를 제공한다. |
-| 선택권 | 이메일/OAuth 가입, 두 역할 선택, 취소 가능한 로그인 복귀를 제공하고 이메일 확인은 자동 실행하지 않는다. |
-| 비파괴성 | 확인 전 사용자·세션을 만들지 않으며 token 소비는 명시적 버튼 뒤에만 일어난다. 완료로 오인할 성공 표현을 쓰지 않는다. |
-| 접근 가능성 | fieldset/legend, required·오류 연결, live status/alert, 오류·접수 제목 초점, 44px 이상 조작 영역, focus-visible, reduced-motion을 구현했다. 320px·200%·실화면 읽기 도구 검증은 미완료다. |
+| 복구 가능성 | 확인 메일 재전송·가입 복구·503 재시도와 함께 탈퇴 차단 항목의 안전한 내부 해결 경로, 상태 확인·결과 확인 재시도를 제공한다. |
+| 선택권 | 이메일/OAuth 가입과 역할 선택을 제공하고, 탈퇴 최종 단계에서도 강조된 “탈퇴 그만두기”로 즉시 중단할 수 있다. |
+| 비파괴성 | 확인 전 사용자·세션을 만들지 않고 탈퇴 화면도 API를 호출하지 않는다. 되돌릴 수 없는 영향과 보존 범위를 최종 실행 전에 다시 보여준다. |
+| 접근 가능성 | fieldset/legend, 오류 연결, live status/alert, 44px 이상 조작 영역, focus-visible, reduced-motion과 탈퇴 최종 확인의 취소 초점을 구현했다. 320px·200%·실화면 읽기 도구 검증은 미완료다. |
 
 ## spec.md 규칙별 확인
 
@@ -82,9 +89,9 @@ HTTP 쿠키 왕복이나 배포 앱 통합을 통과했다는 의미는 아니�
 | 22 | `R22` — 두 고정 Bearer의 정확 일치와 역할별 컨텍스트, 실제 Mock middleware 전달을 확인 | 통과 (Mock middleware) |
 | 23 | `R23` — production/preview 거부, production Mock composition 시작 차단, Authorization 원문 미기록, 미설정 live adapter fail-closed, 32바이트 미만·목적 간 재사용 키 거부를 확인 | 통과 (Mock·정적 검사) |
 
-회원 탈퇴 `WD-01`~`WD-08`은 PROVISIONAL 문서 설계이며 구현 승인 전 범위라 자동 테스트 **해당 없음**이다.
-상태표·transaction/lock·재인증·idempotency/outbox·개인정보 review gate가 닫힌 뒤 별도 규칙 테스트를
-추가한다.
+회원 탈퇴 `WD-01`~`WD-08`은 PROVISIONAL 서버 설계다. 자동 테스트는 비활성 화면 1건만 포함하며,
+상태표·transaction/lock·재인증·idempotency/outbox·개인정보 review gate가 닫힌 뒤 별도 서버 규칙
+테스트를 추가한다.
 
 ## 아직 안 되는 것 (Known Issues)
 
@@ -99,11 +106,13 @@ HTTP 쿠키 왕복이나 배포 앱 통합을 통과했다는 의미는 아니�
 - 실제 HTTP 서버와 실브라우저에서 `Set-Cookie`, `Max-Age`, `Secure`/`HttpOnly`/`SameSite`, Origin,
   `Cache-Control`, BFF 302 redirect 및 탭 간 동작을 검증하지 않았다. UI 자동 검증은 SSR·순수 helper·
   fetch contract 수준이며, 로컬 브라우저 검수도 정적 high-fi 상태 전환까지만 확인했다. 공용 preview의
-  default export는 여전히 로그인이라 신규 React 가입·확인 컴포넌트를 실제 mount한 E2E 증거는 아니다.
-- **배포 차단 — 앱 통합 미완료**: feature 원본에는 `/sign-up`·`/auth/confirm` 화면과 fragment
-  bootstrap helper가 있지만 `app/web`에는 `/login`만 등록돼 있다. React import 전 fragment 캡처와
-  두 신규 route를 앱 composition root에서 연결해야 한다. 현재 `AppRoutes`와 `LoginForm`이 각각
-  `useAuth()`를 만들어 인증 상태도 하나의 Provider/store로 합쳐야 한다. `AppShell` 아래에서는
+  default export는 여전히 로그인이라 신규 React 가입·확인·탈퇴 컴포넌트를 실제 mount한 E2E 증거는 아니다.
+- **배포 차단 — 앱 통합 미완료**: feature 원본에는 `/sign-up`·`/auth/confirm` 화면, fragment
+  bootstrap helper와 `/settings/account/withdrawal` 비활성 UI가 있지만 `app/web`에는 `/login`만
+  등록돼 있다. 탈퇴 API·재인증 흐름은 승인 전이라 연결하지 않는다. 가입·확인 두 신규 route와
+  React import 전 fragment 캡처를 앱 composition root에서 연결해야 한다. 현재 `AppRoutes`와
+  `LoginForm`이 각각 `useAuth()`를 만들어 인증 상태도 하나의 Provider/store로 합쳐야 한다.
+  `AppShell` 아래에서는
   `AuthFrame`을 `PageBody` 또는 동등한 `<main>` landmark로 감싸고 전역 header를 중복 렌더하지 않는다.
 - **배포 차단 — Vercel 경로·API rewrite**: 2026-09-04 배포 readback에서 `/`는 200이지만 `/login`,
   `/sign-up`, `/projects/new`, `/auth/confirm` 직접 진입은 404이고 `/api/v1/projects`는 502다.
@@ -114,7 +123,7 @@ HTTP 쿠키 왕복이나 배포 앱 통합을 통과했다는 의미는 아니�
   transaction/CAS를 갖춘 영속 repository 전에는 가입·확인·복구를 운영 활성화할 수 없다.
 - 저장소 전체 `npm run check:design`은 user-management가 아닌 applications/contracts-payments/reviews의
   `.success` 클래스 누락과 feature token 사본 표류 때문에 실패한다. 이번 feature의 strict tsc,
-  52/52 검증과 preview build는 별도로 통과했다.
+  53/53 검증과 preview build는 별도로 통과했다.
 - **통합 차단 이슈 — 인증 성공 응답 전 cross-tab race**: 같은 탭의 로그인·OAuth 시작·Refresh·로그아웃은
   공용 mutation queue와 Refresh coordinator로 직렬화하고, OAuth intent 쿠키를 이미 받은 뒤의
   이메일 로그인/확인/복구와 callback 경합은 원자 nonce로 막는다. 그러나 탭 A의 OAuth 시작 요청이

@@ -24,7 +24,7 @@ const AUTH_STYLES = `
   padding:48px; color:#fff; background:var(--pf-inverse); }
 .pf-auth-kicker,.pf-auth-eyebrow { margin:0 0 12px; font-size:12px; font-weight:700; letter-spacing:.2px; }
 .pf-auth-kicker { color:#8fd3d1; }
-.pf-auth-context h2 { max-width:14em; margin:0; font-size:clamp(28px,3.3vw,40px); line-height:1.2; letter-spacing:-.6px; }
+.pf-auth-context h2 { max-width:14em; margin:0; font-size:clamp(28px,3.3vw,40px); line-height:1.2; letter-spacing:-.6px; word-break:keep-all; }
 .pf-auth-context-copy { max-width:34em; margin:18px 0 0; color:#d5dce7; font-size:16px; line-height:1.65; }
 .pf-auth-return-card { border:1px solid #394760; border-radius:12px; background:var(--pf-inverse-raised); }
 .pf-auth-return-head { padding:18px 20px; border-bottom:1px solid #394760; }
@@ -89,6 +89,9 @@ const AUTH_STYLES = `
 .pf-auth-button--secondary:hover:not(:disabled) { background:var(--pf-selected); }
 .pf-auth-button--quiet { color:var(--pf-secondary); background:transparent; }
 .pf-auth-button--quiet:hover:not(:disabled) { background:var(--pf-subtle); }
+.pf-auth-button--danger { color:#fff; background:var(--pf-danger); }
+.pf-auth-button--danger:hover:not(:disabled) { background:var(--pf-danger-strong); }
+.pf-auth-button--danger:active:not(:disabled) { background:var(--pf-danger-strong); transform:translateY(1px); }
 .pf-auth-button:disabled { border-color:transparent; color:var(--pf-disabled); background:var(--pf-muted); cursor:not-allowed; }
 .pf-auth-prompt { margin:24px 0 0; padding-top:20px; border-top:1px solid var(--pf-border-subtle); color:var(--pf-secondary); text-align:center; font-size:14px; }
 .pf-auth-link { color:var(--pf-link); font-weight:600; }
@@ -125,9 +128,12 @@ type AuthFrameProps = {
   eyebrow: string;
   title: string;
   description: string;
+  contextKicker?: string;
   contextTitle: string;
   contextDescription: string;
   contextState?: string;
+  contextRows?: readonly { label: string; value: ReactNode }[];
+  contextFootnote?: ReactNode;
   returnTo?: string;
   returnLabel?: string;
   returnCardTitle?: string;
@@ -151,9 +157,12 @@ export function AuthFrame({
   eyebrow,
   title,
   description,
+  contextKicker = "CONTEXT RECOVERY",
   contextTitle,
   contextDescription,
   contextState,
+  contextRows,
+  contextFootnote = "외부 주소는 복귀 경로로 사용하지 않습니다.",
   returnTo,
   returnLabel = returnTo ? getReturnLabel(returnTo) : "가입할 때 저장한 안전한 내부 경로",
   returnCardTitle = "인증 후 계속할 작업",
@@ -174,7 +183,7 @@ export function AuthFrame({
       <div className="pf-auth-layout">
         <aside className="pf-auth-context" aria-labelledby={contextTitleId}>
           <div>
-            <p className="pf-auth-kicker">CONTEXT RECOVERY</p>
+            <p className="pf-auth-kicker">{contextKicker}</p>
             <h2 id={contextTitleId}>{contextTitle}</h2>
             <p className="pf-auth-context-copy">{contextDescription}</p>
           </div>
@@ -185,17 +194,23 @@ export function AuthFrame({
                 <span className="pf-auth-preserved">✓ {preservedLabel}</span>
               </div>
               <dl className="pf-auth-return-list">
-                <div className="pf-auth-return-row"><dt>돌아갈 위치</dt><dd>{returnLabel}</dd></div>
-                {returnTo && (
-                  <div className="pf-auth-return-row">
-                    <dt>이동 경로</dt>
-                    <dd>안전하게 확인된 내부 경로<code className="pf-auth-return-path">{returnTo}</code></dd>
-                  </div>
+                {contextRows ? contextRows.map((row) => (
+                  <div className="pf-auth-return-row" key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>
+                )) : (
+                  <>
+                    <div className="pf-auth-return-row"><dt>돌아갈 위치</dt><dd>{returnLabel}</dd></div>
+                    {returnTo && (
+                      <div className="pf-auth-return-row">
+                        <dt>이동 경로</dt>
+                        <dd>안전하게 확인된 내부 경로<code className="pf-auth-return-path">{returnTo}</code></dd>
+                      </div>
+                    )}
+                    {contextState && <div className="pf-auth-return-row"><dt>현재 상태</dt><dd>{contextState}</dd></div>}
+                  </>
                 )}
-                {contextState && <div className="pf-auth-return-row"><dt>현재 상태</dt><dd>{contextState}</dd></div>}
               </dl>
             </section>
-            <p className="pf-auth-context-note">외부 주소는 복귀 경로로 사용하지 않습니다.</p>
+            <p className="pf-auth-context-note">{contextFootnote}</p>
           </div>
         </aside>
         <div className="pf-auth-panel">

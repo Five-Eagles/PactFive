@@ -40,6 +40,7 @@ async function main() {
     EmailConfirmationScreen,
     classifyEmailConfirmationFailure,
   } = await import("./web/EmailConfirmationPage");
+  const { AccountWithdrawalScreen } = await import("./web/AccountWithdrawalPage");
   const {
     consumeEmailConfirmationFragment,
     createEmailConfirmationFragmentCapture,
@@ -1922,6 +1923,58 @@ async function main() {
     );
   });
 
+  const withdrawalHtml = [
+    renderToStaticMarkup(React.createElement(AccountWithdrawalScreen, { phase: "overview" })),
+    renderToStaticMarkup(React.createElement(AccountWithdrawalScreen, {
+      phase: "reauthentication",
+      reauthenticationMethod: { kind: "password" },
+    })),
+    renderToStaticMarkup(React.createElement(AccountWithdrawalScreen, {
+      phase: "reauthentication",
+      reauthenticationMethod: { kind: "oauth", provider: "GOOGLE" },
+    })),
+    renderToStaticMarkup(React.createElement(AccountWithdrawalScreen, { phase: "confirmation", confirmed: true })),
+    renderToStaticMarkup(React.createElement(AccountWithdrawalScreen, { phase: "processing" })),
+    renderToStaticMarkup(React.createElement(AccountWithdrawalScreen, {
+      phase: "blocked",
+      blockers: [{ code: "UNSETTLED_PAYMENT", count: 1 }, { code: "ACTIVE_DELIVERY", count: 2 }],
+    })),
+    renderToStaticMarkup(React.createElement(AccountWithdrawalScreen, { phase: "eligibility-unavailable" })),
+    renderToStaticMarkup(React.createElement(AccountWithdrawalScreen, { phase: "reauthentication-required" })),
+    renderToStaticMarkup(React.createElement(AccountWithdrawalScreen, { phase: "rate-limited", retryAfterSeconds: 30 })),
+    renderToStaticMarkup(React.createElement(AccountWithdrawalScreen, { phase: "outcome-unknown" })),
+    renderToStaticMarkup(React.createElement(AccountWithdrawalScreen, { phase: "auth-required" })),
+    renderToStaticMarkup(React.createElement(AccountWithdrawalScreen, { phase: "configuration-error" })),
+    renderToStaticMarkup(React.createElement(AccountWithdrawalScreen, { phase: "completed" })),
+  ].join("\n");
+  await test("UI-WITHDRAWAL", "탈퇴 영향·본인 확인·차단·복구·완료 상태를 비활성 화면으로 렌더한다", () => {
+    const requiredTexts = [
+      "회원 탈퇴",
+      "아직 어떤 계정 정보도 변경되지 않았습니다.",
+      "본인 확인하고 계속",
+      "현재 비밀번호",
+      "Google로 본인 확인",
+      "계정 탈퇴 최종 확인",
+      "탈퇴 그만두기",
+      "회원 탈퇴하기",
+      "탈퇴 처리 중",
+      "정산되지 않은 결제 1건",
+      "완료되지 않은 납품 2건",
+      "계정과 로그인 상태는 변경되지 않았습니다.",
+      "현재 진행 상태를 확인할 수 없어 탈퇴하지 않았습니다.",
+      "30초 후 다시 시도",
+      "처리 결과 다시 확인",
+      "공식 서비스 화면에서 다시 시도해 주세요.",
+      "외부 로그인 연결 정리는 안전하게 계속 처리됩니다.",
+    ];
+    for (const textValue of requiredTexts) {
+      assert(withdrawalHtml.includes(textValue), `탈퇴 렌더 결과에 '${textValue}'가 없음`);
+    }
+    assert(!withdrawalHtml.includes("WITHDRAW_ACCOUNT"), "내부 확인 문자열이 탈퇴 화면 DOM에 노출됨");
+    assert(!withdrawalHtml.includes("reauthenticationProof"), "재인증 proof 이름이 탈퇴 화면 DOM에 노출됨");
+    assert(typeof webEntry.AccountWithdrawalPage === "function", "탈퇴 화면 export 누락");
+  });
+
   const confirmationReadyHtml = renderToStaticMarkup(React.createElement(EmailConfirmationScreen, { phase: "ready" }));
   const confirmationSuccessHtml = renderToStaticMarkup(React.createElement(EmailConfirmationScreen, {
     phase: "success",
@@ -2022,8 +2075,9 @@ async function main() {
     assertEqual(replaced.length, 1, "fragment 주소를 두 번 수정함");
   });
 
-  await test("UNIT-ROUTES", "가입 mode와 returnTo를 안전하게 파싱하고 인증 경로를 만든다", () => {
+  await test("UNIT-ROUTES", "가입 mode·returnTo와 인증·탈퇴 화면 경로를 안전하게 관리한다", () => {
     assertEqual(AUTH_ROUTES.emailConfirmation, "/auth/confirm", "확인 라우트 상수");
+    assertEqual(AUTH_ROUTES.accountWithdrawal, "/settings/account/withdrawal", "탈퇴 prototype 라우트 상수");
     const recovery = parseSignUpRoute("?mode=recovery&returnTo=%2Fprojects%2Fnew");
     assertEqual(recovery.mode, "recovery", "가입 복구 mode 파싱");
     assertEqual(recovery.returnTo, "/projects/new", "가입 복구 returnTo 파싱");
@@ -2286,6 +2340,8 @@ async function main() {
     const signUpSource = readFileSync(path.join(here, "web", "SignUpForm.tsx"), "utf8");
     const loginHighFiSource = readFileSync(path.join(here, "..", "design", "high-fi.html"), "utf8");
     const signUpHighFiSource = readFileSync(path.join(here, "..", "design", "high-fi-sign-up.html"), "utf8");
+    const withdrawalHighFiSource = readFileSync(path.join(here, "..", "design", "high-fi-account-withdrawal.html"), "utf8");
+    const withdrawalSource = readFileSync(path.join(here, "web", "AccountWithdrawalPage.tsx"), "utf8");
     assert(foundationSource.includes("--page-max:1200px"), "정적 인증 shell 1200px 계약 누락");
     assert(authFrameSource.includes("max-width:1200px"), "prototype 인증 shell 1200px 계약 누락");
     for (const source of [foundationSource, authFrameSource]) {
@@ -2295,6 +2351,8 @@ async function main() {
     }
     assert(foundationSource.includes("[hidden] { display:none !important; }"), "상태 전환 hidden 요소가 레이아웃에 남을 수 있음");
     assert(foundationSource.includes("border:1px solid var(--border-interactive)"), "상호작용 경계 토큰 누락");
+    assert(foundationSource.includes(".button.danger"), "정적 danger 버튼 variant 누락");
+    assert(authFrameSource.includes(".pf-auth-button--danger"), "prototype danger 버튼 variant 누락");
     assert(loginSource.includes("현재 계정 로그아웃"), "로그인 세션 충돌 해소 동작 누락");
     assert(signUpSource.includes("현재 계정 로그아웃"), "회원가입 세션 충돌 해소 동작 누락");
     for (const [name, source] of [["로그인", loginHighFiSource], ["회원가입", signUpHighFiSource]] as const) {
@@ -2303,6 +2361,12 @@ async function main() {
       assert(source.includes("logout-success"), `${name} high-fi 로그아웃 성공 상태 누락`);
       assert(source.includes("현재 계정 로그아웃"), `${name} high-fi 세션 종료 동작 누락`);
     }
+    for (const requiredState of ["confirmation", "processing", "blocked", "eligibility-unavailable", "outcome-unknown", "configuration-error", "completed"]) {
+      assert(withdrawalHighFiSource.includes(`data-state="${requiredState}"`), `탈퇴 high-fi '${requiredState}' 상태 누락`);
+    }
+    assert(withdrawalHighFiSource.includes("탈퇴 그만두기"), "탈퇴 high-fi 안전 행동 누락");
+    assert(withdrawalSource.includes("cancelRef.current?.focus()"), "최종 확인 진입 시 안전 행동 초점 누락");
+    assert(!withdrawalHighFiSource.includes("WITHDRAW_ACCOUNT"), "정적 탈퇴 시안에 내부 확인 문자열 노출");
   });
 
   const prototypeSources = [
