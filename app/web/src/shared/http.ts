@@ -75,6 +75,13 @@ type RequestOptions = {
    */
   skipUnauthorizedHandler?: boolean;
   signal?: AbortSignal;
+  /**
+   * 요청별 추가 헤더 (2026-09-04, ai-pricing 통합에서 추가 — 클라이언트가 직접 발급하는
+   * `Idempotency-Key`가 필요했다. 기존 기능들은 멱등키를 서버가 리소스 ID에서 유도해 헤더가
+   * 필요 없었다). `Content-Type`·`Authorization`은 이 파일이 이미 관리하므로 여기서 덮어써도
+   * 무시된다.
+   */
+  headers?: Record<string, string>;
 };
 
 function buildUrl(path: string, query?: RequestOptions['query']): string {
@@ -95,7 +102,7 @@ async function request<T>(
   body?: unknown,
   options: RequestOptions = {},
 ): Promise<T> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...options.headers };
 
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
