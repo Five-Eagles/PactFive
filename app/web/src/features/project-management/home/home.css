@@ -26,6 +26,10 @@
   --teal-900: #073f43;
   --action-quiet: var(--teal-700);
 
+  /* 평점 별. design-tokens.md 정본에 없는 값이라 여기 둔다 —
+     시안 _tokens.css 의 --rating-star 와 같은 값이다 */
+  --rating-star: #f4a300;
+
   --r-sm: 6px;
   --r-md: 10px;
   --r-lg: 14px;

@@ -23,7 +23,7 @@ export function DevScreenNote({ screenKey }: { screenKey: NotYetScreenKey }) {
         gap: '6px 16px',
         margin: '16px 0 0',
         paddingTop: 12,
-        borderTop: '1px solid var(--border-subtle, #e5e7eb)',
+        borderTop: '1px solid var(--border-subtle)',
       }}
     >
       <dt style={{ fontWeight: 700 }}>담당</dt>

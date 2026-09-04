@@ -6,6 +6,7 @@ import { ProjectDetailPage } from './ProjectDetailPage';
 import { ProjectEditPage } from './ProjectEditPage';
 import { ProjectManagePage } from './ProjectManagePage';
 import { ProjectRegisterForm } from './ProjectRegisterForm';
+import { previewRoutes } from './preview/preview.routes';
 
 /**
  * project-management 라우트 정의 + 경로 상수.
@@ -85,6 +86,10 @@ export function projectRoutes({
       <Route path={PROJECT_ROUTES.manage} element={<ProjectManagePage clientId={clientId} />} />
       {/* 등록(/projects/new)과 마찬가지로 :projectId 라우트보다 더 구체적인 경로다 */}
       <Route path="/my/projects/:projectId/edit" element={<ProjectEditPage />} />
+
+      {/* 시안에는 있지만 아직 만들기로 정하지 않은 화면들 — 전부 ComingSoonOverlay 뒤다.
+          담당이 정해지면 그 기능 폴더로 옮기고 여기서 뺀다 (preview/preview.routes.tsx) */}
+      {previewRoutes()}
     </>
   );
 }

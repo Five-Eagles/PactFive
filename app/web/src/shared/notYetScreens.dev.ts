@@ -22,7 +22,7 @@ export type DevScreenNote = {
 export const DEV_SCREEN_NOTES: Record<NotYetScreenKey, DevScreenNote> = {
   experts: {
     owner: '유동우 (대표페이지 위성 화면)',
-    where: 'features/project-management/design/reference-proposal/experts.html',
+    where: 'app/web/src/features/project-management/preview/ (시안: design/reference-proposal/experts.html)',
     note: 'PRD 화면 목록(§7.1)에 프리랜서 탐색 화면이 없다. 만들지 말지부터 팀이 정해야 한다.',
   },
   guide: {

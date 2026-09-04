@@ -35,7 +35,8 @@ export type NotYetScreen = {
 };
 
 export const NOT_YET_SCREENS: Record<NotYetScreenKey, NotYetScreen> = {
-  experts: { name: '전문가 찾기', hasRoute: false },
+  // 2026-09-04 — 미리보기 화면이 생겼다 (project-management/preview/)
+  experts: { name: '전문가 찾기', hasRoute: true },
   guide: { name: '이용 방법', hasRoute: false },
   safety: { name: '안전한 거래', hasRoute: false },
   'footer-terms': { name: '이용약관', hasRoute: false },
