@@ -4,6 +4,10 @@
 브라우저. `Authorization: Bearer <accessToken>`. 상태 변경 POST는 `Idempotency-Key` 필수.
 Mock: `prototype/mock/review.mock.ts` (`createReviewApiMock`).
 
+브라우저 화면 경로는 `/projects/:projectId/reviews`다. 설계서 `/contracts/:contractId/review`·
+`/reviews/me`·`GET /users/:id/reviews`는 쓰지 않는다. 설계서 신설 `REVIEW_*` 코드·`SUBMITTED`
+컬럼은 만들지 않는다. 본문 필드는 `comment`이며 `content`가 아니다.
+
 ## POST /api/v1/projects/:projectId/reviews — `createReview`
 
 규칙 1~4·8·10. 당사자. `COMPLETED`만. 본문에 `direction`·`contractId` 없음.

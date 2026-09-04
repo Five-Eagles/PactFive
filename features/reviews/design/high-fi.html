@@ -12,57 +12,87 @@
 
 <div class="meta">
   <h1>상호 리뷰</h1>
-  <p>패널만 · 앱 셸 없음 · /projects/:projectId/reviews · design-system v1.0 · 규칙 11</p>
+  <p>페이지 본문 · 앱 셸 없음 · /projects/:projectId/reviews · design-system v1.0 · 규칙 11 · REV-01</p>
   <span class="fi">high-fi</span>
 </div>
 
 <section class="screen">
-  <div class="id">빈 · 상대 미작성</div>
-  <form class="panel">
-    <div class="panel-head">
-      <h2 class="title">리뷰</h2>
+  <div class="id">작성 가능 · REV-01</div>
+  <div class="review-page">
+    <header class="review-page-head">
+      <div class="review-page-head-copy">
+        <h1 class="page-title">리뷰</h1>
+        <p class="helper">쇼핑몰 웹사이트 구축</p>
+      </div>
       <span class="badge info">작성 전</span>
+    </header>
+    <div class="review-grid">
+      <aside class="review-side">
+        <article class="panel">
+          <p class="label">평가 대상</p>
+          <p class="body-strong">김민준 · 프리랜서</p>
+          <p class="helper">공개 조건이 충족되면 함께 공개됩니다.</p>
+          <p class="helper">상대가 없으면 첫 리뷰 후 14일이 지나면 이 리뷰가 공개됩니다.</p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">리뷰 제출</button>
+            <button type="button" class="btn quiet">나중에 작성</button>
+          </div>
+        </article>
+      </aside>
+      <form class="review-main panel">
+        <p class="status-copy">거래가 완료되었습니다. 별점과 태그를 고른 뒤 리뷰 제출을 누르세요.</p>
+        <fieldset class="field-row rating-fieldset">
+          <legend class="label">별점</legend>
+          <div class="rating-stars" role="radiogroup" aria-label="별점">
+            <label class="rating-star"><input type="radio" name="rating" value="1" aria-label="1점" /><span aria-hidden="true">★</span></label>
+            <label class="rating-star"><input type="radio" name="rating" value="2" aria-label="2점" /><span aria-hidden="true">★</span></label>
+            <label class="rating-star"><input type="radio" name="rating" value="3" aria-label="3점" /><span aria-hidden="true">★</span></label>
+            <label class="rating-star"><input type="radio" name="rating" value="4" aria-label="4점" /><span aria-hidden="true">★</span></label>
+            <label class="rating-star"><input type="radio" name="rating" value="5" aria-label="5점" /><span aria-hidden="true">★</span></label>
+          </div>
+          <p class="helper">1점부터 5점까지. 기본값은 없습니다.</p>
+        </fieldset>
+        <fieldset class="field-row">
+          <legend class="label">태그</legend>
+          <p class="helper">선택 · 최대 5개. 역할에 맞는 태그만 고릅니다.</p>
+          <div class="tag-list">
+            <button type="button" class="chip" aria-pressed="false">업무 태도가 전문적이에요</button>
+            <button type="button" class="chip" aria-pressed="false">소통이 원활해요</button>
+            <button type="button" class="chip" aria-pressed="false">기술 역량이 좋아요</button>
+            <button type="button" class="chip" aria-pressed="false">납기를 잘 지켜요</button>
+            <button type="button" class="chip" aria-pressed="false">결과물 품질이 좋아요</button>
+          </div>
+        </fieldset>
+        <div class="field-row">
+          <label class="label" for="review-comment">리뷰 내용</label>
+          <textarea class="field" id="review-comment" name="comment" maxlength="1000" rows="5" placeholder="선택 · 1~1,000자"></textarea>
+          <p class="helper">0 / 1000 · 이메일·전화번호·계좌번호는 적지 마세요.</p>
+        </div>
+      </form>
     </div>
-    <p class="status-copy">거래가 완료되었습니다. <strong>상대가 작성하기 전</strong>에는 상대 리뷰가 보이지 않습니다. 별점을 입력한 뒤 리뷰 작성을 누르세요.</p>
-    <div class="field-row">
-      <label class="label" for="rating">별점</label>
-      <input class="field" id="rating" name="rating" placeholder="별점" />
-      <p class="helper">1부터 5까지. 제출하면 바꿀 수 없습니다.</p>
-    </div>
-    <p class="notice info" role="status">상대 리뷰는 아직 없습니다</p>
-    <p class="helper">상대가 없으면 첫 리뷰 후 14일이 지나면 이 리뷰가 공개됩니다.</p>
-    <div class="btn-row">
-      <button type="submit" class="btn primary">리뷰 작성</button>
-    </div>
-  </form>
+  </div>
 </section>
 
 <section class="screen">
-  <div class="id">입력 오류 · 별점</div>
-  <form class="panel">
-    <div class="panel-head">
-      <h2 class="title">리뷰</h2>
-      <span class="badge info">작성 전</span>
+  <div class="id">REV-M01 확인</div>
+  <div class="overlay-backdrop open">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="review-confirm-title">
+      <h2 id="review-confirm-title" class="title">리뷰를 제출할까요?</h2>
+      <p class="status-copy">김민준 · 5점 · 매우 만족해요</p>
+      <p class="helper">제출하면 내용을 바꿀 수 없습니다. 공개 조건이 충족되면 함께 공개됩니다.</p>
+      <div class="btn-row">
+        <button type="button" class="btn primary">리뷰 제출</button>
+        <button type="button" class="btn secondary">다시 확인</button>
+      </div>
     </div>
-    <p class="status-copy">거래가 완료되었습니다. <strong>상대가 작성하기 전</strong>에는 상대 리뷰가 보이지 않습니다. 별점을 입력한 뒤 리뷰 작성을 누르세요.</p>
-    <div class="field-row">
-      <label class="label" for="rating-error">별점</label>
-      <input class="field error" id="rating-error" name="rating" placeholder="별점" aria-invalid="true" />
-      <p class="helper error">1부터 5 사이의 숫자를 입력해 주세요.</p>
-    </div>
-    <p class="notice info" role="status">상대 리뷰는 아직 없습니다</p>
-    <p class="helper">상대가 없으면 첫 리뷰 후 14일이 지나면 이 리뷰가 공개됩니다.</p>
-    <div class="btn-row">
-      <button type="submit" class="btn primary">리뷰 작성</button>
-    </div>
-  </form>
+  </div>
 </section>
 
 <section class="screen">
   <div class="id">불러오는 중</div>
-  <article class="panel" aria-busy="true">
+  <article class="review-page panel" aria-busy="true">
     <div class="panel-head">
-      <h2 class="title">리뷰</h2>
+      <h1 class="page-title">리뷰</h1>
     </div>
     <p class="helper">리뷰 화면을 불러오는 중입니다.</p>
     <div class="skeleton"></div>
@@ -72,9 +102,9 @@
 
 <section class="screen">
   <div class="id">불러오기 실패</div>
-  <article class="panel">
+  <article class="review-page panel">
     <div class="panel-head">
-      <h2 class="title">리뷰</h2>
+      <h1 class="page-title">리뷰</h1>
     </div>
     <p class="notice danger" role="alert">리뷰를 불러오지 못했습니다</p>
     <p class="status-copy">네트워크를 확인한 뒤 다시 시도해 주세요.</p>
@@ -86,9 +116,9 @@
 
 <section class="screen">
   <div class="id">409 중복</div>
-  <article class="panel">
+  <article class="review-page panel">
     <div class="panel-head">
-      <h2 class="title">리뷰</h2>
+      <h1 class="page-title">리뷰</h1>
       <span class="badge success">작성 완료</span>
     </div>
     <p class="notice info" role="status">이미 작성한 리뷰입니다</p>
@@ -98,9 +128,9 @@
 
 <section class="screen">
   <div class="id">409 미완료</div>
-  <article class="panel">
+  <article class="review-page panel">
     <div class="panel-head">
-      <h2 class="title">리뷰</h2>
+      <h1 class="page-title">리뷰</h1>
       <span class="badge warning">거래 미완료</span>
     </div>
     <p class="notice warning" role="status">거래가 완료되지 않았습니다</p>
@@ -110,9 +140,9 @@
 
 <section class="screen">
   <div class="id">409 취소</div>
-  <article class="panel">
+  <article class="review-page panel">
     <div class="panel-head">
-      <h2 class="title">리뷰</h2>
+      <h1 class="page-title">리뷰</h1>
       <span class="badge danger">취소됨</span>
     </div>
     <p class="notice danger" role="alert">취소된 거래는 리뷰할 수 없습니다</p>
@@ -121,19 +151,46 @@
 </section>
 
 <section class="screen">
-  <div class="id">제출 후 · 수정 없음</div>
-  <article class="panel">
+  <div class="id">제출 후 · 블라인드</div>
+  <article class="review-page panel">
     <div class="panel-head">
-      <h2 class="title">리뷰</h2>
+      <h1 class="page-title">리뷰</h1>
       <span class="badge success">제출됨</span>
     </div>
-    <p class="status-copy">제출한 리뷰는 다시 작성할 수 없습니다.</p>
+    <p class="notice info" role="status">리뷰가 제출되었습니다. 공개 조건이 충족되면 공개됩니다.</p>
     <p class="helper">상대가 없으면 첫 리뷰 후 14일이 지나면 이 리뷰가 공개됩니다.</p>
     <dl class="facts">
       <dt>별점</dt>
       <dd class="money">5</dd>
     </dl>
   </article>
+</section>
+
+<section class="screen">
+  <div class="id">공개 완료</div>
+  <article class="review-page panel">
+    <div class="panel-head">
+      <h1 class="page-title">리뷰</h1>
+      <span class="badge success">공개됨</span>
+    </div>
+    <p class="notice info" role="status">리뷰가 공개되었습니다.</p>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">REV-C01 · 0건</div>
+  <div class="review-page">
+    <h1 class="page-title">받은 리뷰</h1>
+    <p class="review-summary">아직 받은 리뷰 없음</p>
+  </div>
+</section>
+
+<section class="screen">
+  <div class="id">REV-C01 · 평균</div>
+  <div class="review-page">
+    <h1 class="page-title">받은 리뷰</h1>
+    <p class="review-summary">★ 4.3 · 리뷰 7개</p>
+  </div>
 </section>
 
 <section class="required">
@@ -143,21 +200,24 @@
   <table>
     <thead><tr><th>화면</th><th>종류</th><th>텍스트</th></tr></thead>
     <tbody>
-      <tr><td rowspan="4">빈</td><td>placeholder</td><td>별점</td></tr>
-      <tr><td>빈 상태</td><td>상대 리뷰는 아직 없습니다</td></tr>
+      <tr><td rowspan="4">작성 가능</td><td>라벨</td><td>별점</td></tr>
+      <tr><td>블라인드</td><td>공개 조건이 충족되면</td></tr>
       <tr><td>안내</td><td>상대가 없으면 첫 리뷰 후 14일이 지나면 이 리뷰가 공개됩니다.</td></tr>
-      <tr><td>버튼</td><td>리뷰 작성</td></tr>
+      <tr><td>버튼</td><td>리뷰 제출</td></tr>
+      <tr><td>확인</td><td>제목</td><td>리뷰를 제출할까요?</td></tr>
       <tr><td>불러오는 중</td><td>안내</td><td>리뷰 화면을 불러오는 중입니다.</td></tr>
       <tr><td rowspan="2">불러오기 실패</td><td>안내</td><td>리뷰를 불러오지 못했습니다</td></tr>
       <tr><td>버튼</td><td>다시 시도</td></tr>
       <tr><td>409 중복</td><td>안내</td><td>이미 작성한 리뷰입니다</td></tr>
       <tr><td>409 미완료</td><td>안내</td><td>거래가 완료되지 않았습니다</td></tr>
       <tr><td>409 취소</td><td>안내</td><td>취소된 거래는 리뷰할 수 없습니다</td></tr>
+      <tr><td>제출 후</td><td>안내</td><td>리뷰가 제출되었습니다. 공개 조건이 충족되면 공개됩니다.</td></tr>
       <tr><td>제출 후</td><td>안내</td><td>상대가 없으면 첫 리뷰 후 14일이 지나면 이 리뷰가 공개됩니다.</td></tr>
+      <tr><td>평균 0건</td><td>안내</td><td>아직 받은 리뷰 없음</td></tr>
     </tbody>
   </table>
   <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
-  제출 후 별점 숫자(데이터). 제출 화면에는 수정 버튼이 <strong>없어야</strong> 한다.</p>
+  상대 제출 여부. 제출 화면에는 수정 버튼이 <strong>없어야</strong> 한다. `0.0`은 쓰지 않는다.</p>
 </section>
 
 </body>

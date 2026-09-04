@@ -8,11 +8,13 @@
   방향당 1건·수정 불가 (I-23). 단독 공개 14일은 ASSUMPTION.
 - api-contract.md: `POST/GET .../reviews`, `GET .../review-summary`. PATCH 없음.
 - prototype/: 공개 API Mock(`createReviewApiMock`) + `run.tsx`.
-  `npx tsx prototype/run.tsx` → PASS 40.
-- design/: high-fi 1화면 (`high-fi.html`). 패널만 (앱 셸 없음). 라우트 `/projects/:projectId/reviews`.
-  low-fi는 `low-fi.html`에 남김.
-  오버레이·reduced-motion은 `design/panel.css` (앱 셸·stagger 없음).
-  빈·제출 화면에 14일 단독 공개 안내를 넣었다. 일수는 ASSUMPTION이다.
+  리뷰 화면은 하이브리드 REV-01(페이지 본문, ViewModel). 설계서 신설 `REVIEW_*` 코드·
+  `/contracts/:id/review` 경로는 쓰지 않는다. 작성 POST는 기존 `createReview`다.
+  확인 모달은 미리보기만(실 POST 없음). `npx tsx prototype/run.tsx`로 확인한다.
+- design/: high-fi (`high-fi.html`) 페이지 본문. `.review-grid`(1fr + 340px). 앱 셸 없음.
+  라우트 `/projects/:projectId/reviews`. low-fi는 `low-fi.html`.
+  오버레이·reduced-motion은 `design/panel.css`.
+  작성 폼은 상대 제출 여부를 숨기고 14일 단독 공개 안내만 둔다. 일수는 ASSUMPTION이다.
 - review/: 팀장 통합 요청 `review/teamlead-review-panel-api-2026-09-03.md`.
 
 ## 교차 담당
@@ -40,3 +42,4 @@
 | 2026-09-03 | 팀장 통합 요청 1장 (`review/teamlead-review-panel-api-2026-09-03.md`) |
 | 2026-09-03 | `REVIEW_REQUESTED` 발송 담당을 팀장으로. applications 손잡이는 조준영 확정 |
 | 2026-09-03 | 시안↔패널 14일 안내 문구 일치. ASSUMPTION 유지 |
+| 2026-09-04 | 하이브리드 REV-01. 작성 GET 조립은 list+summary. 계약 경로·작성 마감 14일 없음 |

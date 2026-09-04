@@ -305,20 +305,102 @@ async function main() {
     const React = await import("react");
     const { renderToStaticMarkup } = await import("react-dom/server");
     const { ReviewPanel } = await import("./web/ReviewPanel");
+    const {
+      deriveReviewUiState,
+      formatRatingSummary,
+      allowedTagsForRole,
+    } = await import("./web/review.view-model");
 
-    function htmlOf(view?: string): string {
-      return renderToStaticMarkup(React.createElement(ReviewPanel, view ? { view } : undefined));
+    function htmlOf(view?: string, extra: Record<string, unknown> = {}): string {
+      return renderToStaticMarkup(
+        React.createElement(ReviewPanel, view ? { view, ...extra } : extra),
+      );
     }
     function hasText(name: string, html: string, text: string): void {
       if (html.includes(text)) pass(name);
       else fail(name, html);
     }
 
+    const completed = {
+      transactionStatus: "COMPLETED" as const,
+      contractStatus: "SIGNED" as const,
+      viewerRole: "CLIENT" as const,
+    };
+    if (deriveReviewUiState({ ...completed, myReview: null }) === "AVAILABLE") {
+      pass("규칙 11: COMPLETED+미작성은 AVAILABLE");
+    } else {
+      fail("규칙 11: COMPLETED+미작성은 AVAILABLE", deriveReviewUiState({ ...completed, myReview: null }));
+    }
+    if (deriveReviewUiState({ ...completed, myReview: { isPublic: false } }) === "SUBMITTED_BLIND") {
+      pass("규칙 11: 본인 미공개는 SUBMITTED_BLIND");
+    } else {
+      fail("규칙 11: 본인 미공개는 SUBMITTED_BLIND", "not blind");
+    }
+    if (deriveReviewUiState({ ...completed, myReview: { isPublic: true } }) === "PUBLISHED") {
+      pass("규칙 11: isPublic은 PUBLISHED");
+    } else {
+      fail("규칙 11: isPublic은 PUBLISHED", "not published");
+    }
+    if (
+      deriveReviewUiState({
+        transactionStatus: "IN_PROGRESS",
+        contractStatus: "SIGNED",
+        viewerRole: "CLIENT",
+        myReview: null,
+      }) === "NOT_AVAILABLE"
+    ) {
+      pass("규칙 11: IN_PROGRESS는 작성 가능 아님");
+    } else {
+      fail("규칙 11: IN_PROGRESS는 작성 가능 아님", "available");
+    }
+    if (
+      deriveReviewUiState({
+        transactionStatus: "CANCELED",
+        contractStatus: "SIGNED",
+        viewerRole: "CLIENT",
+        myReview: null,
+      }) === "CANCELED"
+    ) {
+      pass("규칙 11: 취소 우선");
+    } else {
+      fail("규칙 11: 취소 우선", "not canceled");
+    }
+
+    if (formatRatingSummary(null, 0) === "아직 받은 리뷰 없음") {
+      pass("규칙 11: 평균 null은 리뷰 없음");
+    } else {
+      fail("규칙 11: 평균 null은 리뷰 없음", formatRatingSummary(null, 0));
+    }
+    const formatted = formatRatingSummary(4.26, 7);
+    if (formatted.includes("4.3") && formatted.includes("리뷰 7개") && !formatted.includes("0.0")) {
+      pass("규칙 11: 평균 4.26은 4.3");
+    } else {
+      fail("규칙 11: 평균 4.26은 4.3", formatted);
+    }
+
+    const clientCodes = allowedTagsForRole("CLIENT").map((tag) => tag.code);
+    if (clientCodes.includes("DELIVERABLE_QUALITY") && !clientCodes.includes("WORK_QUALITY")) {
+      pass("규칙 11: 의뢰인 태그는 E-19");
+    } else {
+      fail("규칙 11: 의뢰인 태그는 E-19", clientCodes);
+    }
+
     const empty = htmlOf();
     hasText("규칙 11: 필수 별점", empty, "별점");
-    hasText("규칙 11: 필수 리뷰 작성", empty, "리뷰 작성");
-    hasText("규칙 11: 빈 상대 미작성", empty, "상대 리뷰는 아직 없습니다");
+    hasText("규칙 11: 필수 리뷰 제출", empty, "리뷰 제출");
+    hasText("규칙 11: 확인 제목", empty, "리뷰를 제출할까요?");
+    hasText("규칙 11: 블라인드 안내", empty, "공개 조건이 충족되면");
     hasText("규칙 11: 빈 14일 안내", empty, "14일");
+    if (!empty.includes("상대 리뷰는 아직 없습니다") && !empty.includes("아직 작성하지 않았습니다")) {
+      pass("규칙 11: 작성 폼에 상대 제출 여부 없음");
+    } else {
+      fail("규칙 11: 작성 폼에 상대 제출 여부 없음", empty);
+    }
+    if (!empty.includes("WORK_QUALITY") && !empty.includes("PERIOD_CLOSED")) {
+      pass("규칙 11: 설계서 코드 비노출");
+    } else {
+      fail("규칙 11: 설계서 코드 비노출", empty);
+    }
     hasText("규칙 11: 로딩", htmlOf("loading"), "불러오는 중");
     hasText("규칙 11: LOAD_FAILED", htmlOf("loadFailed"), "불러오지 못했습니다");
     hasText("규칙 11: LOAD_FAILED 재시도", htmlOf("loadFailed"), "다시 시도");
@@ -326,11 +408,34 @@ async function main() {
     hasText("규칙 11: 409 미완료", htmlOf("incomplete"), "거래가 완료되지 않았습니다");
     hasText("규칙 11: 409 취소", htmlOf("canceled"), "취소된 거래는 리뷰할 수 없습니다");
     const submitted = htmlOf("submitted");
+    hasText("규칙 11: 제출 블라인드", submitted, "리뷰가 제출되었습니다. 공개 조건이 충족되면 공개됩니다.");
     hasText("규칙 11: 제출 14일 안내", submitted, "14일");
     if (!submitted.includes("수정")) {
       pass("규칙 11: 제출 후 수정 버튼 없음");
     } else {
       fail("규칙 11: 제출 후 수정 버튼 없음", submitted);
+    }
+    const forbidden = htmlOf(undefined, { uiState: "FORBIDDEN" });
+    if (!forbidden.includes("쇼핑몰 웹사이트 구축") && !forbidden.includes("김민준")) {
+      pass("규칙 11: 403 제목 숨김");
+    } else {
+      fail("규칙 11: 403 제목 숨김", forbidden);
+    }
+    const summaryEmpty = htmlOf(undefined, { surface: "public", averageRating: null, reviewCount: 0 });
+    hasText("규칙 11: 평균 없음 문구", summaryEmpty, "아직 받은 리뷰 없음");
+    if (!summaryEmpty.includes("0.0") && !summaryEmpty.includes("평점 없음")) {
+      pass("규칙 11: 평균 없음에 0.0 없음");
+    } else {
+      fail("규칙 11: 평균 없음에 0.0 없음", summaryEmpty);
+    }
+    const summary = htmlOf(undefined, { surface: "public", averageRating: 4.26, reviewCount: 7 });
+    hasText("규칙 11: 평균 표시 4.3", summary, "4.3");
+    const freelancer = htmlOf(undefined, { uiState: "AVAILABLE", viewerRole: "FREELANCER" });
+    hasText("규칙 11: 프리랜서 태그 표시명", freelancer, "요구사항이 명확해요");
+    if (!freelancer.includes("WORK_QUALITY")) {
+      pass("규칙 11: 프리랜서 HTML에 설계서 태그 코드 없음");
+    } else {
+      fail("규칙 11: 프리랜서 HTML에 설계서 태그 코드 없음", freelancer);
     }
     const allHtml = [empty, htmlOf("loading"), htmlOf("loadFailed"), submitted].join("\n");
     if (!/#[0-9A-Fa-f]{6}/.test(allHtml)) {

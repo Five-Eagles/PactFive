@@ -82,9 +82,9 @@
     `tags`(해당 방향 5종 부분집합, 빈 배열 허용). 다른 방향 태그·미등록 코드는 422.
     `contract_id`를 클라이언트가 넣으면 무시한다.
 
-11. **UX.** 라우트 `/projects/:projectId/reviews`. 상태: 로딩, 빈(본인 없음·상대 미작성),
-    `LOAD_FAILED` 재시도, 409 중복·미완료·취소 안내, 공개 전 "상대 리뷰는 아직 없습니다".
-    제출 후 수정 버튼 없음.
+11. **UX.** 라우트 `/projects/:projectId/reviews` (REV-01 페이지 본문·ViewModel). 상태: 로딩,
+    작성 가능, `LOAD_FAILED` 재시도, 409 중복·미완료·취소, 제출 후 블라인드/공개.
+    작성 폼은 상대 제출 여부를 말하지 않는다. 제출 후 수정 버튼 없음.
 
 12. **알림은 포트 발행 / 발송은 최윤석.** `REVIEW_REQUESTED`는 COMPLETED 직후
     contracts-payments가 `publishReviewRequested`로 발행한다. 이 기능은 발송하지 않는다.
