@@ -165,7 +165,8 @@
 
 10. **금액 합의는 다회차 도메인이다.** `negotiation_offer.round`가 라운드다. 활성 제안은 최신
     round 1건. 저장 enum은 `PROPOSED`·`ACCEPTED`·`REJECTED`만 (D-81). 2차 설계서 `PENDING`은
-    `PROPOSED`, `SUPERSEDED`는 이전 round다. 제안 철회는 Increment 1에서 하지 않는다.
+    `PROPOSED`, `SUPERSEDED`는 이전 round다. 과거 라운드는 화면에서 「이후 제안으로 대체됨」으로만
+    표시한다 (AGR-03). 제안 철회는 Increment 1에서 하지 않는다.
     Increment 1 화면: 의뢰인 최초 제안 → 최신 offer 수신자의 수락·재제안 또는 최종 거절 (AGR-01·AGR-02).
     최초 `proposeNegotiationOffer`는 해당 `application_id`에 `agreements`가 없으면 1건을 만든다.
     `application_id` = 수락 지원서, `proposed_by_user_id` = 제안자(Increment 1은 의뢰인),

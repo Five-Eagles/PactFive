@@ -103,6 +103,7 @@ const PREVIEW_SCREENS: PreviewScreen[] = [
   { id: "agreement", label: "합의 · 프리랜서 응답", slug: "agr-respond", uiState: "ACTION_REQUIRED" },
   { id: "agreement", label: "합의 · 재제안", slug: "agr-counter", uiState: "ACTION_REQUIRED" },
   { id: "agreement", label: "합의 · 의뢰인 응답", slug: "agr-client-action", uiState: "ACTION_REQUIRED", viewerRole: "CLIENT", offerRound: 2 },
+  { id: "agreement", label: "합의 · 이력", slug: "agr-history", uiState: "WAITING_RESPONSE", viewerRole: "FREELANCER", offerRound: 2 },
   { id: "agreement", label: "합의 · 완료", slug: "agr-done", uiState: "AGREED" },
   { id: "agreement", label: "합의 · 거절 재개", slug: "agr-reopen", uiState: "REJECTED_REOPENED" },
   { id: "agreement", label: "합의 · 거절 종료", slug: "agr-closed", uiState: "REJECTED_CLOSED" },

@@ -40,7 +40,7 @@ export type AgreementDetailViewModel = {
     amount: number;
     currency: "KRW";
   } | null;
-  history: { round: number; amount: number; label: string }[];
+  history: { round: number; amount: number; label: string; superseded: boolean }[];
   contract: { id: string; status: ContractStatus } | null;
   rejectionResult: { reopened: boolean; notReopenedReason: string | null } | null;
   permissions: { canPropose: boolean; canAccept: boolean; canReject: boolean; canCounter: boolean };
@@ -190,6 +190,7 @@ export function toAgreementViewModel(
       }
     : null;
   const offerRows = dto.offers?.length ? dto.offers : offer ? [offer] : [];
+  const latestRound = offer?.round ?? 0;
   const history = offerRows
     .slice()
     .sort((a, b) => a.round - b.round)
@@ -197,6 +198,8 @@ export function toAgreementViewModel(
       round: row.round,
       amount: row.amount,
       label: historyLabelForRound(row.round),
+      // 최신보다 작은 round만 대체됨. SUPERSEDED는 저장하지 않는다.
+      superseded: latestRound > 0 && row.round < latestRound,
     }));
 
   return {

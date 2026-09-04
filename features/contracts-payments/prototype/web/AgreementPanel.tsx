@@ -653,6 +653,7 @@ function AgreementHistory({
           <li key={item.round}>
             <span>{item.label}</span>
             <Money amount={item.amount} />
+            {item.superseded ? <span className="caption">이후 제안으로 대체됨</span> : null}
           </li>
         ))}
       </ol>
@@ -880,7 +881,7 @@ function RejectConfirmDialog({ open, onClose }: { open: boolean; onClose: () => 
         </h2>
         <p className="status-copy">
           거절하면 <strong>이 거래는 끝납니다</strong>. 프로젝트는 합의 전 상태로 돌아가고, 이
-          제안은 되돌릴 수 없습니다.
+          제안은 되돌릴 수 없습니다. 마감 전이면 모집이 다시 열릴 수 있습니다.
         </p>
         <fieldset className="choice-list">
           <legend>거절 사유</legend>

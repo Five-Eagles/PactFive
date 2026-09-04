@@ -29,7 +29,7 @@
   GET `/api/v1/projects/:projectId/cancellation` (`getCancellation`)는 프로젝트+합의·계약+무효화 결과를 조립한다.
   브라우저 `POST /cancel`은 이 폴더가 부르지 않는다.
   `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~23 Mock을 확인한다.
-  합의 화면은 하이브리드 AGR-01·AGR-02(페이지 본문, ViewModel). `/agreements` 5종 폐기 유지.
+  합의 화면은 하이브리드 AGR-01·AGR-02·AGR-03(페이지 본문, ViewModel). `/agreements` 5종 폐기 유지.
   재제안은 `POST .../negotiation-offers/:offerId/counter`. 설계서 `AGREEMENT_*` 코드는 쓰지 않는다.
   서명 화면은 하이브리드 CTR-01(페이지 본문, ViewModel). 설계서 신설 `CONTRACT_*` 코드는 쓰지 않는다.
   결제 화면은 하이브리드 PAY-01(페이지 본문, ViewModel). 설계서 신설 `PAYMENT_FORBIDDEN` 코드는 쓰지 않는다.
@@ -111,3 +111,4 @@
 | 2026-09-04 | 하이브리드 SET-01. 정산 조회 GET 조립. 지급 버튼·운영 시뮬레이션 없음 |
 | 2026-09-04 | 하이브리드 CAN-01. 취소 결과 GET 조립. A-07 POST·환불 없음 |
 | 2026-09-04 | 하이브리드 AGR-02. 수신자 재제안 Mock·화면. `/agreements` 5종·신설 오류 코드 없음 |
+| 2026-09-04 | 하이브리드 AGR-03. 과거 라운드 대체됨 표시. SUPERSEDED 저장 없음 |
