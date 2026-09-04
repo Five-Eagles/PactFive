@@ -3,120 +3,105 @@ import "../../design/_tokens.css";
 import "../../design/panel.css";
 import "./preview.css";
 import { AgreementPanel, type AgreementView } from "./AgreementPanel";
-import { ContractSignPanel, type ContractSignView } from "./ContractSignPanel";
-import { PaymentPanel, type PaymentView } from "./PaymentPanel";
+import type { AgreementUiState } from "./agreement.view-model";
+import { ContractSignPanel } from "./ContractSignPanel";
+import { DeliveryPanel } from "./DeliveryPanel";
+import type { DeliveryUiState } from "./delivery.view-model";
+import { PaymentPanel } from "./PaymentPanel";
 
-export { AgreementPanel, ContractSignPanel, PaymentPanel };
+export { AgreementPanel, ContractSignPanel, DeliveryPanel, PaymentPanel };
 
-type PreviewPanel = "agreement" | "sign" | "payment";
+type PreviewScreen =
+  | { id: "payment"; label: string; slug: string }
+  | { id: "sign"; label: string; slug: string }
+  | { id: "agreement"; label: string; slug: string; uiState?: AgreementUiState; view?: AgreementView; amountError?: boolean }
+  | {
+      id: "delivery";
+      label: string;
+      slug: string;
+      uiState?: DeliveryUiState;
+      loading?: boolean;
+      modal?: "deliver" | "approve" | "download";
+    };
 
-const PANEL_TABS: { id: PreviewPanel; label: string }[] = [
-  { id: "agreement", label: "합의" },
-  { id: "sign", label: "서명" },
-  { id: "payment", label: "결제" },
+const PREVIEW_SCREENS: PreviewScreen[] = [
+  { id: "payment", label: "결제", slug: "pay" },
+  { id: "sign", label: "서명", slug: "sign" },
+  { id: "agreement", label: "합의 · 제안 전", slug: "agr-create", uiState: "NOT_PROPOSED" },
+  { id: "agreement", label: "합의 · 입력 오류", slug: "agr-error", uiState: "NOT_PROPOSED", amountError: true },
+  { id: "agreement", label: "합의 · 응답 대기", slug: "agr-wait", uiState: "WAITING_RESPONSE" },
+  { id: "agreement", label: "합의 · 프리랜서 응답", slug: "agr-respond", uiState: "ACTION_REQUIRED" },
+  { id: "agreement", label: "합의 · 완료", slug: "agr-done", uiState: "AGREED" },
+  { id: "agreement", label: "합의 · 거절 재개", slug: "agr-reopen", uiState: "REJECTED_REOPENED" },
+  { id: "agreement", label: "합의 · 거절 종료", slug: "agr-closed", uiState: "REJECTED_CLOSED" },
+  { id: "agreement", label: "합의 · 불러오는 중", slug: "agr-loading", view: "loading" },
+  { id: "agreement", label: "합의 · 실패", slug: "agr-fail", uiState: "LOAD_FAILED" },
+  { id: "agreement", label: "합의 · 409", slug: "agr-stale", uiState: "STALE" },
+  { id: "agreement", label: "합의 · 취소", slug: "agr-canceled", uiState: "PROJECT_CANCELED" },
+  { id: "agreement", label: "합의 · 403", slug: "agr-403", uiState: "FORBIDDEN" },
+  { id: "agreement", label: "합의 · 404", slug: "agr-404", uiState: "NOT_FOUND" },
+  { id: "delivery", label: "납품 · 납품 전", slug: "dlv-ready", uiState: "READY_TO_DELIVER" },
+  { id: "delivery", label: "납품 · M01", slug: "dlv-m01", uiState: "READY_TO_DELIVER", modal: "deliver" },
+  { id: "delivery", label: "납품 · 작업 중", slug: "dlv-work", uiState: "WORK_IN_PROGRESS" },
+  { id: "delivery", label: "납품 · 검토 대기", slug: "dlv-wait", uiState: "WAITING_REVIEW" },
+  { id: "delivery", label: "납품 · 의뢰인 검토", slug: "dlv-action", uiState: "ACTION_REQUIRED" },
+  { id: "delivery", label: "납품 · M03", slug: "dlv-m03", uiState: "ACTION_REQUIRED", modal: "download" },
+  { id: "delivery", label: "납품 · M02", slug: "dlv-m02", uiState: "ACTION_REQUIRED", modal: "approve" },
+  { id: "delivery", label: "납품 · 정산 대기", slug: "dlv-settle", uiState: "SETTLEMENT_PENDING" },
+  { id: "delivery", label: "납품 · 완료", slug: "dlv-done", uiState: "COMPLETED" },
+  { id: "delivery", label: "납품 · 불러오는 중", slug: "dlv-loading", loading: true },
+  { id: "delivery", label: "납품 · 실패", slug: "dlv-fail", uiState: "LOAD_FAILED" },
+  { id: "delivery", label: "납품 · 409", slug: "dlv-stale", uiState: "STALE" },
+  { id: "delivery", label: "납품 · 취소", slug: "dlv-canceled", uiState: "PROJECT_CANCELED" },
+  { id: "delivery", label: "납품 · 403", slug: "dlv-403", uiState: "FORBIDDEN" },
+  { id: "delivery", label: "납품 · 404", slug: "dlv-404", uiState: "NOT_FOUND" },
 ];
 
-const AGREEMENT_VIEWS: { id: AgreementView; label: string }[] = [
-  { id: "create", label: "제안 전" },
-  { id: "loading", label: "불러오는 중" },
-  { id: "loadFailed", label: "불러오기 실패" },
-  { id: "stale", label: "다시 불러오기" },
-  { id: "canceled", label: "취소됨" },
-  { id: "proposed", label: "응답 대기" },
-  { id: "respond", label: "수락·거절" },
-];
-
-const SIGN_VIEWS: { id: ContractSignView; label: string }[] = [
-  { id: "ready", label: "서명하기" },
-  { id: "waiting", label: "서명 중" },
-  { id: "loading", label: "불러오는 중" },
-  { id: "loadFailed", label: "불러오기 실패" },
-  { id: "canceled", label: "취소됨" },
-];
-
-const PAYMENT_VIEWS: { id: PaymentView; label: string }[] = [
-  { id: "checkout", label: "결제 전" },
-  { id: "keyMissing", label: "연동 준비 중" },
-  { id: "pending", label: "처리 중" },
-  { id: "paid", label: "결제 완료" },
-  { id: "failed", label: "결제 실패" },
-];
-
-function PreviewSwitcher<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: { id: T; label: string }[];
-  onChange: (id: T) => void;
-}) {
-  return (
-    <div className="preview-switcher" role="toolbar" aria-label={label}>
-      {options.map((opt) => (
-        <button
-          key={opt.id}
-          type="button"
-          aria-pressed={value === opt.id}
-          onClick={() => onChange(opt.id)}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
+function initialScreenIndex(): number {
+  if (typeof window === "undefined") return 0;
+  const wanted = new URLSearchParams(window.location.search).get("screen");
+  if (!wanted) return 0;
+  const match = PREVIEW_SCREENS.findIndex((opt) => opt.slug === wanted);
+  return match >= 0 ? match : 0;
 }
 
-/** preview:dev 전용 전환. 합의·서명·결제. 앱 셸은 없다. */
+/** preview:dev. 기본은 결제 패널. 합의·납품은 상태 전환으로 본다. 앱 셸은 없다. */
 export default function PaymentsPreview() {
-  const [panel, setPanel] = useState<PreviewPanel>("payment");
-  const [agreementView, setAgreementView] = useState<AgreementView>("create");
-  const [signView, setSignView] = useState<ContractSignView>("ready");
-  const [paymentView, setPaymentView] = useState<PaymentView>("checkout");
+  const [screenIndex, setScreenIndex] = useState(initialScreenIndex);
+  const screen = PREVIEW_SCREENS[screenIndex] ?? PREVIEW_SCREENS[0];
 
   return (
     <div className="preview-root">
-      <PreviewSwitcher
-        label="패널 전환"
-        value={panel}
-        options={PANEL_TABS}
-        onChange={(id) => setPanel(id)}
-      />
-      {panel === "agreement" && (
-        <>
-          <PreviewSwitcher
-            label="합의 상태"
-            value={agreementView}
-            options={AGREEMENT_VIEWS}
-            onChange={(id) => setAgreementView(id)}
-          />
-          <AgreementPanel view={agreementView} />
-        </>
-      )}
-      {panel === "sign" && (
-        <>
-          <PreviewSwitcher
-            label="서명 상태"
-            value={signView}
-            options={SIGN_VIEWS}
-            onChange={(id) => setSignView(id)}
-          />
-          <ContractSignPanel view={signView} />
-        </>
-      )}
-      {panel === "payment" && (
-        <>
-          <PreviewSwitcher
-            label="결제 상태"
-            value={paymentView}
-            options={PAYMENT_VIEWS}
-            onChange={(id) => setPaymentView(id)}
-          />
-          <PaymentPanel view={paymentView} />
-        </>
-      )}
+      <div className="preview-switcher" role="toolbar" aria-label="contracts-payments 화면">
+        {PREVIEW_SCREENS.map((opt, index) => (
+          <button
+            key={`${opt.label}-${index}`}
+            type="button"
+            aria-pressed={screenIndex === index}
+            onClick={() => setScreenIndex(index)}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {screen.id === "payment" ? <PaymentPanel /> : null}
+      {screen.id === "sign" ? <ContractSignPanel /> : null}
+      {screen.id === "agreement" ? (
+        <AgreementPanel
+          key={screen.label}
+          uiState={screen.uiState}
+          view={screen.view}
+          amountError={screen.amountError}
+        />
+      ) : null}
+      {screen.id === "delivery" ? (
+        <DeliveryPanel
+          key={screen.label}
+          uiState={screen.uiState}
+          loading={screen.loading}
+          initialModal={screen.modal}
+        />
+      ) : null}
     </div>
   );
 }

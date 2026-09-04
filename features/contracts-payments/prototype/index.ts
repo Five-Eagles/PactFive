@@ -5,9 +5,12 @@ export {
   MOCK_FREELANCER_USER_ID,
   MOCK_OUTSIDER_USER_ID,
   MOCK_PAYMENT_ID,
+  MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
+  MOCK_DELIVERY_CONTRACT_COMPLETED,
+  MOCK_DELIVERY_CONTRACT_CANCELED,
 } from "./mock/public-api.mock";
 export { PublicApiError, isPublicApiError } from "./server/public-api.types";
-export type { GetPaymentResponse } from "./server/public-api.types";
+export type { GetPaymentResponse, GetDeliveryResponse } from "./server/public-api.types";
 export type { PreparePaymentResponse } from "./mock/payment-record.mock";
 export type { ConfirmPaymentInput, ConfirmPaymentResponse } from "./server/payment.port";
 export type { ProjectTransactionMockOptions } from "./mock/project-transaction.mock";

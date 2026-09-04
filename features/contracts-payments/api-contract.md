@@ -239,6 +239,9 @@
 
 당사자. 최신 round + 합의 상태 + 있으면 `contractId`·`contractStatus`.
 합의가 없으면 200이고 `offer`·`agreementId`·`contractId`는 `null`(빈 생성).
+AGR-01 우측 컬럼·거절 분기: `projectTitle`, `recruitmentStatus`, `transactionStatus`,
+`canceledAt`, `applicationId`. `reopened`/`notReopenedReason`은 합의 `REJECTED`일 때만
+채우고, 그 외는 `null`.
 
 ### POST /api/v1/projects/:projectId/negotiation-offers/:offerId/accept — `acceptNegotiationOffer`
 
@@ -279,6 +282,35 @@
 
 에러(공개): 401 `AUTH_REQUIRED` / 403 `PROJECT_FORBIDDEN`, 404, 409 상태 충돌, 422. 결제 금액 불일치는 `PAYMENT_AMOUNT_MISMATCH`.
 프로젝트 취소 후 서명은 409 `PROJECT_TRANSITION_CONFLICT` (화면: 취소 안내).
+
+---
+
+## 공개 API 초안 (규칙 23, 납품 Increment)
+
+브라우저. 당사자만. 설계서 신설 `DELIVERY_*` 코드는 쓰지 않는다.
+네이밍 컨벤션 예시 2경로(`POST /contracts/:id/deliveries` + `POST /deliveries/:id/approve`)는 **폐기**.
+
+### GET /api/v1/contracts/:contractId/delivery
+
+납품 행이 없으면 200이고 `delivery`는 `null`. 우측 컬럼: `projectTitle`, `transactionStatus`,
+`canceledAt`, `contractStatus`, `agreedAmount`, `paymentStatus`.
+파일은 파일명·MIME·size만. `objectKey` 없음. 단기 `downloadUrl`은 당사자 GET에만.
+승인 후 화면은 이 GET을 다시 쳐 `SETTLEMENT_PENDING`/`COMPLETED`를 정한다.
+
+### POST /api/v1/contracts/:contractId/deliveries/upload-prepare
+
+프리랜서. 제한된 업로드 URL + `objectKey`. 저장소 직접 업로드는 PactFive API가 아니다.
+
+### POST /api/v1/contracts/:contractId/deliveries/request — `requestDelivery`
+
+본문 `{ "objectKey", "message" }`. `Idempotency-Key` 필수. 성공 `DELIVERY_REQUESTED` 후
+`publishDeliveryRequested`. 업로드 실패 시 이 API를 부르지 않는다.
+
+### POST /api/v1/contracts/:contractId/deliveries/approve — `approveDelivery`
+
+의뢰인. `DELIVERY_REQUESTED`만. 새 `Idempotency-Key`. 성공 `APPROVED` 후
+`publishDeliveryApproved`. 결제 `RELEASED`일 때만 규칙 4 complete. `PAID`만이면 프로젝트는
+`IN_PROGRESS` 유지.
 
 ---
 
@@ -370,6 +402,13 @@ type CurrentNegotiationOfferResponse = {
   offer: { offerId: string; round: number; amount: number; currency: 'KRW'; offeredByUserId: string } | null;
   contractId: string | null;
   contractStatus: ContractStatus | null;
+  projectTitle: string;
+  recruitmentStatus: RecruitmentStatus;
+  transactionStatus: ProjectTransactionStatus;
+  canceledAt: string | null;
+  applicationId: string | null;
+  reopened: boolean | null;
+  notReopenedReason: NotReopenedReason | null;
 };
 type AcceptNegotiationOfferInput = { expectedRound: number };
 type RejectNegotiationOfferInput = { reasonCode: string; reason?: string };
@@ -390,6 +429,34 @@ type ConfirmPaymentResponse = {
   status: 'PAID';
 };
 type PaymentStatus = 'READY' | 'PENDING' | 'PAID' | 'FAILED';
+type DeliveryStatus = 'IN_PROGRESS' | 'DELIVERY_REQUESTED' | 'APPROVED';
+type DeliveryPaymentStatus = PaymentStatus | 'RELEASED';
+type GetDeliveryResponse = {
+  contractId: string;
+  projectId: string;
+  projectTitle: string;
+  transactionStatus: ProjectTransactionStatus;
+  canceledAt: string | null;
+  contractStatus: ContractStatus;
+  agreedAmount: number;
+  delivery: {
+    deliveryId: string;
+    status: DeliveryStatus;
+    version: number;
+    message: string | null;
+    requestedAt: string | null;
+    approvedAt: string | null;
+    file: { fileName: string; mimeType: string; sizeBytes: number } | null;
+  } | null;
+  paymentStatus: DeliveryPaymentStatus;
+  downloadUrl: string | null;
+  canRequestDelivery: boolean;
+  canApprove: boolean;
+  canDownload: boolean;
+  canReview: boolean;
+};
+type RequestDeliveryInput = { objectKey: string; message: string };
+type ApproveDeliveryInput = { expectedVersion?: number };
 type RetrievePaymentResponse = {
   orderId: string;
   amount: number;
