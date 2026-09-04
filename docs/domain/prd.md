@@ -2,12 +2,12 @@
 
 | 항목 | 내용 |
 |---|---|
-| 원본 | `docs/domain/reference/prd-v6.4.md` (HTML판: `prd-v6.4.html`) |
+| 원본 | `docs/domain/reference/prd-v6.4.md` (HTML판: `prd-v6.4.html`, 파일명은 v6.4 유지·내용은 v6.5) |
 | 작성 | 유동우 (project-management · engagement 도메인 담당) |
-| 버전 | v6.4 |
-| 반영일 | 2026-08-25 |
-| 스키마 정본 | **ERD v1.4** — PRD와의 경계는 원본 §6.11, 매핑은 §6.12 |
-| 상태 | **구현 초안 확정** — 미확정 0건 · 블로커 0건. PRD v6.4 · ERD v1.4 · 네이밍 컨벤션 v1.4
+| 버전 | v6.5 |
+| 반영일 | 2026-08-25 (v6.5 개정: 2026-09-04, 팀장) |
+| 스키마 정본 | **ERD v1.5** — PRD와의 경계는 원본 §6.11, 매핑은 §6.12 |
+| 상태 | **구현 초안 확정** — 미확정 0건 · 블로커 0건. PRD v6.5 · ERD v1.5 · 네이밍 컨벤션 v1.4
   세 문서가 같은 값을 가리킨다 |
 
 이 문서는 원본을 요약한 포인터입니다. 전체 내용(§0~§17, 부록 포함)은 원본을 직접 엽니다 —
@@ -34,6 +34,14 @@
 - **§13 API 스키마**: project-management·engagement API **13종** (A-01~A-13)
 - **engagement**: 북마크·추천 (범위는 `sdd-framework/feature-workflow.md`의 engagement 정의와
   동일 — 지원서·계약·결제·리뷰는 포함하지 않음)
+
+## v6.5에서 바뀐 것 (2026-09-04)
+
+Prisma 스키마를 처음 설계하면서(팀장) project-management 실제 구현과 대조하다 발견한 1건
+(D-91)입니다. **기능 범위 변경은 없고**, 카테고리 6종 값을 실제 구현에 맞춰 정정하는
+작업입니다 — `APP_DEVELOPMENT`→`MOBILE_APP`, `ETC`→`DATA_AI` (§8.1·§14.3). ERD의
+`business_field`도 D-63(세 곳이 같은 목록 공유)에 따라 같이 맞췄습니다. 상세 경위는
+§14.3, ERD의 E-27, `feedback_loop/2026-09-04/project-management.md` 항목 3 참고.
 
 ## v6.4에서 바뀐 것 (2026-08-25)
 

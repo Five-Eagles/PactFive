@@ -2,29 +2,30 @@
 
 | 항목 | 내용 |
 |---|---|
-| 원본 | `docs/domain/reference/erd-v1.4.html` (DBML: `docs/domain/reference/erd-v1.4.dbml`) |
+| 원본 | `docs/domain/reference/erd-v1.4.html` (DBML: `docs/domain/reference/erd-v1.4.dbml`, 파일명은 v1.4 유지·내용은 v1.5) |
 | 작성 | 김락원 (팀장) |
-| 버전 | v1.4 |
-| 근거 | `docs/domain/prd.md` §6 데이터 모델 (PRD v6.4 대조 완료) |
-| 반영일 | 2026-08-25 |
+| 버전 | v1.5 |
+| 근거 | `docs/domain/prd.md` §6 데이터 모델 (PRD v6.5 대조 완료) |
+| 반영일 | 2026-08-25 (v1.5 개정: 2026-09-04) |
 | 상태 | **구현 초안 확정** — 엔티티 수 고정 원칙은 폐기되었다(D-62·D-70·D-78 종결). 새 엔티티는 담당자를 명시하고 §6.10 검증 범위에 추가하는 방식으로 계속 확장될 수 있다 |
 
 이 문서는 원본을 요약한 포인터입니다. 필드 단위 상세, 불변식 30개 매핑, DBML로 표현 못하는
 SQL 제약, 확장 지점은 원본 HTML을 직접 엽니다.
 
-## 엔티티 19종 (담당자별)
+## 엔티티 20종 (담당자별)
 
 | 담당자 | 엔티티 |
 |---|---|
-| 오민혁 | `users`, `auth_sessions`, `client_profiles`, `freelancer_profiles`, `skills`, `freelancer_skills` |
+| 오민혁 | `users`, `auth_sessions`, `registration_intents`, `client_profiles`, `freelancer_profiles`, `skills`, `freelancer_skills` |
 | 유동우 | `projects`, `project_skills`, `bookmarks` |
 | 최윤석 | `applications`, `notifications` |
 | 조준영 | `agreements`, `negotiation_offer`, `contracts`, `contract_signature_audits`, `payments`, `deliveries`, `reviews` |
 | 오민혁 | `pricing_analyses` |
 
-`auth_sessions`(E-22)와 `negotiation_offer`(E-25)는 v1.3~v1.4에서 신설된 엔티티다 — 과거 v1.2의
-"17종 고정" 원칙(구 E-01)은 PRD §6.1 D-62에서 이미 폐기된 것으로 확인되어 철회됐다 (아래
-"최근 확정 사항" 참고). 담당자는 자기 담당 절만 확인하면 된다 (원본 §6.10 검증 범위).
+`auth_sessions`(E-22)와 `negotiation_offer`(E-25)는 v1.3~v1.4에서, `registration_intents`(E-30,
+v1.5)는 2026-09-04에 신설된 엔티티다 — 과거 v1.2의 "17종 고정" 원칙(구 E-01)은 PRD §6.1 D-62에서
+이미 폐기된 것으로 확인되어 철회됐다 (아래 "최근 확정 사항" 참고). 담당자는 자기 담당 절만
+확인하면 된다 (원본 §6.10 검증 범위).
 
 ## enum 값 목록 (저장 enum 12종)
 
@@ -51,9 +52,10 @@ SQL 제약, 확장 지점은 원본 HTML을 직접 엽니다.
 
 | enum | 값 |
 |---|---|
-| `project_category` | `WEB_DEVELOPMENT` · `APP_DEVELOPMENT` · `DESIGN` · `MARKETING` · `PLANNING` · `ETC` (6종, D-12) |
-| `business_field` | `project_category`와 같은 6종 재사용. `ETC`일 때만 `business_field_etc` 자유 입력 |
+| `project_category` | `WEB_DEVELOPMENT` · `MOBILE_APP` · `DESIGN` · `DATA_AI` · `PLANNING` · `MARKETING` (6종, D-12·**D-91로 값 정정**) |
+| `business_field` | `project_category`와 같은 6종 재사용(D-63). `business_field_etc` 자유 입력 트리거 필드는 오민혁 확인 필요 |
 | `skill_group` | `FRONTEND` · `BACKEND` · `MOBILE` · `DATA_INFRA` · `DESIGN` · `MARKETING` · `PLANNING` · `ETC` (8종, 필터 UI 그룹핑용) |
+| `budget_source` | `CLIENT_INPUT` · `AI_ANALYSIS` (2종, E-31 신설 — CR-0007 종결) |
 
 알림 종류 `notification_type` (13값)은 **네이밍 컨벤션 §10 `NotificationType`이 정본**이며 이
 ERD와 항상 같은 목록이어야 한다 (PRD D-76·D-86).
@@ -68,9 +70,10 @@ ERD와 항상 같은 목록이어야 한다 (PRD D-76·D-86).
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | `usr_01H8X…` 형식 |
+| `id` | varchar(30) | PK | `usr_01H8X…` 형식. PactFive 자체 발급 ID |
+| `auth_user_id` | varchar(64) | NOT NULL, UNIQUE | **(E-29 신설, v1.5)** Supabase `auth.users` UUID. `id`와 별개 값 — 매핑 키가 ERD에 없어 코드가 이미 쓰던 값을 뒤늦게 반영 |
 | `email` | varchar(255) | NOT NULL, 부분 UNIQUE(활성 사용자 범위) | 소셜 로그인 연동 키 |
-| `password_hash` | varchar(255) | NULL | 해싱 저장. 소셜 전용 계정은 비어 있음 |
+| `password_hash` | varchar(255) | NULL | **(E-28 정정, v1.5)** 실사용 안 함 — ADR-0008(Supabase Auth 채택)이 비밀번호 해싱·검증을 Supabase에 위임해, 서버 코드 어디서도 이 컬럼을 안 쓴다. 영구 NULL 예상. 오민혁 확인 후 제거 검토 |
 | `name` | varchar(50) | NOT NULL | 이름 |
 | `role` | `user_role` enum | NOT NULL | `CLIENT` \| `FREELANCER` |
 | `profile_image_url`, `bio` | text | NULL | 공통 프로필 |
@@ -107,7 +110,26 @@ ERD와 항상 같은 목록이어야 한다 (PRD D-76·D-86).
 즉시 폐기(`revoked_reason='REUSE_DETECTED'`). 비밀번호 변경·전체 로그아웃 시 사용자의 미폐기
 세션 전체를 일괄 `revoked_at` 처리. 물리 삭제하지 않는다(감사 목적 보존).
 
-## 엔티티별 필드 정의 (users · auth_sessions 제외 17종)
+## `registration_intents` 엔티티 (v1.5 신설 — E-30, 오민혁 담당)
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `auth_user_id` | varchar(64) | PK | Supabase `auth.users` UUID. 이 시점엔 아직 `users` 행이 없다(이메일 확인 전) |
+| `email` | varchar(255) | NOT NULL | — |
+| `name` | varchar(50) | NOT NULL | — |
+| `role` | `user_role` enum | NOT NULL | — |
+| `return_to` | text | NOT NULL | 인증 완료 후 복귀 경로 |
+| `nonce` | varchar(100) | NOT NULL | — |
+| `issued_at` | timestamptz | NOT NULL | — |
+| `expires_at` | timestamptz | NOT NULL | — |
+| `recovery_expires_at` | timestamptz | NOT NULL | — |
+
+이메일 확인 대기 중인 가입 시도를 담는 임시 상태 테이블이다. 거래 이력이 아니므로 물리 삭제
+가능(인증 완료 시 정리, 만료분은 배치로 정리 — 배치 자체는 아직 없음, 리스크로 남김). 원래
+`user-management`의 `RegistrationIntentRepository`로만 구현돼 있었고 ERD엔 없었다 —
+feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 필요성을 남겨 뒀다.
+
+## 엔티티별 필드 정의 (users · auth_sessions · registration_intents 제외 17종)
 
 **(Fact)** 컬럼명·타입·NOT NULL 여부는 원본 `docs/domain/reference/erd-v1.4.html`의 다이어그램에서
 직접 추출한 값입니다. **(Assumption)** "의미" 칸 중 원본 프로즈(설계 원칙, 확장 지점 설명)에
@@ -185,6 +207,8 @@ ERD와 항상 같은 목록이어야 한다 (PRD D-76·D-86).
 | `description` | text | NOT NULL | — (원본 §3 해당 절 참고) |
 | `category` | project_category | NOT NULL | — (원본 §3 해당 절 참고) |
 | `budget_amount` | integer | NOT NULL | — (원본 §3 해당 절 참고) |
+| `budget_source` | budget_source | NOT NULL, DEFAULT `CLIENT_INPUT` | **(v1.5 신설, E-31)** 예산이 사용자 입력인지 AI 분석 결과인지. CR-0007 종결 — Trust by Evidence 원칙(ux-philosophy.md §6) 위반 방지. 공개 응답엔 넣지 않음(등록 의뢰인만 봄) |
+| `budget_source_at` | timestamptz | NOT NULL, DEFAULT `now()` | **(v1.5 신설, E-31)** 출처가 정해진 시각 |
 | `recruitment_start_at` | timestamptz | NULL | — (원본 §3 해당 절 참고) |
 | `recruitment_deadline_at` | timestamptz | NOT NULL | — (원본 §3 해당 절 참고) |
 | `recruitment_status` | recruitment_status | NOT NULL | 모집 상태 (`RecruitmentStatus`, PRD §2 정본) |
@@ -421,6 +445,18 @@ ERD와 항상 같은 목록이어야 한다 (PRD D-76·D-86).
 - **(v1.4)** 재모집 시 모집 마감일(365일 상한) 기준점을 "현재 모집 회차 시작 시각"으로 명확화
   (I-28, PRD D-85). 재모집 API(A-13)의 처리 순서는 **시작 시각 갱신 → 상한 검증**이다 — PRD
   v6.4 D-90이 이 규칙을 A-13 스펙 본문에 명시했다 (이전에는 ERD 컬럼 주석에만 있었음)
+- **(v1.5, 2026-09-04)** 팀장이 Prisma 스키마를 처음 설계하며 발견한 정본-구현 불일치 5건 정정·신설
+  (PRD D-91):
+  - `project_category`·`business_field` 값 정정 — `APP_DEVELOPMENT`→`MOBILE_APP`,
+    `ETC`→`DATA_AI` (E-27). 실제 구현이 v1.4 확정 이후 이 값을 이미 일관되게 써 왔던 것을
+    문서가 뒤늦게 반영. D-63(세 곳이 같은 6종 공유)에 따라 `business_field`도 같이 맞췄다
+  - `users.password_hash` 노트 정정 — ADR-0008(Supabase Auth 채택)로 실사용 안 함, 영구 NULL
+    예상 (E-28)
+  - `users.auth_user_id` 신설 — Supabase `auth.users` UUID 매핑 키. 코드는 이미 쓰고 있었으나
+    ERD엔 없었음 (E-29)
+  - `registration_intents` 신설 — 20번째 엔티티. 이메일 확인 대기 중인 가입 시도 저장소 (E-30)
+  - `projects.budget_source`/`budget_source_at` 신설 — CR-0007 종결. AI 단가 분석의 예산
+    덮어쓰기 사실을 화면에 노출 (E-31)
 
 엔티티 수 고정 원칙 폐기(D-62·D-70)에 따라 앞으로도 새 엔티티는 담당자 명시 + §6.10 검증 범위
 추가만으로 계속 신설될 수 있다. 전체 Decision Log는 원본 §9(Decision Log), PRD 부록 E 참고.

@@ -76,7 +76,14 @@ M2까지 4일 남았다.
 > 아래는 이 결정이 실제로 어떻게 실행됐는지에 대한 기록이다. §4~§5의 결정 내용을 바꾸는
 > 것이 아니다 (`sdd-framework/adr-process.md`의 ADR 불변성 규칙 참고).
 
-- `features/sample-login/` 재작성 필요 (자체 JWT → Supabase Auth 방식).
+- `features/sample-login/` 재작성 필요 (자체 JWT → Supabase Auth 방식) — **2026-09-04 기준
+  아직 안 됨.** 데모/학습용 샘플 기능이라 배포 영향은 없음, 리스크로만 기록.
 - `app/server/AGENTS.md`의 "인증 방식 미정" 항목을 이 결정으로 해소하고 갱신했다.
 - `docs/naming-convention.md` §12에 Supabase 관련 환경 변수(`SUPABASE_URL`,
-  `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` 등) 추가가 필요하다 — 아직 반영 전.
+  `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` 등) 추가 — **2026-09-04 반영 완료**
+  (예시를 `JWT_ACCESS_SECRET`·`JWT_REFRESH_SECRET`에서 `SUPABASE_*` 3종으로 교체).
+- `docs/domain/reference/erd-v1.4.dbml`(ERD) `users.password_hash` 컬럼 노트 정정 —
+  **2026-09-04 반영 완료 (E-28).** 이 결정이 이미 확정한 대로 "비밀번호 해싱은 Supabase가
+  전담"임을 ERD 컬럼 노트에 뒤늦게 반영했다(실사용 없음, 영구 NULL 예상). Prisma 스키마
+  설계 중 이 컬럼이 어디서도 안 쓰인다는 걸 발견해 정정했다 — feedback_loop/2026-09-04/
+  project-management.md 참고.
