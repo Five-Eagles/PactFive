@@ -30,6 +30,8 @@ import {
   type InvalidateAgreementResponse,
   type PaymentProjectTransactionStatus,
   type SettlementProjectTransactionStatus,
+  type CounterNegotiationOfferInput,
+  type NegotiationOfferView,
   type ProposeNegotiationOfferInput,
   type RejectNegotiationOfferInput,
   type RequestDeliveryInput,
@@ -155,6 +157,7 @@ export function createPublicApiMock(
   const audits: SignatureAudit[] = [];
   const acceptIdempotency = new Map<string, CurrentNegotiationOfferResponse>();
   const rejectIdempotency = new Map<string, CurrentNegotiationOfferResponse>();
+  const counterIdempotency = new Map<string, CurrentNegotiationOfferResponse>();
   const restoreByProject = new Map<
     string,
     { reopened: boolean; notReopenedReason: NotReopenedReason | null }
@@ -224,6 +227,43 @@ export function createPublicApiMock(
     return row.offers[row.offers.length - 1];
   }
 
+  /** 최신 offer 작성자가 의뢰인이면 수신자는 프리랜서, 아니면 의뢰인. */
+  function latestRecipientUserId(
+    ctx: ProjectNegotiationContextResponse,
+    offer: OfferRow,
+  ): string {
+    return offer.offeredByUserId === ctx.clientId ? MOCK_FREELANCER_USER_ID : ctx.clientId;
+  }
+
+  function assertLatestRecipient(
+    ctx: ProjectNegotiationContextResponse,
+    offer: OfferRow,
+    actorUserId: string,
+  ): void {
+    if (actorUserId !== latestRecipientUserId(ctx, offer)) {
+      throw new PublicApiError("PROJECT_FORBIDDEN", "이 프로젝트에 대한 권한이 없습니다.");
+    }
+  }
+
+  function assertNotCanceled(ctx: ProjectNegotiationContextResponse): void {
+    if (ctx.transactionStatus === "CANCELED" || ctx.canceledAt) {
+      throw new DomainContractError(
+        "PROJECT_TRANSITION_CONFLICT",
+        "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+      );
+    }
+  }
+
+  function toOfferView(offer: OfferRow): NegotiationOfferView {
+    return {
+      offerId: offer.offerId,
+      round: offer.round,
+      amount: offer.amount,
+      currency: "KRW",
+      offeredByUserId: offer.offeredByUserId,
+    };
+  }
+
   function toCurrent(
     projectId: string,
     ctx: ProjectNegotiationContextResponse,
@@ -258,6 +298,7 @@ export function createPublicApiMock(
       applicationId: agreement?.applicationId ?? ctx.acceptedApplicationId,
       reopened,
       notReopenedReason,
+      offers: agreement ? agreement.offers.map(toOfferView) : [],
     };
   }
 
@@ -402,6 +443,54 @@ export function createPublicApiMock(
       return toCurrent(projectId, ctx);
     },
 
+    async counterNegotiationOffer(
+      projectId: string,
+      offerId: string,
+      actorUserId: string,
+      input: CounterNegotiationOfferInput,
+    ): Promise<CurrentNegotiationOfferResponse> {
+      const ctx = await requireParty(projectId, actorUserId);
+      const idemKey = `negotiation-counter-${offerId}-${actorUserId}-${input.expectedRound}-${input.amount}`;
+      const cached = counterIdempotency.get(idemKey);
+      if (cached) return { ...cached };
+      assertNotCanceled(ctx);
+      if (!input.amount || input.currency !== "KRW") {
+        throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
+          { field: "amount", reason: "required" },
+        ]);
+      }
+      const agreement = agreementFor(projectId);
+      if (!agreement) {
+        throw new DomainContractError("PROJECT_NOT_FOUND", "합의를 찾을 수 없습니다.");
+      }
+      const offer = latestOffer(agreement);
+      if (offer.offerId !== offerId || input.expectedRound !== offer.round) {
+        throw new DomainContractError(
+          "PROJECT_TRANSITION_CONFLICT",
+          "프로젝트 정보가 변경되었습니다. 새로고침 후 다시 시도해 주세요.",
+        );
+      }
+      assertLatestRecipient(ctx, offer, actorUserId);
+      if (agreement.status !== "PROPOSED" || ctx.transactionStatus !== "CONTRACT_PENDING") {
+        throw new DomainContractError(
+          "PROJECT_TRANSITION_CONFLICT",
+          "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+        );
+      }
+      const nextRound = offer.round + 1;
+      agreement.offers.push({
+        offerId: `ofr_${projectId}_${nextRound}`,
+        round: nextRound,
+        amount: input.amount,
+        offeredByUserId: actorUserId,
+        rejectedReason: null,
+      });
+      agreement.agreedAmount = input.amount;
+      const current = toCurrent(projectId, ctx);
+      counterIdempotency.set(idemKey, current);
+      return current;
+    },
+
     async acceptNegotiationOffer(
       projectId: string,
       offerId: string,
@@ -423,9 +512,8 @@ export function createPublicApiMock(
           "프로젝트 정보가 변경되었습니다. 새로고침 후 다시 시도해 주세요.",
         );
       }
-      if (actorUserId !== MOCK_FREELANCER_USER_ID) {
-        throw new PublicApiError("PROJECT_FORBIDDEN", "이 프로젝트에 대한 권한이 없습니다.");
-      }
+      assertLatestRecipient(ctx, offer, actorUserId);
+      assertNotCanceled(ctx);
       if (agreement.status === "ACCEPTED") {
         const current = toCurrent(projectId, ctx);
         acceptIdempotency.set(idemKey, current);
@@ -475,7 +563,7 @@ export function createPublicApiMock(
       actorUserId: string,
       input: RejectNegotiationOfferInput,
     ): Promise<CurrentNegotiationOfferResponse> {
-      await requireParty(projectId, actorUserId);
+      const ctx = await requireParty(projectId, actorUserId);
       const agreement = agreementFor(projectId);
       if (!agreement) {
         throw new DomainContractError("PROJECT_NOT_FOUND", "합의를 찾을 수 없습니다.");
@@ -490,13 +578,18 @@ export function createPublicApiMock(
           "프로젝트 상태가 변경되어 처리할 수 없습니다.",
         );
       }
-      if (actorUserId !== MOCK_FREELANCER_USER_ID) {
-        throw new PublicApiError("PROJECT_FORBIDDEN", "이 프로젝트에 대한 권한이 없습니다.");
-      }
+      assertLatestRecipient(ctx, offer, actorUserId);
+      assertNotCanceled(ctx);
       if (!input.reasonCode) {
         throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
           { field: "reasonCode", reason: "required" },
         ]);
+      }
+      if (agreement.status !== "PROPOSED") {
+        throw new DomainContractError(
+          "PROJECT_TRANSITION_CONFLICT",
+          "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+        );
       }
       agreement.status = "REJECTED";
       agreement.respondedAt = nowIso;
@@ -505,7 +598,7 @@ export function createPublicApiMock(
         negotiationId: agreement.agreementId,
         offerId,
         actorUserId,
-        reason: "FREELANCER_REJECTED",
+        reason: actorUserId === ctx.clientId ? "CLIENT_REJECTED" : "FREELANCER_REJECTED",
         requestId: `req_reject_${offerId}`,
         idempotencyKey: idemKey,
         occurredAt: nowIso,
@@ -514,8 +607,8 @@ export function createPublicApiMock(
         reopened: restored.reopened,
         notReopenedReason: restored.notReopenedReason,
       });
-      const ctx = await projects.getProjectNegotiationContext(projectId);
-      const current = toCurrent(projectId, ctx);
+      const afterRestore = await projects.getProjectNegotiationContext(projectId);
+      const current = toCurrent(projectId, afterRestore);
       rejectIdempotency.set(idemKey, current);
       return current;
     },

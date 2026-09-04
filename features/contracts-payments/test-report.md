@@ -1,17 +1,19 @@
 # contracts-payments 테스트 결과
 
 담당자: 조준영            테스트 날짜: 2026-09-04
-테스트한 커밋: 커밋 전 (`run.tsx` AGR-01·CTR-01·DLV-01·PAY-01·SET-01·CAN-01 검증 포함)
+테스트한 커밋: 커밋 전 (`run.tsx` AGR-01·AGR-02·CTR-01·DLV-01·PAY-01·SET-01·CAN-01 검증 포함)
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 229, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 246, FAIL 개수: 0)
 
 키 없는 환경. 규칙 9 sandbox는 「해당 없음」 1건 PASS.
 
 정산은 slug `set-eligible` 등. `.settlement-grid`(본문 + 340px). 지급 실행 버튼 없음.
 
 취소는 slug `can-available`·`can-m01`·`can-followup` 등. `.cancellation-grid`(본문 + 340px). A-07 POST 없음. 202 후처리는 취소 실패가 아니다. 브라우저 자동화는 없어 `run.tsx` SSR로 확인했다.
+
+합의 재제안은 slug `agr-counter`·`agr-client-action`. 수신자만 CTA. `/agreements/{id}` 5종·`AGREEMENT_*` 코드 없음.
 
 ## spec.md 규칙별 확인
 
@@ -26,15 +28,15 @@
 | 7 호출 순서 | mark → start → complete · 납품 Mock 경로만 납품 publish | 통과 |
 | 8 오류 코드 | 5종 코드·에러 봉투만 | 통과 |
 | 9 PaymentGateway | Mock 승인·키 없음 Mock 유지 | 통과 |
-| 10~13 합의·서명 | 제안·수락→DRAFT·SIGNING·SIGNED·서명 멱등 | 통과 |
+| 10~13 합의·서명 | 제안·재제안·수락→DRAFT·SIGNING·SIGNED·서명 멱등 | 통과 |
 | 14 샌드박스 결제 범위 | 웹훅 E2E 없음 | 안 함 (해당 없음) |
 | 15 취소 무효화 | NOT_NEEDED·DONE·멱등 | 통과 |
-| 16 공개 API 경로 | GET payment·settlement·cancellation 당사자 200 · 비당사자 403 · 없음 404 | 통과 |
+| 16 공개 API 경로 | GET payment·settlement·cancellation 당사자 200 · 비당사자 403 · 없음 404 · counter 수신자만 | 통과 |
 | 17 라우트·UX | CAN-01 `.../cancellation`. 후처리≠실패. AGR 취소 vs 거절 구분. CTR 서명 보존 | 통과 |
 | 18 Increment 1 테스트 | 규칙 22로 이동 | 안 함 (해당 없음) |
 | 19~22 | FAILED 재시도·계약 필드·백로그 로딩/409/취소 숨김 | 통과 |
 | 23 납품 Increment | APPROVED+PAID≠완료 · 정산 확인 링크 | 통과 |
-| UI(design/web) | AGR·CTR·DLV·PAY·SET·CAN-01. 1280 2열 / 모바일 스택 | 통과 |
+| UI(design/web) | AGR·AGR-02 재제안·CTR·DLV·PAY·SET·CAN-01. 1280 2열 / 모바일 스택 | 통과 |
 
 규칙 4 I-30: APPROVED∧RELEASED 전에 complete 포트를 부르지 않는다.
 

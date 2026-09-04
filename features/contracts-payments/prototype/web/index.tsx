@@ -43,7 +43,7 @@ type PreviewScreen =
       loading?: boolean;
       modal?: "sign" | "signed";
     }
-  | { id: "agreement"; label: string; slug: string; uiState?: AgreementUiState; view?: AgreementView; amountError?: boolean }
+  | { id: "agreement"; label: string; slug: string; uiState?: AgreementUiState; view?: AgreementView; amountError?: boolean; viewerRole?: "CLIENT" | "FREELANCER"; offerRound?: number }
   | {
       id: "delivery";
       label: string;
@@ -101,6 +101,8 @@ const PREVIEW_SCREENS: PreviewScreen[] = [
   { id: "agreement", label: "합의 · 입력 오류", slug: "agr-error", uiState: "NOT_PROPOSED", amountError: true },
   { id: "agreement", label: "합의 · 응답 대기", slug: "agr-wait", uiState: "WAITING_RESPONSE" },
   { id: "agreement", label: "합의 · 프리랜서 응답", slug: "agr-respond", uiState: "ACTION_REQUIRED" },
+  { id: "agreement", label: "합의 · 재제안", slug: "agr-counter", uiState: "ACTION_REQUIRED" },
+  { id: "agreement", label: "합의 · 의뢰인 응답", slug: "agr-client-action", uiState: "ACTION_REQUIRED", viewerRole: "CLIENT", offerRound: 2 },
   { id: "agreement", label: "합의 · 완료", slug: "agr-done", uiState: "AGREED" },
   { id: "agreement", label: "합의 · 거절 재개", slug: "agr-reopen", uiState: "REJECTED_REOPENED" },
   { id: "agreement", label: "합의 · 거절 종료", slug: "agr-closed", uiState: "REJECTED_CLOSED" },
@@ -201,6 +203,8 @@ export default function PaymentsPreview() {
           uiState={screen.uiState}
           view={screen.view}
           amountError={screen.amountError}
+          viewerRole={screen.viewerRole}
+          offerRound={screen.offerRound}
         />
       ) : null}
       {screen.id === "delivery" ? (

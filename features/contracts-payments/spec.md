@@ -166,14 +166,14 @@
 10. **금액 합의는 다회차 도메인이다.** `negotiation_offer.round`가 라운드다. 활성 제안은 최신
     round 1건. 저장 enum은 `PROPOSED`·`ACCEPTED`·`REJECTED`만 (D-81). 2차 설계서 `PENDING`은
     `PROPOSED`, `SUPERSEDED`는 이전 round다. 제안 철회는 Increment 1에서 하지 않는다.
-    Increment 1 화면: 의뢰인 최초 제안 → 프리랜서 수락 또는 최종 거절 (프론트 AGR-01).
+    Increment 1 화면: 의뢰인 최초 제안 → 최신 offer 수신자의 수락·재제안 또는 최종 거절 (AGR-01·AGR-02).
     최초 `proposeNegotiationOffer`는 해당 `application_id`에 `agreements`가 없으면 1건을 만든다.
     `application_id` = 수락 지원서, `proposed_by_user_id` = 제안자(Increment 1은 의뢰인),
     `agreed_amount` = 이번 offer `offered_amount` (`PROPOSED`여도 NOT NULL), `status` =
     `PROPOSED`, `responded_at` = null. 이어서 offer round 1. Increment 1은 지원서당 합의 1건
     (I-15). 수락·거절 시 `responded_at`을 찍고 거절 offer에는 `rejected_reason`을 남긴다.
-    재제안 API는 계약에 두되 Increment 1 테스트 범위 밖이다. 진입은 `AcceptedApplicationHandoff`
-    (`CONTRACT_PENDING` + 수락 지원 1건, 규칙 7).
+    재제안은 AGR-02 `counterNegotiationOffer`다. 제안 철회는 Increment 밖이다. 진입은
+    `AcceptedApplicationHandoff` (`CONTRACT_PENDING` + 수락 지원 1건, 규칙 7).
 
 11. **수락은 합의 확정과 계약 `DRAFT` 생성을 한 트랜잭션에서 한다.** `acceptNegotiationOffer`.
     최신 round의 수신자만. 성공 후 `agreements.status = ACCEPTED`, `contracts.status = DRAFT`.
@@ -204,6 +204,7 @@
 16. **공개 API 경로 (함수명이 정본).** Increment 1 REST:
     `POST /api/v1/projects/:projectId/negotiation-offers` (`proposeNegotiationOffer`),
     `GET /api/v1/projects/:projectId/negotiation-offers/current`,
+    `POST .../negotiation-offers/:offerId/counter` (`counterNegotiationOffer`),
     `POST .../negotiation-offers/:offerId/accept` (`acceptNegotiationOffer`),
     `POST .../negotiation-offers/:offerId/reject` (`rejectNegotiationOffer`),
     `GET /api/v1/contracts/:contractId` (규칙 20), `POST /api/v1/contracts/:contractId/sign`,
@@ -228,7 +229,7 @@
     변경 버튼 숨김 (프론트 v2.0). 서명·결제도 같은 패턴. 취소된 프로젝트 서명은
     "프로젝트가 취소되었습니다".
 
-18. **Increment 1 백로그·테스트는 규칙 22.** 재제안·철회·에스크로·환불은 Increment 밖이다.
+18. **Increment 1 백로그·테스트는 규칙 22.** 재제안은 AGR-02. 철회·에스크로·환불은 Increment 밖이다.
 
 19. **계약·결제 전이표.** `payments.status`와 규칙 6 `paymentPendingAt`은 다른 칸이다.
     `RELEASED`/`REFUNDED`는 Increment 1 밖.
@@ -263,7 +264,7 @@
     `design/` high-fi 3화면(합의·서명·결제, 규칙 17). inbound `invalidateAgreementAndContract`
     (`cancellationId`, `actorUserId`, `reason: PROJECT_CANCELED`, `projectCanceledAt` →
     `DONE`|`NOT_NEEDED`|`FAILED`, D-89). `PaymentGateway.retrievePayment`(규칙 21).
-    제외: 위젯 실연동, 에스크로·`RELEASED`, PG 환불, 재제안·철회.
+    제외: 위젯 실연동, 에스크로·`RELEASED`, PG 환불, 철회. 재제안은 AGR-02.
     완료 기준 — 합의 12: 빈 생성 / 의뢰인 제안 / 현재 조회 / 수락→DRAFT / 수락 멱등 /
     거절→restore / 거절 멱등 / 로딩 / `LOAD_FAILED` 재시도 / 409 재조회 / 취소 후 변경 숨김 /
     비당사자 403. 서명 2 + 결제 Mock(규칙 9, 기존) + `FAILED` 후 같은 행 새 `orderId` `READY` 1.

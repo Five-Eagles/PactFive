@@ -37,6 +37,12 @@ export function isPublicApiError(err: unknown): err is PublicApiError {
 
 export type ProposeNegotiationOfferInput = { amount: number; currency: "KRW" };
 
+export type CounterNegotiationOfferInput = {
+  amount: number;
+  currency: "KRW";
+  expectedRound: number;
+};
+
 export type NegotiationOfferView = {
   offerId: string;
   round: number;
@@ -59,6 +65,7 @@ export type CurrentNegotiationOfferResponse = {
   applicationId: string | null;
   reopened: boolean | null;
   notReopenedReason: NotReopenedReason | null;
+  offers: NegotiationOfferView[];
 };
 
 export type AcceptNegotiationOfferInput = { expectedRound: number };

@@ -153,17 +153,21 @@ const FREELANCER_SESSION: AgreementViewerSession = {
 function sampleOfferDto(
   overrides: Partial<CurrentNegotiationOfferResponse> = {},
 ): CurrentNegotiationOfferResponse {
+  const offer =
+    overrides.offer !== undefined
+      ? overrides.offer
+      : {
+          offerId: "off_1",
+          round: 1,
+          amount: MOCK_OFFER_AMOUNT,
+          currency: "KRW" as const,
+          offeredByUserId: MOCK_CLIENT_USER_ID,
+        };
   return {
     projectId: "prj_alive",
     agreementId: "agr_1",
     agreementStatus: "PROPOSED",
-    offer: {
-      offerId: "off_1",
-      round: 1,
-      amount: MOCK_OFFER_AMOUNT,
-      currency: "KRW",
-      offeredByUserId: MOCK_CLIENT_USER_ID,
-    },
+    offer,
     contractId: null,
     contractStatus: null,
     projectTitle: MOCK_PROJECT_TITLE,
@@ -173,12 +177,20 @@ function sampleOfferDto(
     applicationId: "app_123",
     reopened: null,
     notReopenedReason: null,
+    offers: offer ? [offer] : [],
     ...overrides,
+    offer,
+    offers: overrides.offers ?? (offer ? [offer] : []),
   };
 }
 
 function hasMutationCta(html: string): boolean {
-  return html.includes("제안하기") || html.includes("수락하기") || html.includes("거절하기");
+  return (
+    html.includes(">제안하기<") ||
+    html.includes(">수락하기<") ||
+    html.includes(">거절하기<") ||
+    html.includes(">재제안<")
+  );
 }
 
 function hasEditCta(html: string): boolean {
@@ -951,19 +963,49 @@ async function main() {
     else fail("규칙 17: 합의 취소 후 변경 숨김", canceled);
 
     const waiting = htmlOf(React.createElement(AgreementPanel, { uiState: "WAITING_RESPONSE" }));
-    hasText("규칙 17: 합의 의뢰인 대기", waiting, "프리랜서의 수락 또는 거절");
+    hasText("규칙 17: 합의 의뢰인 대기", waiting, "상대의 수락·거절 또는 재제안");
     hasText("규칙 17: 합의 최초 제안 이력", waiting, "최초 제안");
     if (!hasMutationCta(waiting) && !hasEditCta(waiting)) {
       pass("규칙 17: 의뢰인 대기 시 수정 없음");
     } else {
       fail("규칙 17: 의뢰인 대기 시 수정 없음", waiting);
     }
+    if (!waiting.includes("아직 작성")) pass("규칙 17: 대기 화면에 상대 제출 추정 없음");
+    else fail("규칙 17: 대기 화면에 상대 제출 추정 없음", waiting);
 
     const respond = htmlOf(React.createElement(AgreementPanel, { uiState: "ACTION_REQUIRED" }));
     hasText("규칙 17: 합의 수락하기", respond, "수락하기");
     hasText("규칙 17: 합의 거절하기", respond, "거절하기");
+    hasText("규칙 17: 합의 재제안", respond, "재제안");
     hasText("규칙 17: 합의 수락 확인", respond, "합의를 수락할까요?");
     hasText("규칙 17: 합의 거절 확인", respond, "거절 확인");
+    if (!respond.includes("아직 작성") && !respond.includes("NEGOTIATING") && !respond.includes("/agreements/")) {
+      pass("규칙 17: 수신자 화면에 추정 문구·설계서 경로 없음");
+    } else {
+      fail("규칙 17: 수신자 화면에 추정 문구·설계서 경로 없음", respond);
+    }
+
+    const clientAction = htmlOf(
+      React.createElement(AgreementPanel, {
+        uiState: "ACTION_REQUIRED",
+        viewerRole: "CLIENT",
+        offerRound: 2,
+      }),
+    );
+    hasText("규칙 17: 라운드 2 의뢰인 재제안", clientAction, "재제안");
+    hasText("규칙 17: 라운드 2 이력", clientAction, "1회 수정");
+    if (hasMutationCta(clientAction)) pass("규칙 17: 라운드 2 의뢰인 수신자 CTA");
+    else fail("규칙 17: 라운드 2 의뢰인 수신자 CTA", clientAction);
+
+    const freelancerWait = htmlOf(
+      React.createElement(AgreementPanel, {
+        uiState: "WAITING_RESPONSE",
+        viewerRole: "FREELANCER",
+        offerRound: 2,
+      }),
+    );
+    if (!hasMutationCta(freelancerWait)) pass("규칙 17: 라운드 2 작성자 대기 CTA 숨김");
+    else fail("규칙 17: 라운드 2 작성자 대기 CTA 숨김", freelancerWait);
 
     const agreed = htmlOf(React.createElement(AgreementPanel, { uiState: "AGREED" }));
     hasText("규칙 17: 합의 계약서 확인", agreed, "계약서 확인");
@@ -1091,6 +1133,8 @@ async function main() {
       canceled,
       waiting,
       respond,
+      clientAction,
+      freelancerWait,
       agreed,
       reopened,
       closed,
@@ -1214,7 +1258,8 @@ async function main() {
       waitingVm.uiState === "WAITING_RESPONSE" &&
       !waitingVm.permissions.canPropose &&
       !waitingVm.permissions.canAccept &&
-      !waitingVm.permissions.canReject
+      !waitingVm.permissions.canReject &&
+      !waitingVm.permissions.canCounter
     ) {
       pass("규칙 17: 의뢰인 대기 변경 권한 없음");
     } else {
@@ -1222,10 +1267,57 @@ async function main() {
     }
 
     const actionVm = toAgreementViewModel(sampleOfferDto(), FREELANCER_SESSION);
-    if (actionVm.uiState === "ACTION_REQUIRED" && actionVm.permissions.canAccept && actionVm.permissions.canReject) {
+    if (
+      actionVm.uiState === "ACTION_REQUIRED" &&
+      actionVm.permissions.canAccept &&
+      actionVm.permissions.canReject &&
+      actionVm.permissions.canCounter
+    ) {
       pass("규칙 10: 프리랜서 수락·거절 권한");
     } else {
       fail("규칙 10: 프리랜서 수락·거절 권한", actionVm);
+    }
+
+    const round2Offer = {
+      offerId: "off_2",
+      round: 2,
+      amount: 120_000,
+      currency: "KRW" as const,
+      offeredByUserId: MOCK_FREELANCER_USER_ID,
+    };
+    const round2Dto = sampleOfferDto({
+      offer: round2Offer,
+      offers: [
+        {
+          offerId: "off_1",
+          round: 1,
+          amount: MOCK_OFFER_AMOUNT,
+          currency: "KRW",
+          offeredByUserId: MOCK_CLIENT_USER_ID,
+        },
+        round2Offer,
+      ],
+    });
+    const clientActionVm = toAgreementViewModel(round2Dto, CLIENT_SESSION);
+    if (
+      clientActionVm.uiState === "ACTION_REQUIRED" &&
+      clientActionVm.permissions.canCounter &&
+      clientActionVm.history.length === 2 &&
+      clientActionVm.history[0]?.label === "최초 제안"
+    ) {
+      pass("규칙 10: 라운드 2 의뢰인 ACTION_REQUIRED");
+    } else {
+      fail("규칙 10: 라운드 2 의뢰인 ACTION_REQUIRED", clientActionVm);
+    }
+    const freelancerWaitVm = toAgreementViewModel(round2Dto, FREELANCER_SESSION);
+    if (
+      freelancerWaitVm.uiState === "WAITING_RESPONSE" &&
+      !freelancerWaitVm.permissions.canCounter &&
+      !freelancerWaitVm.permissions.canAccept
+    ) {
+      pass("규칙 10: 라운드 2 프리랜서 WAITING_RESPONSE");
+    } else {
+      fail("규칙 10: 라운드 2 프리랜서 WAITING_RESPONSE", freelancerWaitVm);
     }
 
     const forbiddenVm = toAgreementViewModel(sampleOfferDto(), CLIENT_SESSION, "FORBIDDEN");
@@ -1370,6 +1462,171 @@ async function main() {
         fail("규칙 22: 비당사자 403", err);
       }
     }
+  }
+
+  // AGR-02 — 재제안 Mock. 수신자만 counter/accept/reject. /agreements 경로·신설 오류 코드 없음.
+  {
+    const api = createPublicApiMock();
+    const proposed = await api.proposeNegotiationOffer("prj_alive", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    const offerId = proposed.offer?.offerId ?? "";
+    const currentJson = JSON.stringify(proposed);
+    if (!currentJson.includes("/agreements/") && !currentJson.includes("AGREEMENT_FORBIDDEN")) {
+      pass("AGR-02: GET current에 /agreements 경로·AGREEMENT_FORBIDDEN 없음");
+    } else {
+      fail("AGR-02: GET current에 /agreements 경로·AGREEMENT_FORBIDDEN 없음", proposed);
+    }
+
+    const before = await api.projects.getProjectNegotiationContext("prj_alive");
+    const restoreCalls: string[] = [];
+    const origRestore = api.projects.restorePreContractProject.bind(api.projects);
+    api.projects.restorePreContractProject = async (projectId, input) => {
+      restoreCalls.push(input.reason);
+      return origRestore(projectId, input);
+    };
+    const countered = await api.counterNegotiationOffer("prj_alive", offerId, MOCK_FREELANCER_USER_ID, {
+      amount: 120_000,
+      currency: "KRW",
+      expectedRound: 1,
+    });
+    const after = await api.projects.getProjectNegotiationContext("prj_alive");
+    if (
+      countered.agreementStatus === "PROPOSED" &&
+      countered.offer?.round === 2 &&
+      countered.offer.amount === 120_000 &&
+      countered.offers.length === 2 &&
+      after.projectVersion === before.projectVersion &&
+      restoreCalls.length === 0
+    ) {
+      pass("AGR-02: 프리랜서 재제안 round 2 · version 불변 · restore 없음");
+    } else {
+      fail("AGR-02: 프리랜서 재제안 round 2 · version 불변 · restore 없음", {
+        countered,
+        before: before.projectVersion,
+        after: after.projectVersion,
+        restoreCalls,
+      });
+    }
+
+    try {
+      await api.counterNegotiationOffer("prj_alive", countered.offer?.offerId ?? "", MOCK_FREELANCER_USER_ID, {
+        amount: 130_000,
+        currency: "KRW",
+        expectedRound: 2,
+      });
+      fail("AGR-02: 작성자 재제안 403", "오류가 나지 않았습니다");
+    } catch (err) {
+      if (isPublicApiError(err) && err.body.error.code === "PROJECT_FORBIDDEN") {
+        pass("AGR-02: 작성자 재제안 403");
+      } else {
+        fail("AGR-02: 작성자 재제안 403", err);
+      }
+    }
+
+    const accepted = await api.acceptNegotiationOffer(
+      "prj_alive",
+      countered.offer?.offerId ?? "",
+      MOCK_CLIENT_USER_ID,
+      { expectedRound: 2 },
+    );
+    if (accepted.agreementStatus === "ACCEPTED" && accepted.contractStatus === "DRAFT") {
+      pass("AGR-02: 의뢰인 수락→DRAFT");
+    } else {
+      fail("AGR-02: 의뢰인 수락→DRAFT", accepted);
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    const proposed = await api.proposeNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    try {
+      await api.counterNegotiationOffer("prj_seq", proposed.offer?.offerId ?? "", MOCK_CLIENT_USER_ID, {
+        amount: 110_000,
+        currency: "KRW",
+        expectedRound: 1,
+      });
+      fail("AGR-02: 최초 작성자 재제안 403", "오류가 나지 않았습니다");
+    } catch (err) {
+      if (isPublicApiError(err) && err.body.error.code === "PROJECT_FORBIDDEN") {
+        pass("AGR-02: 최초 작성자 재제안 403");
+      } else {
+        fail("AGR-02: 최초 작성자 재제안 403", err);
+      }
+    }
+    try {
+      await api.counterNegotiationOffer("prj_seq", proposed.offer?.offerId ?? "", MOCK_FREELANCER_USER_ID, {
+        amount: 110_000,
+        currency: "KRW",
+        expectedRound: 99,
+      });
+      fail("AGR-02: expectedRound 불일치 409", "오류가 나지 않았습니다");
+    } catch (err) {
+      const body = JSON.stringify(err);
+      if (
+        isDomainContractError(err) &&
+        err.body.error.code === "PROJECT_TRANSITION_CONFLICT" &&
+        !body.includes("OFFER_VERSION_CONFLICT")
+      ) {
+        pass("AGR-02: expectedRound 불일치 PROJECT_TRANSITION_CONFLICT");
+      } else {
+        fail("AGR-02: expectedRound 불일치 PROJECT_TRANSITION_CONFLICT", err);
+      }
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    const restoreCalls: string[] = [];
+    const origRestore = api.projects.restorePreContractProject.bind(api.projects);
+    api.projects.restorePreContractProject = async (projectId, input) => {
+      restoreCalls.push(input.reason);
+      return origRestore(projectId, input);
+    };
+    const proposed = await api.proposeNegotiationOffer("prj_restore", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    await api.rejectNegotiationOffer(
+      "prj_restore",
+      proposed.offer?.offerId ?? "",
+      MOCK_FREELANCER_USER_ID,
+      { reasonCode: "PRICE_NOT_ACCEPTABLE" },
+    );
+    if (restoreCalls[0] === "FREELANCER_REJECTED") pass("AGR-02: 프리랜서 거절 FREELANCER_REJECTED");
+    else fail("AGR-02: 프리랜서 거절 FREELANCER_REJECTED", restoreCalls);
+  }
+
+  {
+    const api = createPublicApiMock();
+    const restoreCalls: string[] = [];
+    const origRestore = api.projects.restorePreContractProject.bind(api.projects);
+    api.projects.restorePreContractProject = async (projectId, input) => {
+      restoreCalls.push(input.reason);
+      return origRestore(projectId, input);
+    };
+    const proposed = await api.proposeNegotiationOffer("prj_deadline", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    const countered = await api.counterNegotiationOffer(
+      "prj_deadline",
+      proposed.offer?.offerId ?? "",
+      MOCK_FREELANCER_USER_ID,
+      { amount: 110_000, currency: "KRW", expectedRound: 1 },
+    );
+    await api.rejectNegotiationOffer(
+      "prj_deadline",
+      countered.offer?.offerId ?? "",
+      MOCK_CLIENT_USER_ID,
+      { reasonCode: "PRICE_NOT_ACCEPTABLE" },
+    );
+    if (restoreCalls[0] === "CLIENT_REJECTED") pass("AGR-02: 의뢰인 거절 CLIENT_REJECTED");
+    else fail("AGR-02: 의뢰인 거절 CLIENT_REJECTED", restoreCalls);
   }
 
   // 규칙 16·21 — 공개 GET /payments/:paymentId (웹훅 없음)
@@ -2446,7 +2703,7 @@ async function main() {
     hasText(
       "규칙 17: 합의 거절 재개 유지",
       htmlOf(React.createElement(AgreementPanel, { uiState: "REJECTED_REOPENED" })),
-      "프리랜서가 제안을 거절했습니다",
+      "상대가 제안을 거절했습니다",
     );
     hasText(
       "규칙 17: 서명 기록 보존",

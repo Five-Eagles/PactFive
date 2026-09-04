@@ -43,7 +43,7 @@ export type AgreementDetailViewModel = {
   history: { round: number; amount: number; label: string }[];
   contract: { id: string; status: ContractStatus } | null;
   rejectionResult: { reopened: boolean; notReopenedReason: string | null } | null;
-  permissions: { canPropose: boolean; canAccept: boolean; canReject: boolean };
+  permissions: { canPropose: boolean; canAccept: boolean; canReject: boolean; canCounter: boolean };
 };
 
 export type AgreementViewerSession = {
@@ -60,6 +60,8 @@ export type DeriveAgreementUiStateInput = {
   hasOffer: boolean;
   viewerRole: AgreementViewerRole;
   reopened?: boolean | null;
+  offeredByUserId?: string | null;
+  clientId?: string | null;
 };
 
 const TERMINAL_UI_STATES: ReadonlySet<AgreementUiState> = new Set([
@@ -95,10 +97,23 @@ export function deriveAgreementUiState(input: DeriveAgreementUiStateInput): Agre
     return input.reopened === true ? "REJECTED_REOPENED" : "REJECTED_CLOSED";
   }
   if (!input.hasOffer) return "NOT_PROPOSED";
-  if (input.agreementStatus === "PROPOSED" && input.viewerRole === "FREELANCER") {
+  if (input.agreementStatus === "PROPOSED" && isLatestOfferRecipient(input)) {
     return "ACTION_REQUIRED";
   }
   return "WAITING_RESPONSE";
+}
+
+/** 최신 offer 수신자면 재제안·수락·거절. 작성자 ID가 없으면 Increment 1처럼 프리랜서가 수신자. */
+function isLatestOfferRecipient(input: {
+  viewerRole: AgreementViewerRole;
+  offeredByUserId?: string | null;
+  clientId?: string | null;
+}): boolean {
+  if (!input.offeredByUserId || !input.clientId) {
+    return input.viewerRole === "FREELANCER";
+  }
+  const offeredByClient = input.offeredByUserId === input.clientId;
+  return offeredByClient ? input.viewerRole === "FREELANCER" : input.viewerRole === "CLIENT";
 }
 
 function permissionsFor(
@@ -107,12 +122,13 @@ function permissionsFor(
 ): AgreementDetailViewModel["permissions"] {
   // 종료 상태에서는 서버 권한값이 틀려도 변경 버튼을 그리지 않는다.
   if (TERMINAL_UI_STATES.has(uiState)) {
-    return { canPropose: false, canAccept: false, canReject: false };
+    return { canPropose: false, canAccept: false, canReject: false, canCounter: false };
   }
   return {
     canPropose: uiState === "NOT_PROPOSED" && viewerRole === "CLIENT",
     canAccept: uiState === "ACTION_REQUIRED",
     canReject: uiState === "ACTION_REQUIRED",
+    canCounter: uiState === "ACTION_REQUIRED",
   };
 }
 
@@ -135,6 +151,8 @@ export function toAgreementViewModel(
     hasOffer: dto?.offer != null,
     viewerRole,
     reopened: dto?.reopened,
+    offeredByUserId: dto?.offer?.offeredByUserId,
+    clientId: session.clientId,
   });
   const counterpartName =
     session.counterpartDisplayName ?? COUNTERPART_FIXTURE[viewerRole];
@@ -171,9 +189,15 @@ export function toAgreementViewModel(
         currency: "KRW" as const,
       }
     : null;
-  const history = offer
-    ? [{ round: offer.round, amount: offer.amount, label: historyLabelForRound(offer.round) }]
-    : [];
+  const offerRows = dto.offers?.length ? dto.offers : offer ? [offer] : [];
+  const history = offerRows
+    .slice()
+    .sort((a, b) => a.round - b.round)
+    .map((row) => ({
+      round: row.round,
+      amount: row.amount,
+      label: historyLabelForRound(row.round),
+    }));
 
   return {
     agreementId: dto.agreementId,

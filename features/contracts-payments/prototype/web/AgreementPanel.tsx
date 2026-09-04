@@ -28,11 +28,14 @@ export type AgreementPanelProps = {
   view?: AgreementView;
   amount?: number;
   projectTitle?: string;
+  viewerRole?: AgreementViewerRole;
+  offerRound?: number;
 };
 
 const DEFAULT_TITLE = "쇼핑몰 웹사이트 구축";
 const DEFAULT_AMOUNT = 1_000_000;
 const PROPOSE_FORM_ID = "agreement-propose-form";
+const COUNTER_FORM_ID = "agreement-counter-form";
 const REJECT_REASON_CODES = [
   { value: "PRICE_NOT_ACCEPTABLE", label: "금액이 맞지 않음" },
   { value: "TERMS_NOT_ACCEPTABLE", label: "조건이 맞지 않음" },
@@ -83,12 +86,13 @@ const TERMINAL_UI_STATES: ReadonlySet<AgreementUiState> = new Set([
 /** 변경 버튼은 uiState로만 연다. 종료·대기에서 권한값이 틀려도 그리지 않는다. */
 function mutationPermissions(vm: AgreementDetailViewModel): AgreementDetailViewModel["permissions"] {
   if (TERMINAL_UI_STATES.has(vm.uiState) || vm.uiState === "WAITING_RESPONSE") {
-    return { canPropose: false, canAccept: false, canReject: false };
+    return { canPropose: false, canAccept: false, canReject: false, canCounter: false };
   }
   return {
     canPropose: vm.uiState === "NOT_PROPOSED" && vm.viewerRole === "CLIENT",
     canAccept: vm.uiState === "ACTION_REQUIRED",
     canReject: vm.uiState === "ACTION_REQUIRED",
+    canCounter: vm.uiState === "ACTION_REQUIRED",
   };
 }
 
@@ -101,18 +105,27 @@ export function AgreementPanel({
   view = "create",
   amount = DEFAULT_AMOUNT,
   projectTitle = DEFAULT_TITLE,
+  viewerRole,
+  offerRound,
 }: AgreementPanelProps) {
   const isLoading = loading || view === "loading";
-  const source = vm ?? fixtureViewModel(uiState ?? uiStateFromView(view), amount, projectTitle);
+  const source =
+    vm ??
+    fixtureViewModel(uiState ?? uiStateFromView(view), amount, projectTitle, {
+      viewerRole,
+      offerRound,
+    });
   const resolved = { ...source, permissions: mutationPermissions(source) };
   const [acceptOpen, setAcceptOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [counterOpen, setCounterOpen] = useState(false);
   const [amountError, setAmountError] = useState(amountErrorProp);
 
   if (isLoading) return <AgreementLoadingPage />;
 
   const { permissions } = resolved;
-  const showFixedCta = permissions.canPropose || permissions.canAccept || permissions.canReject;
+  const showFixedCta =
+    permissions.canPropose || permissions.canAccept || permissions.canReject || permissions.canCounter;
 
   return (
     <>
@@ -139,6 +152,7 @@ export function AgreementPanel({
               vm={resolved}
               onAccept={() => setAcceptOpen(true)}
               onReject={() => setRejectOpen(true)}
+              onCounter={() => setCounterOpen(true)}
             />
           ) : null}
         </div>
@@ -152,6 +166,9 @@ export function AgreementPanel({
       ) : null}
       {permissions.canReject ? (
         <RejectConfirmDialog open={rejectOpen} onClose={() => setRejectOpen(false)} />
+      ) : null}
+      {permissions.canCounter ? (
+        <CounterConfirmDialog open={counterOpen} onClose={() => setCounterOpen(false)} />
       ) : null}
     </>
   );
@@ -167,30 +184,45 @@ function fixtureViewModel(
   uiState: AgreementUiState,
   amount: number,
   projectTitle: string,
+  extras: { viewerRole?: AgreementViewerRole; offerRound?: number } = {},
 ): AgreementDetailViewModel {
   const viewerRole: AgreementViewerRole =
-    uiState === "ACTION_REQUIRED" ? "FREELANCER" : "CLIENT";
+    extras.viewerRole ?? (uiState === "ACTION_REQUIRED" ? "FREELANCER" : "CLIENT");
   const session: AgreementViewerSession = {
     actorUserId: viewerRole === "CLIENT" ? "usr_client" : "usr_freelancer",
     clientId: "usr_client",
   };
   const loadError = LOAD_ERROR_STATES.has(uiState) ? (uiState as AgreementLoadError) : null;
-  return toAgreementViewModel(fixtureDto(uiState, amount, projectTitle), session, loadError);
+  return toAgreementViewModel(
+    fixtureDto(uiState, amount, projectTitle, extras.offerRound ?? 1),
+    session,
+    loadError,
+  );
 }
 
 function fixtureDto(
   uiState: AgreementUiState,
   amount: number,
   projectTitle: string,
+  offerRound = 1,
 ): CurrentNegotiationOfferResponse | null {
   if (LOAD_ERROR_STATES.has(uiState)) return null;
-  const offer = {
-    offerId: "off_preview",
+  const round1 = {
+    offerId: "off_preview_1",
     round: 1,
     amount,
     currency: "KRW" as const,
     offeredByUserId: "usr_client",
   };
+  const round2 = {
+    offerId: "off_preview_2",
+    round: 2,
+    amount: amount + 100_000,
+    currency: "KRW" as const,
+    offeredByUserId: "usr_freelancer",
+  };
+  const offers = offerRound >= 2 ? [round1, round2] : [round1];
+  const offer = offers[offers.length - 1];
   const base: CurrentNegotiationOfferResponse = {
     projectId: "prj_preview",
     agreementId: "agr_preview",
@@ -205,6 +237,7 @@ function fixtureDto(
     applicationId: "app_preview",
     reopened: null,
     notReopenedReason: null,
+    offers,
   };
   if (uiState === "NOT_PROPOSED") {
     return {
@@ -213,6 +246,7 @@ function fixtureDto(
       agreementStatus: null,
       offer: null,
       applicationId: "app_preview",
+      offers: [],
     };
   }
   if (uiState === "AGREED") {
@@ -323,6 +357,9 @@ function AgreementMain({
       {uiState === "NOT_PROPOSED" && permissions.canPropose ? (
         <ProposeForm amountError={amountError} onSubmit={onProposeSubmit} />
       ) : null}
+      {uiState === "ACTION_REQUIRED" && permissions.canCounter ? (
+        <CounterForm amountError={amountError} onSubmit={onProposeSubmit} />
+      ) : null}
       <AgreementOfferCard uiState={uiState} amount={currentOffer?.amount ?? null} />
       <AgreementInlineActions vm={vm} />
     </section>
@@ -387,15 +424,15 @@ function AgreementStatusBanner({ uiState }: { uiState: AgreementUiState }) {
     case "WAITING_RESPONSE":
       return (
         <p className="status-copy" role="status">
-          의뢰인이 금액을 제안했습니다. <strong>프리랜서의 수락 또는 거절</strong>을 기다리는
+          최신 제안을 보냈습니다. <strong>상대의 수락·거절 또는 재제안</strong>을 기다리는
           중입니다.
         </p>
       );
     case "ACTION_REQUIRED":
       return (
         <p className="status-copy" role="status">
-          의뢰인이 아래 금액을 제안했습니다. <strong>지금 수락하거나 거절</strong>할 수 있습니다.
-          거절하면 이 거래는 끝납니다.
+          최신 금액을 확인하고 <strong>수락·거절하거나 재제안</strong>할 수 있습니다. 거절하면
+          이 거래는 끝납니다.
         </p>
       );
     case "AGREED":
@@ -408,14 +445,14 @@ function AgreementStatusBanner({ uiState }: { uiState: AgreementUiState }) {
     case "REJECTED_REOPENED":
       return (
         <p className="status-copy" role="status">
-          프리랜서가 제안을 거절했습니다. <strong>모집이 다시 열렸습니다</strong>. 조건을 수정한
+          상대가 제안을 거절했습니다. <strong>모집이 다시 열렸습니다</strong>. 조건을 수정한
           뒤 다른 지원자를 받을 수 있습니다.
         </p>
       );
     case "REJECTED_CLOSED":
       return (
         <p className="status-copy" role="status">
-          프리랜서가 제안을 거절했습니다. 모집 마감이 지나 <strong>프로젝트는 종료 상태</strong>로
+          상대가 제안을 거절했습니다. 모집 마감이 지나 <strong>프로젝트는 종료 상태</strong>로
           남습니다.
         </p>
       );
@@ -456,6 +493,40 @@ function ProposeForm({
   );
 }
 
+function CounterForm({
+  amountError,
+  onSubmit,
+}: {
+  amountError: boolean;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <form id={COUNTER_FORM_ID} onSubmit={onSubmit}>
+      <div className="field-row">
+        <label className="label" htmlFor="agreement-counter-amount">
+          재제안 금액
+        </label>
+        <input
+          className={amountError ? "field error" : "field"}
+          id="agreement-counter-amount"
+          name="amount"
+          inputMode="numeric"
+          placeholder="금액"
+          aria-invalid={amountError ? "true" : undefined}
+          aria-describedby={amountError ? "agreement-counter-amount-error-msg" : undefined}
+        />
+        {amountError ? (
+          <p className="helper error" id="agreement-counter-amount-error-msg">
+            금액을 입력해 주세요.
+          </p>
+        ) : (
+          <p className="helper">단위는 원입니다. 재제안한 금액이 새로운 최신 제안이 됩니다.</p>
+        )}
+      </div>
+    </form>
+  );
+}
+
 function AgreementOfferCard({
   uiState,
   amount,
@@ -473,7 +544,7 @@ function AgreementOfferCard({
       </p>
       {uiState === "WAITING_RESPONSE" ? (
         <p className="helper after-amount">
-          지금은 바꿀 수 없습니다. 프리랜서가 응답하면 다음 단계로 갑니다.
+          지금은 이 제안을 바꿀 수 없습니다. 상대가 응답하면 다음 단계로 갑니다.
         </p>
       ) : null}
     </>
@@ -532,10 +603,12 @@ function AgreementCtaBar({
   vm,
   onAccept,
   onReject,
+  onCounter,
 }: {
   vm: AgreementDetailViewModel;
   onAccept: () => void;
   onReject: () => void;
+  onCounter: () => void;
 }) {
   const { permissions } = vm;
   return (
@@ -543,6 +616,11 @@ function AgreementCtaBar({
       {permissions.canPropose ? (
         <Button variant="primary" type="submit" form={PROPOSE_FORM_ID}>
           제안하기
+        </Button>
+      ) : null}
+      {permissions.canCounter ? (
+        <Button variant="secondary" onClick={onCounter}>
+          재제안
         </Button>
       ) : null}
       {permissions.canAccept ? (
@@ -633,7 +711,7 @@ function notesFor(uiState: AgreementUiState): ReactNode {
     case "WAITING_RESPONSE":
       return (
         <>
-          <li>이 금액은 아직 제안입니다. 프리랜서가 수락해야 계약 근거가 됩니다.</li>
+          <li>이 금액은 아직 제안입니다. 상대가 수락해야 계약 근거가 됩니다.</li>
           <li>응답 전에는 금액을 수정할 수 없습니다.</li>
         </>
       );
@@ -641,6 +719,7 @@ function notesFor(uiState: AgreementUiState): ReactNode {
       return (
         <>
           <li>수락하면 이 금액이 계약과 결제의 근거가 됩니다. 이후 금액을 바꿀 수 없습니다.</li>
+          <li>재제안하면 상대가 수락·거절하거나 다시 제안할 수 있습니다.</li>
           <li>거절하면 이 거래는 끝납니다.</li>
         </>
       );
@@ -681,6 +760,50 @@ function notesFor(uiState: AgreementUiState): ReactNode {
     case "NOT_FOUND":
       return <li>없는 합의 주소로는 금액을 보여 주지 않습니다.</li>;
   }
+}
+
+function CounterConfirmDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <div
+      className={open ? "overlay-backdrop open" : "overlay-backdrop"}
+      aria-hidden={open ? "false" : "true"}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="counter-title">
+        <h2 className="title" id="counter-title">
+          이 금액으로 재제안할까요?
+        </h2>
+        <p className="status-copy">
+          입력한 금액이 새로운 최신 제안이 됩니다. 상대가 수락·거절하거나 다시 제안할 수 있습니다.
+        </p>
+        <div className="btn-row">
+          <Button variant="quiet" onClick={onClose}>
+            닫기
+          </Button>
+          <Button
+            variant="primary"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              onClose();
+              setBusy(false);
+            }}
+          >
+            재제안
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function AcceptConfirmDialog({

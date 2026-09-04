@@ -233,15 +233,22 @@
 의뢰인 최초 제안. 본문 `{ "amount": 900000, "currency": "KRW" }`.
 멱등 키 클라이언트가 생성. 성공: `agreements` 없으면 생성
 (`application_id`, `proposed_by_user_id`=의뢰인, `agreed_amount`=제안액, `PROPOSED`)
-+ offer round 1. Increment 1에서는 의뢰인만. 재제안은 계약에만 있고 이 Increment 테스트 밖.
++ offer round 1. Increment 1에서는 의뢰인만. 재제안은 `counterNegotiationOffer`.
 
 ### GET /api/v1/projects/:projectId/negotiation-offers/current
 
 당사자. 최신 round + 합의 상태 + 있으면 `contractId`·`contractStatus`.
 합의가 없으면 200이고 `offer`·`agreementId`·`contractId`는 `null`(빈 생성).
+`offers`는 라운드 이력(오름차순). `includeHistory` 쿼리·`/agreements/{id}` 5종은 쓰지 않는다.
 AGR-01 우측 컬럼·거절 분기: `projectTitle`, `recruitmentStatus`, `transactionStatus`,
 `canceledAt`, `applicationId`. `reopened`/`notReopenedReason`은 합의 `REJECTED`일 때만
 채우고, 그 외는 `null`.
+
+### POST /api/v1/projects/:projectId/negotiation-offers/:offerId/counter — `counterNegotiationOffer`
+
+최신 offer 수신자만. 본문 `{ "amount": 900000, "currency": "KRW", "expectedRound": 1 }`.
+새 round = 최신 + 1. 합의는 `PROPOSED` 유지. restore·`projectVersion` 증가 없음.
+작성자 재응답은 403 `PROJECT_FORBIDDEN`. 라운드 불일치는 409 `PROJECT_TRANSITION_CONFLICT`.
 
 ### POST /api/v1/projects/:projectId/negotiation-offers/:offerId/accept — `acceptNegotiationOffer`
 
@@ -412,11 +419,13 @@ type AgreementStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED';
 type ContractStatus = 'DRAFT' | 'SIGNING' | 'SIGNED' | 'CANCELED';
 
 type ProposeNegotiationOfferInput = { amount: number; currency: 'KRW' };
+type CounterNegotiationOfferInput = { amount: number; currency: 'KRW'; expectedRound: number };
 type CurrentNegotiationOfferResponse = {
   projectId: string;
   agreementId: string | null;
   agreementStatus: AgreementStatus | null;
   offer: { offerId: string; round: number; amount: number; currency: 'KRW'; offeredByUserId: string } | null;
+  offers: { offerId: string; round: number; amount: number; currency: 'KRW'; offeredByUserId: string }[];
   contractId: string | null;
   contractStatus: ContractStatus | null;
   projectTitle: string;
