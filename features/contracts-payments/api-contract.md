@@ -316,25 +316,29 @@ CTR-01 우측 컬럼 가설: `projectId`, `workStartDate`, `workEndDate`, `trans
 
 ### GET /api/v1/contracts/:contractId/delivery
 
-납품 행이 없으면 200이고 `delivery`는 `null`. 우측 컬럼: `projectTitle`, `transactionStatus`,
-`canceledAt`, `contractStatus`, `agreedAmount`, `paymentStatus`.
+`IN_PROGRESS` 프로젝트는 Delivery 행을 돌려준다. 요청 전 `status`는 `IN_PROGRESS`이고
+`file`·`message`는 null. 우측 컬럼: `projectTitle`, `transactionStatus`, `canceledAt`,
+`contractStatus`, `agreedAmount`, `paymentStatus`.
 파일은 파일명·MIME·size만. `objectKey` 없음. 단기 `downloadUrl`은 당사자 GET에만.
 승인 후 화면은 이 GET을 다시 쳐 `SETTLEMENT_PENDING`/`COMPLETED`를 정한다.
 
 ### POST /api/v1/contracts/:contractId/deliveries/upload-prepare
 
-프리랜서. 제한된 업로드 URL + `objectKey`. 저장소 직접 업로드는 PactFive API가 아니다.
+프리랜서. 본문 `{ "fileName", "contentType", "size", "sha256" }`. 제한된 업로드 URL +
+서버 `objectKey` + `uploadId`. sha256은 `^[0-9a-f]{64}$`. 저장소 직접 업로드는 PactFive API가 아니다.
 
 ### POST /api/v1/contracts/:contractId/deliveries/request — `requestDelivery`
 
-본문 `{ "objectKey", "message" }`. `Idempotency-Key` 필수. 성공 `DELIVERY_REQUESTED` 후
-`publishDeliveryRequested`. 업로드 실패 시 이 API를 부르지 않는다.
+본문 `{ "objectKey", "uploadId", "message" }`. `Idempotency-Key` 필수. 성공
+`DELIVERY_REQUESTED` 후 `publishDeliveryRequested`. 같은 키·같은 본문은 기존 결과
+(`alreadyProcessed: true`). 같은 키·다른 본문 409. 업로드·검사 미완 422.
 
 ### POST /api/v1/contracts/:contractId/deliveries/approve — `approveDelivery`
 
-의뢰인. `DELIVERY_REQUESTED`만. 새 `Idempotency-Key`. 성공 `APPROVED` 후
-`publishDeliveryApproved`. 결제 `RELEASED`일 때만 규칙 4 complete. `PAID`만이면 프로젝트는
-`IN_PROGRESS` 유지.
+의뢰인. `DELIVERY_REQUESTED`만. 새 `Idempotency-Key`. 본문 `{ "expectedVersion"? }`.
+성공 `APPROVED` 후 `publishDeliveryApproved`와 내부 정산 요청 1회. 결제 `RELEASED`이거나
+이후 Mock `simulateSettlementReleased`가 `RELEASED`로 바꾸면 규칙 4 complete.
+`PAID`만이면 프로젝트는 `IN_PROGRESS` 유지. 이미 `APPROVED`면 최초 `approvedAt` 유지.
 
 ---
 
@@ -480,9 +484,22 @@ type GetDeliveryResponse = {
   canApprove: boolean;
   canDownload: boolean;
   canReview: boolean;
+  alreadyProcessed?: boolean;
 };
-type RequestDeliveryInput = { objectKey: string; message: string };
-type ApproveDeliveryInput = { expectedVersion?: number };
+type PrepareDeliveryUploadInput = {
+  fileName: string;
+  contentType: string;
+  size: number;
+  sha256: string;
+};
+type PrepareDeliveryUploadResponse = {
+  uploadId: string;
+  uploadUrl: string;
+  objectKey: string;
+  expiresAt: string;
+};
+type RequestDeliveryInput = { objectKey: string; uploadId: string; message: string; idempotencyKey: string };
+type ApproveDeliveryInput = { expectedVersion?: number; idempotencyKey: string };
 type RetrievePaymentResponse = {
   orderId: string;
   amount: number;

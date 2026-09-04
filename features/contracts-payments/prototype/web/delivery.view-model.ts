@@ -109,7 +109,7 @@ export function deriveDeliveryUiState(input: DeriveDeliveryUiStateInput): Delive
     return input.viewerRole === "CLIENT" ? "ACTION_REQUIRED" : "WAITING_REVIEW";
   }
   const ready =
-    !input.hasDelivery &&
+    (input.deliveryStatus == null || input.deliveryStatus === "IN_PROGRESS") &&
     input.viewerRole === "FREELANCER" &&
     input.contractStatus === "SIGNED" &&
     (input.paymentStatus === "PAID" || input.paymentStatus === "RELEASED") &&

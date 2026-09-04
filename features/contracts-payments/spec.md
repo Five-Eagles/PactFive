@@ -275,10 +275,14 @@
     restore는 규칙 5 기존.
 
 23. **납품 Increment.** 계약당 1건, 프리랜서 1회 요청 → 의뢰인 명시적 승인. 반려·재납품 없음.
-    선행: 계약 `SIGNED` ∧ 결제 `PAID` ∧ 프로젝트 `IN_PROGRESS`. GET은 납품 행이 없어도 200
-    (`delivery: null`). 화면은 `APPROVED`∧`PAID`를 완료로 보지 않는다. `RELEASED`일 때만
-    규칙 4 complete. 오류 코드는 규칙 8 5종(+공개 401·403). 납품 요청·승인 경로에서만
-    `publishDeliveryRequested`·`publishDeliveryApproved`. 실저장소·실에스크로는 Mock 스텁.
+    `IN_PROGRESS` 진입 시 `ensureDeliveryForContract`(초기 `IN_PROGRESS`, 업로드·요청 시 멱등 보정).
+    GET은 행을 돌려준다(요청 전 `status: IN_PROGRESS`, `file`/`message` null). 화면은
+    `APPROVED`∧`PAID`를 완료로 보지 않는다. 승인·정산 `RELEASED`(Mock 헬퍼, 지급 버튼 없음)
+    양쪽에서 규칙 4를 재평가한다. 한쪽만이면 complete 미호출. `Idempotency-Key` 필수(같은 키·다른
+    본문 409). `upload-prepare` 본문 `{ fileName, contentType, size, sha256 }`, 요청
+    `{ objectKey, uploadId, message }`. 검사 미완 422. 오류는 규칙 8 5종(+공개 401·403).
+    설계서 `DELIVERY_*` 코드는 쓰지 않는다. 납품 경로에서만 납품 publish. 실저장소·실AV는 스텁.
+    ERD 제안: `fileObjectKey`·`fileSha256`·`version`·`requestedBy`(팀장 반영).
 
 ## 크기 기준
 

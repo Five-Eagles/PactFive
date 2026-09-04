@@ -26,6 +26,7 @@ import {
   MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
   MOCK_DELIVERY_FILE_NAME,
   MOCK_DELIVERY_MESSAGE,
+  MOCK_DELIVERY_SHA256,
   MOCK_OFFER_AMOUNT,
   MOCK_PROJECT_TITLE,
 } from "./mock/public-api.mock";
@@ -435,7 +436,7 @@ async function main() {
           occurredAt: "2026-08-25T06:00:00Z",
           expectedProjectVersion: 8,
         },
-        "REQUESTED",
+        "DELIVERY_REQUESTED",
         "PAID",
       );
       fail("규칙 4: I-30 미충족 시 포트 미호출", "호출이 성공했습니다");
@@ -2384,7 +2385,8 @@ async function main() {
       transactionStatus: "IN_PROGRESS",
       contractStatus: "SIGNED",
       paymentStatus: "PAID",
-      hasDelivery: false,
+      deliveryStatus: "IN_PROGRESS",
+      hasDelivery: true,
       viewerRole: "FREELANCER",
     });
     if (ready === "READY_TO_DELIVER") pass("규칙 23: 프리랜서 READY_TO_DELIVER");
@@ -2394,7 +2396,8 @@ async function main() {
       transactionStatus: "IN_PROGRESS",
       contractStatus: "SIGNED",
       paymentStatus: "PAID",
-      hasDelivery: false,
+      deliveryStatus: "IN_PROGRESS",
+      hasDelivery: true,
       viewerRole: "CLIENT",
     });
     if (work === "WORK_IN_PROGRESS") pass("규칙 23: 의뢰인 WORK_IN_PROGRESS");
@@ -2456,12 +2459,25 @@ async function main() {
     const notifications = createNotificationTriggerMock();
     const api = createPublicApiMock(MOCK_NOW, { notifications });
     const beforeComplete = api.projects.getCallCounts().completeProjectTransaction;
+    const fileMeta = {
+      fileName: MOCK_DELIVERY_FILE_NAME,
+      contentType: "application/zip",
+      size: 1_048_576,
+      sha256: MOCK_DELIVERY_SHA256,
+    };
 
     const empty = await api.getDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_FREELANCER_USER_ID);
-    if (empty.delivery === null && empty.contractStatus === "SIGNED") {
-      pass("규칙 23: GET 납품 없음 200");
+    if (empty.delivery?.status === "IN_PROGRESS" && empty.delivery.file == null) {
+      pass("규칙 23: GET IN_PROGRESS 행 200");
     } else {
-      fail("규칙 23: GET 납품 없음 200", empty);
+      fail("규칙 23: GET IN_PROGRESS 행 200", empty);
+    }
+    const ensured = api.ensureDeliveryForContract(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+    const ensuredAgain = api.ensureDeliveryForContract(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+    if (ensured.deliveryId === ensuredAgain.deliveryId && ensured.status === "IN_PROGRESS") {
+      pass("규칙 23: ensureDelivery 중복은 같은 행");
+    } else {
+      fail("규칙 23: ensureDelivery 중복은 같은 행", { ensured, ensuredAgain });
     }
     const readyVm = toDeliveryViewModel(empty, FREELANCER_SESSION);
     if (readyVm.uiState === "READY_TO_DELIVER") pass("규칙 23: GET 프리랜서 납품 전");
@@ -2484,20 +2500,65 @@ async function main() {
       api.getDelivery("ctr_missing", MOCK_CLIENT_USER_ID),
     );
 
+    await expectCode("규칙 23: 잘못된 sha256 422", "VALIDATION_ERROR", () =>
+      api.prepareDeliveryUpload(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_FREELANCER_USER_ID, {
+        ...fileMeta,
+        sha256: "not-a-hash",
+      }),
+    );
+    await expectCode("규칙 23: 미준비 업로드 422", "VALIDATION_ERROR", () =>
+      api.requestDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_FREELANCER_USER_ID, {
+        objectKey: "deliveries/ctr_missing/obj",
+        uploadId: "upl_missing",
+        message: MOCK_DELIVERY_MESSAGE,
+        idempotencyKey: "req-not-ready",
+      }),
+    );
+
     const prepared = await api.prepareDeliveryUpload(
       MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
       MOCK_FREELANCER_USER_ID,
+      fileMeta,
     );
     const requested = await api.requestDelivery(
       MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
       MOCK_FREELANCER_USER_ID,
-      { objectKey: prepared.objectKey, message: MOCK_DELIVERY_MESSAGE },
+      {
+        objectKey: prepared.objectKey,
+        uploadId: prepared.uploadId,
+        message: MOCK_DELIVERY_MESSAGE,
+        idempotencyKey: "req-1",
+      },
     );
     if (requested.delivery?.status === "DELIVERY_REQUESTED") {
       pass("규칙 23: 납품 요청 DELIVERY_REQUESTED");
     } else {
       fail("규칙 23: 납품 요청 DELIVERY_REQUESTED", requested);
     }
+    const requestedAgain = await api.requestDelivery(
+      MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
+      MOCK_FREELANCER_USER_ID,
+      {
+        objectKey: prepared.objectKey,
+        uploadId: prepared.uploadId,
+        message: MOCK_DELIVERY_MESSAGE,
+        idempotencyKey: "req-1",
+      },
+    );
+    const requestPublished = notifications.getPublished().filter((event) => event.type === "DELIVERY_REQUESTED");
+    if (requestedAgain.alreadyProcessed === true && requestPublished.length === 1) {
+      pass("규칙 23: 같은 납품 키 재호출 1회");
+    } else {
+      fail("규칙 23: 같은 납품 키 재호출 1회", { requestedAgain, requestPublished });
+    }
+    await expectCode("규칙 23: 같은 키 다른 본문 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      api.requestDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_FREELANCER_USER_ID, {
+        objectKey: prepared.objectKey,
+        uploadId: prepared.uploadId,
+        message: "다른 메시지",
+        idempotencyKey: "req-1",
+      }),
+    );
     const waitVm = toDeliveryViewModel(requested, FREELANCER_SESSION);
     if (waitVm.uiState === "WAITING_REVIEW") pass("규칙 23: 요청 후 프리랜서 검토 대기");
     else fail("규칙 23: 요청 후 프리랜서 검토 대기", waitVm.uiState);
@@ -2509,10 +2570,9 @@ async function main() {
     if (actionVm.uiState === "ACTION_REQUIRED") pass("규칙 23: 요청 후 의뢰인 검토");
     else fail("규칙 23: 요청 후 의뢰인 검토", actionVm.uiState);
 
-    const approved = await api.approveDelivery(
-      MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
-      MOCK_CLIENT_USER_ID,
-    );
+    const approved = await api.approveDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_CLIENT_USER_ID, {
+      idempotencyKey: "appr-1",
+    });
     const afterComplete = api.projects.getCallCounts().completeProjectTransaction;
     if (
       approved.delivery?.status === "APPROVED" &&
@@ -2528,6 +2588,22 @@ async function main() {
         afterComplete,
       });
     }
+    const firstApprovedAt = approved.delivery?.approvedAt;
+    const approvedAgain = await api.approveDelivery(
+      MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
+      MOCK_CLIENT_USER_ID,
+      { idempotencyKey: "appr-1" },
+    );
+    const approvePublished = notifications.getPublished().filter((event) => event.type === "DELIVERY_APPROVED");
+    if (
+      approvedAgain.alreadyProcessed === true &&
+      approvedAgain.delivery?.approvedAt === firstApprovedAt &&
+      approvePublished.length === 1
+    ) {
+      pass("규칙 23: 같은 승인 키 재호출 1회");
+    } else {
+      fail("규칙 23: 같은 승인 키 재호출 1회", { approvedAgain, approvePublished });
+    }
     const settleAfter = toDeliveryViewModel(approved, CLIENT_SESSION);
     if (settleAfter.uiState === "SETTLEMENT_PENDING") pass("규칙 23: 승인 후 정산 대기");
     else fail("규칙 23: 승인 후 정산 대기", settleAfter.uiState);
@@ -2537,6 +2613,16 @@ async function main() {
       pass("규칙 23: 납품 경로에서만 납품 publish");
     } else {
       fail("규칙 23: 납품 경로에서만 납품 publish", types);
+    }
+
+    const releasedAfterApprove = await api.simulateSettlementReleased(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+    if (
+      releasedAfterApprove.transactionStatus === "COMPLETED" &&
+      api.projects.getCallCounts().completeProjectTransaction === beforeComplete + 1
+    ) {
+      pass("규칙 23: 승인 후 RELEASED면 complete 1회");
+    } else {
+      fail("규칙 23: 승인 후 RELEASED면 complete 1회", releasedAfterApprove);
     }
 
     const completedDto = await api.getDelivery(
@@ -2567,6 +2653,51 @@ async function main() {
   }
 
   {
+    const reverse = createPublicApiMock(MOCK_NOW);
+    const fileMeta = {
+      fileName: MOCK_DELIVERY_FILE_NAME,
+      contentType: "application/zip",
+      size: 1_048_576,
+      sha256: MOCK_DELIVERY_SHA256,
+    };
+    const beforeReleaseOnly = reverse.projects.getCallCounts().completeProjectTransaction;
+    await reverse.simulateSettlementReleased(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+    if (reverse.projects.getCallCounts().completeProjectTransaction === beforeReleaseOnly) {
+      pass("규칙 23: RELEASED만이면 complete 미호출");
+    } else {
+      fail("규칙 23: RELEASED만이면 complete 미호출", reverse.projects.getCallCounts());
+    }
+    const prepared = await reverse.prepareDeliveryUpload(
+      MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
+      MOCK_FREELANCER_USER_ID,
+      fileMeta,
+    );
+    await reverse.requestDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_FREELANCER_USER_ID, {
+      objectKey: prepared.objectKey,
+      uploadId: prepared.uploadId,
+      message: MOCK_DELIVERY_MESSAGE,
+      idempotencyKey: "req-reverse",
+    });
+    const beforeApprove = reverse.projects.getCallCounts().completeProjectTransaction;
+    const approved = await reverse.approveDelivery(
+      MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
+      MOCK_CLIENT_USER_ID,
+      { idempotencyKey: "appr-reverse" },
+    );
+    if (
+      approved.transactionStatus === "COMPLETED" &&
+      reverse.projects.getCallCounts().completeProjectTransaction === beforeApprove + 1
+    ) {
+      pass("규칙 23: RELEASED 먼저면 승인 시 complete");
+    } else {
+      fail("규칙 23: RELEASED 먼저면 승인 시 complete", approved);
+    }
+    const recovered = await reverse.recoverStuckCompletions();
+    if (recovered === 0) pass("규칙 23: 복구 worker 중복 없음");
+    else fail("규칙 23: 복구 worker 중복 없음", recovered);
+  }
+
+  {
     const React = await import("react");
     const { renderToStaticMarkup } = await import("react-dom/server");
     const { DeliveryPanel } = await import("./web/DeliveryPanel");
@@ -2582,6 +2713,7 @@ async function main() {
     const ready = htmlOf(React.createElement(DeliveryPanel));
     hasText("규칙 23: 필수 결과물 납품", ready, "결과물 납품");
     hasText("규칙 23: 필수 납품 요청", ready, "납품 요청");
+    hasText("규칙 23: 파일 검사 안내", ready, "파일 안전성 검사");
     const action = htmlOf(React.createElement(DeliveryPanel, { uiState: "ACTION_REQUIRED" }));
     hasText("규칙 23: 필수 완료 승인", action, "완료 승인");
     hasText("규칙 23: 필수 승인 확인", action, "납품을 승인할까요?");

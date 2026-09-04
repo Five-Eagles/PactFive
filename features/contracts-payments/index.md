@@ -37,6 +37,7 @@
   취소 화면은 하이브리드 CAN-01(페이지 본문, ViewModel). 설계서 신설 `CANCEL_*` 코드·A-07 POST는 쓰지 않는다.
   납품 화면은 하이브리드 DLV-01(페이지 본문, ViewModel). 네이밍 2경로
   (`POST /contracts/:id/deliveries` + `POST /deliveries/:id/approve`)는 쓰지 않는다.
+  GET은 요청 전 `IN_PROGRESS` 행. 승인·정산 `RELEASED` 양쪽에서 complete. `DELIVERY_*` 코드 없음.
   I-30은 화면에서 `APPROVED`+`PAID`(정산 대기)와 `APPROVED`+`RELEASED`(완료)를 나눈다.
 
 ### Mock 시드 (성공·실패 재현)
@@ -114,3 +115,4 @@
 | 2026-09-04 | 하이브리드 AGR-03. 과거 라운드 대체됨 표시. SUPERSEDED 저장 없음 |
 | 2026-09-04 | 하이브리드 CTR-02. 서명 순서 자유·취소 후 409. `CONTRACT_*` 코드 없음 |
 | 2026-09-04 | 하이브리드 PAY-02. SIGNED 의뢰인 prepare·mark·PENDING 복구·웹훅 Mock. `PAYMENT_*` 신설 코드 없음 |
+| 2026-09-04 | 하이브리드 DLV-01 v2.0. ensureDelivery·멱등 키·승인/정산 양쪽 complete. `DELIVERY_*` 없음. 실측 PASS 290 |

@@ -7,7 +7,7 @@ import type {
   StartProjectTransactionInput,
 } from "./project-transaction.types";
 
-export type DeliveryStatus = "APPROVED" | "PENDING" | "REJECTED" | string;
+export type DeliveryStatus = "IN_PROGRESS" | "DELIVERY_REQUESTED" | "APPROVED";
 export type PaymentStatus = "RELEASED" | "PAID" | "READY" | string;
 
 /** I-30 등 호출자가 포트를 부르기 전에 막는 오류. HTTP 5종 코드가 아니다. */

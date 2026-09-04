@@ -210,14 +210,28 @@ export type GetDeliveryResponse = {
   canApprove: boolean;
   canDownload: boolean;
   canReview: boolean;
+  alreadyProcessed?: boolean;
+};
+
+export type PrepareDeliveryUploadInput = {
+  fileName: string;
+  contentType: string;
+  size: number;
+  sha256: string;
 };
 
 export type PrepareDeliveryUploadResponse = {
+  uploadId: string;
   uploadUrl: string;
   objectKey: string;
   expiresAt: string;
 };
 
-export type RequestDeliveryInput = { objectKey: string; message: string };
+export type RequestDeliveryInput = {
+  objectKey: string;
+  uploadId: string;
+  message: string;
+  idempotencyKey: string;
+};
 
-export type ApproveDeliveryInput = { expectedVersion?: number };
+export type ApproveDeliveryInput = { expectedVersion?: number; idempotencyKey: string };

@@ -185,7 +185,18 @@ function fixtureDto(
     canReview: false,
   };
   if (uiState === "READY_TO_DELIVER" || uiState === "WORK_IN_PROGRESS") {
-    return { ...base, delivery: null };
+    return {
+      ...base,
+      delivery: {
+        deliveryId: "dlv_preview",
+        status: "IN_PROGRESS",
+        version: 0,
+        message: null,
+        requestedAt: null,
+        approvedAt: null,
+        file: null,
+      },
+    };
   }
   if (uiState === "WAITING_REVIEW" || uiState === "ACTION_REQUIRED") {
     return { ...base, delivery: requested, downloadUrl: "https://example/short", canDownload: true };
@@ -556,6 +567,8 @@ function DeliverDialog({
   maxFileSizeMiB: number;
   onClose: () => void;
 }) {
+  const [submitting, setSubmitting] = useState(false);
+
   return (
     <div
       className={open ? "overlay-backdrop open" : "overlay-backdrop"}
@@ -572,11 +585,17 @@ function DeliverDialog({
           파일 1개와 메시지를 보낸 뒤에는 교체할 수 없습니다. 서버가 허용한 형식만 올릴 수
           있습니다. 크기 상한은 {maxFileSizeMiB}MB입니다.
         </p>
+        <p className="caption">제출하면 파일 안전성 검사를 진행합니다.</p>
+        {submitting ? (
+          <p className="status-copy" role="status">
+            파일 안전성 검사를 진행하고 있습니다.
+          </p>
+        ) : null}
         <div className="field-row">
           <label className="label" htmlFor="deliver-file">
             결과물 파일
           </label>
-          <input className="field" id="deliver-file" name="file" type="file" />
+          <input className="field" id="deliver-file" name="file" type="file" disabled={submitting} />
         </div>
         <div className="field-row">
           <label className="label" htmlFor="deliver-message">
@@ -589,17 +608,25 @@ function DeliverDialog({
             maxLength={1000}
             rows={4}
             placeholder="전달할 내용을 적어 주세요."
+            disabled={submitting}
           />
         </div>
         <label className="choice">
-          <input type="checkbox" name="confirm-once" />
+          <input type="checkbox" name="confirm-once" disabled={submitting} />
           <span>제출 후 파일 교체·재납품이 불가함을 확인했습니다</span>
         </label>
         <div className="btn-row">
           <Button variant="quiet" onClick={onClose}>
             닫기
           </Button>
-          <Button variant="primary" onClick={onClose}>
+          <Button
+            variant="primary"
+            disabled={submitting}
+            onClick={() => {
+              if (submitting) return;
+              setSubmitting(true);
+            }}
+          >
             납품 요청
           </Button>
         </div>

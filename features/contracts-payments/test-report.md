@@ -5,7 +5,7 @@
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 279, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 290, FAIL 개수: 0)
 
 규칙 9 sandbox는 잘못된 paymentKey 승인 실패·retrieve 실패 프로브. 시크릿은 문서에 적지 않는다.
 
@@ -39,7 +39,7 @@
 | 17 라우트·UX | CAN-01 `.../cancellation`. AGR 취소 vs 거절. CTR 상대 대기. PAY 확인 중·미체결·동기화 | 통과 |
 | 18 Increment 1 테스트 | 규칙 22로 이동 | 안 함 (해당 없음) |
 | 19~22 | PENDING 복구·FAILED 재시도·웹훅 Mock·위젯 로더 분기·백로그 UX | 통과 |
-| 23 납품 Increment | APPROVED+PAID≠완료 · 정산 확인 링크 | 통과 |
+| 23 납품 Increment | GET IN_PROGRESS 행 · 멱등 1회 · 승인/정산 양쪽 complete · `DELIVERY_*` 없음 | 통과 |
 | UI(design/web) | AGR·CTR-02·PAY-02 확인 중·DLV·PAY·SET·CAN-01. 1280 2열 / 모바일 스택 | 통과 |
 
 규칙 4 I-30: APPROVED∧RELEASED 전에 complete 포트를 부르지 않는다.
