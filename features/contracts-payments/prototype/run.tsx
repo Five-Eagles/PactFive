@@ -57,6 +57,21 @@ import {
 } from "./web/agreement.view-model";
 import { deriveDeliveryUiState, toDeliveryViewModel } from "./web/delivery.view-model";
 import { deriveContractUiState, toContractViewModel } from "./web/contract.view-model";
+import { derivePaymentUiState, toPaymentViewModel } from "./web/payment.view-model";
+import {
+  amountsMismatch,
+  deriveSettlementUiState,
+  toSettlementViewModel,
+} from "./web/settlement.view-model";
+import type { GetSettlementResponse } from "./server/public-api.types";
+import {
+  createCheckoutOrchestrator,
+  createTossCheckoutStub,
+  failRedirectCopy,
+  parseTossSuccessQuery,
+  shouldConfirmRedirect,
+  toTossCheckoutRequest,
+} from "./web/toss-checkout.stub";
 
 function findRepoRoot(startDir: string): string {
   let dir = startDir;
@@ -880,7 +895,8 @@ async function main() {
     if (
       missing.includes("연동 준비 중") &&
       missing.includes("다시 시도") &&
-      !missing.includes("결제하기")
+      !missing.includes("결제하기") &&
+      !missing.includes("테스트 결제 진행")
     ) {
       pass("규칙 9: 키 없음 UX 결제하기 숨김");
     } else {
@@ -1025,11 +1041,46 @@ async function main() {
     hasText("규칙 17: 결제 금액", checkout, "결제 금액");
     hasText("규칙 17: 결제 플랫폼 수수료", checkout, "플랫폼 수수료");
     hasText("규칙 17: 결제 정산액", checkout, "정산액");
-    hasText("규칙 17: 결제하기", checkout, "결제하기");
+    hasText("규칙 17: 테스트 결제 진행", checkout, "테스트 결제 진행");
     hasText("규칙 17: 결제 보관 안내", checkout, "결제해도 바로 넘어가지 않습니다");
+    hasText("규칙 17: 결제 Sandbox 배지", checkout, "Sandbox 테스트 결제");
+    hasText("규칙 17: 결제 M01 제목", checkout, "Sandbox 테스트 결제를 진행할까요?");
     const payFailed = htmlOf(React.createElement(PaymentPanel, { view: "failed" }));
     hasText("규칙 17: 결제 실패", payFailed, "결제 실패");
     hasText("규칙 17: 결제 다시 결제", payFailed, "다시 결제");
+    if (!checkout.includes("에스크로") && !checkout.includes("지급 완료")) {
+      pass("규칙 17: 결제 에스크로 문구 없음");
+    } else {
+      fail("규칙 17: 결제 에스크로 문구 없음", checkout);
+    }
+    const payPaid = htmlOf(React.createElement(PaymentPanel, { view: "paid" }));
+    if (
+      payPaid.includes("Sandbox 결제가 완료되었습니다") &&
+      !payPaid.includes("테스트 결제 진행") &&
+      !payPaid.includes("다시 결제")
+    ) {
+      pass("규칙 17: PAID는 새 결제 없음");
+    } else {
+      fail("규칙 17: PAID는 새 결제 없음", payPaid);
+    }
+    const payPending = htmlOf(React.createElement(PaymentPanel, { view: "pending" }));
+    if (
+      payPending.includes("결제 결과를 확인하고 있습니다") &&
+      !payPending.includes("결제 실패") &&
+      !payPending.includes("테스트 결제 진행")
+    ) {
+      pass("규칙 17: PENDING은 실패가 아님");
+    } else {
+      fail("규칙 17: PENDING은 실패가 아님", payPending);
+    }
+    const payFreelancer = htmlOf(
+      React.createElement(PaymentPanel, { uiState: "PAYMENT_AVAILABLE", viewerRole: "FREELANCER" }),
+    );
+    if (payFreelancer.includes("결제 대기") && !payFreelancer.includes("테스트 결제 진행")) {
+      pass("규칙 17: 프리랜서 결제 액션 없음");
+    } else {
+      fail("규칙 17: 프리랜서 결제 액션 없음", payFreelancer);
+    }
 
     const allHtml = [
       create,
@@ -1339,6 +1390,30 @@ async function main() {
     await expectCode("규칙 16: GET payment 없음 404", "PROJECT_NOT_FOUND", () =>
       api.getPayment("pay_missing", MOCK_CLIENT_USER_ID),
     );
+    const settlementRow = await api.getSettlement(MOCK_PAYMENT_ID, MOCK_CLIENT_USER_ID);
+    if (
+      settlementRow.paymentId === MOCK_PAYMENT_ID &&
+      settlementRow.environment === "SANDBOX" &&
+      settlementRow.provider === "MANUAL_SIMULATION" &&
+      settlementRow.platformFeeRateBps === 1000
+    ) {
+      pass("규칙 16: GET settlement 당사자 200");
+    } else {
+      fail("규칙 16: GET settlement 당사자 200", settlementRow);
+    }
+    try {
+      await api.getSettlement(MOCK_PAYMENT_ID, MOCK_OUTSIDER_USER_ID);
+      fail("규칙 16: GET settlement 비당사자 403", "오류가 나지 않았습니다");
+    } catch (err) {
+      if (isPublicApiError(err) && err.body.error.code === "PROJECT_FORBIDDEN" && err.httpStatus === 403) {
+        pass("규칙 16: GET settlement 비당사자 403");
+      } else {
+        fail("규칙 16: GET settlement 비당사자 403", err);
+      }
+    }
+    await expectCode("규칙 16: GET settlement 없음 404", "PROJECT_NOT_FOUND", () =>
+      api.getSettlement("pay_missing", MOCK_CLIENT_USER_ID),
+    );
   }
 
   // 규칙 16 — 공개 POST /payments · /payments/confirm (파사드)
@@ -1517,7 +1592,7 @@ async function main() {
       fail("규칙 22: 취소 후 변경 숨김", canceled);
     }
     hasText("규칙 17: 결제 필수 결제 금액", htmlOf(React.createElement(PaymentPanel)), "결제 금액");
-    hasText("규칙 17: 결제 필수 결제하기", htmlOf(React.createElement(PaymentPanel)), "결제하기");
+    hasText("규칙 17: 결제 필수 테스트 결제 진행", htmlOf(React.createElement(PaymentPanel)), "테스트 결제 진행");
   }
 
   // 규칙 23 — 납품 Increment. 취소 우선 · APPROVED+PAID는 완료가 아님 · Mock 4종.
@@ -1823,6 +1898,7 @@ async function main() {
 
     const settlement = htmlOf(React.createElement(DeliveryPanel, { uiState: "SETTLEMENT_PENDING" }));
     hasText("규칙 23: 정산 대기 안내", settlement, "정산 처리 중");
+    hasText("규칙 23: 정산 대기 정산 확인", settlement, "정산 확인");
     if (!hasDeliveryMutationCta(settlement)) pass("규칙 23: 정산 대기 변경 숨김");
     else fail("규칙 23: 정산 대기 변경 숨김", settlement);
 
@@ -1918,6 +1994,289 @@ async function main() {
       pass("규칙 17: 서명 403 ViewModel 민감 정보 없음");
     } else {
       fail("규칙 17: 서명 403 ViewModel 민감 정보 없음", forbiddenVm);
+    }
+  }
+
+  {
+    const client = { actorUserId: "usr_client", clientId: "usr_client" } as const;
+    const freelancer = { actorUserId: "usr_freelancer", clientId: "usr_client" } as const;
+    const samplePayment = {
+      paymentId: "pay_1",
+      contractId: "ctr_1",
+      orderId: "ord_1",
+      amount: 100_000,
+      currency: "KRW" as const,
+      platformFeeAmount: 7_000,
+      settlementAmount: 93_000,
+      status: "READY" as const,
+      projectTitle: MOCK_PROJECT_TITLE,
+      projectTransactionStatus: "CONTRACT_PENDING" as const,
+      environment: "SANDBOX" as const,
+    };
+
+    if (
+      derivePaymentUiState({
+        paymentStatus: "PAID",
+        projectTransactionStatus: "IN_PROGRESS",
+        contractSigned: true,
+        viewerRole: "CLIENT",
+      }) === "PAID"
+    ) {
+      pass("규칙 17: PAID+IN_PROGRESS는 완료");
+    } else {
+      fail("규칙 17: PAID+IN_PROGRESS는 완료");
+    }
+    if (
+      derivePaymentUiState({
+        paymentStatus: "PAID",
+        projectTransactionStatus: "CONTRACT_PENDING",
+        contractSigned: true,
+        viewerRole: "CLIENT",
+      }) === "PAID_SYNCING"
+    ) {
+      pass("규칙 17: PAID+CONTRACT_PENDING은 동기화");
+    } else {
+      fail("규칙 17: PAID+CONTRACT_PENDING은 동기화");
+    }
+    if (
+      derivePaymentUiState({
+        paymentStatus: "PENDING",
+        projectTransactionStatus: "CONTRACT_PENDING",
+        contractSigned: true,
+        viewerRole: "CLIENT",
+      }) === "PAYMENT_CONFIRMING"
+    ) {
+      pass("규칙 17: PENDING은 확인 중");
+    } else {
+      fail("규칙 17: PENDING은 확인 중");
+    }
+    if (
+      derivePaymentUiState({
+        paymentStatus: "FAILED",
+        projectTransactionStatus: "CONTRACT_PENDING",
+        contractSigned: true,
+        viewerRole: "CLIENT",
+      }) === "FAILED_RETRYABLE"
+    ) {
+      pass("규칙 17: FAILED만 재결제");
+    } else {
+      fail("규칙 17: FAILED만 재결제");
+    }
+
+    const feeVm = toPaymentViewModel(samplePayment, client);
+    if (
+      feeVm.platformFeeAmount === 7_000 &&
+      feeVm.settlementAmount === 93_000 &&
+      feeVm.platformFeeLabel === "7,000원" &&
+      feeVm.permissions.canStart
+    ) {
+      pass("규칙 17: 결제 수수료는 서버 값");
+    } else {
+      fail("규칙 17: 결제 수수료는 서버 값", feeVm);
+    }
+
+    const freelancerVm = toPaymentViewModel(samplePayment, freelancer);
+    if (
+      freelancerVm.permissions.canStart === false &&
+      freelancerVm.permissions.canRetry === false &&
+      freelancerVm.orderId === null
+    ) {
+      pass("규칙 17: 프리랜서 ViewModel 액션 없음");
+    } else {
+      fail("규칙 17: 프리랜서 ViewModel 액션 없음", freelancerVm);
+    }
+
+    const stub = createTossCheckoutStub();
+    const orch = createCheckoutOrchestrator(stub);
+    await orch.start(null, "PAYMENT_AVAILABLE");
+    if (stub.calls.length === 0) pass("규칙 16: 준비 실패 시 SDK 미호출");
+    else fail("규칙 16: 준비 실패 시 SDK 미호출", stub.calls);
+
+    const prepared = await createPublicApiMock().preparePayment("prj_alive", MOCK_CLIENT_USER_ID);
+    const mapped = toTossCheckoutRequest(prepared);
+    if (
+      mapped.clientKey === prepared.clientKey &&
+      mapped.orderId === prepared.orderId &&
+      mapped.orderName === prepared.orderName &&
+      mapped.amount === prepared.amount &&
+      mapped.successUrl === prepared.successUrl &&
+      mapped.failUrl === prepared.failUrl
+    ) {
+      pass("규칙 16: 준비값을 SDK에 그대로 전달");
+    } else {
+      fail("규칙 16: 준비값을 SDK에 그대로 전달", { prepared, mapped });
+    }
+
+    const once = createTossCheckoutStub();
+    const onceOrch = createCheckoutOrchestrator(once);
+    await Promise.all([
+      onceOrch.start(prepared, "PAYMENT_AVAILABLE"),
+      onceOrch.start(prepared, "PAYMENT_AVAILABLE"),
+    ]);
+    if (once.calls.length === 1) pass("규칙 16: 결제 준비 중복 클릭 1회");
+    else fail("규칙 16: 결제 준비 중복 클릭 1회", once.calls);
+
+    await onceOrch.start(prepared, "PROJECT_CANCELED");
+    if (once.calls.length === 1) pass("규칙 16: 취소 후 결제창 미호출");
+    else fail("규칙 16: 취소 후 결제창 미호출", once.calls);
+
+    const parsed = parseTossSuccessQuery("paymentKey=tgen_1&orderId=ord_1&amount=100000");
+    if (parsed && shouldConfirmRedirect(parsed, "READY") && !shouldConfirmRedirect(parsed, "PAID")) {
+      pass("규칙 16: Redirect는 PAID면 confirm 생략");
+    } else {
+      fail("규칙 16: Redirect는 PAID면 confirm 생략", parsed);
+    }
+    if (failRedirectCopy() === "결제가 진행되지 않았습니다.") {
+      pass("규칙 16: 실패 Redirect 승인 미호출 안내");
+    } else {
+      fail("규칙 16: 실패 Redirect 승인 미호출 안내", failRedirectCopy());
+    }
+  }
+
+  {
+    const client = { actorUserId: "usr_client", clientId: "usr_client" } as const;
+    const freelancer = { actorUserId: "usr_freelancer", clientId: "usr_client" } as const;
+    const sampleSettlement = (
+      overrides: Partial<GetSettlementResponse> = {},
+    ): GetSettlementResponse => ({
+      paymentId: "pay_set",
+      contractId: "ctr_set",
+      projectId: "prj_set",
+      projectTitle: MOCK_PROJECT_TITLE,
+      environment: "SANDBOX",
+      provider: "MANUAL_SIMULATION",
+      currency: "KRW",
+      paymentAmount: 100_000,
+      platformFeeRateBps: 1000,
+      platformFeeAmount: 10_000,
+      settlementAmount: 90_000,
+      paymentStatus: "PAID",
+      deliveryStatus: null,
+      projectTransactionStatus: "IN_PROGRESS",
+      canceledAt: null,
+      ...overrides,
+    });
+
+    if (
+      deriveSettlementUiState({
+        paymentStatus: "PAID",
+        deliveryStatus: null,
+        projectTransactionStatus: "IN_PROGRESS",
+      }) === "WAITING_DELIVERY"
+    ) {
+      pass("규칙 17: PAID+미납품은 납품 대기");
+    } else {
+      fail("규칙 17: PAID+미납품은 납품 대기");
+    }
+    if (
+      deriveSettlementUiState({
+        paymentStatus: "PAID",
+        deliveryStatus: "APPROVED",
+        projectTransactionStatus: "IN_PROGRESS",
+      }) === "ELIGIBLE"
+    ) {
+      pass("규칙 17: APPROVED+PAID는 정산 가능");
+    } else {
+      fail("규칙 17: APPROVED+PAID는 정산 가능");
+    }
+    if (
+      deriveSettlementUiState({
+        paymentStatus: "RELEASED",
+        deliveryStatus: "APPROVED",
+        projectTransactionStatus: "IN_PROGRESS",
+      }) === "COMPLETION_SYNCING"
+    ) {
+      pass("규칙 17: RELEASED+IN_PROGRESS는 완료 동기화");
+    } else {
+      fail("규칙 17: RELEASED+IN_PROGRESS는 완료 동기화");
+    }
+    if (
+      deriveSettlementUiState({
+        paymentStatus: "RELEASED",
+        deliveryStatus: "APPROVED",
+        projectTransactionStatus: "COMPLETED",
+      }) === "RELEASED"
+    ) {
+      pass("규칙 17: RELEASED+COMPLETED는 정산 완료");
+    } else {
+      fail("규칙 17: RELEASED+COMPLETED는 정산 완료");
+    }
+
+    const mismatchDto = sampleSettlement({ platformFeeAmount: 7_000, settlementAmount: 90_000 });
+    const mismatchVm = toSettlementViewModel(mismatchDto, client);
+    if (
+      amountsMismatch(100_000, 7_000, 90_000) &&
+      mismatchVm.uiState === "REVIEW_REQUIRED" &&
+      mismatchVm.platformFeeAmount === 7_000 &&
+      mismatchVm.settlementAmount === 90_000 &&
+      mismatchVm.paymentAmount === 100_000
+    ) {
+      pass("규칙 17: 정산 합계 불일치는 숫자 보정 없음");
+    } else {
+      fail("규칙 17: 정산 합계 불일치는 숫자 보정 없음", mismatchVm);
+    }
+
+    const clientVm = toSettlementViewModel(sampleSettlement(), client);
+    const freelancerVm = toSettlementViewModel(sampleSettlement(), freelancer);
+    if (
+      clientVm.primaryAmount === 100_000 &&
+      freelancerVm.primaryAmount === 90_000 &&
+      clientVm.platformFeeAmount === 10_000 &&
+      freelancerVm.platformFeeAmount === 10_000
+    ) {
+      pass("규칙 17: 정산 대표 금액은 역할별 서버 값");
+    } else {
+      fail("규칙 17: 정산 대표 금액은 역할별 서버 값", { clientVm, freelancerVm });
+    }
+
+    const React = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { SettlementPanel } = await import("./web/SettlementPanel");
+    function htmlOf(node: React.ReactElement): string {
+      return renderToStaticMarkup(node);
+    }
+    function hasText(name: string, html: string, text: string): void {
+      if (html.includes(text)) pass(name);
+      else fail(name, html);
+    }
+    function hasForbiddenPayoutCopy(html: string): boolean {
+      return (
+        html.includes("에스크로") ||
+        html.includes("지급 완료") ||
+        html.includes("지급완료") ||
+        html.includes("출금 가능") ||
+        html.includes("정산 실행") ||
+        html.includes("재지급") ||
+        html.includes("송금 완료") ||
+        html.includes("계좌 지급")
+      );
+    }
+
+    const waitDlv = htmlOf(React.createElement(SettlementPanel));
+    hasText("규칙 17: 정산 Sandbox 배지", waitDlv, "Sandbox 정산 시뮬레이션");
+    hasText("규칙 17: 정산 시뮬레이션 카피", waitDlv, "정산 시뮬레이션");
+    hasText("규칙 17: 정산 M01 도움", waitDlv, "무슨 뜻인가요?");
+    if (!hasForbiddenPayoutCopy(waitDlv)) pass("규칙 17: 정산 금지 문구 없음");
+    else fail("규칙 17: 정산 금지 문구 없음", waitDlv);
+
+    const eligible = htmlOf(React.createElement(SettlementPanel, { uiState: "ELIGIBLE" }));
+    hasText("규칙 17: 정산 가능 안내", eligible, "정산 가능한 상태입니다");
+    if (!hasForbiddenPayoutCopy(eligible) && !eligible.includes("정산 실행")) {
+      pass("규칙 17: 정산 가능 지급 버튼 없음");
+    } else {
+      fail("규칙 17: 정산 가능 지급 버튼 없음", eligible);
+    }
+
+    const released = htmlOf(React.createElement(SettlementPanel, { uiState: "RELEASED" }));
+    hasText("규칙 17: 정산 완료 안내", released, "정산 시뮬레이션이 완료되었습니다");
+    if (!hasForbiddenPayoutCopy(released)) pass("규칙 17: 정산 완료 금지 문구 없음");
+    else fail("규칙 17: 정산 완료 금지 문구 없음", released);
+
+    const forbidden = htmlOf(React.createElement(SettlementPanel, { uiState: "FORBIDDEN" }));
+    if (!forbidden.includes("100,000") && !forbidden.includes("money")) {
+      pass("규칙 17: 정산 403 금액 숨김");
+    } else {
+      fail("규칙 17: 정산 403 금액 숨김", forbidden);
     }
   }
 

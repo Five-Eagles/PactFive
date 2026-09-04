@@ -9,11 +9,23 @@ import type { ContractUiState } from "./contract.view-model";
 import { DeliveryPanel } from "./DeliveryPanel";
 import type { DeliveryUiState } from "./delivery.view-model";
 import { PaymentPanel } from "./PaymentPanel";
+import type { PaymentUiState } from "./payment.view-model";
+import { SettlementPanel } from "./SettlementPanel";
+import type { SettlementUiState } from "./settlement.view-model";
 
-export { AgreementPanel, ContractSignPanel, DeliveryPanel, PaymentPanel };
+export { AgreementPanel, ContractSignPanel, DeliveryPanel, PaymentPanel, SettlementPanel };
 
 type PreviewScreen =
-  | { id: "payment"; label: string; slug: string }
+  | {
+      id: "payment";
+      label: string;
+      slug: string;
+      uiState?: PaymentUiState;
+      loading?: boolean;
+      modal?: "prepare";
+      viewerRole?: "CLIENT" | "FREELANCER";
+      view?: "keyMissing";
+    }
   | {
       id: "sign";
       label: string;
@@ -30,10 +42,31 @@ type PreviewScreen =
       uiState?: DeliveryUiState;
       loading?: boolean;
       modal?: "deliver" | "approve" | "download";
+    }
+  | {
+      id: "settlement";
+      label: string;
+      slug: string;
+      uiState?: SettlementUiState;
+      loading?: boolean;
+      modal?: "help" | "review";
+      viewerRole?: "CLIENT" | "FREELANCER";
     };
 
 const PREVIEW_SCREENS: PreviewScreen[] = [
-  { id: "payment", label: "결제", slug: "pay" },
+  { id: "payment", label: "결제 · 가능", slug: "pay-ready", uiState: "PAYMENT_AVAILABLE" },
+  { id: "payment", label: "결제 · M01", slug: "pay-m01", uiState: "PAYMENT_AVAILABLE", modal: "prepare" },
+  { id: "payment", label: "결제 · 창 준비", slug: "pay-opening", uiState: "WINDOW_OPENING" },
+  { id: "payment", label: "결제 · 확인 중", slug: "pay-confirming", uiState: "PAYMENT_CONFIRMING" },
+  { id: "payment", label: "결제 · 완료", slug: "pay-paid", uiState: "PAID" },
+  { id: "payment", label: "결제 · 동기화", slug: "pay-syncing", uiState: "PAID_SYNCING" },
+  { id: "payment", label: "결제 · 실패", slug: "pay-failed", uiState: "FAILED_RETRYABLE" },
+  { id: "payment", label: "결제 · 취소됨", slug: "pay-canceled", uiState: "PROJECT_CANCELED" },
+  { id: "payment", label: "결제 · 미체결", slug: "pay-unsigned", uiState: "CONTRACT_NOT_SIGNED" },
+  { id: "payment", label: "결제 · 프리랜서", slug: "pay-freelancer", uiState: "PAYMENT_AVAILABLE", viewerRole: "FREELANCER" },
+  { id: "payment", label: "결제 · 불러오는 중", slug: "pay-loading", loading: true },
+  { id: "payment", label: "결제 · 403", slug: "pay-403", uiState: "FORBIDDEN" },
+  { id: "payment", label: "결제 · 키 없음", slug: "pay-key", view: "keyMissing" },
   { id: "sign", label: "서명 · 미서명", slug: "ctr-ready", uiState: "READY_TO_SIGN" },
   { id: "sign", label: "서명 · M01", slug: "ctr-m01", uiState: "READY_TO_SIGN", modal: "sign" },
   { id: "sign", label: "서명 · 상대 대기", slug: "ctr-wait", uiState: "WAITING_COUNTERPART" },
@@ -75,6 +108,19 @@ const PREVIEW_SCREENS: PreviewScreen[] = [
   { id: "delivery", label: "납품 · 취소", slug: "dlv-canceled", uiState: "PROJECT_CANCELED" },
   { id: "delivery", label: "납품 · 403", slug: "dlv-403", uiState: "FORBIDDEN" },
   { id: "delivery", label: "납품 · 404", slug: "dlv-404", uiState: "NOT_FOUND" },
+  { id: "settlement", label: "정산 · 결제 전", slug: "set-waitpay", uiState: "WAITING_PAYMENT" },
+  { id: "settlement", label: "정산 · 납품 대기", slug: "set-waitdlv", uiState: "WAITING_DELIVERY" },
+  { id: "settlement", label: "정산 · 승인 대기", slug: "set-waitappr", uiState: "WAITING_APPROVAL" },
+  { id: "settlement", label: "정산 · 가능", slug: "set-eligible", uiState: "ELIGIBLE" },
+  { id: "settlement", label: "정산 · 동기화", slug: "set-syncing", uiState: "COMPLETION_SYNCING" },
+  { id: "settlement", label: "정산 · 완료", slug: "set-released", uiState: "RELEASED" },
+  { id: "settlement", label: "정산 · 금액 확인", slug: "set-review", uiState: "REVIEW_REQUIRED" },
+  { id: "settlement", label: "정산 · M01", slug: "set-m01", uiState: "WAITING_DELIVERY", modal: "help" },
+  { id: "settlement", label: "정산 · 의뢰인", slug: "set-client", uiState: "ELIGIBLE", viewerRole: "CLIENT" },
+  { id: "settlement", label: "정산 · 프리랜서", slug: "set-freelancer", uiState: "ELIGIBLE", viewerRole: "FREELANCER" },
+  { id: "settlement", label: "정산 · 불러오는 중", slug: "set-loading", loading: true },
+  { id: "settlement", label: "정산 · 403", slug: "set-403", uiState: "FORBIDDEN" },
+  { id: "settlement", label: "정산 · 취소", slug: "set-canceled", uiState: "PROJECT_CANCELED" },
 ];
 
 function initialScreenIndex(): number {
@@ -104,7 +150,16 @@ export default function PaymentsPreview() {
           </button>
         ))}
       </div>
-      {screen.id === "payment" ? <PaymentPanel /> : null}
+      {screen.id === "payment" ? (
+        <PaymentPanel
+          key={screen.label}
+          uiState={screen.uiState}
+          loading={screen.loading}
+          initialModal={screen.modal}
+          viewerRole={screen.viewerRole}
+          view={screen.view}
+        />
+      ) : null}
       {screen.id === "sign" ? (
         <ContractSignPanel
           key={screen.label}
@@ -127,6 +182,15 @@ export default function PaymentsPreview() {
           uiState={screen.uiState}
           loading={screen.loading}
           initialModal={screen.modal}
+        />
+      ) : null}
+      {screen.id === "settlement" ? (
+        <SettlementPanel
+          key={screen.label}
+          uiState={screen.uiState}
+          loading={screen.loading}
+          initialModal={screen.modal}
+          viewerRole={screen.viewerRole}
         />
       ) : null}
     </div>

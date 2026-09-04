@@ -15,12 +15,18 @@ export type PreparePaymentResponse = {
   orderId: string;
   amount: number;
   clientKey: string;
+  orderName: string;
+  successUrl: string;
+  failUrl: string;
+  environment: "SANDBOX";
 };
 
 export type GetPaymentResponse = {
   paymentId: string;
   orderId: string;
   amount: number;
+  platformFeeAmount: number;
+  settlementAmount: number;
   status: PaymentRecordStatus;
 };
 
@@ -28,6 +34,8 @@ type PaymentRecord = {
   paymentId: string;
   orderId: string;
   amount: number;
+  platformFeeAmount: number;
+  settlementAmount: number;
   status: PaymentRecordStatus;
   failedAt: string | null;
   failureCode: string | null;
@@ -36,6 +44,9 @@ type PaymentRecord = {
 
 export const MOCK_PAYMENT_ID = "pay_mock_01";
 const MOCK_CLIENT_KEY = "mock_pg_client_key";
+export const MOCK_TOSS_SUCCESS_URL = "/payments/toss/success";
+export const MOCK_TOSS_FAIL_URL = "/payments/toss/fail";
+const MOCK_ORDER_NAME = "브랜드 사이트 리뉴얼";
 const MOCK_FAILED_AT = "2026-08-25T05:10:00Z";
 const MOCK_PAID_AT = "2026-08-25T05:12:00Z";
 const MOCK_NOTIFY_PROJECT_ID = "prj_alive";
@@ -74,11 +85,31 @@ export function createPaymentRecordMock(
     return row;
   }
 
+  function splitServerAmount(amount: number) {
+    const platformFeeAmount = Math.floor(amount * 0.1);
+    return { platformFeeAmount, settlementAmount: amount - platformFeeAmount };
+  }
+
+  function toPrepareResponse(record: PaymentRecord): PreparePaymentResponse {
+    return {
+      paymentId: record.paymentId,
+      orderId: record.orderId,
+      amount: record.amount,
+      clientKey: MOCK_CLIENT_KEY,
+      orderName: MOCK_ORDER_NAME,
+      successUrl: MOCK_TOSS_SUCCESS_URL,
+      failUrl: MOCK_TOSS_FAIL_URL,
+      environment: "SANDBOX",
+    };
+  }
+
   function toGetResponse(record: PaymentRecord): GetPaymentResponse {
     return {
       paymentId: record.paymentId,
       orderId: record.orderId,
       amount: record.amount,
+      platformFeeAmount: record.platformFeeAmount,
+      settlementAmount: record.settlementAmount,
       status: record.status,
     };
   }
@@ -93,28 +124,21 @@ export function createPaymentRecordMock(
             "프로젝트 상태가 변경되어 처리할 수 없습니다.",
           );
         }
-        return {
-          paymentId: row.paymentId,
-          orderId: row.orderId,
-          amount: row.amount,
-          clientKey: MOCK_CLIENT_KEY,
-        };
+        return toPrepareResponse(row);
       }
+      const split = splitServerAmount(amount);
       row = {
         paymentId: MOCK_PAYMENT_ID,
         orderId: nextOrderId(),
         amount,
+        platformFeeAmount: split.platformFeeAmount,
+        settlementAmount: split.settlementAmount,
         status: "READY",
         failedAt: null,
         failureCode: null,
         rawResponse: null,
       };
-      return {
-        paymentId: row.paymentId,
-        orderId: row.orderId,
-        amount: row.amount,
-        clientKey: MOCK_CLIENT_KEY,
-      };
+      return toPrepareResponse(row);
     },
 
     async confirmPayment(input: ConfirmPaymentInput): Promise<ConfirmPaymentResponse> {

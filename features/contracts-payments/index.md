@@ -25,9 +25,12 @@
   `NotificationTriggerPort`는 publish만. 발송은 팀장.
   공개 API 스탠드인은 `createPublicApiMock` (`prototype/index.ts` export).
   GET `/api/v1/payments/:paymentId` (`getPayment`)와 POST 준비·승인 (`preparePayment`·`confirmPayment`) 포함.
+  GET `/api/v1/payments/:paymentId/settlement` (`getSettlement`)는 결제 행+납품+프로젝트를 조립한다.
   `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~23 Mock을 확인한다.
   합의 화면은 하이브리드 AGR-01(페이지 본문, ViewModel). `/agreements` 5종 폐기 유지.
   서명 화면은 하이브리드 CTR-01(페이지 본문, ViewModel). 설계서 신설 `CONTRACT_*` 코드는 쓰지 않는다.
+  결제 화면은 하이브리드 PAY-01(페이지 본문, ViewModel). 설계서 신설 `PAYMENT_FORBIDDEN` 코드는 쓰지 않는다.
+  정산 화면은 하이브리드 SET-01(페이지 본문, ViewModel). 설계서 신설 `SETTLEMENT_*` 코드·지급 버튼은 쓰지 않는다.
   납품 화면은 하이브리드 DLV-01(페이지 본문, ViewModel). 네이밍 2경로
   (`POST /contracts/:id/deliveries` + `POST /deliveries/:id/approve`)는 쓰지 않는다.
   I-30은 화면에서 `APPROVED`+`PAID`(정산 대기)와 `APPROVED`+`RELEASED`(완료)를 나눈다.
@@ -49,8 +52,8 @@
 | `prj_deadline` | restore `DEADLINE_PASSED` |
 | `prj_pending_apps` | restore `PENDING_APPLICATIONS_REMAIN` |
 
-- design/: high-fi (`agreement.html` · `contract-sign.html` · `payment.html` · `delivery.html`).
-  합의·납품은 페이지 본문(최대 1200px, 8:4). 서명·결제는 패널. 앱 셸 없음.
+- design/: high-fi (`agreement.html` · `contract-sign.html` · `payment.html` · `delivery.html` · `settlement.html`).
+  합의·납품은 페이지 본문(최대 1200px, 8:4). 서명·결제·정산은 페이지 본문(ViewModel). 앱 셸 없음.
   `_tokens.css`는 design-system v1.0 사본. 키 없음 UX는
   `prototype/web/PaymentPanel.tsx` `view="keyMissing"`.
   오버레이·reduced-motion은 `design/panel.css`. 합의 거절은 확인 다이얼로그 (앱 셸·stagger 없음).
@@ -100,3 +103,5 @@
 | 2026-09-03 | 알림 발송 담당을 팀장으로. applications 손잡이·S1·S2는 조준영 확정 |
 | 2026-09-03 | 하이브리드 AGR-01. `/agreements` 5종 폐기 유지. `run.tsx` 상태 산정·필수 카피. 실측 PASS 120 |
 | 2026-09-03 | 하이브리드 DLV-01. 네이밍 2경로 미사용. I-30 화면 구분. `run.tsx` 실측 PASS 163 |
+| 2026-09-04 | 하이브리드 PAY-01. 라우트·오류 코드 유지. Sandbox 페이지·ViewModel. 실 Toss 미연동 |
+| 2026-09-04 | 하이브리드 SET-01. 정산 조회 GET 조립. 지급 버튼·운영 시뮬레이션 없음 |

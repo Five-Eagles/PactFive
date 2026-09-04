@@ -94,11 +94,20 @@ export type GetContractResponse = {
   paymentStatus: "READY" | "PENDING" | "PAID" | "FAILED" | null;
 };
 
+export type PaymentProjectTransactionStatus = "CONTRACT_PENDING" | "IN_PROGRESS" | "CANCELED";
+
 export type GetPaymentResponse = {
   paymentId: string;
+  contractId: string;
   orderId: string;
   amount: number;
+  currency: "KRW";
+  platformFeeAmount: number;
+  settlementAmount: number;
   status: "READY" | "PENDING" | "PAID" | "FAILED";
+  projectTitle: string;
+  projectTransactionStatus: PaymentProjectTransactionStatus;
+  environment: "SANDBOX";
 };
 
 export type InvalidateAgreementInput = {
@@ -119,6 +128,30 @@ export type InvalidateAgreementResponse = {
 export type DeliveryStatus = "IN_PROGRESS" | "DELIVERY_REQUESTED" | "APPROVED";
 
 export type DeliveryPaymentStatus = "READY" | "PENDING" | "PAID" | "FAILED" | "RELEASED";
+
+export type SettlementProjectTransactionStatus =
+  | "CONTRACT_PENDING"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELED";
+
+export type GetSettlementResponse = {
+  paymentId: string;
+  contractId: string;
+  projectId: string;
+  projectTitle: string;
+  environment: "SANDBOX";
+  provider: "MANUAL_SIMULATION";
+  currency: "KRW";
+  paymentAmount: number;
+  platformFeeRateBps: number;
+  platformFeeAmount: number;
+  settlementAmount: number;
+  paymentStatus: DeliveryPaymentStatus;
+  deliveryStatus: DeliveryStatus | null;
+  projectTransactionStatus: SettlementProjectTransactionStatus;
+  canceledAt: string | null;
+};
 
 export type DeliveryFileView = {
   fileName: string;

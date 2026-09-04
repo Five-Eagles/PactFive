@@ -218,7 +218,7 @@ function fixtureDto(
   return { ...base, delivery: null };
 }
 
-/** 제목과 계약·프로젝트 텍스트 링크. 앱 셸은 넣지 않는다. */
+/** 제목과 계약·프로젝트·정산 텍스트 링크. 앱 셸은 넣지 않는다. */
 function DeliveryPageHead({
   uiState,
   showLinks,
@@ -236,6 +236,9 @@ function DeliveryPageHead({
           <p className="delivery-page-links">
             <a href="#project">프로젝트</a>
             <a href="#contract">계약</a>
+            {uiState === "SETTLEMENT_PENDING" || uiState === "COMPLETED" ? (
+              <a href="#settlement">정산 확인</a>
+            ) : null}
           </p>
         ) : null}
       </div>
@@ -339,7 +342,9 @@ function DeliveryMain({
               다운로드
             </Button>
           ) : null}
-          <Button variant="secondary">결제·정산 확인</Button>
+          <a className="caption" href="#settlement">
+            정산 확인
+          </a>
         </div>
       ) : null}
       {uiState === "COMPLETED" ? (
@@ -349,6 +354,9 @@ function DeliveryMain({
               다운로드
             </Button>
           ) : null}
+          <a className="caption" href="#settlement">
+            정산 확인
+          </a>
           <Button variant="primary">리뷰 작성</Button>
         </div>
       ) : null}

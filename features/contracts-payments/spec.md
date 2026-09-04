@@ -207,7 +207,7 @@
     `POST .../negotiation-offers/:offerId/accept` (`acceptNegotiationOffer`),
     `POST .../negotiation-offers/:offerId/reject` (`rejectNegotiationOffer`),
     `GET /api/v1/contracts/:contractId` (규칙 20), `POST /api/v1/contracts/:contractId/sign`,
-    `POST /api/v1/payments` (준비), `GET /api/v1/payments/:paymentId` (규칙 21),
+    `POST /api/v1/payments` (준비), `GET /api/v1/payments/:paymentId` (규칙 21) · `.../settlement` (SET-01),
     `POST /api/v1/payments/confirm` (규칙 9).
     납품 Increment: `GET /api/v1/contracts/:contractId/delivery`,
     `POST .../deliveries/upload-prepare`, `POST .../deliveries/request`,
@@ -219,7 +219,7 @@
 17. **프론트 라우트 초안.** `/projects/:projectId/agreements` (생성 모드),
     `/projects/:projectId/agreements/:agreementId` (AGR-01 상세),
     `/projects/:projectId/contracts/:contractId` (CTR-01 서명, 앱 셸 없는 페이지 본문·ViewModel),
-    `/projects/:projectId/payments/:paymentId` (체크아웃, `payments.id`),
+    `/projects/:projectId/payments/:paymentId` (PAY-01) · `.../settlement` (SET-01, `payments.id`),
     `/projects/:projectId/contracts/:contractId/delivery` (DLV-01, 식별자는 `contractId`).
     Toss `orderId`는 `pg_order_id`이며 화면 경로에 쓰지 않는다.
     UX: 로딩, 빈 생성 모드, `LOAD_FAILED` 재시도, `STALE`/409 후 재조회, 프로젝트 취소 시

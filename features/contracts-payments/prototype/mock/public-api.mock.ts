@@ -9,6 +9,7 @@ import {
   DomainContractError,
   type NotReopenedReason,
   type ProjectNegotiationContextResponse,
+  type ProjectTransactionStatus,
 } from "../server/project-transaction.types";
 import type { ContractStatus } from "../server/contract.types";
 import { completeProjectTransactionIfSettled } from "../server/project-transaction.service";
@@ -23,8 +24,11 @@ import {
   type GetContractResponse,
   type GetDeliveryResponse,
   type GetPaymentResponse,
+  type GetSettlementResponse,
   type InvalidateAgreementInput,
   type InvalidateAgreementResponse,
+  type PaymentProjectTransactionStatus,
+  type SettlementProjectTransactionStatus,
   type ProposeNegotiationOfferInput,
   type RejectNegotiationOfferInput,
   type RequestDeliveryInput,
@@ -118,6 +122,23 @@ function utcDate(iso: string): string {
 
 function laterDate(start: string, end: string): string {
   return end < start ? start : end;
+}
+
+function toPaymentProjectStatus(
+  status: ProjectTransactionStatus,
+): PaymentProjectTransactionStatus {
+  if (status === "CANCELED") return "CANCELED";
+  if (status === "IN_PROGRESS" || status === "COMPLETED") return "IN_PROGRESS";
+  return "CONTRACT_PENDING";
+}
+
+function toSettlementProjectStatus(
+  status: ProjectTransactionStatus,
+): SettlementProjectTransactionStatus {
+  if (status === "CANCELED") return "CANCELED";
+  if (status === "COMPLETED") return "COMPLETED";
+  if (status === "IN_PROGRESS") return "IN_PROGRESS";
+  return "CONTRACT_PENDING";
 }
 
 /** 공개 API 스탠드인. 프로젝트 4함수 Mock을 거절·무효화·납품 완료에 재사용한다. */
@@ -523,8 +544,49 @@ export function createPublicApiMock(
       // 없는 결제는 당사자 검사 전에 404.
       const row = payments.getPayment(paymentId);
       const projectId = paymentProjectIds.get(paymentId) ?? "prj_alive";
-      await requireParty(projectId, actorUserId);
-      return row;
+      const ctx = await requireParty(projectId, actorUserId);
+      const contract = [...contracts.values()].find((item) => item.projectId === projectId);
+      return {
+        paymentId: row.paymentId,
+        contractId: contract?.contractId ?? `ctr_${projectId}`,
+        orderId: row.orderId,
+        amount: row.amount,
+        currency: "KRW",
+        platformFeeAmount: row.platformFeeAmount,
+        settlementAmount: row.settlementAmount,
+        status: row.status,
+        projectTitle: MOCK_PROJECT_TITLE,
+        projectTransactionStatus: toPaymentProjectStatus(ctx.transactionStatus),
+        environment: "SANDBOX",
+      };
+    },
+
+    async getSettlement(paymentId: string, actorUserId: string): Promise<GetSettlementResponse> {
+      // 없는 결제는 당사자 검사 전에 404.
+      const row = payments.getPayment(paymentId);
+      const projectId = paymentProjectIds.get(paymentId) ?? "prj_alive";
+      const ctx = await requireParty(projectId, actorUserId);
+      const contract = [...contracts.values()].find((item) => item.projectId === projectId);
+      const seed = [...deliveryContracts.values()].find((item) => item.projectId === projectId);
+      const deliveryRow = seed ? deliveries.get(seed.contractId) ?? null : null;
+      const paymentStatus = seed?.paymentStatus ?? row.status;
+      return {
+        paymentId: row.paymentId,
+        contractId: seed?.contractId ?? contract?.contractId ?? `ctr_${projectId}`,
+        projectId,
+        projectTitle: MOCK_PROJECT_TITLE,
+        environment: "SANDBOX",
+        provider: "MANUAL_SIMULATION",
+        currency: "KRW",
+        paymentAmount: row.amount,
+        platformFeeRateBps: 1000,
+        platformFeeAmount: row.platformFeeAmount,
+        settlementAmount: row.settlementAmount,
+        paymentStatus,
+        deliveryStatus: deliveryRow?.status ?? null,
+        projectTransactionStatus: toSettlementProjectStatus(ctx.transactionStatus),
+        canceledAt: ctx.canceledAt,
+      };
     },
 
     async preparePayment(

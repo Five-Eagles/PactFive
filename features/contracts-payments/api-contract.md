@@ -268,13 +268,21 @@ CTR-01 우측 컬럼 가설: `projectId`, `workStartDate`, `workEndDate`, `trans
 ### POST /api/v1/payments — 결제 준비
 
 규칙 6 이후. 계약 `SIGNED`. ERD NOT NULL 채움(규칙 19): `payment_amount`·수수료·정산액·KRW.
-응답: `{ paymentId, orderId, amount, clientKey }`. `clientKey`는 서버 시크릿이 아님.
+응답: `{ paymentId, orderId, amount, clientKey, orderName, successUrl, failUrl, environment }`.
+`clientKey`는 서버 시크릿이 아님. `environment`는 `SANDBOX`. 프론트는 준비값을 수정하지 않는다.
 `FAILED` 후 재결제는 같은 `paymentId`에 새 `orderId`(I-17).
 
 ### GET /api/v1/payments/:paymentId
 
 규칙 21. 당사자. `paymentId` = `payments.id`. `status` (`READY` \| `PENDING` \| `PAID` \| `FAILED`).
-응답에 현재 `orderId`를 포함한다.
+응답에 현재 `orderId`와 서버 확정 금액 3종(`amount`·`platformFeeAmount`·`settlementAmount`)·
+`projectTitle`·`projectTransactionStatus`·`environment`를 포함한다. `availableActions`는 넣지 않는다.
+
+### GET /api/v1/payments/:paymentId/settlement
+
+정산·수수료 조회 가설. 당사자. 결제 행 + 납품·프로젝트 상태를 조립한다. 설계서 신설
+`SETTLEMENT_*` 코드는 쓰지 않는다. `availableActions`·`viewerRole`은 넣지 않는다.
+응답 금액 3종은 서버 스냅샷이며 화면이 10%를 다시 나누지 않는다.
 
 ### POST /api/v1/payments/confirm — `confirmPayment`
 
@@ -485,9 +493,33 @@ type GetContractResponse = {
 };
 type GetPaymentResponse = {
   paymentId: string;
+  contractId: string;
   orderId: string;
   amount: number;
+  currency: 'KRW';
+  platformFeeAmount: number;
+  settlementAmount: number;
   status: PaymentStatus;
+  projectTitle: string;
+  projectTransactionStatus: 'CONTRACT_PENDING' | 'IN_PROGRESS' | 'CANCELED';
+  environment: 'SANDBOX';
+};
+type GetSettlementResponse = {
+  paymentId: string;
+  contractId: string;
+  projectId: string;
+  projectTitle: string;
+  environment: 'SANDBOX';
+  provider: 'MANUAL_SIMULATION';
+  currency: 'KRW';
+  paymentAmount: number;
+  platformFeeRateBps: number;
+  platformFeeAmount: number;
+  settlementAmount: number;
+  paymentStatus: PaymentStatus | 'RELEASED';
+  deliveryStatus: DeliveryStatus | null;
+  projectTransactionStatus: 'CONTRACT_PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED';
+  canceledAt: string | null;
 };
 type PostActionResult = 'DONE' | 'NOT_NEEDED' | 'FAILED';
 type InvalidateAgreementInput = {
