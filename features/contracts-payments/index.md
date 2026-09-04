@@ -15,7 +15,7 @@
   알림 포트·수락 손잡이 계약은 `review/yoonseok-ports-contract.md` (수락→결제→리뷰 호출 순서).
   알림 import 입구는 `review/mock-stub-import-guide.md` 알림·손잡이 절.
   8/27 설계서 평가·최적안은 `review/spec-design-eval.md`.
-  금주 마감은 `review/week-wrap-2026-08-28.md`.
+  금주 마감은 `review/week-wrap-2026-09-04.md` (지난주 `week-wrap-2026-08-28.md`).
   ADR-0012 패널 vs 레퍼런스 확인은 `review/reference-panel-gap-2026-09-02.md`.
   팀장(알림)·조준영(지원) 접점 확정 요청은 `review/yoonseok-ports-confirm-2026-09-02.md`.
   팀장 패널 이식성 확정 요청은 `review/teamlead-panel-portability-2026-09-02.md`.
@@ -120,3 +120,4 @@
 | 2026-09-04 | 하이브리드 DLV-01 v2.0. ensureDelivery·멱등 키·승인/정산 양쪽 complete. `DELIVERY_*` 없음. 실측 PASS 290 |
 | 2026-09-04 | 하이브리드 SET-01 v2.0. 수수료 스냅샷·ELIGIBLE·RELEASED 원자·C-03 409 재판정. `SETTLEMENT_*` 없음. 실측 PASS 308 |
 | 2026-09-04 | 하이브리드 CAN-01 v2.0. 무효화 멱등·결제 후 409·감사 보존·GET notification. 규칙 25. 실측 PASS 323 |
+| 2026-09-04 | 금주 wrap (`review/week-wrap-2026-09-04.md`). PASS 323. `app/`·A-07·실토스·환불은 다음 |
