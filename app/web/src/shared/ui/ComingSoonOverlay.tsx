@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from './primitives';
 import { APP_ROUTES } from '../routes';
 import { NOT_YET_SCREENS, type NotYetScreenKey } from '../notYetScreens';
-import { DevScreenNote } from './DevScreenNote';
 
 /**
  * "경로·기능 폴더는 있는데 화면이 아직 `app/`에 안 붙었다" 상황(app/web/AGENTS.md "시안에는
@@ -59,7 +58,6 @@ export function ComingSoonOverlay({ screenKey, children }: ComingSoonOverlayProp
             <p style={{ marginTop: 0 }}>
               화면을 미리 보여드리고 있습니다. 아직 실제로 이용하실 수는 없습니다.
             </p>
-            <DevScreenNote screenKey={screenKey} />
           </div>
           <div className="btn-row" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
             <Button variant="primary" onClick={goBack}>

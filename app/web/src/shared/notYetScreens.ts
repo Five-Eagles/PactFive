@@ -6,8 +6,8 @@
  * 사실을 말해준다는 철학을 그대로 옮겼다.
  *
  * **여기 있는 값은 방문자가 읽는 말이다.** 담당자·명세 경로 같은 우리끼리 쓰는 정보는
- * `notYetScreens.dev.ts`로 뺐다 — 한 파일에 두면 배포 번들에 문자열로 남아 소스 보기로
- * 읽힌다 (2026-09-04).
+ * 화면에 절대 넣지 않는다 — 개발 중에만 보이게 하는 것도 안 된다. 그런 정보가 필요하면
+ * 이 파일 아래 주석을 읽는다 (2026-09-04).
  *
  * `hasRoute`가 이 화면을 어떤 컴포넌트로 안내할지 가른다 (app/web/AGENTS.md "시안에는
  * 있지만 아직 없는 화면" 절 참고):
@@ -30,8 +30,7 @@ export type NotYetScreen = {
 };
 
 export const NOT_YET_SCREENS: Record<NotYetScreenKey, NotYetScreen> = {
-  // 2026-09-04 — 미리보기 화면이 생겼다 (project-management/preview/).
-  // 같은 날 guide·safety·footer 3종은 실제 화면이 되어 이 표에서 빠졌다 —
+  // 2026-09-04 — guide·safety·footer 3종은 실제 화면이 되어 이 표에서 빠졌다.
   // 남겨두면 다음 사람이 "아직 없는 화면" 으로 읽는다.
   experts: { name: '전문가 찾기', hasRoute: true },
   applications: { name: '지원하기', hasRoute: true },
@@ -39,3 +38,25 @@ export const NOT_YET_SCREENS: Record<NotYetScreenKey, NotYetScreen> = {
   reviews: { name: '리뷰', hasRoute: true },
   notifications: { name: '알림', hasRoute: true },
 };
+
+/* ─────────────────────────────────────────────────────────────
+ * 담당과 명세 위치 — **주석이다. 화면에 그리지 않는다.**
+ *
+ * 예전에 이 정보를 다이얼로그에 띄웠다가 걷어냈다. 개발 중에만 보이게 해도 안 된다 —
+ * 화면은 방문자가 읽는 자리이고, 담당자 이름과 내부 경로는 거기 있을 것이 아니다.
+ * 알아야 하는 사람은 코드를 읽는 사람뿐이므로 여기 둔다.
+ *
+ *   experts        유동우 · app/web/src/features/project-management/preview/
+ *                  (시안: design/reference-proposal/experts.html)
+ *                  PRD 화면 목록(§7.1)에 프리랜서 탐색이 없다. 만들지 말지부터 팀이 정한다
+ *
+ *   applications   조준영 (2026-09-03 재배정) · features/applications/
+ *                  서버·프로토타입은 있다(PR #52). app/web 화면 연결이 아직이다
+ *
+ *   ai-pricing     오민혁 · features/ai-pricing/
+ *
+ *   reviews        조준영 · features/reviews/
+ *                  프로토타입은 있다. app/web 화면 연결이 아직이다
+ *
+ *   notifications  담당 미정 · features/notifications/
+ * ───────────────────────────────────────────────────────────── */
