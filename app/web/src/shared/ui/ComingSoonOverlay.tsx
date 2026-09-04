@@ -52,20 +52,12 @@ export function ComingSoonOverlay({ screenKey, children }: ComingSoonOverlayProp
           aria-describedby="comingsoon-desc"
         >
           <h2 id="comingsoon-title" className="h3" style={{ marginTop: 0 }}>
-            {screen.name} 기능은 준비 중입니다
+            {screen.name}, 준비 중입니다
           </h2>
           <div id="comingsoon-desc">
-            {screen.note && (
-              <p style={{ marginTop: 0 }}>{screen.note}</p>
-            )}
-            <dl className="caption" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 16px' }}>
-              <dt style={{ fontWeight: 700 }}>담당</dt>
-              <dd style={{ margin: 0 }}>{screen.owner}</dd>
-              <dt style={{ fontWeight: 700 }}>명세</dt>
-              <dd style={{ margin: 0 }}>
-                <code>{screen.where}</code>
-              </dd>
-            </dl>
+            <p style={{ marginTop: 0 }}>
+              화면을 미리 보여드리고 있습니다. 아직 실제로 이용하실 수는 없습니다.
+            </p>
           </div>
           <div className="btn-row" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
             <Button variant="primary" onClick={goBack}>

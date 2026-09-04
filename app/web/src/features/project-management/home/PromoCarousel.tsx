@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { NotYetTrigger } from '../../../shared/ui/NotYetDialog';
-import type { NotYetScreenKey } from '../../../shared/notYetScreens';
+import { PREVIEW_ROUTES } from '../preview/preview.paths';
+import { INFO_ROUTES } from '../info/info.paths';
 import { PROJECT_ROUTES } from '../project.routes';
 
 /**
@@ -18,12 +18,25 @@ type Slide = {
   title: ReactNode;
   body: string;
   ctaLabel: string;
-  /** null이면 실제 경로(PROJECT_ROUTES.register)로 보낸다. 그 외엔 화면 자체가 없어 NotYet */
-  ctaScreenKey: NotYetScreenKey | null;
+  /**
+   * 어디로 보내는가. 셋 다 실제 주소다.
+   *
+   * 2026-09-04 이전에는 갈 곳이 없어 제자리 다이얼로그를 여는 슬라이드가 있었다.
+   * 지금은 전문가 찾기·안전한 거래 화면이 생겨 전부 이동한다.
+   */
+  ctaTo: string;
   image: string;
 };
 
-const SLIDES: Slide[] = [
+/**
+ * 슬라이드는 **함수 안에서** 만든다. 모듈 최상단에 두면 이 파일이 로드되는 시점에
+ * `PROJECT_ROUTES` 를 읽는데, 그 파일은 이 화면을 다시 불러오는 순환에 놓여 있어
+ * 아직 초기화되기 전이다 ("Cannot access before initialization").
+ *
+ * 그릴 때 읽으면 순환이 이미 풀린 뒤라 안전하다.
+ */
+function buildSlides(): Slide[] {
+  return [
   {
     pill: 'B2B 서비스 구축 기획전',
     title: (
@@ -35,7 +48,7 @@ const SLIDES: Slide[] = [
     ),
     body: '기획부터 개발까지 한팀처럼',
     ctaLabel: '전문가 확인하기',
-    ctaScreenKey: 'experts',
+    ctaTo: PREVIEW_ROUTES.experts,
     image: '/images/home/banner-b2b.jpg',
   },
   {
@@ -49,7 +62,7 @@ const SLIDES: Slide[] = [
     ),
     body: '비슷한 프로젝트를 근거로 범위를 먼저 알려드립니다',
     ctaLabel: '등록하고 확인하기',
-    ctaScreenKey: null,
+    ctaTo: PROJECT_ROUTES.register,
     image: '/images/home/expert-dashboard.jpg',
   },
   {
@@ -63,12 +76,14 @@ const SLIDES: Slide[] = [
     ),
     body: '합의한 금액과 일정이 그대로 계약서가 됩니다',
     ctaLabel: '진행 방식 보기',
-    ctaScreenKey: 'safety',
+    ctaTo: INFO_ROUTES.safety,
     image: '/images/home/expert-branding.jpg',
   },
-];
+  ];
+}
 
 export function PromoCarousel() {
+  const SLIDES = buildSlides();
   const [at, setAt] = useState(0);
 
   function show(next: number) {
@@ -106,15 +121,9 @@ export function PromoCarousel() {
                 <span className="pill">{slide.pill}</span>
                 <h2>{slide.title}</h2>
                 <p>{slide.body}</p>
-                {slide.ctaScreenKey ? (
-                  <NotYetTrigger screenKey={slide.ctaScreenKey} className="cta">
-                    {slide.ctaLabel}
-                  </NotYetTrigger>
-                ) : (
-                  <Link className="cta" to={PROJECT_ROUTES.register}>
-                    {slide.ctaLabel}
-                  </Link>
-                )}
+                <Link className="cta" to={slide.ctaTo}>
+                  {slide.ctaLabel}
+                </Link>
               </div>
               <div className="banner__visual">
                 <img src={slide.image} alt="" width={640} height={360} />

@@ -26,6 +26,16 @@
   --teal-900: #073f43;
   --action-quiet: var(--teal-700);
 
+  /* 평점 별. design-tokens.md 정본에 없는 값이라 여기 둔다 —
+     시안 _tokens.css 의 --rating-star 와 같은 값이다 */
+  --rating-star: #f4a300;
+
+  /* 남색 계열의 빠진 단계. shared/ui/tokens.css 는 50·100·400·500·600·950 만 두는데
+     시안의 아이콘 도형이 200(면)과 700(선)을 쓴다. 값은 시안 _tokens.css 그대로다.
+     정본(design-tokens.md)에 단계를 늘리는 것은 팀 논의가 필요해 우선 여기 둔다 */
+  --navy-200: #d5dce7;
+  --navy-700: #394760;
+
   --r-sm: 6px;
   --r-md: 10px;
   --r-lg: 14px;

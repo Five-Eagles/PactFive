@@ -433,7 +433,15 @@ select.field {
 }
 
 /* 프로젝트 카드 — 비교에 필요한 항목을 늘 같은 순서로 둔다 (도메인 패턴 ProjectCard) */
+/*
+ * 카드 전체가 눌리는 자리다.
+ *
+ * 카드를 `<a>` 로 감싸지 않는다. 안에 북마크 버튼이 있어서 링크 안에 버튼이 들어가고,
+ * 그러면 브라우저마다 다르게 동작한다. 대신 **제목 링크를 카드 크기로 늘린다** —
+ * 마크업은 링크 하나 · 버튼 하나 그대로고, 눌리는 면적만 카드 전체가 된다.
+ */
 .pcard {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: var(--card-radius);
   padding: var(--card-pad);
@@ -447,6 +455,45 @@ select.field {
 
 .pcard:hover {
   border-color: var(--border-focus);
+}
+
+/*
+ * 제목 링크를 카드 전체로 늘린다. 이 투명한 면이 실제로 눌리는 자리다.
+ *
+ * z-index 가 필요하다. 이 면은 제목(첫 자식) 것이라, 지정하지 않으면 뒤에 오는
+ * 예산·기술·마감 줄이 나중에 그려지며 위를 덮어 제목 언저리만 눌리게 된다.
+ */
+.pcard h3 a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1;
+}
+
+/* 북마크는 그 면보다 더 위로 올린다. 안 그러면 늘어난 링크에 덮여 눌리지 않는다 */
+.pcard__top > *:not(h3),
+.pcard .save,
+.pcard button {
+  position: relative;
+  z-index: 2;
+}
+
+/* 카드 어디에 있든 제목에 밑줄이 생겨 "여기가 눌린다" 를 알린다.
+   키보드로 왔을 때는 카드 전체에 초점 테두리를 준다 — 제목 글자에만 두르면
+   무엇이 선택됐는지 알기 어렵다 */
+.pcard:hover h3 a {
+  text-decoration: underline;
+}
+
+.pcard:focus-within {
+  border-color: var(--border-focus);
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.pcard h3 a:focus-visible {
+  outline: none;
 }
 
 .pcard__top {
