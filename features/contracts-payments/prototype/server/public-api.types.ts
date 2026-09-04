@@ -148,6 +148,7 @@ export type GetCancellationResponse = {
   postActions: {
     applicationRejection: PostActionResult;
     contractInvalidation: PostActionResult;
+    notification: PostActionResult;
   } | null;
 };
 
@@ -177,6 +178,45 @@ export type GetSettlementResponse = {
   deliveryStatus: DeliveryStatus | null;
   projectTransactionStatus: SettlementProjectTransactionStatus;
   canceledAt: string | null;
+  releasedAt: string | null;
+};
+
+export type SimulateSettlementResultInput = {
+  result: "SUCCESS" | "FAILURE" | "UNKNOWN";
+  idempotencyKey: string;
+};
+
+export type SettlementExecutionStatus =
+  | "PENDING"
+  | "BLOCKED"
+  | "ELIGIBLE"
+  | "REQUESTED"
+  | "PROCESSING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "REVIEW_REQUIRED";
+
+export type SettlementExecutionView = {
+  settlementId: string;
+  paymentId: string;
+  contractId: string;
+  status: SettlementExecutionStatus;
+  paymentAmount: number;
+  platformFeeRateBps: number;
+  platformFeeAmount: number;
+  settlementAmount: number;
+  feePolicyVersion: string;
+  pgCostAmount: number;
+  blockedReason: string | null;
+  payoutAttempts: number;
+  releasedAt: string | null;
+};
+
+export type SimulateSettlementResultResponse = {
+  alreadyProcessed: boolean;
+  paymentStatus: DeliveryPaymentStatus;
+  executionStatus: SettlementExecutionStatus;
+  payoutAttempts: number;
 };
 
 export type DeliveryFileView = {

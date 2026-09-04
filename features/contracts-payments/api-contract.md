@@ -200,8 +200,12 @@
 
 ## POST /internal/v1/projects/:projectId/invalidate-agreement
 
-규칙 15·22. 유동우 → 조준영. 프로젝트 취소 시 합의 `REJECTED`·계약 `CANCELED`.
-서명 감사는 삭제하지 않는다. 멱등 키 `invalidate-{cancellationId}`.
+규칙 15·25. 유동우 → 조준영. 프로젝트 취소 시 합의 `REJECTED`·계약 `CANCELED`.
+서명 감사·terms 스냅샷은 삭제·수정하지 않는다. 멱등 키 `invalidate-{cancellationId}`.
+같은 키·같은 본문(`reason`·`projectCanceledAt`)은 최초 응답. 같은 키·다른 본문은 409.
+`paymentPendingAt`이 있으면 `409 PROJECT_CANCEL_AFTER_PAYMENT` (원장 변경 없음).
+`IN_PROGRESS`/`COMPLETED`는 `409 PROJECT_TRANSITION_CONFLICT`.
+이미 무효화면 `alreadyProcessed: true`.
 
 요청:
 
@@ -219,7 +223,7 @@
 무효화할 합의·계약이 없으면 `NOT_NEEDED`. 시도 실패는 `FAILED` (D-89).
 같은 `cancellationId`는 최초 `result` + `alreadyProcessed: true`.
 
-에러: 404. 422.
+에러: 404. 409 `PROJECT_CANCEL_AFTER_PAYMENT`. 409 `PROJECT_TRANSITION_CONFLICT`. 422.
 
 ---
 
@@ -289,14 +293,17 @@ CTR-01 우측 컬럼 가설: `projectId`, `workStartDate`, `workEndDate`, `trans
 
 정산·수수료 조회 가설. 당사자. 결제 행 + 납품·프로젝트 상태를 조립한다. 설계서 신설
 `SETTLEMENT_*` 코드는 쓰지 않는다. `availableActions`·`viewerRole`은 넣지 않는다.
-응답 금액 3종은 서버 스냅샷이며 화면이 10%를 다시 나누지 않는다.
+응답 금액 3종은 서버 스냅샷이며 화면이 10%를 다시 나누지 않는다. `releasedAt`은
+`RELEASED`일 때만. 내부 Mock `evaluateSettlement`·`simulateSettlementResult`·
+`recoverStuckSettlements`는 브라우저 경로가 아니다 (규칙 24).
 
 ### GET /api/v1/projects/:projectId/cancellation
 
 취소 결과 조회 가설. 당사자. 프로젝트 컨텍스트 + 합의·계약 + 마지막 무효화 결과를 조립한다.
 설계서 신설 `CANCEL_*` 코드는 쓰지 않는다. `availableActions`는 넣지 않는다.
 브라우저 `POST /cancel`(A-07)은 이 기능이 부르지 않는다. `applicationRejection`은 항상
-`NOT_NEEDED`(지원 일괄 거절은 최윤석).
+`NOT_NEEDED`(지원 일괄 거절은 최윤석). `postActions.notification`은 발송 없이
+`NOT_NEEDED`. 실패 시드만 `FAILED`. `FAILED`는 취소 실패가 아니며 202 후처리 화면이다.
 
 ### POST /api/v1/payments/confirm — `confirmPayment`
 
@@ -336,9 +343,10 @@ CTR-01 우측 컬럼 가설: `projectId`, `workStartDate`, `workEndDate`, `trans
 ### POST /api/v1/contracts/:contractId/deliveries/approve — `approveDelivery`
 
 의뢰인. `DELIVERY_REQUESTED`만. 새 `Idempotency-Key`. 본문 `{ "expectedVersion"? }`.
-성공 `APPROVED` 후 `publishDeliveryApproved`와 내부 정산 요청 1회. 결제 `RELEASED`이거나
-이후 Mock `simulateSettlementReleased`가 `RELEASED`로 바꾸면 규칙 4 complete.
+성공 `APPROVED` 후 `publishDeliveryApproved`와 내부 정산 evaluate 1회. 결제 `RELEASED`이거나
+이후 Mock `simulateSettlementResult(SUCCESS)`가 `RELEASED`로 바꾸면 규칙 4 complete.
 `PAID`만이면 프로젝트는 `IN_PROGRESS` 유지. 이미 `APPROVED`면 최초 `approvedAt` 유지.
+`simulateSettlementReleased`는 I-30 순서 헬퍼이며 실행 원장 가드를 건너뛴다.
 
 ---
 
@@ -553,6 +561,11 @@ type GetSettlementResponse = {
   deliveryStatus: DeliveryStatus | null;
   projectTransactionStatus: 'CONTRACT_PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED';
   canceledAt: string | null;
+  releasedAt: string | null;
+};
+type SimulateSettlementResultInput = {
+  result: 'SUCCESS' | 'FAILURE' | 'UNKNOWN';
+  idempotencyKey: string;
 };
 type GetCancellationResponse = {
   projectId: string;
@@ -568,6 +581,7 @@ type GetCancellationResponse = {
   postActions: {
     applicationRejection: PostActionResult;
     contractInvalidation: PostActionResult;
+    notification: PostActionResult;
   } | null;
 };
 type PostActionResult = 'DONE' | 'NOT_NEEDED' | 'FAILED';
@@ -589,6 +603,7 @@ type DomainContractErrorBody = {
       | 'PROJECT_TRANSITION_CONFLICT'
       | 'PROJECT_VERSION_CONFLICT'
       | 'PROJECT_ALREADY_RESTORED'
+      | 'PROJECT_CANCEL_AFTER_PAYMENT'
       | 'VALIDATION_ERROR';
     message: string;
     details: null | Array<{ field: string; reason: string }>;

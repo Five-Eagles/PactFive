@@ -20,6 +20,11 @@ import {
 import { createPaymentGatewayMock } from "./payment.mock";
 import { ignoreNotificationFailure, type NotificationTriggerPort } from "../server/notification.port";
 import {
+  DEFAULT_FEE_POLICY_VERSION,
+  DEFAULT_PLATFORM_FEE_RATE_BPS,
+  splitSettlementAmounts,
+} from "../server/settlement-fee";
+import {
   PublicApiError,
   type AcceptNegotiationOfferInput,
   type ApproveDeliveryInput,
@@ -43,6 +48,10 @@ import {
   type PrepareDeliveryUploadResponse,
   type RequestDeliveryInput,
   type SignContractResponse,
+  type SettlementExecutionView,
+  type SimulateSettlementResultInput,
+  type SimulateSettlementResultResponse,
+  type PostActionResult,
 } from "../server/public-api.types";
 
 export { MOCK_PAYMENT_ID };
@@ -77,6 +86,26 @@ type PreparedUpload = {
 };
 
 type IdempotentDelivery = { bodyHash: string; response: GetDeliveryResponse };
+
+type IdempotentSettlement = { bodyHash: string; response: SimulateSettlementResultResponse };
+
+type CachedInvalidate = { bodyHash: string; response: InvalidateAgreementResponse };
+
+type InvalidateProjectState = {
+  result: PostActionResult;
+  notification: PostActionResult;
+};
+
+/** 무효화 멱등은 cancellationId + reason/projectCanceledAt 해시로 본다. */
+function invalidateBodyHash(input: InvalidateAgreementInput): string {
+  return JSON.stringify({
+    actorUserId: input.actorUserId,
+    reason: input.reason,
+    projectCanceledAt: input.projectCanceledAt,
+  });
+}
+
+type SettlementExecution = SettlementExecutionView & { requestHash: string | null };
 
 type OfferRow = {
   offerId: string;
@@ -192,14 +221,19 @@ export function createPublicApiMock(
     { reopened: boolean; notReopenedReason: NotReopenedReason | null }
   >();
   const signIdempotency = new Map<string, SignContractResponse>();
-  const invalidateIdempotency = new Map<string, InvalidateAgreementResponse>();
-  const invalidateByProject = new Map<string, InvalidateAgreementResponse>();
+  const invalidateIdempotency = new Map<string, CachedInvalidate>();
+  const invalidateByProject = new Map<string, InvalidateProjectState>();
+  let failNextInvalidateFlag = false;
+  let failNextNotificationFlag = false;
   const deliveryContracts = new Map<string, DeliveryContractSeed>();
   const deliveries = new Map<string, DeliveryRow>();
   const requestIdempotency = new Map<string, IdempotentDelivery>();
   const approveIdempotency = new Map<string, IdempotentDelivery>();
   const preparedUploads = new Map<string, PreparedUpload>();
   const settlementRequested = new Set<string>();
+  const settlements = new Map<string, SettlementExecution>();
+  const simulateIdempotency = new Map<string, IdempotentSettlement>();
+  let payoutAdapterCalls = 0;
 
   // GET payment 시드. 준비 API와 같은 결제 행 저장소를 쓴다.
   const seededPayment = payments.preparePayment();
@@ -452,6 +486,176 @@ export function createPublicApiMock(
         ? { notifications: options.notifications, freelancerId: MOCK_FREELANCER_USER_ID }
         : undefined,
     );
+  }
+
+  function toExecutionView(row: SettlementExecution): SettlementExecutionView {
+    return {
+      settlementId: row.settlementId,
+      paymentId: row.paymentId,
+      contractId: row.contractId,
+      status: row.status,
+      paymentAmount: row.paymentAmount,
+      platformFeeRateBps: row.platformFeeRateBps,
+      platformFeeAmount: row.platformFeeAmount,
+      settlementAmount: row.settlementAmount,
+      feePolicyVersion: row.feePolicyVersion,
+      pgCostAmount: row.pgCostAmount,
+      blockedReason: row.blockedReason,
+      payoutAttempts: row.payoutAttempts,
+      releasedAt: row.releasedAt,
+    };
+  }
+
+  // 계약당 정산 실행 원장은 최대 1건이다.
+  function ensureSettlement(seed: DeliveryContractSeed): SettlementExecution {
+    const existing = settlements.get(seed.contractId);
+    if (existing) return existing;
+    const amounts = splitSettlementAmounts(seed.agreedAmount);
+    const row: SettlementExecution = {
+      settlementId: `set_${seed.contractId}`,
+      paymentId: `pay_${seed.contractId}`,
+      contractId: seed.contractId,
+      status: "PENDING",
+      paymentAmount: seed.agreedAmount,
+      platformFeeRateBps: DEFAULT_PLATFORM_FEE_RATE_BPS,
+      platformFeeAmount: amounts.platformFeeAmount,
+      settlementAmount: amounts.settlementAmount,
+      feePolicyVersion: DEFAULT_FEE_POLICY_VERSION,
+      pgCostAmount: 0,
+      blockedReason: null,
+      payoutAttempts: 0,
+      releasedAt: null,
+      requestHash: null,
+    };
+    settlements.set(seed.contractId, row);
+    return row;
+  }
+
+  async function evaluateSettlementForContract(contractId: string): Promise<SettlementExecutionView> {
+    const seed = deliveryContracts.get(contractId);
+    if (!seed) {
+      throw new DomainContractError("PROJECT_NOT_FOUND", "계약을 찾을 수 없습니다.");
+    }
+    const ctx = await projects.getProjectNegotiationContext(seed.projectId);
+    const delivery = deliveries.get(contractId) ?? null;
+    const row = ensureSettlement(seed);
+    if (row.status === "SUCCEEDED" || row.status === "FAILED" || row.status === "REVIEW_REQUIRED") {
+      return toExecutionView(row);
+    }
+    if (row.status === "REQUESTED" || row.status === "PROCESSING") {
+      return toExecutionView(row);
+    }
+    if (row.platformFeeAmount + row.settlementAmount !== row.paymentAmount) {
+      row.status = "REVIEW_REQUIRED";
+      row.blockedReason = "AMOUNT_MISMATCH";
+      return toExecutionView(row);
+    }
+    if (ctx.transactionStatus === "CANCELED" || Boolean(ctx.canceledAt) || ctx.transactionStatus !== "IN_PROGRESS") {
+      row.status = "BLOCKED";
+      row.blockedReason = "PROJECT_NOT_IN_PROGRESS";
+      return toExecutionView(row);
+    }
+    if (seed.paymentStatus !== "PAID") {
+      row.status = "BLOCKED";
+      row.blockedReason = "PAYMENT_NOT_PAID";
+      return toExecutionView(row);
+    }
+    if (delivery?.status !== "APPROVED") {
+      row.status = "BLOCKED";
+      row.blockedReason = "DELIVERY_NOT_APPROVED";
+      return toExecutionView(row);
+    }
+    row.status = "ELIGIBLE";
+    row.blockedReason = null;
+    return toExecutionView(row);
+  }
+
+  async function applySimulatedPayout(
+    seed: DeliveryContractSeed,
+    execution: SettlementExecution,
+    result: SimulateSettlementResultInput["result"],
+  ): Promise<void> {
+    if (result === "UNKNOWN") {
+      execution.status = "PROCESSING";
+      return;
+    }
+    if (result === "FAILURE") {
+      execution.status = "FAILED";
+      return;
+    }
+    const delivery = deliveries.get(seed.contractId);
+    if (delivery?.status !== "APPROVED") {
+      throw new DomainContractError(
+        "PROJECT_TRANSITION_CONFLICT",
+        "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+      );
+    }
+    execution.status = "SUCCEEDED";
+    seed.paymentStatus = "RELEASED";
+    execution.releasedAt = nowIso;
+    await tryCompleteProject(seed);
+  }
+
+  async function simulateSettlementResultForContract(
+    contractId: string,
+    input: SimulateSettlementResultInput,
+  ): Promise<SimulateSettlementResultResponse> {
+    if (!input.idempotencyKey?.trim()) {
+      throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
+        { field: "idempotencyKey", reason: "required" },
+      ]);
+    }
+    const seed = deliveryContracts.get(contractId);
+    if (!seed) {
+      throw new DomainContractError("PROJECT_NOT_FOUND", "계약을 찾을 수 없습니다.");
+    }
+    const idemKey = `${contractId}:${input.idempotencyKey}`;
+    const bodyHash = JSON.stringify({ result: input.result });
+    const cached = simulateIdempotency.get(idemKey);
+    if (cached) {
+      if (cached.bodyHash !== bodyHash) {
+        throw new DomainContractError(
+          "PROJECT_TRANSITION_CONFLICT",
+          "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+        );
+      }
+      return { ...cached.response, alreadyProcessed: true };
+    }
+    const execution = ensureSettlement(seed);
+    if (execution.status === "SUCCEEDED") {
+      const response: SimulateSettlementResultResponse = {
+        alreadyProcessed: true,
+        paymentStatus: seed.paymentStatus,
+        executionStatus: execution.status,
+        payoutAttempts: execution.payoutAttempts,
+      };
+      simulateIdempotency.set(idemKey, { bodyHash, response });
+      return response;
+    }
+    if (
+      execution.status !== "ELIGIBLE" &&
+      execution.status !== "REQUESTED" &&
+      execution.status !== "PROCESSING"
+    ) {
+      throw new DomainContractError(
+        "PROJECT_TRANSITION_CONFLICT",
+        "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+      );
+    }
+    if (execution.status === "ELIGIBLE") {
+      execution.status = "REQUESTED";
+      execution.payoutAttempts += 1;
+      payoutAdapterCalls += 1;
+    }
+    await applySimulatedPayout(seed, execution, input.result);
+    const response: SimulateSettlementResultResponse = {
+      alreadyProcessed: false,
+      paymentStatus: seed.paymentStatus,
+      executionStatus: execution.status,
+      payoutAttempts: execution.payoutAttempts,
+    };
+    simulateIdempotency.set(idemKey, { bodyHash, response });
+    return response;
   }
 
   function toDeliveryResponse(
@@ -784,6 +988,7 @@ export function createPublicApiMock(
       const contract = [...contracts.values()].find((item) => item.projectId === projectId);
       const seed = [...deliveryContracts.values()].find((item) => item.projectId === projectId);
       const deliveryRow = seed ? deliveries.get(seed.contractId) ?? null : null;
+      const execution = seed ? settlements.get(seed.contractId) : undefined;
       const paymentStatus = seed?.paymentStatus ?? row.status;
       return {
         paymentId: row.paymentId,
@@ -801,6 +1006,7 @@ export function createPublicApiMock(
         deliveryStatus: deliveryRow?.status ?? null,
         projectTransactionStatus: toSettlementProjectStatus(ctx.transactionStatus),
         canceledAt: ctx.canceledAt,
+        releasedAt: paymentStatus === "RELEASED" ? execution?.releasedAt ?? nowIso : null,
       };
     },
 
@@ -834,6 +1040,7 @@ export function createPublicApiMock(
             ? {
                 applicationRejection: "NOT_NEEDED",
                 contractInvalidation: last?.result ?? "NOT_NEEDED",
+                notification: last?.notification ?? "NOT_NEEDED",
               }
             : null,
       };
@@ -976,30 +1183,73 @@ export function createPublicApiMock(
           { field: "cancellationId", reason: "required" },
         ]);
       }
+      const ctx = await projects.getProjectNegotiationContext(projectId);
+      // 결제 시작 후면 원장을 건드리지 않는다.
+      if (ctx.paymentPendingAt) {
+        throw new DomainContractError(
+          "PROJECT_CANCEL_AFTER_PAYMENT",
+          "결제가 시작된 프로젝트는 취소할 수 없습니다.",
+        );
+      }
+      if (ctx.transactionStatus === "IN_PROGRESS" || ctx.transactionStatus === "COMPLETED") {
+        throw new DomainContractError(
+          "PROJECT_TRANSITION_CONFLICT",
+          "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+        );
+      }
+      const bodyHash = invalidateBodyHash(input);
       const cached = invalidateIdempotency.get(input.cancellationId);
-      if (cached) return { ...cached, alreadyProcessed: true };
-      try {
-        await projects.getProjectNegotiationContext(projectId);
-      } catch (err) {
-        if (err instanceof DomainContractError && err.body.error.code === "PROJECT_NOT_FOUND") {
-          throw err;
+      if (cached) {
+        if (cached.bodyHash !== bodyHash) {
+          throw new DomainContractError(
+            "PROJECT_TRANSITION_CONFLICT",
+            "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+          );
         }
-        throw err;
+        return { ...cached.response, alreadyProcessed: true };
       }
       const agreement = agreementFor(projectId);
       const contract = [...contracts.values()].find((row) => row.projectId === projectId);
+      const remember = (
+        response: InvalidateAgreementResponse,
+        notification: PostActionResult,
+      ): InvalidateAgreementResponse => {
+        invalidateIdempotency.set(input.cancellationId, { bodyHash, response });
+        invalidateByProject.set(projectId, { result: response.result, notification });
+        return response;
+      };
       if (!agreement && !contract) {
-        const none: InvalidateAgreementResponse = { alreadyProcessed: false, result: "NOT_NEEDED" };
-        invalidateIdempotency.set(input.cancellationId, none);
-        invalidateByProject.set(projectId, none);
-        return none;
+        return remember({ alreadyProcessed: false, result: "NOT_NEEDED" }, "NOT_NEEDED");
       }
+      const alreadyInvalidated =
+        (!agreement || agreement.status === "REJECTED") &&
+        (!contract || contract.status === "CANCELED");
+      if (alreadyInvalidated) {
+        return remember({ alreadyProcessed: true, result: "DONE" }, "NOT_NEEDED");
+      }
+      // 감사 배열은 push만 하고 여기서는 지우지 않는다.
       if (agreement) agreement.status = "REJECTED";
       if (contract) contract.status = "CANCELED";
-      const done: InvalidateAgreementResponse = { alreadyProcessed: false, result: "DONE" };
-      invalidateIdempotency.set(input.cancellationId, done);
-      invalidateByProject.set(projectId, done);
-      return done;
+      const failInvalidate = failNextInvalidateFlag;
+      const failNotification = failNextNotificationFlag;
+      failNextInvalidateFlag = false;
+      failNextNotificationFlag = false;
+      const result: PostActionResult = failInvalidate ? "FAILED" : "DONE";
+      const notification: PostActionResult = failNotification ? "FAILED" : "NOT_NEEDED";
+      return remember({ alreadyProcessed: false, result }, notification);
+    },
+
+    // SET-01 simulate FAILURE와 같이 내부 전용. 상태는 바꾼 뒤 FAILED를 낸다.
+    failNextInvalidate(): void {
+      failNextInvalidateFlag = true;
+    },
+
+    failNextNotification(): void {
+      failNextNotificationFlag = true;
+    },
+
+    simulateProjectCanceled(projectId: string, canceledAt: string = nowIso): void {
+      projects.simulateCanceled(projectId, canceledAt);
     },
 
     getSignatureAudits(): SignatureAudit[] {
@@ -1209,6 +1459,7 @@ export function createPublicApiMock(
         row.approvedAt = nowIso;
         row.version += 1;
         settlementRequested.add(`delivery:${row.deliveryId}:settlement-requested`);
+        await evaluateSettlementForContract(contractId);
       }
       await tryCompleteProject(seed);
       const latest = await projects.getProjectNegotiationContext(seed.projectId);
@@ -1239,6 +1490,56 @@ export function createPublicApiMock(
       await tryCompleteProject(seed);
       const ctx = await projects.getProjectNegotiationContext(seed.projectId);
       return toDeliveryResponse(seed, ctx, MOCK_CLIENT_USER_ID);
+    },
+
+    evaluateSettlement(contractId: string): Promise<SettlementExecutionView> {
+      return evaluateSettlementForContract(contractId);
+    },
+
+    simulateSettlementResult(
+      contractId: string,
+      input: SimulateSettlementResultInput,
+    ): Promise<SimulateSettlementResultResponse> {
+      return simulateSettlementResultForContract(contractId, input);
+    },
+
+    getSettlementExecution(contractId: string): SettlementExecutionView | null {
+      const row = settlements.get(contractId);
+      return row ? toExecutionView(row) : null;
+    },
+
+    getPayoutAdapterCallCount(): number {
+      return payoutAdapterCalls;
+    },
+
+    setDeliveryPaymentStatus(contractId: string, status: DeliveryPaymentStatus): void {
+      const seed = deliveryContracts.get(contractId);
+      if (!seed) {
+        throw new DomainContractError("PROJECT_NOT_FOUND", "계약을 찾을 수 없습니다.");
+      }
+      seed.paymentStatus = status;
+    },
+
+    setSettlementPgCost(contractId: string, pgCostAmount: number): SettlementExecutionView {
+      const seed = deliveryContracts.get(contractId);
+      if (!seed) {
+        throw new DomainContractError("PROJECT_NOT_FOUND", "계약을 찾을 수 없습니다.");
+      }
+      const row = ensureSettlement(seed);
+      row.pgCostAmount = pgCostAmount;
+      return toExecutionView(row);
+    },
+
+    async recoverStuckSettlements(): Promise<number> {
+      let recovered = 0;
+      for (const row of settlements.values()) {
+        if (row.status !== "REQUESTED" && row.status !== "PROCESSING") continue;
+        const seed = deliveryContracts.get(row.contractId);
+        if (!seed) continue;
+        await applySimulatedPayout(seed, row, "SUCCESS");
+        recovered += 1;
+      }
+      return recovered;
     },
 
     async recoverStuckCompletions(): Promise<number> {

@@ -28,13 +28,15 @@
   GET `/api/v1/payments/:paymentId/settlement` (`getSettlement`)는 결제 행+납품+프로젝트를 조립한다.
   GET `/api/v1/projects/:projectId/cancellation` (`getCancellation`)는 프로젝트+합의·계약+무효화 결과를 조립한다.
   브라우저 `POST /cancel`은 이 폴더가 부르지 않는다.
-  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~23 Mock을 확인한다.
+  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~25 Mock을 확인한다.
   합의 화면은 하이브리드 AGR-01·AGR-02·AGR-03(페이지 본문, ViewModel). `/agreements` 5종 폐기 유지.
   재제안은 `POST .../negotiation-offers/:offerId/counter`. 설계서 `AGREEMENT_*` 코드는 쓰지 않는다.
   서명 화면은 하이브리드 CTR-01·CTR-02(페이지 본문, ViewModel). 설계서 신설 `CONTRACT_*` 코드는 쓰지 않는다.
   결제 화면은 하이브리드 PAY-01·PAY-02(페이지 본문, ViewModel). 설계서 신설 `PAYMENT_FORBIDDEN` 코드는 쓰지 않는다.
-  정산 화면은 하이브리드 SET-01(페이지 본문, ViewModel). 설계서 신설 `SETTLEMENT_*` 코드·지급 버튼은 쓰지 않는다.
-  취소 화면은 하이브리드 CAN-01(페이지 본문, ViewModel). 설계서 신설 `CANCEL_*` 코드·A-07 POST는 쓰지 않는다.
+  정산 화면은 하이브리드 SET-01 v2.0(페이지 본문, ViewModel). GET 조립. 실행은 내부 Mock.
+  설계서 신설 `SETTLEMENT_*` 코드·지급 버튼·운영 화면은 쓰지 않는다.
+  취소 화면은 하이브리드 CAN-01 v2.0(페이지 본문, ViewModel). 무효화 실행은 내부 Mock.
+  설계서 신설 `CANCEL_*` 코드·A-07 POST·환불은 쓰지 않는다.
   납품 화면은 하이브리드 DLV-01(페이지 본문, ViewModel). 네이밍 2경로
   (`POST /contracts/:id/deliveries` + `POST /deliveries/:id/approve`)는 쓰지 않는다.
   GET은 요청 전 `IN_PROGRESS` 행. 승인·정산 `RELEASED` 양쪽에서 complete. `DELIVERY_*` 코드 없음.
@@ -116,3 +118,5 @@
 | 2026-09-04 | 하이브리드 CTR-02. 서명 순서 자유·취소 후 409. `CONTRACT_*` 코드 없음 |
 | 2026-09-04 | 하이브리드 PAY-02. SIGNED 의뢰인 prepare·mark·PENDING 복구·웹훅 Mock. `PAYMENT_*` 신설 코드 없음 |
 | 2026-09-04 | 하이브리드 DLV-01 v2.0. ensureDelivery·멱등 키·승인/정산 양쪽 complete. `DELIVERY_*` 없음. 실측 PASS 290 |
+| 2026-09-04 | 하이브리드 SET-01 v2.0. 수수료 스냅샷·ELIGIBLE·RELEASED 원자·C-03 409 재판정. `SETTLEMENT_*` 없음. 실측 PASS 308 |
+| 2026-09-04 | 하이브리드 CAN-01 v2.0. 무효화 멱등·결제 후 409·감사 보존·GET notification. 규칙 25. 실측 PASS 323 |

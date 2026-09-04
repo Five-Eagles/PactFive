@@ -156,7 +156,11 @@ function fixtureDto(uiState: CancellationUiState): GetCancellationResponse | nul
       agreementStatus: "REJECTED",
       contractStatus: "CANCELED",
       hasSignatureAudit: true,
-      postActions: { applicationRejection: "NOT_NEEDED", contractInvalidation: "FAILED" },
+      postActions: {
+        applicationRejection: "NOT_NEEDED",
+        contractInvalidation: "FAILED",
+        notification: "FAILED",
+      },
     };
   }
   if (
@@ -170,7 +174,11 @@ function fixtureDto(uiState: CancellationUiState): GetCancellationResponse | nul
       agreementStatus: "REJECTED",
       contractStatus: "CANCELED",
       hasSignatureAudit: true,
-      postActions: { applicationRejection: "NOT_NEEDED", contractInvalidation: "DONE" },
+      postActions: {
+        applicationRejection: "NOT_NEEDED",
+        contractInvalidation: "DONE",
+        notification: "NOT_NEEDED",
+      },
     };
   }
   if (uiState === "SUBMITTING" || uiState === "CANCEL_AVAILABLE") return base;
@@ -327,7 +335,13 @@ function CancellationMain({ vm }: { vm: CancellationDetailViewModel }) {
               <dl className="facts">
                 {vm.postActions.map((item) => (
                   <Fragment key={item.key}>
-                    <dt>{item.key === "applicationRejection" ? "지원" : "합의·계약"}</dt>
+                    <dt>
+                      {item.key === "applicationRejection"
+                        ? "지원"
+                        : item.key === "notification"
+                          ? "알림"
+                          : "합의·계약"}
+                    </dt>
                     <dd>{item.label}</dd>
                   </Fragment>
                 ))}

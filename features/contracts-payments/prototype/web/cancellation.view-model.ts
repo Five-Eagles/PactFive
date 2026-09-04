@@ -37,7 +37,7 @@ export type CancellationImpactItem = {
 };
 
 export type CancellationPostActionView = {
-  key: "applicationRejection" | "contractInvalidation";
+  key: "applicationRejection" | "contractInvalidation" | "notification";
   status: PostActionResult;
   label: string;
 };
@@ -80,7 +80,8 @@ function hasFailedPostAction(postActions: GetCancellationResponse["postActions"]
   if (!postActions) return false;
   return (
     postActions.applicationRejection === "FAILED" ||
-    postActions.contractInvalidation === "FAILED"
+    postActions.contractInvalidation === "FAILED" ||
+    postActions.notification === "FAILED"
   );
 }
 
@@ -132,6 +133,11 @@ export function postActionLabel(
     if (status === "DONE") return "지원 처리 완료";
     if (status === "FAILED") return "지원 후속 처리 중";
     return "처리할 지원 없음";
+  }
+  if (key === "notification") {
+    if (status === "DONE") return "알림 처리 완료";
+    if (status === "FAILED") return "알림 발송 처리 중";
+    return "알림 대상 없음";
   }
   if (status === "DONE") return "합의·계약 종료 완료";
   if (status === "FAILED") return "합의·계약 후속 처리 중";
@@ -190,6 +196,7 @@ export function toCancellationViewModel(
           [
             ["applicationRejection", dto.postActions.applicationRejection],
             ["contractInvalidation", dto.postActions.contractInvalidation],
+            ["notification", dto.postActions.notification],
           ] as const
         ).map(([key, status]) => ({
           key,

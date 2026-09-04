@@ -45,7 +45,12 @@ import {
   startProjectTransactionIfAccepted,
 } from "./server/project-transaction.service";
 import { PaymentGatewayError, type PaymentGateway } from "./server/payment.port";
-import type { CurrentNegotiationOfferResponse } from "./server/public-api.types";
+import type { ProjectTransactionPort } from "./server/project-transaction.port";
+import { splitSettlementAmounts } from "./server/settlement-fee";
+import type {
+  CurrentNegotiationOfferResponse,
+  InvalidateAgreementInput,
+} from "./server/public-api.types";
 import {
   createTossPaymentsAdapter,
   hasPgSecretKey,
@@ -68,6 +73,7 @@ import {
 import type { GetSettlementResponse, GetCancellationResponse } from "./server/public-api.types";
 import {
   deriveCancellationUiState,
+  postActionLabel,
   toCancellationViewModel,
 } from "./web/cancellation.view-model";
 import {
@@ -238,6 +244,22 @@ async function expectCode(
     }
     fail(name, err);
   }
+}
+
+function invalidatePayload(
+  cancellationId: string,
+  extras: Partial<InvalidateAgreementInput> = {},
+): InvalidateAgreementInput {
+  return {
+    cancellationId,
+    actorUserId: MOCK_CLIENT_USER_ID,
+    reason: "PROJECT_CANCELED",
+    projectCanceledAt: MOCK_NOW,
+    requestId: `req_${cancellationId}`,
+    idempotencyKey: `invalidate-${cancellationId}`,
+    occurredAt: MOCK_NOW,
+    ...extras,
+  };
 }
 
 async function signBothSides(
@@ -3016,6 +3038,7 @@ async function main() {
       deliveryStatus: null,
       projectTransactionStatus: "IN_PROGRESS",
       canceledAt: null,
+      releasedAt: null,
       ...overrides,
     });
 
@@ -3142,6 +3165,512 @@ async function main() {
     }
   }
 
+  // 규칙 24 — 정산 실행 Mock. 동시 FOR UPDATE·실웹훅·Production 라우트는 Mock 한계로 생략한다.
+  {
+    const feeCases = [
+      { amount: 1, fee: 0, settlement: 1 },
+      { amount: 999, fee: 99, settlement: 900 },
+      { amount: 10_001, fee: 1_000, settlement: 9_001 },
+      { amount: 1_000_000, fee: 100_000, settlement: 900_000 },
+    ];
+    if (
+      feeCases.every((item) => {
+        const split = splitSettlementAmounts(item.amount);
+        return split.platformFeeAmount === item.fee && split.settlementAmount === item.settlement;
+      })
+    ) {
+      pass("규칙 24: 수수료 버림 예시");
+    } else {
+      fail("규칙 24: 수수료 버림 예시", feeCases.map((item) => splitSettlementAmounts(item.amount)));
+    }
+
+    const payments = createPaymentRecordMock();
+    const prepared = payments.preparePayment(MOCK_CONFIRMED_AMOUNT);
+    const beforePolicy = payments.getFeeSnapshot(prepared.paymentId);
+    const afterPolicy = payments.setFeePolicyVersion(prepared.paymentId, "fee-policy-v2");
+    if (
+      beforePolicy.platformFeeAmount === 10_000 &&
+      afterPolicy.feePolicyVersion === "fee-policy-v2" &&
+      afterPolicy.platformFeeAmount === beforePolicy.platformFeeAmount &&
+      afterPolicy.settlementAmount === beforePolicy.settlementAmount
+    ) {
+      pass("규칙 24: 정책 변경 뒤 스냅샷 불변");
+    } else {
+      fail("규칙 24: 정책 변경 뒤 스냅샷 불변", { beforePolicy, afterPolicy });
+    }
+    const afterPgCost = payments.setPgCostAmount(prepared.paymentId, 500);
+    if (afterPgCost.pgCostAmount === 500 && afterPgCost.settlementAmount === beforePolicy.settlementAmount) {
+      pass("규칙 24: PG 비용은 정산액을 바꾸지 않음");
+    } else {
+      fail("규칙 24: PG 비용은 정산액을 바꾸지 않음", afterPgCost);
+    }
+
+    const fileMeta = {
+      fileName: MOCK_DELIVERY_FILE_NAME,
+      contentType: "application/zip",
+      size: 1_048_576,
+      sha256: MOCK_DELIVERY_SHA256,
+    };
+
+    async function approveReadyDelivery(
+      api: ReturnType<typeof createPublicApiMock>,
+      key: string,
+    ): Promise<void> {
+      const uploaded = await api.prepareDeliveryUpload(
+        MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
+        MOCK_FREELANCER_USER_ID,
+        fileMeta,
+      );
+      await api.requestDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_FREELANCER_USER_ID, {
+        objectKey: uploaded.objectKey,
+        uploadId: uploaded.uploadId,
+        message: MOCK_DELIVERY_MESSAGE,
+        idempotencyKey: `req-${key}`,
+      });
+      await api.approveDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_CLIENT_USER_ID, {
+        idempotencyKey: `appr-${key}`,
+      });
+    }
+
+    {
+      const api = createPublicApiMock();
+      const blocked = await api.evaluateSettlement(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+      if (
+        blocked.status === "BLOCKED" &&
+        blocked.blockedReason === "DELIVERY_NOT_APPROVED" &&
+        api.getPayoutAdapterCallCount() === 0
+      ) {
+        pass("규칙 24: 납품 미승인은 Adapter 미호출");
+      } else {
+        fail("규칙 24: 납품 미승인은 Adapter 미호출", blocked);
+      }
+      await expectCode("규칙 24: 미충족 simulate 409", "PROJECT_TRANSITION_CONFLICT", () =>
+        api.simulateSettlementResult(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, {
+          result: "SUCCESS",
+          idempotencyKey: "rel-blocked",
+        }),
+      );
+    }
+
+    {
+      const api = createPublicApiMock();
+      api.setDeliveryPaymentStatus(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, "READY");
+      const blocked = await api.evaluateSettlement(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+      if (blocked.status === "BLOCKED" && blocked.blockedReason === "PAYMENT_NOT_PAID" && api.getPayoutAdapterCallCount() === 0) {
+        pass("규칙 24: 결제 미완료는 Adapter 미호출");
+      } else {
+        fail("규칙 24: 결제 미완료는 Adapter 미호출", blocked);
+      }
+    }
+
+    {
+      const api = createPublicApiMock();
+      const blocked = await api.evaluateSettlement(MOCK_DELIVERY_CONTRACT_CANCELED);
+      if (blocked.status === "BLOCKED" && blocked.blockedReason === "PROJECT_NOT_IN_PROGRESS") {
+        pass("규칙 24: CANCELED는 정산 중단");
+      } else {
+        fail("규칙 24: CANCELED는 정산 중단", blocked);
+      }
+    }
+
+    {
+      const api = createPublicApiMock();
+      await approveReadyDelivery(api, "eligible");
+      const first = api.getSettlementExecution(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+      const second = await api.evaluateSettlement(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+      if (
+        first?.status === "ELIGIBLE" &&
+        second.settlementId === first.settlementId &&
+        second.status === "ELIGIBLE" &&
+        api.getPayoutAdapterCallCount() === 0
+      ) {
+        pass("규칙 24: PAID+APPROVED는 ELIGIBLE 1건");
+      } else {
+        fail("규칙 24: PAID+APPROVED는 ELIGIBLE 1건", { first, second });
+      }
+      const pgCost = api.setSettlementPgCost(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, 700);
+      if (pgCost.pgCostAmount === 700 && pgCost.settlementAmount === first?.settlementAmount) {
+        pass("규칙 24: 실행 원장 PG 비용은 정산액 불변");
+      } else {
+        fail("규칙 24: 실행 원장 PG 비용은 정산액 불변", pgCost);
+      }
+
+      const beforeComplete = api.projects.getCallCounts().completeProjectTransaction;
+      const released = await api.simulateSettlementResult(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, {
+        result: "SUCCESS",
+        idempotencyKey: "rel-1",
+      });
+      const again = await api.simulateSettlementResult(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, {
+        result: "SUCCESS",
+        idempotencyKey: "rel-1",
+      });
+      const execution = api.getSettlementExecution(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+      if (
+        released.executionStatus === "SUCCEEDED" &&
+        released.paymentStatus === "RELEASED" &&
+        execution?.releasedAt &&
+        api.projects.getCallCounts().completeProjectTransaction === beforeComplete + 1
+      ) {
+        pass("규칙 24: 성공은 RELEASED와 complete를 같이 기록");
+      } else {
+        fail("규칙 24: 성공은 RELEASED와 complete를 같이 기록", { released, execution, beforeComplete });
+      }
+      if (again.alreadyProcessed === true && again.payoutAttempts === released.payoutAttempts) {
+        pass("규칙 24: 같은 키·같은 본문은 기존 결과");
+      } else {
+        fail("규칙 24: 같은 키·같은 본문은 기존 결과", again);
+      }
+      await expectCode("규칙 24: 같은 키·다른 본문 409", "PROJECT_TRANSITION_CONFLICT", () =>
+        api.simulateSettlementResult(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, {
+          result: "FAILURE",
+          idempotencyKey: "rel-1",
+        }),
+      );
+    }
+
+    {
+      const api = createPublicApiMock();
+      await approveReadyDelivery(api, "fail");
+      const beforeComplete = api.projects.getCallCounts().completeProjectTransaction;
+      const failed = await api.simulateSettlementResult(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, {
+        result: "FAILURE",
+        idempotencyKey: "rel-fail",
+      });
+      const execution = api.getSettlementExecution(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+      if (
+        failed.executionStatus === "FAILED" &&
+        failed.paymentStatus === "PAID" &&
+        execution?.status === "FAILED" &&
+        api.projects.getCallCounts().completeProjectTransaction === beforeComplete
+      ) {
+        pass("규칙 24: 실패는 PAID 유지");
+      } else {
+        fail("규칙 24: 실패는 PAID 유지", { failed, execution });
+      }
+    }
+
+    {
+      const api = createPublicApiMock();
+      await approveReadyDelivery(api, "unknown");
+      const unknown = await api.simulateSettlementResult(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, {
+        result: "UNKNOWN",
+        idempotencyKey: "rel-unknown",
+      });
+      const retry = await api.simulateSettlementResult(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, {
+        result: "UNKNOWN",
+        idempotencyKey: "rel-unknown-2",
+      });
+      if (
+        unknown.executionStatus === "PROCESSING" &&
+        unknown.paymentStatus === "PAID" &&
+        unknown.payoutAttempts === 1 &&
+        retry.payoutAttempts === 1 &&
+        api.getPayoutAdapterCallCount() === 1
+      ) {
+        pass("규칙 24: UNKNOWN은 새 지급 없음");
+      } else {
+        fail("규칙 24: UNKNOWN은 새 지급 없음", { unknown, retry, calls: api.getPayoutAdapterCallCount() });
+      }
+      const recovered = await api.recoverStuckSettlements();
+      const execution = api.getSettlementExecution(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+      if (
+        recovered === 1 &&
+        execution?.status === "SUCCEEDED" &&
+        execution.paymentAmount === MOCK_OFFER_AMOUNT &&
+        api.getPayoutAdapterCallCount() === 1
+      ) {
+        pass("규칙 24: PROCESSING 복구는 기존 지급만 확정");
+      } else {
+        fail("규칙 24: PROCESSING 복구는 기존 지급만 확정", { recovered, execution });
+      }
+    }
+
+    {
+      const api = createPublicApiMock();
+      const before = api.projects.getCallCounts().completeProjectTransaction;
+      await approveReadyDelivery(api, "i30");
+      if (api.projects.getCallCounts().completeProjectTransaction === before) {
+        pass("규칙 24: APPROVED만이면 complete 미호출");
+      } else {
+        fail("규칙 24: APPROVED만이면 complete 미호출", api.projects.getCallCounts());
+      }
+    }
+
+    {
+      const completedPort: ProjectTransactionPort = {
+        async getProjectNegotiationContext() {
+          return {
+            projectId: "prj_stub_done",
+            clientId: MOCK_CLIENT_USER_ID,
+            recruitmentStatus: "CLOSED",
+            transactionStatus: "COMPLETED",
+            acceptedApplicationId: "app_1",
+            recruitmentDeadlineAt: MOCK_NOW,
+            canceledAt: null,
+            paymentPendingAt: null,
+            projectVersion: 9,
+          };
+        },
+        async markPaymentPending() {
+          throw new Error("unused");
+        },
+        async startProjectTransaction() {
+          throw new Error("unused");
+        },
+        async completeProjectTransaction() {
+          throw new DomainContractError(
+            "PROJECT_TRANSITION_CONFLICT",
+            "프로젝트 상태가 변경되어 처리할 수 없습니다.",
+          );
+        },
+        async restorePreContractProject() {
+          throw new Error("unused");
+        },
+      };
+      const recovered = await completeProjectTransactionIfSettled(
+        completedPort,
+        "prj_stub_done",
+        {
+          contractId: "ctr_stub",
+          requestId: "req_stub_done",
+          idempotencyKey: "transaction-complete-stub-done",
+          occurredAt: MOCK_NOW,
+          expectedProjectVersion: 9,
+        },
+        "APPROVED",
+        "RELEASED",
+      );
+      if (recovered.alreadyProcessed === true && recovered.transactionStatus === "COMPLETED") {
+        pass("규칙 24: C-03 409 재조회 COMPLETED는 성공");
+      } else {
+        fail("규칙 24: C-03 409 재조회 COMPLETED는 성공", recovered);
+      }
+
+      const canceledPort: ProjectTransactionPort = {
+        ...completedPort,
+        async getProjectNegotiationContext() {
+          return {
+            projectId: "prj_stub_canceled",
+            clientId: MOCK_CLIENT_USER_ID,
+            recruitmentStatus: "CLOSED",
+            transactionStatus: "CANCELED",
+            acceptedApplicationId: "app_1",
+            recruitmentDeadlineAt: MOCK_NOW,
+            canceledAt: MOCK_NOW,
+            paymentPendingAt: null,
+            projectVersion: 9,
+          };
+        },
+      };
+      try {
+        await completeProjectTransactionIfSettled(
+          canceledPort,
+          "prj_stub_canceled",
+          {
+            contractId: "ctr_stub",
+            requestId: "req_stub_canceled",
+            idempotencyKey: "transaction-complete-stub-canceled",
+            occurredAt: MOCK_NOW,
+            expectedProjectVersion: 9,
+          },
+          "APPROVED",
+          "RELEASED",
+        );
+        fail("규칙 24: C-03 409 재조회 CANCELED는 오류", "호출이 성공했습니다");
+      } catch (err) {
+        if (isDomainContractError(err) && err.body.error.code === "PROJECT_TRANSITION_CONFLICT") {
+          pass("규칙 24: C-03 409 재조회 CANCELED는 오류");
+        } else {
+          fail("규칙 24: C-03 409 재조회 CANCELED는 오류", err);
+        }
+      }
+    }
+  }
+
+  // 규칙 25 — 무효화 실행. 동시 FOR UPDATE·실 A-07·지원 일괄 거절은 Mock 한계로 생략한다.
+  {
+    const api = createPublicApiMock();
+    const none = await api.invalidateAgreementAndContract("prj_alive", invalidatePayload("cnl_25_none"));
+    if (none.result === "NOT_NEEDED" && none.alreadyProcessed === false) {
+      pass("규칙 25: 무효화 NOT_NEEDED");
+    } else {
+      fail("규칙 25: 무효화 NOT_NEEDED", none);
+    }
+    await api.proposeNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    const done = await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_done"));
+    if (done.result === "DONE" && done.alreadyProcessed === false) {
+      pass("규칙 25: 무효화 DONE");
+    } else {
+      fail("규칙 25: 무효화 DONE", done);
+    }
+    const again = await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_done"));
+    if (again.result === "DONE" && again.alreadyProcessed === true) {
+      pass("규칙 25: 무효화 멱등");
+    } else {
+      fail("규칙 25: 무효화 멱등", again);
+    }
+    await expectCode("규칙 25: 같은 키·다른 본문 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      api.invalidateAgreementAndContract(
+        "prj_seq",
+        invalidatePayload("cnl_25_done", { projectCanceledAt: "2026-09-04T00:00:00Z" }),
+      ),
+    );
+    const repeated = await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_again"));
+    if (repeated.result === "DONE" && repeated.alreadyProcessed === true) {
+      pass("규칙 25: 반복 무효화 alreadyProcessed");
+    } else {
+      fail("규칙 25: 반복 무효화 alreadyProcessed", repeated);
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    await signBothSides(api, "prj_alive");
+    const before = await api.getCurrentNegotiationOffer("prj_alive", MOCK_CLIENT_USER_ID);
+    await api.preparePayment("prj_alive", MOCK_CLIENT_USER_ID);
+    await expectCode(
+      "규칙 25: paymentPendingAt 뒤 invalidate 409",
+      "PROJECT_CANCEL_AFTER_PAYMENT",
+      () => api.invalidateAgreementAndContract("prj_alive", invalidatePayload("cnl_25_pay")),
+    );
+    const after = await api.getCurrentNegotiationOffer("prj_alive", MOCK_CLIENT_USER_ID);
+    if (
+      after.agreementStatus === before.agreementStatus &&
+      after.contractStatus === before.contractStatus &&
+      after.agreementStatus === "ACCEPTED" &&
+      after.contractStatus === "SIGNED"
+    ) {
+      pass("규칙 25: 결제 후 무효화는 원장 불변");
+    } else {
+      fail("규칙 25: 결제 후 무효화는 원장 불변", { before, after });
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    const proposed = await api.proposeNegotiationOffer("prj_restore", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    const accepted = await api.acceptNegotiationOffer(
+      "prj_restore",
+      proposed.offer?.offerId ?? "",
+      MOCK_FREELANCER_USER_ID,
+      { expectedRound: 1 },
+    );
+    const contractId = accepted.contractId ?? "";
+    await api.signContract(contractId, MOCK_FREELANCER_USER_ID);
+    const beforeAudits = api.getSignatureAudits().filter((row) => row.contractId === contractId);
+    await api.invalidateAgreementAndContract("prj_restore", invalidatePayload("cnl_25_audit"));
+    const afterAudits = api.getSignatureAudits().filter((row) => row.contractId === contractId);
+    const contract = await api.getContract(contractId, MOCK_FREELANCER_USER_ID);
+    if (
+      beforeAudits.length === 1 &&
+      afterAudits.length === beforeAudits.length &&
+      contract.status === "CANCELED"
+    ) {
+      pass("규칙 25: SIGNING 무효화 후 감사 건수 유지");
+    } else {
+      fail("규칙 25: SIGNING 무효화 후 감사 건수 유지", { beforeAudits, afterAudits, contract });
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    await api.proposeNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    api.failNextInvalidate();
+    const failed = await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_fail"));
+    api.simulateProjectCanceled("prj_seq", MOCK_NOW);
+    const row = await api.getCancellation("prj_seq", MOCK_CLIENT_USER_ID);
+    const vm = toCancellationViewModel(row, CLIENT_SESSION);
+    const sameKey = await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_fail"));
+    const retry = await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_retry"));
+    if (
+      failed.result === "FAILED" &&
+      row.postActions?.contractInvalidation === "FAILED" &&
+      row.postActions.notification === "NOT_NEEDED" &&
+      vm.uiState === "CANCELED_FOLLOWUP_PENDING"
+    ) {
+      pass("규칙 25: failNextInvalidate GET followup");
+    } else {
+      fail("규칙 25: failNextInvalidate GET followup", { failed, row, vm });
+    }
+    const React = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { CancellationPanel } = await import("./web/CancellationPanel");
+    const html = renderToStaticMarkup(React.createElement(CancellationPanel, { vm }));
+    if (!html.includes("취소에 실패했습니다") && html.includes("일부 후속 처리가 진행 중입니다")) {
+      pass("규칙 25: 후처리는 취소 실패 문구 없음");
+    } else {
+      fail("규칙 25: 후처리는 취소 실패 문구 없음", html);
+    }
+    if (sameKey.result === "FAILED" && sameKey.alreadyProcessed === true) {
+      pass("규칙 25: FAILED 같은 키 alreadyProcessed");
+    } else {
+      fail("규칙 25: FAILED 같은 키 alreadyProcessed", sameKey);
+    }
+    if (retry.result === "DONE" && retry.alreadyProcessed === true) {
+      pass("규칙 25: FAILED 재시도 DONE");
+    } else {
+      fail("규칙 25: FAILED 재시도 DONE", retry);
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    await expectCode("규칙 25: IN_PROGRESS invalidate 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      api.invalidateAgreementAndContract("prj_in_progress", invalidatePayload("cnl_25_progress")),
+    );
+    api.simulateProjectCanceled("prj_alive", MOCK_NOW);
+    const canceled = await api.getCancellation("prj_alive", MOCK_CLIENT_USER_ID);
+    if (
+      canceled.postActions?.notification === "NOT_NEEDED" &&
+      canceled.postActions.applicationRejection === "NOT_NEEDED"
+    ) {
+      pass("규칙 25: GET notification 칸");
+    } else {
+      fail("규칙 25: GET notification 칸", canceled.postActions);
+    }
+  }
+
+  {
+    const notifyVm = toCancellationViewModel(
+      {
+        projectId: "prj_can",
+        projectTitle: MOCK_PROJECT_TITLE,
+        recruitmentStatus: "CLOSED",
+        transactionStatus: "CANCELED",
+        paymentPendingAt: null,
+        canceledAt: MOCK_NOW,
+        acceptedApplicationId: "app_1",
+        agreementStatus: "REJECTED",
+        contractStatus: "CANCELED",
+        hasSignatureAudit: true,
+        postActions: {
+          applicationRejection: "NOT_NEEDED",
+          contractInvalidation: "DONE",
+          notification: "FAILED",
+        },
+      },
+      CLIENT_SESSION,
+    );
+    if (
+      notifyVm.uiState === "CANCELED_FOLLOWUP_PENDING" &&
+      postActionLabel("notification", "FAILED") === "알림 발송 처리 중" &&
+      notifyVm.postActions.some((item) => item.key === "notification" && item.label === "알림 발송 처리 중")
+    ) {
+      pass("규칙 25: notification FAILED 후처리 문구");
+    } else {
+      fail("규칙 25: notification FAILED 후처리 문구", notifyVm);
+    }
+  }
+
   {
     const client = { actorUserId: "usr_client", clientId: "usr_client" } as const;
     const sampleCancellation = (
@@ -3164,7 +3693,11 @@ async function main() {
     if (
       deriveCancellationUiState({
         transactionStatus: "CANCELED",
-        postActions: { applicationRejection: "NOT_NEEDED", contractInvalidation: "FAILED" },
+        postActions: {
+          applicationRejection: "NOT_NEEDED",
+          contractInvalidation: "FAILED",
+          notification: "NOT_NEEDED",
+        },
         viewerRole: "CLIENT",
       }) === "CANCELED_FOLLOWUP_PENDING"
     ) {
@@ -3175,7 +3708,11 @@ async function main() {
     if (
       deriveCancellationUiState({
         transactionStatus: "CANCELED",
-        postActions: { applicationRejection: "NOT_NEEDED", contractInvalidation: "DONE" },
+        postActions: {
+          applicationRejection: "NOT_NEEDED",
+          contractInvalidation: "DONE",
+          notification: "NOT_NEEDED",
+        },
         viewerRole: "CLIENT",
       }) === "CANCELED_COMPLETE"
     ) {
@@ -3209,7 +3746,11 @@ async function main() {
       sampleCancellation({
         transactionStatus: "CANCELED",
         canceledAt: "2026-09-04T00:00:00Z",
-        postActions: { applicationRejection: "NOT_NEEDED", contractInvalidation: "FAILED" },
+        postActions: {
+          applicationRejection: "NOT_NEEDED",
+          contractInvalidation: "FAILED",
+          notification: "NOT_NEEDED",
+        },
       }),
       client,
     );

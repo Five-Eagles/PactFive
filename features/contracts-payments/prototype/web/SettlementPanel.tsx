@@ -124,6 +124,7 @@ function fixtureDto(uiState: SettlementUiState): GetSettlementResponse | null {
     deliveryStatus: null,
     projectTransactionStatus: "IN_PROGRESS",
     canceledAt: null,
+    releasedAt: null,
   };
   if (uiState === "PROJECT_CANCELED") {
     return { ...base, projectTransactionStatus: "CANCELED", canceledAt: "2026-09-01T00:00:00Z" };
@@ -150,6 +151,7 @@ function fixtureDto(uiState: SettlementUiState): GetSettlementResponse | null {
       paymentStatus: "RELEASED",
       deliveryStatus: "APPROVED",
       projectTransactionStatus: "COMPLETED",
+      releasedAt: "2026-08-25T07:30:00Z",
     };
   }
   return base;

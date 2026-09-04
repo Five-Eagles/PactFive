@@ -2,10 +2,12 @@ import { ignoreNotificationFailure, type NotificationTriggerPort } from "./notif
 import type { ProjectTransactionPort } from "./project-transaction.port";
 import type {
   CompleteProjectTransactionInput,
+  CompleteProjectTransactionResponse,
   MarkPaymentPendingInput,
   RestorePreContractProjectInput,
   StartProjectTransactionInput,
 } from "./project-transaction.types";
+import { isDomainContractError } from "./project-transaction.types";
 
 export type DeliveryStatus = "IN_PROGRESS" | "DELIVERY_REQUESTED" | "APPROVED";
 export type PaymentStatus = "RELEASED" | "PAID" | "READY" | string;
@@ -67,7 +69,31 @@ export async function completeProjectTransactionIfSettled(
     throw new CallerGuardError("I30_NOT_SATISFIED");
   }
   const context = await requireNegotiationContext(port, projectId);
-  const result = await port.completeProjectTransaction(projectId, input);
+  let result: CompleteProjectTransactionResponse;
+  try {
+    result = await port.completeProjectTransaction(projectId, input);
+  } catch (err) {
+    // 409면 현재 상태를 다시 읽어 COMPLETED만 멱등 성공으로 친다.
+    if (
+      isDomainContractError(err) &&
+      (err.body.error.code === "PROJECT_TRANSITION_CONFLICT" ||
+        err.body.error.code === "PROJECT_VERSION_CONFLICT")
+    ) {
+      const again = await requireNegotiationContext(port, projectId);
+      if (again.transactionStatus === "COMPLETED") {
+        return {
+          projectId,
+          recruitmentStatus: again.recruitmentStatus,
+          transactionStatus: "COMPLETED",
+          alreadyProcessed: true,
+          processedAt: input.occurredAt,
+          changed: false,
+          projectVersion: again.projectVersion,
+        };
+      }
+    }
+    throw err;
+  }
   // COMPLETED 전이 성공 뒤에만 발행한다. throw여도 완료를 되돌리지 않는다.
   if (notify && result.changed) {
     await ignoreNotificationFailure(() =>

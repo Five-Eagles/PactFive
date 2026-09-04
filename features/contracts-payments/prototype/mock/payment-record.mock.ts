@@ -6,6 +6,11 @@ import {
 } from "../server/payment.port";
 import { ignoreNotificationFailure, type NotificationTriggerPort } from "../server/notification.port";
 import { DomainContractError } from "../server/project-transaction.types";
+import {
+  DEFAULT_FEE_POLICY_VERSION,
+  DEFAULT_PLATFORM_FEE_RATE_BPS,
+  splitSettlementAmounts,
+} from "../server/settlement-fee";
 import { createPaymentGatewayMock, MOCK_CONFIRMED_AMOUNT } from "./payment.mock";
 
 export type PaymentRecordStatus = "READY" | "PENDING" | "PAID" | "FAILED";
@@ -38,12 +43,24 @@ type PaymentAttempt = {
   orderId: string;
 };
 
+export type PaymentFeeSnapshot = {
+  paymentAmount: number;
+  platformFeeRateBps: number;
+  platformFeeAmount: number;
+  settlementAmount: number;
+  feePolicyVersion: string;
+  pgCostAmount: number;
+};
+
 type PaymentRecord = {
   paymentId: string;
   orderId: string;
   amount: number;
+  platformFeeRateBps: number;
   platformFeeAmount: number;
   settlementAmount: number;
+  feePolicyVersion: string;
+  pgCostAmount: number;
   status: PaymentRecordStatus;
   failedAt: string | null;
   failureCode: string | null;
@@ -80,6 +97,9 @@ export function createPaymentRecordMock(
   confirmPayment(input: ConfirmPaymentInput): Promise<ConfirmPaymentResponse>;
   retryPayment(paymentId: string): GetPaymentResponse;
   getPayment(paymentId: string): GetPaymentResponse;
+  getFeeSnapshot(paymentId: string): PaymentFeeSnapshot;
+  setPgCostAmount(paymentId: string, pgCostAmount: number): PaymentFeeSnapshot;
+  setFeePolicyVersion(paymentId: string, version: string): PaymentFeeSnapshot;
   reconcilePendingPayments(): Promise<GetPaymentResponse | null>;
   getActiveAttempt(): PaymentAttempt | null;
 } {
@@ -101,9 +121,15 @@ export function createPaymentRecordMock(
     return row;
   }
 
-  function splitServerAmount(amount: number) {
-    const platformFeeAmount = Math.floor(amount * 0.1);
-    return { platformFeeAmount, settlementAmount: amount - platformFeeAmount };
+  function toFeeSnapshot(record: PaymentRecord): PaymentFeeSnapshot {
+    return {
+      paymentAmount: record.amount,
+      platformFeeRateBps: record.platformFeeRateBps,
+      platformFeeAmount: record.platformFeeAmount,
+      settlementAmount: record.settlementAmount,
+      feePolicyVersion: record.feePolicyVersion,
+      pgCostAmount: record.pgCostAmount,
+    };
   }
 
   function toPrepareResponse(record: PaymentRecord): PreparePaymentResponse {
@@ -172,14 +198,17 @@ export function createPaymentRecordMock(
         }
         return toPrepareResponse(row);
       }
-      const split = splitServerAmount(amount);
+      const split = splitSettlementAmounts(amount);
       const orderId = nextOrderId();
       row = {
         paymentId: MOCK_PAYMENT_ID,
         orderId,
         amount,
+        platformFeeRateBps: DEFAULT_PLATFORM_FEE_RATE_BPS,
         platformFeeAmount: split.platformFeeAmount,
         settlementAmount: split.settlementAmount,
+        feePolicyVersion: DEFAULT_FEE_POLICY_VERSION,
+        pgCostAmount: 0,
         status: "READY",
         failedAt: null,
         failureCode: null,
@@ -251,6 +280,24 @@ export function createPaymentRecordMock(
 
     getPayment(paymentId: string): GetPaymentResponse {
       return toGetResponse(requireRow(paymentId));
+    },
+
+    getFeeSnapshot(paymentId: string): PaymentFeeSnapshot {
+      return toFeeSnapshot(requireRow(paymentId));
+    },
+
+    // PG 비용은 플랫폼 부담이며 정산 스냅샷을 다시 나누지 않는다.
+    setPgCostAmount(paymentId: string, pgCostAmount: number): PaymentFeeSnapshot {
+      const record = requireRow(paymentId);
+      record.pgCostAmount = pgCostAmount;
+      return toFeeSnapshot(record);
+    },
+
+    // 정책 버전만 바꾸고 과거 금액 3종은 유지한다.
+    setFeePolicyVersion(paymentId: string, version: string): PaymentFeeSnapshot {
+      const record = requireRow(paymentId);
+      record.feePolicyVersion = version;
+      return toFeeSnapshot(record);
     },
 
     async reconcilePendingPayments(): Promise<GetPaymentResponse | null> {
