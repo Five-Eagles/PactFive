@@ -25,6 +25,7 @@ import {
   type GetDeliveryResponse,
   type GetPaymentResponse,
   type GetSettlementResponse,
+  type GetCancellationResponse,
   type InvalidateAgreementInput,
   type InvalidateAgreementResponse,
   type PaymentProjectTransactionStatus,
@@ -160,6 +161,7 @@ export function createPublicApiMock(
   >();
   const signIdempotency = new Map<string, SignContractResponse>();
   const invalidateIdempotency = new Map<string, InvalidateAgreementResponse>();
+  const invalidateByProject = new Map<string, InvalidateAgreementResponse>();
   const deliveryContracts = new Map<string, DeliveryContractSeed>();
   const deliveries = new Map<string, DeliveryRow>();
   const requestIdempotency = new Map<string, GetDeliveryResponse>();
@@ -589,6 +591,41 @@ export function createPublicApiMock(
       };
     },
 
+    async getCancellation(
+      projectId: string,
+      actorUserId: string,
+    ): Promise<GetCancellationResponse> {
+      // 당사자만 취소 결과를 조립한다. POST cancel은 없다.
+      const ctx = await requireParty(projectId, actorUserId);
+      const agreement = agreementFor(projectId);
+      const contract = [...contracts.values()].find((item) => item.projectId === projectId);
+      const hasSignatureAudit = contract
+        ? audits.some((item) => item.contractId === contract.contractId)
+        : false;
+      const canceled = ctx.transactionStatus === "CANCELED" || Boolean(ctx.canceledAt);
+      const isClient = actorUserId === ctx.clientId;
+      const last = invalidateByProject.get(projectId);
+      return {
+        projectId,
+        projectTitle: MOCK_PROJECT_TITLE,
+        recruitmentStatus: ctx.recruitmentStatus,
+        transactionStatus: ctx.transactionStatus,
+        paymentPendingAt: ctx.paymentPendingAt,
+        canceledAt: ctx.canceledAt,
+        acceptedApplicationId: ctx.acceptedApplicationId,
+        agreementStatus: agreement?.status ?? null,
+        contractStatus: contract?.status ?? null,
+        hasSignatureAudit,
+        postActions:
+          canceled && isClient
+            ? {
+                applicationRejection: "NOT_NEEDED",
+                contractInvalidation: last?.result ?? "NOT_NEEDED",
+              }
+            : null,
+      };
+    },
+
     async preparePayment(
       projectId: string,
       actorUserId: string,
@@ -676,12 +713,14 @@ export function createPublicApiMock(
       if (!agreement && !contract) {
         const none: InvalidateAgreementResponse = { alreadyProcessed: false, result: "NOT_NEEDED" };
         invalidateIdempotency.set(input.cancellationId, none);
+        invalidateByProject.set(projectId, none);
         return none;
       }
       if (agreement) agreement.status = "REJECTED";
       if (contract) contract.status = "CANCELED";
       const done: InvalidateAgreementResponse = { alreadyProcessed: false, result: "DONE" };
       invalidateIdempotency.set(input.cancellationId, done);
+      invalidateByProject.set(projectId, done);
       return done;
     },
 

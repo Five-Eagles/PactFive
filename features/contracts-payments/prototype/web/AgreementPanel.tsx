@@ -353,8 +353,8 @@ function AgreementStatusBanner({ uiState }: { uiState: AgreementUiState }) {
         <>
           <Notice tone="danger">프로젝트가 취소되었습니다</Notice>
           <p className="status-copy">
-            이 프로젝트는 더 이상 조건을 바꿀 수 없습니다. 새로운 거래가 필요하면 의뢰인이
-            다시 모집해야 합니다.
+            프로젝트가 취소되어 금액 합의가 종료되었습니다. 조건을 바꾸거나 수락·거절할 수
+            없습니다.
           </p>
         </>
       );

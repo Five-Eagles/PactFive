@@ -12,8 +12,17 @@ import { PaymentPanel } from "./PaymentPanel";
 import type { PaymentUiState } from "./payment.view-model";
 import { SettlementPanel } from "./SettlementPanel";
 import type { SettlementUiState } from "./settlement.view-model";
+import { CancellationPanel } from "./CancellationPanel";
+import type { CancellationUiState } from "./cancellation.view-model";
 
-export { AgreementPanel, ContractSignPanel, DeliveryPanel, PaymentPanel, SettlementPanel };
+export {
+  AgreementPanel,
+  ContractSignPanel,
+  DeliveryPanel,
+  PaymentPanel,
+  SettlementPanel,
+  CancellationPanel,
+};
 
 type PreviewScreen =
   | {
@@ -51,6 +60,14 @@ type PreviewScreen =
       loading?: boolean;
       modal?: "help" | "review";
       viewerRole?: "CLIENT" | "FREELANCER";
+    }
+  | {
+      id: "cancellation";
+      label: string;
+      slug: string;
+      uiState?: CancellationUiState;
+      loading?: boolean;
+      modal?: "confirm" | "payment" | "followup";
     };
 
 const PREVIEW_SCREENS: PreviewScreen[] = [
@@ -121,6 +138,16 @@ const PREVIEW_SCREENS: PreviewScreen[] = [
   { id: "settlement", label: "정산 · 불러오는 중", slug: "set-loading", loading: true },
   { id: "settlement", label: "정산 · 403", slug: "set-403", uiState: "FORBIDDEN" },
   { id: "settlement", label: "정산 · 취소", slug: "set-canceled", uiState: "PROJECT_CANCELED" },
+  { id: "cancellation", label: "취소 · 가능", slug: "can-available", uiState: "CANCEL_AVAILABLE" },
+  { id: "cancellation", label: "취소 · M01", slug: "can-m01", uiState: "CANCEL_AVAILABLE", modal: "confirm" },
+  { id: "cancellation", label: "취소 · 처리 중", slug: "can-pending", uiState: "SUBMITTING" },
+  { id: "cancellation", label: "취소 · 완료", slug: "can-complete", uiState: "CANCELED_COMPLETE" },
+  { id: "cancellation", label: "취소 · 후처리", slug: "can-followup", uiState: "CANCELED_FOLLOWUP_PENDING" },
+  { id: "cancellation", label: "취소 · M02", slug: "can-m02", uiState: "PAYMENT_STARTED", modal: "payment" },
+  { id: "cancellation", label: "취소 · 진행 중", slug: "can-progress", uiState: "IN_PROGRESS" },
+  { id: "cancellation", label: "취소 · 불러오는 중", slug: "can-loading", loading: true },
+  { id: "cancellation", label: "취소 · 403", slug: "can-403", uiState: "FORBIDDEN" },
+  { id: "cancellation", label: "취소 · 이미 취소", slug: "can-canceled", uiState: "ALREADY_CANCELED" },
 ];
 
 function initialScreenIndex(): number {
@@ -191,6 +218,14 @@ export default function PaymentsPreview() {
           loading={screen.loading}
           initialModal={screen.modal}
           viewerRole={screen.viewerRole}
+        />
+      ) : null}
+      {screen.id === "cancellation" ? (
+        <CancellationPanel
+          key={screen.label}
+          uiState={screen.uiState}
+          loading={screen.loading}
+          initialModal={screen.modal}
         />
       ) : null}
     </div>

@@ -207,7 +207,8 @@
     `POST .../negotiation-offers/:offerId/accept` (`acceptNegotiationOffer`),
     `POST .../negotiation-offers/:offerId/reject` (`rejectNegotiationOffer`),
     `GET /api/v1/contracts/:contractId` (규칙 20), `POST /api/v1/contracts/:contractId/sign`,
-    `POST /api/v1/payments` (준비), `GET /api/v1/payments/:paymentId` (규칙 21) · `.../settlement` (SET-01),
+    `POST /api/v1/payments` (준비), `GET /api/v1/payments/:paymentId` (규칙 21) · `.../settlement` (SET-01) ·
+    `GET /api/v1/projects/:projectId/cancellation` (CAN-01),
     `POST /api/v1/payments/confirm` (규칙 9).
     납품 Increment: `GET /api/v1/contracts/:contractId/delivery`,
     `POST .../deliveries/upload-prepare`, `POST .../deliveries/request`,
@@ -220,7 +221,8 @@
     `/projects/:projectId/agreements/:agreementId` (AGR-01 상세),
     `/projects/:projectId/contracts/:contractId` (CTR-01 서명, 앱 셸 없는 페이지 본문·ViewModel),
     `/projects/:projectId/payments/:paymentId` (PAY-01) · `.../settlement` (SET-01, `payments.id`),
-    `/projects/:projectId/contracts/:contractId/delivery` (DLV-01, 식별자는 `contractId`).
+    `/projects/:projectId/contracts/:contractId/delivery` (DLV-01, 식별자는 `contractId`),
+    `/projects/:projectId/cancellation` (CAN-01 취소 결과, 앱 셸 없는 페이지 본문·ViewModel).
     Toss `orderId`는 `pg_order_id`이며 화면 경로에 쓰지 않는다.
     UX: 로딩, 빈 생성 모드, `LOAD_FAILED` 재시도, `STALE`/409 후 재조회, 프로젝트 취소 시
     변경 버튼 숨김 (프론트 v2.0). 서명·결제도 같은 패턴. 취소된 프로젝트 서명은

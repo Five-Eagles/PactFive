@@ -360,7 +360,7 @@ function ContractStatusBanner({ uiState }: { uiState: ContractUiState }) {
       return (
         <>
           <Notice tone="danger">프로젝트가 취소되었습니다</Notice>
-          <p className="status-copy">서명을 진행할 수 없습니다. 이 계약은 더 이상 유효하지 않습니다.</p>
+          <p className="status-copy">프로젝트가 취소되었습니다. 기존 서명 기록은 보존됩니다.</p>
         </>
       );
     case "FORBIDDEN":

@@ -63,7 +63,11 @@ import {
   deriveSettlementUiState,
   toSettlementViewModel,
 } from "./web/settlement.view-model";
-import type { GetSettlementResponse } from "./server/public-api.types";
+import type { GetSettlementResponse, GetCancellationResponse } from "./server/public-api.types";
+import {
+  deriveCancellationUiState,
+  toCancellationViewModel,
+} from "./web/cancellation.view-model";
 import {
   createCheckoutOrchestrator,
   createTossCheckoutStub,
@@ -1414,6 +1418,29 @@ async function main() {
     await expectCode("규칙 16: GET settlement 없음 404", "PROJECT_NOT_FOUND", () =>
       api.getSettlement("pay_missing", MOCK_CLIENT_USER_ID),
     );
+    const cancellationRow = await api.getCancellation("prj_alive", MOCK_CLIENT_USER_ID);
+    if (
+      cancellationRow.projectId === "prj_alive" &&
+      cancellationRow.postActions === null &&
+      cancellationRow.transactionStatus === "CONTRACT_PENDING"
+    ) {
+      pass("규칙 16: GET cancellation 당사자 200");
+    } else {
+      fail("규칙 16: GET cancellation 당사자 200", cancellationRow);
+    }
+    try {
+      await api.getCancellation("prj_alive", MOCK_OUTSIDER_USER_ID);
+      fail("규칙 16: GET cancellation 비당사자 403", "오류가 나지 않았습니다");
+    } catch (err) {
+      if (isPublicApiError(err) && err.body.error.code === "PROJECT_FORBIDDEN" && err.httpStatus === 403) {
+        pass("규칙 16: GET cancellation 비당사자 403");
+      } else {
+        fail("규칙 16: GET cancellation 비당사자 403", err);
+      }
+    }
+    await expectCode("규칙 16: GET cancellation 없음 404", "PROJECT_NOT_FOUND", () =>
+      api.getCancellation("prj_missing", MOCK_CLIENT_USER_ID),
+    );
   }
 
   // 규칙 16 — 공개 POST /payments · /payments/confirm (파사드)
@@ -2278,6 +2305,154 @@ async function main() {
     } else {
       fail("규칙 17: 정산 403 금액 숨김", forbidden);
     }
+  }
+
+  {
+    const client = { actorUserId: "usr_client", clientId: "usr_client" } as const;
+    const sampleCancellation = (
+      overrides: Partial<GetCancellationResponse> = {},
+    ): GetCancellationResponse => ({
+      projectId: "prj_can",
+      projectTitle: MOCK_PROJECT_TITLE,
+      recruitmentStatus: "CLOSED",
+      transactionStatus: "CONTRACT_PENDING",
+      paymentPendingAt: null,
+      canceledAt: null,
+      acceptedApplicationId: "app_1",
+      agreementStatus: "PROPOSED",
+      contractStatus: "DRAFT",
+      hasSignatureAudit: false,
+      postActions: null,
+      ...overrides,
+    });
+
+    if (
+      deriveCancellationUiState({
+        transactionStatus: "CANCELED",
+        postActions: { applicationRejection: "NOT_NEEDED", contractInvalidation: "FAILED" },
+        viewerRole: "CLIENT",
+      }) === "CANCELED_FOLLOWUP_PENDING"
+    ) {
+      pass("규칙 17: CANCELED+FAILED는 후처리 중");
+    } else {
+      fail("규칙 17: CANCELED+FAILED는 후처리 중");
+    }
+    if (
+      deriveCancellationUiState({
+        transactionStatus: "CANCELED",
+        postActions: { applicationRejection: "NOT_NEEDED", contractInvalidation: "DONE" },
+        viewerRole: "CLIENT",
+      }) === "CANCELED_COMPLETE"
+    ) {
+      pass("규칙 17: CANCELED는 취소 완료");
+    } else {
+      fail("규칙 17: CANCELED는 취소 완료");
+    }
+    if (
+      deriveCancellationUiState({
+        transactionStatus: "CONTRACT_PENDING",
+        paymentPendingAt: "2026-09-04T00:00:00Z",
+        viewerRole: "CLIENT",
+      }) === "PAYMENT_STARTED"
+    ) {
+      pass("규칙 17: paymentPendingAt은 취소 불가");
+    } else {
+      fail("규칙 17: paymentPendingAt은 취소 불가");
+    }
+    if (
+      deriveCancellationUiState({
+        transactionStatus: "IN_PROGRESS",
+        viewerRole: "CLIENT",
+      }) === "IN_PROGRESS"
+    ) {
+      pass("규칙 17: IN_PROGRESS는 취소 가능 아님");
+    } else {
+      fail("규칙 17: IN_PROGRESS는 취소 가능 아님");
+    }
+
+    const followVm = toCancellationViewModel(
+      sampleCancellation({
+        transactionStatus: "CANCELED",
+        canceledAt: "2026-09-04T00:00:00Z",
+        postActions: { applicationRejection: "NOT_NEEDED", contractInvalidation: "FAILED" },
+      }),
+      client,
+    );
+    if (followVm.uiState === "CANCELED_FOLLOWUP_PENDING" && followVm.canCancel === false) {
+      pass("규칙 17: 후처리는 취소 재실행 없음");
+    } else {
+      fail("규칙 17: 후처리는 취소 재실행 없음", followVm);
+    }
+
+    const React = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { CancellationPanel } = await import("./web/CancellationPanel");
+    const { AgreementPanel } = await import("./web/AgreementPanel");
+    const { ContractSignPanel } = await import("./web/ContractSignPanel");
+    function htmlOf(node: React.ReactElement): string {
+      return renderToStaticMarkup(node);
+    }
+    function hasText(name: string, html: string, text: string): void {
+      if (html.includes(text)) pass(name);
+      else fail(name, html);
+    }
+    function hasForbiddenCancelCopy(html: string): boolean {
+      return (
+        html.includes("계약이 법적으로 무효") ||
+        html.includes("취소에 실패했습니다") ||
+        html.includes("합의 철회") ||
+        html.includes("처음부터 무효") ||
+        html.includes("환불하세요")
+      );
+    }
+
+    const available = htmlOf(React.createElement(CancellationPanel));
+    hasText("규칙 17: 취소 확인 제목", available, "프로젝트를 취소할까요?");
+    hasText("규칙 17: 취소 확인 버튼", available, "프로젝트 취소");
+    if (!hasForbiddenCancelCopy(available)) pass("규칙 17: 취소 금지 문구 없음");
+    else fail("규칙 17: 취소 금지 문구 없음", available);
+
+    const followup = htmlOf(
+      React.createElement(CancellationPanel, { uiState: "CANCELED_FOLLOWUP_PENDING" }),
+    );
+    hasText("규칙 17: 취소 후처리 안내", followup, "일부 후속 처리가 진행 중입니다");
+    if (
+      followup.includes("내 프로젝트") &&
+      !followup.includes("취소에 실패했습니다") &&
+      !hasForbiddenCancelCopy(followup)
+    ) {
+      pass("규칙 17: 후처리는 취소 실패가 아님");
+    } else {
+      fail("규칙 17: 후처리는 취소 실패가 아님", followup);
+    }
+
+    const complete = htmlOf(
+      React.createElement(CancellationPanel, { uiState: "CANCELED_COMPLETE" }),
+    );
+    hasText("규칙 17: 취소 완료 안내", complete, "프로젝트가 취소되었습니다");
+
+    const forbidden = htmlOf(React.createElement(CancellationPanel, { uiState: "FORBIDDEN" }));
+    if (!forbidden.includes(MOCK_PROJECT_TITLE) && !forbidden.includes("합의·계약 종료 완료")) {
+      pass("규칙 17: 취소 403 제목 숨김");
+    } else {
+      fail("규칙 17: 취소 403 제목 숨김", forbidden);
+    }
+
+    hasText(
+      "규칙 17: 합의 취소와 거절 구분",
+      htmlOf(React.createElement(AgreementPanel, { uiState: "PROJECT_CANCELED" })),
+      "프로젝트가 취소되어 금액 합의가 종료되었습니다",
+    );
+    hasText(
+      "규칙 17: 합의 거절 재개 유지",
+      htmlOf(React.createElement(AgreementPanel, { uiState: "REJECTED_REOPENED" })),
+      "프리랜서가 제안을 거절했습니다",
+    );
+    hasText(
+      "규칙 17: 서명 기록 보존",
+      htmlOf(React.createElement(ContractSignPanel, { uiState: "PROJECT_CANCELED" })),
+      "기존 서명 기록은 보존됩니다",
+    );
   }
 
   console.log(`PASS ${passCount} / FAIL ${failCount}`);

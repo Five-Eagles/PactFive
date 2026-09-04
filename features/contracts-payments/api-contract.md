@@ -284,6 +284,13 @@ CTR-01 우측 컬럼 가설: `projectId`, `workStartDate`, `workEndDate`, `trans
 `SETTLEMENT_*` 코드는 쓰지 않는다. `availableActions`·`viewerRole`은 넣지 않는다.
 응답 금액 3종은 서버 스냅샷이며 화면이 10%를 다시 나누지 않는다.
 
+### GET /api/v1/projects/:projectId/cancellation
+
+취소 결과 조회 가설. 당사자. 프로젝트 컨텍스트 + 합의·계약 + 마지막 무효화 결과를 조립한다.
+설계서 신설 `CANCEL_*` 코드는 쓰지 않는다. `availableActions`는 넣지 않는다.
+브라우저 `POST /cancel`(A-07)은 이 기능이 부르지 않는다. `applicationRejection`은 항상
+`NOT_NEEDED`(지원 일괄 거절은 최윤석).
+
 ### POST /api/v1/payments/confirm — `confirmPayment`
 
 규칙 9. 본문 `{ "orderId", "amount", "paymentKey" }`. 수신 시 `PENDING`. 성공 `PAID` 후
@@ -520,6 +527,22 @@ type GetSettlementResponse = {
   deliveryStatus: DeliveryStatus | null;
   projectTransactionStatus: 'CONTRACT_PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED';
   canceledAt: string | null;
+};
+type GetCancellationResponse = {
+  projectId: string;
+  projectTitle: string;
+  recruitmentStatus: RecruitmentStatus;
+  transactionStatus: ProjectTransactionStatus;
+  paymentPendingAt: string | null;
+  canceledAt: string | null;
+  acceptedApplicationId: string | null;
+  agreementStatus: 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | null;
+  contractStatus: ContractStatus | null;
+  hasSignatureAudit: boolean;
+  postActions: {
+    applicationRejection: PostActionResult;
+    contractInvalidation: PostActionResult;
+  } | null;
 };
 type PostActionResult = 'DONE' | 'NOT_NEEDED' | 'FAILED';
 type InvalidateAgreementInput = {

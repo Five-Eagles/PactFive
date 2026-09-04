@@ -125,6 +125,25 @@ export type InvalidateAgreementResponse = {
   result: "DONE" | "NOT_NEEDED" | "FAILED";
 };
 
+export type PostActionResult = "DONE" | "NOT_NEEDED" | "FAILED";
+
+export type GetCancellationResponse = {
+  projectId: string;
+  projectTitle: string;
+  recruitmentStatus: RecruitmentStatus;
+  transactionStatus: ProjectTransactionStatus;
+  paymentPendingAt: string | null;
+  canceledAt: string | null;
+  acceptedApplicationId: string | null;
+  agreementStatus: "PROPOSED" | "ACCEPTED" | "REJECTED" | null;
+  contractStatus: ContractStatus | null;
+  hasSignatureAudit: boolean;
+  postActions: {
+    applicationRejection: PostActionResult;
+    contractInvalidation: PostActionResult;
+  } | null;
+};
+
 export type DeliveryStatus = "IN_PROGRESS" | "DELIVERY_REQUESTED" | "APPROVED";
 
 export type DeliveryPaymentStatus = "READY" | "PENDING" | "PAID" | "FAILED" | "RELEASED";
