@@ -1,0 +1,794 @@
+// =====================================================================
+// PactFive — Prisma Schema (설계 초안, DB 미연결)
+//
+// 상태     : 설계만 완료 — 마이그레이션 미실행, 실제 DB 미연결.
+//            모든 기능은 여전히 인메모리 저장소로 동작한다(app.ts 조립 지점 참고).
+//            어댑터 교체(in-memory → 실제 Prisma 리포지토리)는 이번 스프린트의
+//            기능 완성(9/9) 이후로 미룬다 — 이유는 아래 "왜 지금 어댑터 교체를
+//            안 하는가" 참고.
+// 작성     : 김락원 (팀장) — 2026-09-04
+// 근거     : docs/domain/reference/erd-v1.4.dbml (정본) + 아래 "ERD 대비 반영한
+//            변경 사항" 4건(코드 실사용 근거로 확인) + docs/naming-convention.md §8
+// 대조 방법 : ERD 19개 엔티티 전체 정독 → 8개 기능의 change-requests/*.md,
+//            feedback_loop/**/*.md 전수조사 → app/server/src/features/*/*.types.ts
+//            (통합된 4개 기능: user-management·project-management·engagement·
+//            contracts-payments) + 미통합 4개 기능(applications·reviews·ai-pricing·
+//            notifications)은 features/{기능}/prototype/**/*.types.ts 대조.
+//
+// 왜 지금(스키마 설계)은 하고 어댑터 교체는 안 하는가
+//   ERD v1.4가 "구현 초안 확정"(미확정 0건) 상태라 스키마 자체가 흔들릴 위험은 낮다.
+//   반면 기능 구현이 아직 진행 중이라(9/9 마감) CR-0007(budget_source)처럼 "인메모리
+//   단계라 코드에 먼저 들어간 필드"가 더 나올 수 있다 — 이런 필드가 나올 때마다 실제
+//   마이그레이션 + ERD 정식 변경 검토를 거쳐야 한다면 크런치 기간의 병목이 된다.
+//   그래서 스키마 설계(이 파일)는 지금 진행하되, 실제 DB 연결·인메모리→Prisma 어댑터
+//   교체는 기능 완성 이후로 미룬다.
+//
+// ─────────────────────────────────────────────────────────────────────
+// ERD 대비 반영한 변경 사항 — 4건 (근거: 실제 코드에서 이미 쓰고 있음을 확인)
+// ─────────────────────────────────────────────────────────────────────
+//
+// [PRISMA-GAP-1] project_category enum 값 불일치 — 2026-09-04 해결됨 (ERD E-27 / PRD D-91)
+//   ERD·PRD 원본이 실제 서버 값(WEB_DEVELOPMENT·MOBILE_APP·DESIGN·DATA_AI·PLANNING·
+//   MARKETING)에 맞춰 정정됐다 — erd-v1.4.dbml E-27, prd-v6.4.md D-91,
+//   feedback_loop/2026-09-04/project-management.md 항목 3 참고. business_field·
+//   primary_category도 D-63(세 곳이 같은 목록 공유)에 따라 같은 값으로 함께 맞췄다
+//   (아래 BusinessField enum). 더 이상 정본-구현 불일치가 아니다.
+//
+// [PRISMA-GAP-2] users.auth_user_id 컬럼 신설 — 2026-09-04 ERD에도 정식 반영됨 (E-29)
+//   ERD의 `users.id`는 PactFive 자체 발급 ULID(prefixed)다. 그런데 Supabase Auth는
+//   별도의 auth.users 테이블과 자체 UUID를 갖고, PactFive 서버 코드
+//   (auth.service.ts의 createUser 호출부 3곳)는 이미 `authUserId`(Supabase 쪽 UUID)를
+//   `id`(PactFive 쪽 ULID)와 분리된 값으로 저장하고 있다. ERD의 `oauth_subject`는 이
+//   용도가 아니다 — ERD 자체 주석이 "Supabase 사용자 매핑의 정본으로 사용하지 않음"이라고
+//   명시한다. 매핑 키가 어디에도 없었다 — 이번에 `auth_user_id`로 신설했다.
+//
+// [PRISMA-GAP-3] registration_intents 테이블 신설 — 2026-09-04 ERD에도 정식 반영됨 (E-30, 20번째 엔티티)
+//   user-management의 `RegistrationIntentRepository`(가입 역할·이름·returnTo의 CAS
+//   경계)가 이미 별도 저장소로 구현돼 있다(feedback_loop/2026-08-28/user-management.md
+//   항목 3에 "Prisma 스키마가 채워질 때 auth_sessions·users와 함께 이 테이블도
+//   필요하다"고 담당자가 직접 기록해 뒀다). 이메일 인증 대기 중인 가입 시도를
+//   Supabase 쪽 app_metadata나 Admin API 순회에 숨기지 않고 앱이 직접 들고 있기
+//   위한 임시 상태 테이블이다 — 거래 이력이 아니므로 물리 삭제 가능.
+//
+// [PRISMA-GAP-4] projects.budget_source / budget_source_at 컬럼 추가 — 2026-09-04 ERD에도
+//   정식 반영됨(E-31, CR-0007 상태를 "반영 완료"로 변경)
+//   `features/project-management/change-requests/0007-projects-budget-source-column.md`
+//   — 담당자가 "Prisma 스키마를 처음 쓰는 시점이 결정 게이트"라고 명시적으로 못박아 둔
+//   항목이다. AI 단가 분석이 사용자 입력 예산을 덮어썼다는 사실이 화면에 남지 않는 문제
+//   (Trust by Evidence 원칙 위반)를 막기 위한 컬럼 — 코드(`ProjectRecord.budgetSource`)엔
+//   이미 있고 Mock 기준으로 끝까지 동작을 확인했다. 이번에 정식 컬럼으로 승격했다.
+//
+// ─────────────────────────────────────────────────────────────────────
+// 2026-09-04 확인 완료 — ADR-0008 근거로 해결됨 (재확인 필요 목록에서 이동)
+// ─────────────────────────────────────────────────────────────────────
+//
+// [PRISMA-CHECK-1] users.password_hash — 해결됨 (ERD E-28)
+//   ADR-0008(2026-08-24, 확정)이 자체 JWT 대신 Supabase Auth를 채택하면서 비밀번호
+//   해싱·검증 자체를 Supabase에 위임했다 — 서버 코드 전체에 이 컬럼을 읽거나 쓰는 곳이
+//   없는 것도 그래서다. 컬럼은 유지하되(정본 컬럼 삭제는 추가보다 되돌리기 비쌈) 영구히
+//   NULL만 들어갈 컬럼으로 재정의했다(erd-v1.4.dbml E-28). 오민혁 확인 후 완전히 뺄지는
+//   다음 개정에서 결정한다 — 이건 새 결정이 아니라 이미 확정된 ADR-0008을 뒤늦게
+//   문서에 반영한 것이다(adr-process.md "구현 기록" 예외, ADR-0008 §6에도 기록).
+//
+// ─────────────────────────────────────────────────────────────────────
+// 재확인이 필요한 항목 — ERD 그대로 반영했으나 실제 필요 여부가 불확실 (제거하지 않음)
+// ─────────────────────────────────────────────────────────────────────
+//
+// [PRISMA-CHECK-2] negotiation_offer.status / responded_at / created_at — 인메모리
+//   구현엔 없다
+//   contracts-payments의 실제 저장소(`in-memory-contracts-payments.repository.ts`)의
+//   `NegotiationOfferRow`엔 `offerId·round·amount·offeredByUserId·rejectedReason`만
+//   있고 ERD가 갖고 있는 `status`(PROPOSED/ACCEPTED/REJECTED)·`responded_at`·
+//   `created_at`이 없다. 또한 실제 구현은 offer를 `agreement_id` 아래 중첩 배열로
+//   묶는데, ERD는 `negotiation_offer.application_id`로 독립 참조한다(agreements와
+//   병행 테이블). 이 스키마는 **ERD를 그대로 따랐다** — 인메모리 구현은 아직
+//   시연에 필요한 최소한만 구현된 축약판일 가능성이 높다. 조준영 확인 필요.
+//
+// ─────────────────────────────────────────────────────────────────────
+// 조치 불필요 — 확인해봤으나 실제로는 어긋나지 않은 항목 (참고용 기록)
+// ─────────────────────────────────────────────────────────────────────
+//   - workMode (CR-0004): 디자인 시스템에만 있던 값. "카드·등록 폼에서 뺀다"로
+//     이미 해결됐다(코드에서 제거) — ERD를 고칠 필요 없음.
+//   - reviews.isPublic: `features/reviews/spec.md`가 "isPublic은 컬럼이 아니라"
+//     라고 명시한 계산값(양측 리뷰가 모두 있을 때만 공개)이다 — ERD에 컬럼이 없는 게 맞다.
+//
+// ─────────────────────────────────────────────────────────────────────
+// 명명 규칙 (docs/naming-convention.md §8)
+//   - 테이블 = 복수형 snake_case, PK = id, FK = <단수 테이블>_id, 시간 = ..._at
+//   - Prisma 모델명은 PascalCase 단수, @@map으로 snake_case 복수 테이블에 매핑했다.
+//   - 필드는 Prisma 관례상 camelCase로 선언하고 @map으로 snake_case 컬럼에 매핑했다 —
+//     app/server/src/features/*/*.types.ts가 이미 camelCase이므로, Prisma Client가
+//     생성하는 타입과 기존 TS 타입의 필드명이 그대로 겹친다(어댑터 교체 시 변환 비용 최소화).
+//   - id는 애플리케이션이 생성하는 prefixed ULID 문자열이다(예: usr_01H8X...) — Prisma의
+//     @default(uuid())/@default(cuid())를 쓰지 않는다. 기존 서비스 코드의 nextXxxId()류
+//     생성 함수를 그대로 재사용한다.
+//
+// CHECK 제약·부분 유니크 인덱스는 Prisma schema.prisma가 표현하지 못한다(ERD 부록과
+// 동일한 한계). 실제 마이그레이션 SQL에 반드시 포함해야 할 목록은 파일 맨 끝
+// "부록 — 마이그레이션에 수동으로 추가해야 하는 제약" 참고.
+// =====================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  CLIENT
+  FREELANCER
+}
+
+enum RecruitmentStatus {
+  SCHEDULED
+  OPEN
+  CLOSED
+}
+
+enum ProjectTransactionStatus {
+  NONE
+  CONTRACT_PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+}
+
+/// [PRISMA-GAP-4] CR-0007 반영. Trust by Evidence — 예산이 사용자 입력인지 AI 분석
+/// 결과로 덮어써진 것인지 화면이 구분해 보여줄 수 있어야 한다.
+enum BudgetSource {
+  CLIENT_INPUT
+  AI_ANALYSIS
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ApplicationRejectionType {
+  DIRECT
+  AUTO_OTHER_ACCEPTED
+  AUTO_RECRUITMENT_CLOSED
+  AGREEMENT_DECLINED
+}
+
+enum AgreementStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+}
+
+enum ContractStatus {
+  DRAFT
+  SIGNING
+  SIGNED
+  CANCELED
+}
+
+enum PaymentStatus {
+  READY
+  PENDING
+  PAID
+  FAILED
+  RELEASED
+  REFUNDED
+}
+
+enum DeliveryStatus {
+  IN_PROGRESS
+  DELIVERY_REQUESTED
+  APPROVED
+}
+
+enum PricingAnalysisReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// [PRISMA-GAP-1] ERD 원본(APP_DEVELOPMENT, ETC) 대신 실제 서버 검증값을 채택했다.
+/// 스키마 최상단 "ERD 대비 반영한 변경 사항" 참고 — ERD 문서(dbml/html)는 아직 안 고쳐졌다.
+enum ProjectCategory {
+  WEB_DEVELOPMENT
+  MOBILE_APP
+  DESIGN
+  DATA_AI
+  PLANNING
+  MARKETING
+}
+
+/// [A] PRD에 목록 없음. RFP §3.1.3 "사업 분야(선택형, 기타 자유 입력)" — 자유 입력 트리거
+/// 필드는 오민혁 확인 필요. 값 자체는 2026-09-04 project_category와 통일했다(D-63, ERD E-27) —
+/// 이 필드는 코드에서 전혀 안 쓰이고 있어(app/·모든 prototype에 참조 0건) 값을 맞추는 데
+/// 실제 구현 리스크가 없었다.
+enum BusinessField {
+  WEB_DEVELOPMENT
+  MOBILE_APP
+  DESIGN
+  DATA_AI
+  PLANNING
+  MARKETING
+}
+
+enum SkillGroup {
+  FRONTEND
+  BACKEND
+  MOBILE
+  DATA_INFRA
+  DESIGN
+  MARKETING
+  PLANNING
+  ETC
+}
+
+enum OAuthProvider {
+  GOOGLE
+  KAKAO
+}
+
+enum NotificationType {
+  APPLICATION_SUBMITTED
+  APPLICATION_ACCEPTED
+  APPLICATION_REJECTED
+  APPLICATION_AUTO_REJECTED
+  PROJECT_RECRUITMENT_CLOSED
+  PROJECT_CANCELED
+  AGREEMENT_ACCEPTED
+  AGREEMENT_REJECTED
+  CONTRACT_SIGNED
+  PAYMENT_COMPLETED
+  DELIVERY_REQUESTED
+  DELIVERY_APPROVED
+  REVIEW_REQUESTED
+}
+
+enum ReviewDirection {
+  CLIENT_TO_FREELANCER
+  FREELANCER_TO_CLIENT
+}
+
+/// auth_sessions.revoked_reason — ERD는 varchar(30)이지만 실제 값이 5종으로 고정돼
+/// 있어(auth.types.ts AuthSessionRecord.revokedReason) enum으로 승격했다.
+enum SessionRevokedReason {
+  LOGOUT
+  LOGOUT_ALL
+  REUSE_DETECTED
+  PASSWORD_CHANGED
+  USER_WITHDRAWN
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// 축 1. 사람 (오민혁 — user-management · ai-pricing)
+// ═════════════════════════════════════════════════════════════════════
+
+model User {
+  id               String    @id @db.VarChar(30)
+  /// [PRISMA-GAP-2] Supabase Auth UUID. ERD에 없던 컬럼 — 위 설명 참고.
+  authUserId       String    @unique @map("auth_user_id") @db.VarChar(64)
+  email            String    @db.VarChar(255)
+  /// [PRISMA-CHECK-1] 실사용 여부 불확실 — 위 설명 참고.
+  passwordHash     String?   @map("password_hash") @db.VarChar(255)
+  name             String    @db.VarChar(50)
+  role             UserRole
+  profileImageUrl  String?   @map("profile_image_url")
+  bio              String?
+
+  oauthProvider    OAuthProvider? @map("oauth_provider")
+  oauthSubject     String?        @map("oauth_subject") @db.VarChar(255)
+
+  ratingAverage    Decimal?  @map("rating_average") @db.Decimal(3, 2)
+  reviewCount      Int       @default(0) @map("review_count")
+
+  lastLoginAt      DateTime? @map("last_login_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  clientProfile       ClientProfile?
+  freelancerProfile    FreelancerProfile?
+  authSessions         AuthSession[]
+  customSkills         Skill[]              @relation("SkillCreatedBy")
+  projectsAsClient     Project[]            @relation("ProjectClient")
+  bookmarks            Bookmark[]
+  applications         Application[]
+  notifications        Notification[]
+  agreementsProposed    Agreement[]          @relation("AgreementProposedBy")
+  negotiationOffersMade NegotiationOffer[]   @relation("NegotiationOfferProposedBy")
+  contractsAsClient     Contract[]           @relation("ContractClient")
+  contractsAsFreelancer Contract[]           @relation("ContractFreelancer")
+  signatureAudits       ContractSignatureAudit[]
+  paymentsAsClient      Payment[]            @relation("PaymentClient")
+  paymentsAsFreelancer  Payment[]            @relation("PaymentFreelancer")
+  reviewsGiven          Review[]             @relation("ReviewReviewer")
+  reviewsReceived       Review[]             @relation("ReviewReviewee")
+  pricingAnalyses        PricingAnalysis[]
+
+  @@unique([oauthProvider, oauthSubject], name: "uq_users_oauth")
+  @@index([role])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+/// [PRISMA-GAP-3] ERD 19종에 없던 신설 테이블 — 위 설명 참고. 거래 이력이 아니므로
+/// 물리 삭제(만료·인증 완료 시 clearRegistrationIntent)를 허용한다.
+model RegistrationIntent {
+  authUserId        String   @id @map("auth_user_id") @db.VarChar(64)
+  email             String   @db.VarChar(255)
+  name              String   @db.VarChar(50)
+  role              UserRole
+  returnTo          String   @map("return_to")
+  nonce             String   @db.VarChar(100)
+  issuedAt          DateTime @map("issued_at")
+  expiresAt         DateTime @map("expires_at")
+  recoveryExpiresAt DateTime @map("recovery_expires_at")
+
+  @@index([email])
+  @@map("registration_intents")
+}
+
+model AuthSession {
+  id                  String    @id @db.VarChar(30)
+  userId              String    @map("user_id") @db.VarChar(30)
+  refreshTokenHash    String    @unique @map("refresh_token_hash") @db.VarChar(255)
+  previousTokenHash   String?   @map("previous_token_hash") @db.VarChar(255)
+  deviceLabel         String?   @map("device_label") @db.VarChar(100)
+  issuedAt            DateTime  @default(now()) @map("issued_at")
+  expiresAt           DateTime  @map("expires_at")
+  lastUsedAt          DateTime? @map("last_used_at")
+  revokedAt           DateTime? @map("revoked_at")
+  revokedReason        SessionRevokedReason? @map("revoked_reason")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, revokedAt], name: "ix_auth_sessions_user")
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model ClientProfile {
+  id                String    @id @db.VarChar(30)
+  userId            String    @unique @map("user_id") @db.VarChar(30)
+  companyName       String    @map("company_name") @db.VarChar(100)
+  businessField     BusinessField @map("business_field")
+  businessFieldEtc  String?   @map("business_field_etc") @db.VarChar(100)
+  websiteUrl        String?   @map("website_url")
+  completedAt       DateTime? @map("completed_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("client_profiles")
+}
+
+model FreelancerProfile {
+  id                 String    @id @db.VarChar(30)
+  userId             String    @unique @map("user_id") @db.VarChar(30)
+  primaryCategory    ProjectCategory @map("primary_category")
+  careerYears        Int       @default(0) @map("career_years") @db.SmallInt
+  hourlyRateAmount   Int?      @map("hourly_rate_amount")
+  portfolioUrl       String?   @map("portfolio_url")
+  completedAt        DateTime? @map("completed_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user            User              @relation(fields: [userId], references: [id])
+  freelancerSkills FreelancerSkill[]
+
+  @@map("freelancer_profiles")
+}
+
+model Skill {
+  id               String   @id @db.VarChar(40)
+  name             String   @db.VarChar(50)
+  nameKey          String   @map("name_key") @db.VarChar(60)
+  groupCode        SkillGroup @map("group_code")
+  displayOrder     Int      @default(0) @map("display_order") @db.SmallInt
+  isCustom         Boolean  @default(false) @map("is_custom")
+  createdByUserId  String?  @map("created_by_user_id") @db.VarChar(30)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  createdBy        User?             @relation("SkillCreatedBy", fields: [createdByUserId], references: [id])
+  freelancerSkills FreelancerSkill[]
+  projectSkills    ProjectSkill[]
+
+  @@index([groupCode, displayOrder])
+  @@index([isCustom])
+  @@map("skills")
+}
+
+model FreelancerSkill {
+  freelancerProfileId String   @map("freelancer_profile_id") @db.VarChar(30)
+  skillId             String   @map("skill_id") @db.VarChar(40)
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  freelancerProfile FreelancerProfile @relation(fields: [freelancerProfileId], references: [id])
+  skill             Skill             @relation(fields: [skillId], references: [id])
+
+  @@id([freelancerProfileId, skillId])
+  @@index([skillId])
+  @@map("freelancer_skills")
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// 축 2. 모집 (유동우 — project-management · engagement)
+// ═════════════════════════════════════════════════════════════════════
+
+model Project {
+  id                    String   @id @db.VarChar(30)
+  clientId              String   @map("client_id") @db.VarChar(30)
+  title                 String   @db.VarChar(100)
+  description           String
+  category              ProjectCategory
+  budgetAmount          Int      @map("budget_amount")
+  /// [PRISMA-GAP-4] CR-0007
+  budgetSource          BudgetSource @default(CLIENT_INPUT) @map("budget_source")
+  /// [PRISMA-GAP-4] CR-0007
+  budgetSourceAt        DateTime @default(now()) @map("budget_source_at")
+
+  recruitmentStartAt    DateTime? @map("recruitment_start_at")
+  recruitmentDeadlineAt DateTime  @map("recruitment_deadline_at")
+
+  recruitmentStatus     RecruitmentStatus         @default(OPEN) @map("recruitment_status")
+  transactionStatus     ProjectTransactionStatus  @default(NONE) @map("transaction_status")
+
+  applicationCount        Int       @default(0) @map("application_count")
+  recruitmentClosedAt     DateTime? @map("recruitment_closed_at")
+  canceledAt               DateTime? @map("canceled_at")
+  deadlineNotifiedAt       DateTime? @map("deadline_notified_at")
+
+  pendingApplicationCount  Int       @default(0) @map("pending_application_count")
+  acceptedApplicationId    String?   @map("accepted_application_id") @db.VarChar(30)
+  paymentPendingAt         DateTime? @map("payment_pending_at")
+  projectVersion            Int       @default(1) @map("project_version")
+
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  deletedAt               DateTime? @map("deleted_at")
+
+  client         User             @relation("ProjectClient", fields: [clientId], references: [id])
+  projectSkills  ProjectSkill[]
+  bookmarks      Bookmark[]
+  applications   Application[]
+  contracts      Contract[]
+  reviews        Review[]
+  pricingAnalyses PricingAnalysis[]
+
+  @@index([recruitmentStatus, recruitmentDeadlineAt], name: "ix_projects_recruit")
+  @@index([clientId, createdAt])
+  @@index([category, recruitmentStatus])
+  @@index([deletedAt])
+  @@index([recruitmentDeadlineAt])
+  @@map("projects")
+}
+
+model ProjectSkill {
+  projectId String   @map("project_id") @db.VarChar(30)
+  skillId   String   @map("skill_id") @db.VarChar(40)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id])
+  skill   Skill   @relation(fields: [skillId], references: [id])
+
+  @@id([projectId, skillId])
+  @@index([skillId])
+  @@map("project_skills")
+}
+
+model Bookmark {
+  id           String   @id @db.VarChar(30)
+  freelancerId String   @map("freelancer_id") @db.VarChar(30)
+  projectId    String   @map("project_id") @db.VarChar(30)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  freelancer User    @relation(fields: [freelancerId], references: [id])
+  project    Project @relation(fields: [projectId], references: [id])
+
+  @@unique([freelancerId, projectId], name: "uq_bookmarks_pair")
+  @@index([freelancerId, createdAt])
+  @@index([projectId])
+  @@map("bookmarks")
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// 축 3. 지원 · 알림 (최윤석 — applications · notifications)
+// ═════════════════════════════════════════════════════════════════════
+
+model Application {
+  id                     String              @id @db.VarChar(30)
+  projectId              String              @map("project_id") @db.VarChar(30)
+  freelancerId           String              @map("freelancer_id") @db.VarChar(30)
+  coverLetter            String              @map("cover_letter")
+  expectedAmount         Int                 @map("expected_amount")
+  expectedDurationDays   Int                 @map("expected_duration_days") @db.SmallInt
+  status                 ApplicationStatus   @default(PENDING)
+  rejectionType           ApplicationRejectionType? @map("rejection_type")
+  decidedAt               DateTime?           @map("decided_at")
+  createdAt               DateTime            @default(now()) @map("created_at")
+  updatedAt                DateTime            @updatedAt @map("updated_at")
+
+  project     Project    @relation(fields: [projectId], references: [id])
+  freelancer  User       @relation(fields: [freelancerId], references: [id])
+  agreement    Agreement?
+  negotiationOffers NegotiationOffer[]
+
+  @@unique([projectId, freelancerId], name: "uq_applications_once")
+  @@index([freelancerId, createdAt])
+  @@index([projectId, status])
+  @@map("applications")
+}
+
+model Notification {
+  id            String            @id @db.VarChar(30)
+  recipientId   String            @map("recipient_id") @db.VarChar(30)
+  type          NotificationType
+  title         String            @db.VarChar(100)
+  body          String            @db.VarChar(500)
+  linkUrl       String            @map("link_url")
+  resourceType  String?           @map("resource_type") @db.VarChar(30)
+  resourceId    String?           @map("resource_id") @db.VarChar(30)
+  dedupeKey     String            @unique @map("dedupe_key") @db.VarChar(120)
+  readAt        DateTime?         @map("read_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  recipient User @relation(fields: [recipientId], references: [id])
+
+  @@index([recipientId, createdAt], name: "ix_notifications_feed")
+  @@index([recipientId, readAt])
+  @@map("notifications")
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// 축 4. 거래 (조준영 — contracts-payments · reviews)
+//
+// [F] I-21 거래 이력은 물리 삭제하지 않는다 — agreements·negotiation_offer·contracts·
+//     contract_signature_audits·payments·deliveries·reviews 7종 모두 deletedAt을 두지
+//     않는다. 실제 DELETE 차단은 스키마가 아니라 앱 실행 role의 DELETE 권한 REVOKE로
+//     한다(ERD 부록 E-16) — 이 스키마 파일 맨 끝 부록 참고.
+// ═════════════════════════════════════════════════════════════════════
+
+model Agreement {
+  id                 String          @id @db.VarChar(30)
+  applicationId      String          @unique @map("application_id") @db.VarChar(30)
+  proposedByUserId   String          @map("proposed_by_user_id") @db.VarChar(30)
+  agreedAmount       Int             @map("agreed_amount")
+  status             AgreementStatus @default(PROPOSED)
+  respondedAt        DateTime?       @map("responded_at")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  application  Application @relation(fields: [applicationId], references: [id])
+  proposedBy   User        @relation("AgreementProposedBy", fields: [proposedByUserId], references: [id])
+  contract     Contract?
+
+  @@map("agreements")
+}
+
+/// [PRISMA-CHECK-2] ERD를 그대로 따랐다 — application_id로 독립 참조(agreements와 병행
+/// 테이블). 실제 인메모리 구현은 agreement 아래 중첩 배열로 다르게 짜여 있다. 위 설명 참고.
+model NegotiationOffer {
+  id                  String          @id @db.VarChar(30)
+  applicationId       String          @map("application_id") @db.VarChar(30)
+  round               Int             @default(1) @db.SmallInt
+  proposedByUserId    String          @map("proposed_by_user_id") @db.VarChar(30)
+  offeredAmount       Int             @map("offered_amount")
+  status              AgreementStatus @default(PROPOSED)
+  respondedAt         DateTime?       @map("responded_at")
+  rejectedReason      String?         @map("rejected_reason") @db.VarChar(30)
+  createdAt           DateTime        @default(now()) @map("created_at")
+
+  application Application @relation(fields: [applicationId], references: [id])
+  proposedBy  User        @relation("NegotiationOfferProposedBy", fields: [proposedByUserId], references: [id])
+
+  @@unique([applicationId, round], name: "uq_negotiation_offer_round")
+  @@map("negotiation_offer")
+}
+
+model Contract {
+  id                     String         @id @db.VarChar(30)
+  agreementId            String         @unique @map("agreement_id") @db.VarChar(30)
+  projectId              String         @map("project_id") @db.VarChar(30)
+  clientId                String         @map("client_id") @db.VarChar(30)
+  freelancerId            String         @map("freelancer_id") @db.VarChar(30)
+
+  projectTitleSnapshot     String         @map("project_title_snapshot") @db.VarChar(100)
+  agreedAmount              Int            @map("agreed_amount")
+  workStartDate             DateTime       @map("work_start_date") @db.Date
+  workEndDate               DateTime       @map("work_end_date") @db.Date
+  termsSnapshot             Json           @map("terms_snapshot")
+
+  status                   ContractStatus @default(DRAFT)
+  clientSignedAt             DateTime?      @map("client_signed_at")
+  freelancerSignedAt          DateTime?      @map("freelancer_signed_at")
+  signedAt                    DateTime?      @map("signed_at")
+  canceledAt                  DateTime?      @map("canceled_at")
+
+  createdAt                DateTime       @default(now()) @map("created_at")
+  updatedAt                 DateTime       @updatedAt @map("updated_at")
+
+  agreement          Agreement                @relation(fields: [agreementId], references: [id])
+  project             Project                  @relation(fields: [projectId], references: [id])
+  client               User                     @relation("ContractClient", fields: [clientId], references: [id])
+  freelancer            User                     @relation("ContractFreelancer", fields: [freelancerId], references: [id])
+  signatureAudits       ContractSignatureAudit[]
+  payment                Payment?
+  delivery                Delivery?
+  reviews                 Review[]
+
+  @@index([projectId])
+  @@index([clientId, createdAt])
+  @@index([freelancerId, createdAt])
+  @@map("contracts")
+}
+
+model ContractSignatureAudit {
+  id         String    @id @db.VarChar(30)
+  contractId String    @map("contract_id") @db.VarChar(30)
+  signerId   String    @map("signer_id") @db.VarChar(30)
+  signerRole UserRole  @map("signer_role")
+  signedAt   DateTime  @map("signed_at")
+  ipAddress  String?   @map("ip_address") @db.VarChar(45)
+  userAgent  String?   @map("user_agent") @db.VarChar(300)
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  contract Contract @relation(fields: [contractId], references: [id])
+  signer   User     @relation(fields: [signerId], references: [id])
+
+  @@unique([contractId, signerId], name: "uq_signature_once")
+  @@map("contract_signature_audits")
+}
+
+model Payment {
+  id                  String        @id @db.VarChar(30)
+  contractId          String        @unique @map("contract_id") @db.VarChar(30)
+  clientId            String        @map("client_id") @db.VarChar(30)
+  freelancerId        String        @map("freelancer_id") @db.VarChar(30)
+
+  currency            String        @default("KRW") @db.Char(3)
+  paymentAmount       Int           @map("payment_amount")
+  platformFeeAmount   Int           @map("platform_fee_amount")
+  settlementAmount    Int           @map("settlement_amount")
+
+  status              PaymentStatus @default(READY)
+  pgProvider          String        @default("TOSS_PAYMENTS") @map("pg_provider") @db.VarChar(20)
+  pgOrderId           String        @unique @map("pg_order_id") @db.VarChar(64)
+  pgPaymentKey        String?       @unique @map("pg_payment_key") @db.VarChar(200)
+  paymentMethod       String?       @map("payment_method") @db.VarChar(30)
+  rawResponse         Json?         @map("raw_response")
+
+  paidAt              DateTime?     @map("paid_at")
+  failedAt              DateTime?     @map("failed_at")
+  releasedAt             DateTime?     @map("released_at")
+  refundedAt              DateTime?     @map("refunded_at")
+  failureCode              String?       @map("failure_code") @db.VarChar(50)
+  failureMessage            String?       @map("failure_message") @db.VarChar(300)
+
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  contract    Contract @relation(fields: [contractId], references: [id])
+  client       User     @relation("PaymentClient", fields: [clientId], references: [id])
+  freelancer    User     @relation("PaymentFreelancer", fields: [freelancerId], references: [id])
+
+  @@index([freelancerId, releasedAt])
+  @@index([status])
+  @@map("payments")
+}
+
+model Delivery {
+  id             String         @id @db.VarChar(30)
+  contractId     String         @unique @map("contract_id") @db.VarChar(30)
+  status         DeliveryStatus @default(IN_PROGRESS)
+  message        String?
+  attachmentUrl  String?        @map("attachment_url")
+  requestedAt    DateTime?      @map("requested_at")
+  approvedAt     DateTime?      @map("approved_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  contract Contract @relation(fields: [contractId], references: [id])
+
+  @@map("deliveries")
+}
+
+model Review {
+  id          String          @id @db.VarChar(30)
+  projectId   String          @map("project_id") @db.VarChar(30)
+  contractId  String          @map("contract_id") @db.VarChar(30)
+  reviewerId  String          @map("reviewer_id") @db.VarChar(30)
+  revieweeId  String          @map("reviewee_id") @db.VarChar(30)
+  direction   ReviewDirection
+  rating      Int             @db.SmallInt
+  comment     String?
+  /// review_direction별 허용 태그 5종(총 10종)은 DB가 아니라 Review 서비스(API 계층)가
+  /// 검증한다 — ERD review_direction enum 주석 표 참고. isPublic은 컬럼이 아니다(계산값).
+  tags        Json            @default("[]")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  project   Project  @relation(fields: [projectId], references: [id])
+  contract  Contract @relation(fields: [contractId], references: [id])
+  reviewer  User     @relation("ReviewReviewer", fields: [reviewerId], references: [id])
+  reviewee  User     @relation("ReviewReviewee", fields: [revieweeId], references: [id])
+
+  @@unique([projectId, direction], name: "uq_review_once_per_direction")
+  @@index([revieweeId, createdAt])
+  @@map("reviews")
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// 축 5. AI 단가 분석 (오민혁 — ai-pricing)
+// ═════════════════════════════════════════════════════════════════════
+
+model PricingAnalysis {
+  id                    String                      @id @db.VarChar(30)
+  requesterId           String                      @map("requester_id") @db.VarChar(30)
+  projectId             String?                     @map("project_id") @db.VarChar(30)
+
+  inputSnapshot         Json                        @map("input_snapshot")
+  recommendedAmount     Int                         @map("recommended_amount")
+  breakdown             Json
+
+  modelName             String?                     @map("model_name") @db.VarChar(50)
+  promptVersion          String?                     @map("prompt_version") @db.VarChar(20)
+  resultSchemaVersion     String?                     @map("result_schema_version") @db.VarChar(20)
+  failureCode              String?                     @map("failure_code") @db.VarChar(50)
+  idempotencyKey            String                      @unique @map("idempotency_key") @db.VarChar(100)
+  requestFingerprint        String?                     @map("request_fingerprint") @db.VarChar(64)
+
+  reviewStatus           PricingAnalysisReviewStatus @default(PENDING) @map("review_status")
+  reviewedAt              DateTime?                   @map("reviewed_at")
+  appliedAt                DateTime?                   @map("applied_at")
+
+  createdAt              DateTime                    @default(now()) @map("created_at")
+  updatedAt                DateTime                    @updatedAt @map("updated_at")
+
+  requester User     @relation(fields: [requesterId], references: [id])
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  @@index([requesterId, createdAt])
+  @@index([projectId])
+  @@map("pricing_analyses")
+}
+
+// =====================================================================
+// 부록 — 마이그레이션에 수동으로 추가해야 하는 제약
+//   Prisma schema.prisma는 CHECK 제약과 부분 유니크 인덱스를 표현하지 못한다
+//   (ERD dbml과 같은 한계). 실제 첫 마이그레이션 SQL에 아래를 반드시 포함한다.
+//   전체 목록·근거는 docs/domain/reference/erd-v1.4.dbml 맨 끝 "부록" 절이 정본이다 —
+//   여기서는 표 이름만 옮겨 적는다.
+// =====================================================================
+//
+//  projects        : I-04, I-08, I-28, budget_amount>0, title/description 길이,
+//                     pending_application_count>=0, project_version>=1
+//  auth_sessions    : expires_at>issued_at, revoked_at/revoked_reason 페어링
+//  negotiation_offer: offered_amount>0, round>=1
+//  applications     : uq_applications_one_accepted(부분 유니크, I-10),
+//                     expected_amount>0, expected_duration_days>0
+//  payments         : platform_fee_amount/settlement_amount 공식(D-14),
+//                     payment_amount>0, pg_provider='TOSS_PAYMENTS'
+//  reviews          : rating BETWEEN 1 AND 5, reviewer_id<>reviewee_id
+//  freelancer_profiles: career_years>=0
+//  contracts        : work_start_date<=work_end_date, terms_snapshot.schemaVersion=1
+//  users            : uq_users_email_active(부분 유니크 — email UNIQUE 컬럼 제약 대체)
+//  client_profiles  : business_field='ETC' ⇔ business_field_etc 페어링(E-14)
+//  skills           : uq_skills_official_name_key / uq_skills_custom_name_key(부분 유니크)
+//  pricing_analyses : recommended_amount>0, review_status⇔reviewed_at 페어링,
+//                     applied_at IS NULL OR review_status='APPROVED'
+//
+//  권한 회수(E-16, 오민혁 MUST) — 앱 실행 role에서:
+//    REVOKE UPDATE, DELETE ON reviews FROM app_role;
+//    REVOKE UPDATE, DELETE ON contract_signature_audits FROM app_role;
+//    REVOKE DELETE ON agreements, contracts, payments, deliveries FROM app_role;
+//    REVOKE DELETE ON negotiation_offer FROM app_role;
+// =====================================================================
