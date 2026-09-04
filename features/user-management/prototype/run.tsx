@@ -29,6 +29,29 @@ async function main() {
   const React = await import("react");
   const { renderToStaticMarkup } = await import("react-dom/server");
   const { LoginForm } = await import("./web/LoginForm");
+  const {
+    SignUpForm,
+    hasSignUpErrors,
+    isTerminalRecoveryError,
+    validateSignUpDraft,
+  } = await import("./web/SignUpForm");
+  const {
+    EmailConfirmationPage,
+    EmailConfirmationScreen,
+    classifyEmailConfirmationFailure,
+  } = await import("./web/EmailConfirmationPage");
+  const {
+    consumeEmailConfirmationFragment,
+    createEmailConfirmationFragmentCapture,
+    parseEmailConfirmationFragment,
+  } = await import("./web/email-confirmation-token");
+  const {
+    AUTH_ROUTES,
+    buildLoginPath,
+    buildSignUpPath,
+    createEmailConfirmationBootstrap,
+    parseSignUpRoute,
+  } = await import("./web/auth.routes");
   const webEntry = await import("./web/index");
   const {
     AuthProblem,
@@ -60,9 +83,14 @@ async function main() {
   const {
     AuthApiError,
     buildProtectedApiHeaders,
+    completeRegistration: completeRegistrationRequest,
+    confirmEmail: confirmEmailRequest,
+    createAuthSession: createAuthSessionRequest,
     createAuthMutationQueue,
     createProtectedApiCaller,
     createRefreshCoordinator,
+    deleteCurrentAuthSession,
+    registerAccount,
   } = await import("./web/api/auth");
   const {
     createAuthEpochGuard,
@@ -70,6 +98,7 @@ async function main() {
     createReturnNavigator,
     createSingleFlightRestorer,
     reduceAuthFailure,
+    reduceLogoutFailure,
   } = await import("./web/useAuth");
 
   const results: TestResult[] = [];
@@ -1220,12 +1249,21 @@ async function main() {
     assert(mappingLoss.provider.getCallNames().includes("signOut"), "사용자 매핑 소실 후 갱신된 공급자 세션 미폐기");
   });
 
-  await test("R16", "확정 401은 로그아웃 상태, 503은 기존 세션을 유지하는 재시도 상태다", async () => {
+  await test("R16", "확정 401은 로그아웃 상태, 5xx는 기존 세션을 유지하는 재시도 상태다", async () => {
     const invalid = reduceAuthFailure(new AuthApiError(401, "AUTH_SESSION_INVALID", "세션 만료"));
     const temporary = reduceAuthFailure(new AuthApiError(503, "AUTH_PROVIDER_UNAVAILABLE", "일시 장애"));
+    const invalidResponse = reduceAuthFailure(new AuthApiError(502, "AUTH_RESPONSE_INVALID", "잘못된 응답"));
+    const contextConflict = reduceAuthFailure(new AuthApiError(409, "AUTH_CONTEXT_CONFLICT", "세션 충돌"));
+    const logoutFailure = reduceLogoutFailure(new AuthApiError(504, "LOGOUT_TIMEOUT", "로그아웃 시간 초과"));
     assertEqual(invalid.status, "anonymous", "확정 401 상태");
     assertEqual(temporary.status, "retryable", "503 재시도 상태");
     assertEqual(temporary.action, "RETRY", "503 재시도 동작");
+    assertEqual(invalidResponse.status, "retryable", "잘못된 2xx 응답 재시도 상태");
+    assertEqual(contextConflict.status, "anonymous", "현재 세션 충돌 상태");
+    assertEqual(contextConflict.action, "LOGOUT", "현재 세션 충돌 로그아웃 동작");
+    assertEqual(logoutFailure.status, "anonymous", "로그아웃 실패 상태");
+    assertEqual(logoutFailure.action, "LOGOUT", "로그아웃 실패 뒤 재시도 동작 유지");
+    assertEqual(logoutFailure.message, "로그아웃 시간 초과", "로그아웃 실패 안내 보존");
 
     const f = createFixture();
     const login = await loginClient(f);
@@ -1793,6 +1831,8 @@ async function main() {
 
   const html = renderToStaticMarkup(React.createElement(LoginForm, { returnTo: "/projects/new" }));
   assertEqual(typeof webEntry.default, "function", "prototype/web/index.tsx default export 누락");
+  assertEqual(typeof webEntry.SignUpForm, "function", "회원가입 prototype export 누락");
+  assertEqual(typeof webEntry.EmailConfirmationPage, "function", "이메일 확인 prototype export 누락");
   const requiredTexts = [
     "로그인",
     "로그인 후 계속할 작업",
@@ -1807,10 +1847,463 @@ async function main() {
     "회원가입",
   ];
   for (const textValue of requiredTexts) {
-    await test("UI", `high-fi 필수 텍스트 렌더: ${textValue}`, () => {
+    await test("UI-LOGIN", `high-fi 필수 텍스트 렌더: ${textValue}`, () => {
       assert(html.includes(textValue), `렌더 결과에 '${textValue}'가 없음`);
     });
   }
+
+  const signUpHtml = renderToStaticMarkup(React.createElement(SignUpForm, { returnTo: "/projects/new" }));
+  const signUpAcceptedHtml = renderToStaticMarkup(React.createElement(SignUpForm, {
+    returnTo: "/projects/new",
+    previewState: "accepted",
+  }));
+  const recoveryHtml = renderToStaticMarkup(React.createElement(SignUpForm, {
+    mode: "recovery",
+    returnTo: "/projects/new",
+  }));
+  await test("UI-SIGNUP", "가입·접수·복구 high-fi 필수 텍스트를 상태별 SSR로 렌더한다", () => {
+    const renderedStates = `${signUpHtml}\n${signUpAcceptedHtml}\n${recoveryHtml}`;
+    const signUpRequiredTexts = [
+      "회원가입",
+      "이용 역할",
+      "의뢰인",
+      "프리랜서",
+      "가입 완료 후에는 역할을 변경할 수 없습니다.",
+      "Google로 계속하기",
+      "Kakao로 계속하기",
+      "이름",
+      "이메일",
+      "비밀번호",
+      "확인 메일 받기",
+      "가입 요청을 접수했습니다",
+      "가입 완료하기",
+    ];
+    for (const textValue of signUpRequiredTexts) {
+      assert(renderedStates.includes(textValue), `가입 렌더 결과에 '${textValue}'가 없음`);
+    }
+  });
+
+  await test("UI-SIGNUP", "일반·복구 입력 순서를 지키고 복구 모드에서 OAuth를 숨긴다", () => {
+    const registerOrder = [
+      signUpHtml.indexOf("<fieldset"),
+      signUpHtml.indexOf('aria-label="소셜 계정으로 회원가입"'),
+      signUpHtml.indexOf('id="sign-up-name"'),
+      signUpHtml.indexOf('id="sign-up-email"'),
+      signUpHtml.indexOf('id="sign-up-password"'),
+    ];
+    const recoveryOrder = [
+      recoveryHtml.indexOf('id="sign-up-email"'),
+      recoveryHtml.indexOf('id="sign-up-password"'),
+      recoveryHtml.indexOf('id="sign-up-name"'),
+      recoveryHtml.indexOf("<fieldset"),
+    ];
+    assert(registerOrder.every((position) => position >= 0), "일반 가입 필드 누락");
+    assert(recoveryOrder.every((position) => position >= 0), "가입 복구 필드 누락");
+    assert(registerOrder.every((position, index) => index === 0 || registerOrder[index - 1] < position), "일반 가입 필드 순서 불일치");
+    assert(recoveryOrder.every((position, index) => index === 0 || recoveryOrder[index - 1] < position), "가입 복구 필드 순서 불일치");
+    assert(!recoveryHtml.includes("Google로 계속하기") && !recoveryHtml.includes("Kakao로 계속하기"), "복구 모드에 OAuth 노출");
+  });
+
+  await test("UI-SIGNUP", "빈 오류 키를 남기지 않고 복구 권한 종료 오류를 구분한다", () => {
+    const invalid = validateSignUpDraft({ role: null, name: "", email: "wrong", password: "short" });
+    assert(hasSignUpErrors(invalid), "유효하지 않은 가입 초안을 통과시킴");
+    assertEqual(Object.values(invalid).filter(Boolean).length, 4, "가입 필드 오류 개수");
+    const valid = validateSignUpDraft({
+      role: "CLIENT",
+      name: "오민혁",
+      email: "minhyeok@example.com",
+      password: "safe-pass-123",
+    });
+    assert(!hasSignUpErrors(valid), "유효한 가입 초안을 거부함");
+    assertEqual(Object.keys(valid).length, 0, "유효한 초안에 undefined 오류 키가 남음");
+    assert(
+      isTerminalRecoveryError(new AuthApiError(410, "REGISTRATION_RECOVERY_EXPIRED", "만료")),
+      "복구 만료 시 비밀번호 제거 조건 누락",
+    );
+  });
+
+  const confirmationReadyHtml = renderToStaticMarkup(React.createElement(EmailConfirmationScreen, { phase: "ready" }));
+  const confirmationSuccessHtml = renderToStaticMarkup(React.createElement(EmailConfirmationScreen, {
+    phase: "success",
+    returnTo: "/projects/new",
+  }));
+  const confirmationExpiredHtml = renderToStaticMarkup(React.createElement(EmailConfirmationScreen, { phase: "expired" }));
+  const confirmationRecoveryHtml = renderToStaticMarkup(React.createElement(EmailConfirmationScreen, { phase: "recovery" }));
+  const confirmationUnavailableHtml = renderToStaticMarkup(React.createElement(EmailConfirmationScreen, {
+    phase: "unavailable",
+  }));
+  const confirmationContextConflictHtml = renderToStaticMarkup(React.createElement(EmailConfirmationScreen, {
+    phase: "context-conflict",
+  }));
+  const confirmationRateLimitedHtml = renderToStaticMarkup(React.createElement(EmailConfirmationScreen, {
+    phase: "rate-limited",
+    retryAfterSeconds: 30,
+  }));
+  await test("UI-CONFIRM", "이메일 확인 필수 텍스트와 성공·복구·충돌·대기 상태를 렌더한다", () => {
+    const renderedStates = [
+      confirmationReadyHtml,
+      confirmationSuccessHtml,
+      confirmationExpiredHtml,
+      confirmationRecoveryHtml,
+      confirmationUnavailableHtml,
+      confirmationContextConflictHtml,
+      confirmationRateLimitedHtml,
+    ].join("\n");
+    const confirmationRequiredTexts = [
+      "이메일 확인",
+      "링크를 여는 것만으로 가입을 완료하지 않습니다.",
+      "이메일 확인하기",
+      "아직 서버에 확인 요청을 보내지 않았습니다.",
+      "이메일 확인을 완료했습니다",
+      "확인 링크가 유효하지 않거나 만료됐습니다.",
+      "로그인에서 가입 복구 시작",
+      "현재 계정 로그아웃",
+      "30초 후 다시 시도",
+      "로그인에서 계정 상태 확인",
+      "일회용 확인 값은 화면·로그·브라우저 저장소에 표시하거나 보관하지 않습니다.",
+    ];
+    for (const textValue of confirmationRequiredTexts) {
+      assert(renderedStates.includes(textValue), `확인 렌더 결과에 '${textValue}'가 없음`);
+    }
+  });
+
+  await test("UI-CONFIRM", "token hash는 확인 페이지 DOM에 렌더링하지 않는다", () => {
+    const nonSecretTestToken = "test-token-hash-never-render";
+    const confirmationPageHtml = renderToStaticMarkup(React.createElement(EmailConfirmationPage, {
+      tokenHash: nonSecretTestToken,
+    }));
+    assert(!confirmationPageHtml.includes(nonSecretTestToken), "확인 token hash가 렌더 결과에 노출됨");
+    assert(confirmationPageHtml.includes("이메일 확인하기"), "유효 token의 명시적 확인 버튼 누락");
+  });
+
+  await test("UNIT-FRAGMENT", "fragment token만 읽고 token query를 제거하되 안전한 query는 보존한다", () => {
+    const replaced: string[] = [];
+    const result = consumeEmailConfirmationFragment({
+      hash: "#tokenHash=test-token-hash&type=signup",
+      pathname: "/auth/confirm",
+      search: "?returnTo=%2Fprojects%2Fnew&tokenHash=query-must-be-ignored",
+      replaceState: (_data, _unused, url) => replaced.push(String(url)),
+    });
+    assertEqual(result.status, "ready", "fragment token 파싱 상태");
+    assertEqual(result.status === "ready" ? result.tokenHash : null, "test-token-hash", "query token을 fragment 대신 사용함");
+    assertEqual(replaced[0], "/auth/confirm?returnTo=%2Fprojects%2Fnew", "fragment와 token query 제거 뒤 경로");
+    assertEqual(parseEmailConfirmationFragment("").status, "invalid", "빈 fragment 허용");
+
+    const queryOnlyReplaced: string[] = [];
+    const queryOnly = consumeEmailConfirmationFragment({
+      hash: "",
+      pathname: "/auth/confirm",
+      search: "?token_hash=query-only-secret&returnTo=%2Fprojects",
+      replaceState: (_data, _unused, url) => queryOnlyReplaced.push(String(url)),
+    });
+    assertEqual(queryOnly.status, "invalid", "query token을 확인 credential로 사용함");
+    assertEqual(queryOnlyReplaced[0], "/auth/confirm?returnTo=%2Fprojects", "fragment 없는 token query 미제거");
+  });
+
+  await test("UNIT-FRAGMENT", "pre-React fragment bootstrap은 첫 결과만 메모리에 캡처한다", () => {
+    const replaced: string[] = [];
+    const capture = createEmailConfirmationFragmentCapture();
+    const first = capture({
+      hash: "#tokenHash=first-test-token",
+      pathname: "/auth/confirm",
+      search: "?returnTo=%2Fprojects",
+      replaceState: (_data, _unused, url) => replaced.push(String(url)),
+    });
+    const second = capture({
+      hash: "#tokenHash=second-test-token",
+      pathname: "/auth/confirm",
+      search: "",
+      replaceState: (_data, _unused, url) => replaced.push(String(url)),
+    });
+    assertEqual(first.status, "ready", "첫 fragment 캡처 실패");
+    assertEqual(second.status, "ready", "두 번째 호출의 캐시 결과 손실");
+    assertEqual(first.status === "ready" ? first.tokenHash : null, "first-test-token", "첫 token 손실");
+    assertEqual(second.status === "ready" ? second.tokenHash : null, "first-test-token", "두 번째 token으로 덮어씀");
+    assertEqual(replaced.length, 1, "fragment 주소를 두 번 수정함");
+  });
+
+  await test("UNIT-ROUTES", "가입 mode와 returnTo를 안전하게 파싱하고 인증 경로를 만든다", () => {
+    assertEqual(AUTH_ROUTES.emailConfirmation, "/auth/confirm", "확인 라우트 상수");
+    const recovery = parseSignUpRoute("?mode=recovery&returnTo=%2Fprojects%2Fnew");
+    assertEqual(recovery.mode, "recovery", "가입 복구 mode 파싱");
+    assertEqual(recovery.returnTo, "/projects/new", "가입 복구 returnTo 파싱");
+    const unsafe = parseSignUpRoute("?mode=unknown&returnTo=https%3A%2F%2Fevil.test");
+    assertEqual(unsafe.mode, "register", "알 수 없는 가입 mode fallback");
+    assertEqual(unsafe.returnTo, "/", "외부 returnTo fallback");
+    assertEqual(buildLoginPath("/bookmarks"), "/login?returnTo=%2Fbookmarks", "로그인 경로 생성");
+    assertEqual(buildSignUpPath("//evil.test"), "/sign-up?returnTo=%2F", "회원가입 외부 경로 차단");
+    let replacementCount = 0;
+    const bootstrap = createEmailConfirmationBootstrap();
+    const outsideConfirmation = bootstrap({
+      hash: "#tokenHash=must-not-be-consumed",
+      pathname: "/projects",
+      search: "",
+      replaceState: () => { replacementCount += 1; },
+    });
+    assertEqual(outsideConfirmation.status, "invalid", "확인 라우트 밖 fragment를 읽음");
+    assertEqual(replacementCount, 0, "확인 라우트 밖 fragment를 제거함");
+  });
+
+  await test("WEB-API", "가입·확인·복구 UI API가 계약 endpoint와 cookie credential을 사용한다", async () => {
+    const originalFetch = globalThis.fetch;
+    const calls: Array<{ path: string; init?: RequestInit }> = [];
+    const sessionResponse = {
+      accessToken: "test-access-token",
+      accessTokenExpiresAt: "2026-09-04T12:00:00.000Z",
+      returnTo: "/projects/new",
+      user: {
+        userId: "usr_test",
+        email: "minhyeok@example.com",
+        name: "오민혁",
+        role: "CLIENT" as const,
+        profileImageUrl: null,
+      },
+    };
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const pathValue = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      calls.push({ path: pathValue, init });
+      const payload = pathValue.endsWith("/registrations")
+        ? { status: "EMAIL_VERIFICATION_REQUIRED", message: "가입 요청을 접수했습니다." }
+        : sessionResponse;
+      return {
+        ok: true,
+        status: pathValue.endsWith("/registrations") ? 202 : 200,
+        json: async () => payload,
+      } as Response;
+    }) as typeof fetch;
+    try {
+      await registerAccount({
+        email: "minhyeok@example.com",
+        password: "safe-pass-123",
+        name: "오민혁",
+        role: "CLIENT",
+        returnTo: "/projects/new",
+      });
+      await confirmEmailRequest("test-token-hash");
+      await completeRegistrationRequest({
+        email: "minhyeok@example.com",
+        password: "safe-pass-123",
+        name: "오민혁",
+        role: "CLIENT",
+        returnTo: "/projects/new",
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    assertEqual(calls.map((call) => call.path).join(","), [
+      "/api/v1/auth/registrations",
+      "/api/v1/auth/email-confirmations",
+      "/api/v1/auth/registration-completions",
+    ].join(","), "가입 UI API endpoint");
+    assert(calls.every((call) => call.init?.method === "POST"), "가입 UI API가 POST를 사용하지 않음");
+    assert(calls.every((call) => call.init?.credentials === "include"), "가입 UI API의 cookie credential 누락");
+    assertEqual(
+      JSON.parse(String(calls[1].init?.body)).tokenHash,
+      "test-token-hash",
+      "이메일 확인 token body 누락",
+    );
+  });
+
+  await test("WEB-API", "잘못된 2xx 인증 응답과 안전하지 않은 returnTo를 fail-closed 처리한다", async () => {
+    const originalFetch = globalThis.fetch;
+    const validSession = {
+      accessToken: "test-access-token",
+      accessTokenExpiresAt: "2026-09-04T12:00:00.000Z",
+      returnTo: "/projects",
+      user: {
+        userId: "usr_test",
+        email: "minhyeok@example.com",
+        name: "오민혁",
+        role: "CLIENT",
+        profileImageUrl: null,
+      },
+    };
+    const invalidResponses = [
+      { status: 200, payload: {} },
+      { status: 200, payload: { ...validSession, returnTo: "/\t/evil.test" } },
+      { status: 200, payload: { ...validSession, returnTo: "/admin" } },
+      { status: 200, payload: { ...validSession, accessToken: "" } },
+      { status: 201, payload: validSession },
+    ];
+    let responseIndex = 0;
+    globalThis.fetch = (async () => {
+      const current = invalidResponses[responseIndex++];
+      return {
+        ok: true,
+        status: current.status,
+        json: async () => current.payload,
+      } as Response;
+    }) as typeof fetch;
+    try {
+      for (let index = 0; index < invalidResponses.length; index += 1) {
+        let caught: unknown;
+        try {
+          await createAuthSessionRequest({ email: "minhyeok@example.com", password: "safe-pass-123" });
+        } catch (error) {
+          caught = error;
+        }
+        assert(caught instanceof AuthApiError, "잘못된 2xx 응답을 인증 성공으로 처리함");
+        assertEqual(caught.code, "AUTH_RESPONSE_INVALID", "잘못된 2xx 응답 오류 코드");
+        assertEqual(caught.status, 502, "잘못된 2xx 응답 gateway 상태");
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  await test("WEB-API", "잘못된 오류 DTO와 status-code 불일치를 일반 오류로 축소한다", async () => {
+    const originalFetch = globalThis.fetch;
+    const cases = [
+      { status: 409, payload: { error: { code: {}, message: {} } } },
+      { status: 409, payload: { error: { code: "EMAIL_CONFIRMATION_EXPIRED", message: "잘못된 상태 조합" } } },
+      { status: 503, payload: { error: { code: "REGISTRATION_RECOVERY_EXPIRED", message: "잘못된 상태 조합" } } },
+    ];
+    let caseIndex = 0;
+    globalThis.fetch = (async () => {
+      const current = cases[caseIndex++];
+      return {
+        ok: false,
+        status: current.status,
+        json: async () => current.payload,
+      } as Response;
+    }) as typeof fetch;
+    try {
+      for (let index = 0; index < cases.length; index += 1) {
+        let caught: unknown;
+        try {
+          await confirmEmailRequest("test-token-hash");
+        } catch (error) {
+          caught = error;
+        }
+        assert(caught instanceof AuthApiError, "잘못된 오류 DTO를 안전한 API 오류로 바꾸지 않음");
+        assertEqual(caught.code, "AUTH_REQUEST_FAILED", "오류 DTO fallback 코드");
+        assertEqual(typeof caught.message, "string", "렌더 가능한 오류 메시지로 축소하지 않음");
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  await test("WEB-API", "Retry-After를 보존하고 제한 시간 전 확인 재시도를 막는다", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => ({
+      ok: false,
+      status: 429,
+      headers: { get: (name: string) => name.toLowerCase() === "retry-after" ? "12" : null },
+      json: async () => ({ error: { code: "AUTH_RATE_LIMITED", message: "잠시 뒤 다시 시도해 주세요." } }),
+    }) as unknown as Response) as typeof fetch;
+    try {
+      let caught: unknown;
+      try {
+        await confirmEmailRequest("test-token-hash");
+      } catch (error) {
+        caught = error;
+      }
+      assert(caught instanceof AuthApiError, "429를 AuthApiError로 보존하지 않음");
+      assertEqual(caught.retryAfterSeconds, 12, "Retry-After seconds 손실");
+      const failure = classifyEmailConfirmationFailure(caught);
+      assertEqual(failure.phase, "rate-limited", "429 확인 상태 분류");
+      assertEqual(failure.retryAfterSeconds, 12, "확인 대기 시간 손실");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  await test("WEB-API", "로그아웃은 멈춘 인증 요청을 취소하고 즉시 세션 폐기를 시작한다", async () => {
+    const originalFetch = globalThis.fetch;
+    let resolveStarted!: () => void;
+    const started = new Promise<void>((resolve) => { resolveStarted = resolve; });
+    let deleteStarted = false;
+    globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
+      const pathValue = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (pathValue.endsWith("/sessions/current")) {
+        deleteStarted = true;
+        return Promise.resolve({ ok: true, status: 204 } as Response);
+      }
+      resolveStarted();
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+      });
+    }) as typeof fetch;
+    try {
+      const pendingResult = createAuthSessionRequest({
+        email: "minhyeok@example.com",
+        password: "safe-pass-123",
+      }).catch((error) => error as unknown);
+      await started;
+      await deleteCurrentAuthSession();
+      const cancelled = await pendingResult;
+      assert(deleteStarted, "로그아웃 DELETE가 이전 인증 요청 뒤에서 대기함");
+      assert(cancelled instanceof AuthApiError, "취소된 인증 요청 오류 형식");
+      assertEqual(cancelled.code, "AUTH_FLOW_CANCELLED", "로그아웃 취소 오류 코드");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  await test("UI-CONFIRM", "확인 오류 코드를 만료·복구·일시 장애 행동으로 구분한다", () => {
+    assertEqual(
+      classifyEmailConfirmationFailure(new AuthApiError(410, "EMAIL_CONFIRMATION_EXPIRED", "만료")).phase,
+      "expired",
+      "확인 만료 상태",
+    );
+    assertEqual(
+      classifyEmailConfirmationFailure(new AuthApiError(409, "REGISTRATION_COMPLETION_REQUIRED", "복구")).phase,
+      "recovery",
+      "가입 복구 상태",
+    );
+    assertEqual(
+      classifyEmailConfirmationFailure(new AuthApiError(403, "EMAIL_CONFIRMATION_NOT_AVAILABLE", "확인 불가")).phase,
+      "unavailable",
+      "계정 상태 은닉형 확인 불가 상태",
+    );
+    assertEqual(
+      classifyEmailConfirmationFailure(new AuthApiError(503, "AUTH_PROVIDER_UNAVAILABLE", "지연")).phase,
+      "retryable",
+      "공급자 일시 장애 상태",
+    );
+    assertEqual(
+      classifyEmailConfirmationFailure(new AuthApiError(409, "AUTH_CONTEXT_CONFLICT", "충돌")).phase,
+      "context-conflict",
+      "현재 로그인 세션 충돌 상태",
+    );
+    assertEqual(
+      classifyEmailConfirmationFailure(new AuthApiError(502, "AUTH_RESPONSE_INVALID", "잘못된 응답")).phase,
+      "retryable",
+      "잘못된 2xx 확인 응답 복구 상태",
+    );
+    assertEqual(
+      classifyEmailConfirmationFailure(new AuthApiError(504, "AUTH_REQUEST_TIMEOUT", "시간 초과")).phase,
+      "retryable",
+      "확인 응답 시간 초과 복구 상태",
+    );
+  });
+
+  await test("UI-DESIGN", "공통 인증 시안이 반응형·상태·reduced-motion 계약을 유지한다", () => {
+    const foundationSource = readFileSync(path.join(here, "..", "design", "auth-foundation.css"), "utf8");
+    const authFrameSource = readFileSync(path.join(here, "web", "AuthFrame.tsx"), "utf8");
+    const loginSource = readFileSync(path.join(here, "web", "LoginForm.tsx"), "utf8");
+    const signUpSource = readFileSync(path.join(here, "web", "SignUpForm.tsx"), "utf8");
+    const loginHighFiSource = readFileSync(path.join(here, "..", "design", "high-fi.html"), "utf8");
+    const signUpHighFiSource = readFileSync(path.join(here, "..", "design", "high-fi-sign-up.html"), "utf8");
+    assert(foundationSource.includes("--page-max:1200px"), "정적 인증 shell 1200px 계약 누락");
+    assert(authFrameSource.includes("max-width:1200px"), "prototype 인증 shell 1200px 계약 누락");
+    for (const source of [foundationSource, authFrameSource]) {
+      assert(source.includes("max-width:840px"), "인증 1열 전환 breakpoint 누락");
+      assert(source.includes("max-width:767px"), "모바일 gutter breakpoint 누락");
+      assert(source.includes("prefers-reduced-motion:reduce"), "reduced-motion 대체 누락");
+    }
+    assert(foundationSource.includes("[hidden] { display:none !important; }"), "상태 전환 hidden 요소가 레이아웃에 남을 수 있음");
+    assert(foundationSource.includes("border:1px solid var(--border-interactive)"), "상호작용 경계 토큰 누락");
+    assert(loginSource.includes("현재 계정 로그아웃"), "로그인 세션 충돌 해소 동작 누락");
+    assert(signUpSource.includes("현재 계정 로그아웃"), "회원가입 세션 충돌 해소 동작 누락");
+    for (const [name, source] of [["로그인", loginHighFiSource], ["회원가입", signUpHighFiSource]] as const) {
+      assert(source.includes("session-conflict"), `${name} high-fi 세션 충돌 상태 누락`);
+      assert(source.includes("logout-failed"), `${name} high-fi 로그아웃 실패·재시도 상태 누락`);
+      assert(source.includes("logout-success"), `${name} high-fi 로그아웃 성공 상태 누락`);
+      assert(source.includes("현재 계정 로그아웃"), `${name} high-fi 세션 종료 동작 누락`);
+    }
+  });
 
   const prototypeSources = [
     path.join(here, "server", "auth.types.ts"),

@@ -2,8 +2,8 @@
 
 ## 문서 상태
 
-- 작성 기준일: 2026-08-26
-- 작업 단계: Step 4 — 8월 27일 OAuth 구현 완료 범위의 포트·어댑터 경계 정합화 및 검증 준비
+- 작성 기준일: 2026-09-04
+- 작업 단계: Step 4 — 가입·이메일 확인·가입 복구 high-fi와 기능 prototype 검증 + 회원 탈퇴 잠정 계약 검토
 - 상태 표기:
   - **FACT**: 저장소 정본이나 확인 작업으로 검증된 내용
   - **DECISION**: 이 기능의 구현 기준으로 선택한 정책. 팀 공유 정본 반영은 팀장 통합 단계에서 수행
@@ -31,12 +31,14 @@ PactFive 사용자가 이메일 또는 Google/Kakao 계정으로 가입·로그�
 - **FACT (상위 요구사항)**: 탈퇴 계정과 OAuth-only 계정의 이메일 로그인 제한
 - **FACT (상위 요구사항)**: 로그인 유도 전 경로를 `returnTo`로 보존하고 인증 성공 후 복귀
 - **ASSUMPTION**: 웹 인증 화면의 초기 라우트 계약(`/login`, `/sign-up`, `/auth/confirm`)
+- **PROVISIONAL / TEAM REVIEW REQUIRED**: ERD I-31/E-13을 구체화한 회원 탈퇴의 문서 설계만 포함한다.
+  팀 승인 전에는 구현 계약이나 완료 범위로 간주하지 않는다.
 
 ### 제외
 
 - 프로필 상세 입력·수정, 프로필 완성도 게이트
 - 비밀번호 찾기·재설정·변경
-- 회원 탈퇴 처리와 진행 중 거래 검사
+- 회원 탈퇴 UI·서버 구현·DB migration, 타 도메인 eligibility adapter, 공급자 정리 worker의 실제 구현
 - 기기/세션 목록 화면, 특정 기기 강제 로그아웃, 전체 기기 로그아웃 UI
 - 관리자 기능과 역할 변경 기능
 - `app/` 통합 코드, 실제 Supabase/Google/Kakao 대시보드 설정, 배포 환경 변수 주입
@@ -318,19 +320,106 @@ Refresh 쿠키가 가리키는 `auth_sessions`를 Bearer Token 만료 여부와 
     허용한다. 실제 Supabase 어댑터와 배포 환경에서는 항상 거부하고 Authorization 원문을 로그에
     남기지 않는다.
 
+### 회원 탈퇴 — PROVISIONAL / TEAM REVIEW REQUIRED
+
+이 절은 `docs/domain/reference/erd-v1.4.dbml`의 I-31과 E-13을 구현 가능한 수준으로 풀어 쓴
+**잠정안**이다. I-31은 진행 중 프로젝트·지원·계약·결제·납품이 있으면 409로 탈퇴를 차단하고,
+E-13은 `users.deleted_at`, 전체 세션의 `USER_WITHDRAWN` 폐기, OAuth 연결 해제, 개인정보 마스킹,
+활성 사용자 범위 이메일 유일성과 새 `user_id` 재가입을 요구한다. 다만 상태별 "진행 중"의 정확한
+경계와 원자성 프로토콜은 타 도메인 담당자 승인이 없으므로 아래 `WD-*`는 기존 확정 규칙 1~23과
+52개 자동 검증 수치에 포함하지 않는다. 승인 전에는 이 문서를 근거로 endpoint, 화면, migration,
+worker를 구현하거나 배포하지 않는다.
+
+#### 잠정 범위와 규칙
+
+- **WD-01 [ASSUMPTION] 본인 요청만 허용** — 로그인한 현재 사용자가
+  `DELETE /api/v1/users/current`로 자신의 계정을 탈퇴한다. 관리자 강제 탈퇴, 탈퇴 예약·철회,
+  설정 화면 경로는 이번 설계 밖이다. 상태 변경 전에 환경별 허용 `Origin`을 완전한 문자열로
+  정확히 비교하고, 활성 Bearer Token과 동일한 현재 공급자/로컬 세션을 요구한다.
+- **WD-02 [ASSUMPTION] 재인증 필수** — 탈퇴 전 비밀번호 재입력 또는 연결된 OAuth 공급자의 새
+  인증 왕복으로 5분 수명의 단일 목적 `reauthenticationProof`를 발급한다. proof는 `userId`, 현재
+  `providerSessionId`, `ACCOUNT_WITHDRAWAL` 목적, 요청의 `Idempotency-Key`에 결속하고 브라우저
+  메모리 외에는 저장하지 않는다. 비밀번호 원문과 proof 원문은 로그·DB·브라우저 저장소에 남기지
+  않는다. proof 발급 endpoint와 OAuth별 강제 재인증 방식은 팀 승인 전 **OPEN**이다.
+- **WD-03 [ASSUMPTION] eligibility는 fail-closed** — user-management는 프로젝트·지원·협상·계약·
+  결제·납품 테이블을 직접 조회하지 않고 `AccountWithdrawalEligibilityPort`만 호출한다. 어느 한
+  소유 도메인의 최신 상태를 확정하지 못하면 탈퇴시키지 않고 503으로 닫는다. blocker가 하나라도
+  있으면 리소스 식별자나 상대방 정보를 노출하지 않는 코드·개수·안전한 앱 내부 해결 경로만 담아
+  409를 반환한다.
+- **WD-04 [ASSUMPTION] 멱등성과 반복 호출** — `Idempotency-Key`는 필수다. 같은 사용자·key·동일
+  요청의 동시 호출은 한 건만 커밋하고 같은 202 응답으로 수렴한다. 첫 성공으로 세션이 폐기된 뒤에도
+  같은 proof와 key의 정확한 재전송은 제한된 replay window 안에서 저장 응답을 돌려준다. 같은 key를
+  다른 요청에 재사용하면 인증이 유지된 동일 사용자에게만 409를 반환하고, 다른 key나 사용자로 이미
+  탈퇴한 계정을 조회하려는 요청은 401로 통일한다.
+- **WD-05 [ASSUMPTION] stale check 금지** — eligibility 검사와 탈퇴 커밋 사이에 새 지원·계약·결제
+  등이 만들어질 수 없도록 사용자 단위 DB lock과 단일 PostgreSQL transaction을 사용한다. 모든
+  blocker 생성 mutation도 같은 lock 규약과 `users.deleted_at IS NULL` 검사를 지켜야 한다. 이 공유
+  잠금 규약을 채택할 수 없다면 현재 안은 race-safe하지 않으므로 구현을 차단하고 reservation/saga
+  계약을 새로 승인한다.
+- **WD-06 [ASSUMPTION] 로컬 차단이 즉시 정본** — 성공 transaction에서 `users.deleted_at`을 기록하고,
+  모든 `auth_sessions`를 같은 시각과 `revoked_reason=USER_WITHDRAWN`으로 폐기한다. 이후 모든 인증
+  경로는 `deleted_at IS NOT NULL` 또는 폐기 세션을 즉시 401로 거부한다. 성공 커밋 뒤 브라우저는
+  Refresh/OAuth/가입복구/재인증 쿠키와 메모리 Access Token을 제거한다.
+- **WD-07 [ASSUMPTION] 공급자 정리는 outbox로 수렴** — 같은 transaction에 공급자 전체 세션 폐기와
+  Supabase 계정 삭제 또는 비활성화 요청을 outbox로 기록한다. worker는 `withdrawalRequestId`로
+  멱등 재시도하고 실패를 경보·dead-letter 처리한다. 커밋 뒤 공급자 장애가 발생해도 로컬 탈퇴를
+  되돌리거나 계정을 재활성화하지 않는다.
+- **WD-08 [FACT + OPEN] 개인정보와 이력 분리** — E-13대로 `name`, `profile_image_url`, `bio`는
+  마스킹하고 `oauth_provider`/`oauth_subject`는 `NULL`로 만든다. 계약·결제·리뷰 등 법적·거래 이력과
+  FK의 기존 `userId`는 보존하며 새 가입에는 새 `userId`를 부여하고 과거 거래·리뷰·평점을 승계하지
+  않는다. E-13은 감사 목적으로 기존 email을 보존하므로 이 잠정안도 임의 삭제하지 않는다. 다만
+  email, `auth_user_id`, 계약 snapshot, PG `raw_response`, IP/user-agent의 보존 근거·기간·접근 통제와
+  최종 파기/가명처리는 개인정보·법무 검토 전 **OPEN**이다.
+
+#### blocker 상태 진리표 — ASSUMPTION
+
+I-31은 대상 엔티티만 정하고 상태별 경계는 정하지 않았다. 아래 표는 안전 쪽으로 닫는 제안이며,
+프로젝트·지원/협상·계약/결제 담당자가 함께 승인해야 정본이 된다. 각 행은 독립 판정이므로 한 행이
+"비차단"이어도 다른 행이 차단이면 탈퇴할 수 없다.
+
+| 사용자 관련 상태 | 409 차단 가정 | 그 상태만으로는 비차단 가정 | 검토 이유 |
+|---|---|---|---|
+| 의뢰인이 소유한 `projects` | `recruitment_status=SCHEDULED|OPEN`; `transaction_status=CONTRACT_PENDING|IN_PROGRESS` | `CLOSED + NONE`; `COMPLETED`; `CANCELED` | 공개 모집과 거래 진행을 모두 "진행 중 프로젝트"로 본다. |
+| 프리랜서의 `applications` | `PENDING`; `ACCEPTED`이면서 연결 프로젝트/계약이 비종결 | `REJECTED`; 종결 프로젝트의 과거 `ACCEPTED` | `ACCEPTED`는 이력으로 남으므로 부모 상태와 결합한다. |
+| 당사자의 `agreements`/`negotiation_offer` | `PROPOSED`; `ACCEPTED`이면서 연결 거래가 비종결 | `REJECTED`; 종결 거래의 과거 `ACCEPTED` | 재제안 이력을 포함하되 과거 합의를 영구 blocker로 만들지 않는다. |
+| 당사자의 `contracts` | `DRAFT|SIGNING`; `SIGNED`이면서 프로젝트/결제/납품 중 하나가 비종결 | `CANCELED`; 완결 거래의 과거 `SIGNED` | `SIGNED`는 완료 뒤에도 유지되므로 하위 상태와 결합한다. |
+| 당사자의 `payments` | `READY|PENDING|PAID` | `RELEASED|REFUNDED`; `FAILED` 단독 | `PAID`는 에스크로 예치이며 `RELEASED` 전까지 미정산이다. 부모 거래 blocker는 별도 적용한다. |
+| 당사자의 `deliveries` | `IN_PROGRESS|DELIVERY_REQUESTED` | `APPROVED` 단독 | 승인 뒤에도 결제가 `PAID`이면 결제 행이 계속 차단한다. |
+
+북마크, 알림 읽음 여부, `REJECTED` 지원, `CANCELED`/`COMPLETED` 거래, 과거 리뷰는 그 자체로
+blocker가 아니라고 가정한다. 계정의 양 역할 관계를 모두 검사하며 `CLIENT` 또는 `FREELANCER`라는
+현재 역할 하나만 보고 반대편 거래 관계를 생략하지 않는다.
+
+#### 원자적 처리 순서 — ASSUMPTION
+
+1. `Idempotency-Key`와 요청 hash로 durable 작업 행을 잠그거나 생성한다. 기존 동일 작업이면 저장된
+   결과를 반환하고, key 충돌이면 커밋하지 않는다.
+2. 사용자 행 또는 합의된 advisory lock을 잡고 활성 사용자·현재 세션·재인증 proof를 다시 검증한다.
+3. 같은 transaction handle 안에서 eligibility port가 위 진리표의 최신 blocker를 검사한다.
+4. blocker가 없을 때만 `deleted_at` 기록, E-13 마스킹/OAuth 필드 정리, 모든 로컬 세션 폐기를 한다.
+5. 같은 transaction에 멱등 응답과 공급자 정리 outbox를 기록한 뒤 한 번에 commit한다. 직렬화 충돌은
+   제한적으로 재시도하되 stale eligibility 결과를 재사용하지 않는다.
+6. commit 뒤 쿠키·메모리 토큰을 제거하고 202를 반환한다. provider cleanup은 비동기로 재시도한다.
+
+현재 ERD에는 withdrawal idempotency/outbox 저장소가 명시돼 있지 않다. 또한 단일 DB transaction에
+참여하는 cross-domain unit-of-work와 blocker 생성 mutation의 공유 lock 규약도 정본이 아니다.
+따라서 이 두 스키마/경계가 팀장과 각 도메인 담당자에게 승인되기 전에는 WD-05~WD-07을 구현할 수 없다.
+
 ## 웹 라우트 목록
 
-`/login`은 high-fi 시안과 prototype 구현이 있다. `/sign-up`과 `/auth/confirm`은 서버 계약과 링크만
-있고 high-fi 시안·prototype 라우트는 아직 없다. 디자인 계약 없이 화면을 임의로 만들지 않으며,
-두 화면은 실제 이메일 가입·확인 E2E를 시작하기 전 user-management의 다음 UI 작업 묶음에서
-완성해야 한다. 그 전까지 `/sign-up` 링크와 이메일 확인 템플릿은 운영 준비 완료로 판정하지 않는다.
-나머지 공통 경로는 팀 확정 전 **ASSUMPTION**이다.
+`/login`, `/sign-up`, `/auth/confirm`은 feature 원본의 high-fi 시안과 prototype 컴포넌트가 있다.
+가입·확인 화면은 `reference/project-management/register.html`의 폼 리듬과 `reopen.html`의
+“이유 → 현재 상태 → 다음 행동” 조합 패턴만 참고했고, 화면 구조는 최신 feature high-fi, 값과
+상태는 `design-system/design-tokens.md`를 따랐다. 이는 디자인·컴포넌트·라우트 helper 단계의
+완료를 뜻하며, `app/web`의 실제 router와 pre-React fragment bootstrap 연결은 팀장 통합 대상이다.
+따라서 실제 이메일 가입·확인 E2E 및 배포 준비 완료로 판정하지 않는다. 나머지 공통 경로는 팀
+확정 전 **ASSUMPTION**이다.
 
 | 라우트 | 상태 | 책임 |
 |---|---|---|
 | `/login` | FACT — 시안·prototype 있음 | 이메일 로그인, Google/Kakao 로그인 시작, `returnTo` 수신 |
-| `/sign-up` | OPEN — 화면 미구현 | 이메일/OAuth 가입, 고립 계정 복구, `CLIENT`/`FREELANCER` 역할 선택, `returnTo` 수신 |
-| `/auth/confirm` | OPEN — 화면 미구현 | 이메일 링크의 token hash를 주소에서 제거하고, 사용자의 명시적 확인 뒤 서버 POST 검증 |
+| `/sign-up` | DECISION — feature 시안·prototype 있음, 앱 통합 대기 | 이메일/OAuth 가입, 고립 계정 복구, `CLIENT`/`FREELANCER` 역할 선택, `returnTo` 수신 |
+| `/auth/confirm` | DECISION — feature 시안·prototype 있음, 앱 통합 대기 | 렌더 전 fragment token hash를 메모리로 옮겨 주소에서 제거하고, 사용자의 명시적 확인 뒤 서버 POST 검증 |
 | `/terms` | ASSUMPTION | 이용약관 읽기 전용 화면. 실제 소유 기능은 팀 통합 시 확정 |
 | `/privacy` | ASSUMPTION | 개인정보 처리방침 읽기 전용 화면. 실제 소유 기능은 팀 통합 시 확정 |
 | `/` | ASSUMPTION | 유효한 `returnTo`가 없을 때의 안전한 기본 복귀 경로 |
@@ -415,7 +504,8 @@ API 요청·응답 필드를 바꾸는 PR은 두 패키지의 DTO와 이 계약�
 
 ### OPEN — 오늘 범위 밖
 
-5. `/login`, `/sign-up`, `/auth/confirm`, 기본 복귀 `/`와 팀 공통 법적 문서 경로의 팀 확정
+5. feature에서 정한 `/login`, `/sign-up`, `/auth/confirm`을 `app/web` router·단일 AuthProvider에
+   통합하고, 기본 복귀 `/`와 팀 공통 법적 문서 경로를 팀 정본으로 확정
 6. Supabase·Google·Kakao 계정/프로젝트/앱/키/Redirect URI의 실제 준비 상태
 7. 앱 세션 절대 수명 제안값 7일의 승인 또는 대체값 확정
 8. 서로 다른 탭에서 인증 성공 응답이 교차하는 경우의 서버측 흐름 잠금·세대 번호 또는 OAuth
@@ -427,6 +517,20 @@ API 요청·응답 필드를 바꾸는 PR은 두 패키지의 DTO와 이 계약�
 9. `auth_sessions` 저장소 장애 중 로그아웃 요청을 durable하게 수렴시킬 fingerprint tombstone/outbox
    또는 동등한 별도 폐기 경계. 브라우저 쿠키 삭제만으로 서버측 즉시 폐기를 완료 처리하지 않는다.
 
+### PROVISIONAL REVIEW GATES — 회원 탈퇴
+
+- I-31의 상태별 blocker 진리표를 project/application-negotiation/contracts-payments 담당자가 승인한다.
+- 모든 blocker 생성 mutation이 같은 사용자 lock을 따르는 단일 DB 방식인지, 별도 서비스 간
+  reservation/saga 방식인지 정한다.
+- `Idempotency-Key` 저장 기간, 재인증 proof 5분과 성공 응답 replay window의 정확한 길이·발급 API,
+  Google/Kakao 강제 재인증 UX를 정한다.
+- withdrawal idempotency/outbox 스키마, worker 재시도·dead-letter·운영 경보 소유자를 정한다.
+- Supabase 사용자를 삭제할지 비활성화할지, 연결 identity 전체를 어떤 순서로 정리할지 확정한다.
+- E-13의 email 원문 보존을 포함해 개인정보별 법적 근거·보존 기간·접근 통제·최종 파기 방식을
+  개인정보/법무 담당자가 승인한다.
+- `docs/domain/erd.md` 변경 요약은 회원 탈퇴를 E-12로 적고 reference DBML/HTML은 E-13으로 적는다.
+  내용 근거는 I-31/E-13을 따르되, 번호 불일치는 팀 공통 문서에서 정정해야 한다.
+
 ### TEAM SYNC — 구현 통합 전 필요
 
 - `change-requests/2026-08-25-user-management-auth-boundaries.md`의 ADR-0011 초안을 팀 공통 정본으로
@@ -437,12 +541,16 @@ API 요청·응답 필드를 바꾸는 PR은 두 패키지의 DTO와 이 계약�
   방향을 확정한다.
 - ERD I-39/I-40을 공급자 rotation·재사용 판정과 일치시키고, `app/server/AGENTS.md`의 브라우저 SDK 자동
   갱신 문구를 서버/BFF 방식으로 갱신한다. 이 두 파일은 팀장 전용이므로 이 브랜치에서 수정하지 않는다.
+- 회원 탈퇴의 `AccountWithdrawalEligibilityPort`, 공유 transaction/lock, durable idempotency/outbox,
+  공급자 전체 정리 포트를 승인한다. 이 기능 브랜치에서는 `app/**`와 `docs/domain/**`를 수정하지 않는다.
 
 ## 추적 근거
 
 - `docs/decisions/0008-auth-method-supabase-auth.md`
 - `docs/decisions/0009-external-vendor-interface-layer.md`
 - `docs/domain/erd.md` — `users`, `auth_sessions`, `oauth_provider`, `user_role`
+- `docs/domain/reference/erd-v1.4.dbml` — I-31, E-13 회원 탈퇴 불변식과 개인정보 마스킹·재가입 규칙
+- `docs/domain/reference/erd-v1.4.html` — E-13 결정 로그
 - `docs/domain/reference/prd-v6.4.md` — 로그인 유도 후 원래 화면 복귀와 `returnTo` 예시
 - `docs/naming-convention.md` — 역할·DTO·외부 벤더 포트/어댑터·환경 변수 규칙
 - `sdd-framework/feature-workflow.md`
@@ -457,12 +565,16 @@ API 요청·응답 필드를 바꾸는 PR은 두 패키지의 DTO와 이 계약�
 
 ## 비고
 
-이 문서는 오늘의 SPEC과 로컬 구현 초안의 정본이다. API 계약, 인터랙티브 high-fi HTML, Q-02용
-Mock 인증, 포트/서비스/인메모리 저장소/웹 훅 초안과 `prototype/run.tsx`를 같은 규칙으로 작성했고,
-2026-08-27 기준으로 로컬 자동 검증 37/37과 scoped TypeScript 검사를 통과했다. 정확한 검증 범위와
-미검증 항목은 `test-report.md`를 따른다.
+이 문서는 오늘의 SPEC과 로컬 구현 초안의 정본이다. API 계약, 로그인·가입·이메일 확인 인터랙티브
+high-fi HTML, Q-02용 Mock 인증, 포트/서비스/인메모리 저장소/웹 훅 초안과 `prototype/run.tsx`를 같은
+규칙으로 작성했고, 2026-09-04 기준으로 로컬 자동 검증 52/52, strict scoped TypeScript 검사와 preview
+build를 통과했다. 정확한 검증 범위와 미검증 항목은 `test-report.md`를 따른다.
 
 `@supabase/supabase-js` 2.112.4 기반 `supabase-auth.adapter.ts` 구현 초안과 결정적 fake-client PKCE
 검증은 완료했다. Supabase·Google·Kakao·Postgres·실브라우저 쿠키 통합은 완료하지 않았다. 특히 인증
 성공 응답 전 cross-tab 경합 정책, DB 스키마와 7일 절대 TTL은 팀 승인 대기 중이므로 이 결과를
 라이브 인증 통합 완료나 배포 승인으로 표시하지 않는다.
+
+회원 탈퇴는 2026-09-04 기준 문서 잠정안만 추가했다. endpoint/DTO와 cross-domain port는 구현되지
+않았고 기존 52/52 검증 수치에도 포함되지 않는다. 위 review gate가 닫히기 전에는 회원 탈퇴를
+스프린트 구현 완료 또는 배포 가능으로 표시하지 않는다.
