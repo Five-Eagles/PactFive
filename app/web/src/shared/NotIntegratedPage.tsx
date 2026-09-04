@@ -8,6 +8,11 @@ import { EmptyState } from './ui/primitives';
  * 등록돼 있지만 화면 구현이 아직 없다"는 뜻이다 — applications·ai-pricing·reviews·
  * notifications, 그리고 contracts-payments의 웹 화면(서버만 반영됨)이 여기 해당한다.
  *
+ * 2026-09-04: 문구를 **방문자가 읽는 말**로 바꿨다. 전에는 "설계되지 않았거나 통합되지
+ * 않았습니다. 팀장에게 문의하세요"였는데, 이건 우리끼리 쓰는 말이다 — 배포된 화면에서
+ * 방문자가 읽으면 안내가 아니라 내부 문서가 새어 나온 것처럼 보인다. 담당·명세 같은
+ * 개발자용 정보는 `DevScreenNote`가 개발 중에만 따로 보여준다.
+ *
  * 2026-08-28: 인라인 스타일을 `shared/ui`의 `EmptyState`로 바꿨다. 안내 문구 하나를 위해
  * 자체 레이아웃을 들고 있을 이유가 없고, "결과가 없을 때 다음 행동을 알려준다"는 점에서
  * EmptyState와 성격이 같다 (feedback_loop/2026-08-28/user-management.md 항목 4).
@@ -21,8 +26,8 @@ export function NotIntegratedPage({ featureName }: NotIntegratedPageProps) {
   return (
     <PageBody>
       <EmptyState
-        title={featureName}
-        body={`${featureName}은 설계되지 않았거나 통합되지 않았습니다. 팀장에게 문의하세요.`}
+        title={`${featureName}, 준비 중입니다`}
+        body="곧 이 자리에서 이용하실 수 있습니다."
       />
     </PageBody>
   );

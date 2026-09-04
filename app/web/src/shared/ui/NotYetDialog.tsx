@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from './primitives';
 import { NOT_YET_SCREENS, type NotYetScreenKey } from '../notYetScreens';
+import { DevScreenNote } from './DevScreenNote';
 
 /**
  * "화면 자체가 없다" 상황(app/web/AGENTS.md "시안에는 있지만 아직 없는 화면" Case 1)의
@@ -44,20 +45,13 @@ function NotYetDialog({ screenKey, onClose }: { screenKey: NotYetScreenKey; onCl
         aria-describedby="notyet-desc"
       >
         <h2 id="notyet-title" className="h3" style={{ marginTop: 0 }}>
-          {screen.name} 화면은 아직 없습니다
+          {screen.name}, 준비 중입니다
         </h2>
         <div id="notyet-desc">
-          {screen.note && (
-            <p style={{ marginTop: 0 }}>{screen.note}</p>
-          )}
-          <dl className="caption" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 16px' }}>
-            <dt style={{ fontWeight: 700 }}>담당</dt>
-            <dd style={{ margin: 0 }}>{screen.owner}</dd>
-            <dt style={{ fontWeight: 700 }}>명세</dt>
-            <dd style={{ margin: 0 }}>
-              <code>{screen.where}</code>
-            </dd>
-          </dl>
+          <p style={{ marginTop: 0 }}>
+            아직 열지 않은 기능입니다. 준비가 끝나면 이 자리에서 바로 이용하실 수 있습니다.
+          </p>
+          <DevScreenNote screenKey={screenKey} />
         </div>
         <div className="btn-row" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
           <Button variant="primary" onClick={onClose}>
