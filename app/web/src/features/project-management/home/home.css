@@ -1,0 +1,532 @@
+/*
+ * 대표 페이지(main.html) 전용 스타일.
+ *
+ * 원본: features/project-management/design/reference-proposal/main.html · _tokens.css
+ *
+ * `--content`·`--surface`·`--border-subtle`·`--action`·`--action-hover`·`--border-focus`·
+ * `--danger`·`--info`·`--info-surface`·`--content-inverse`·`--content-secondary`·
+ * `--content-tertiary`는 `shared/ui/tokens.css`의 값과 이미 같아 다시 선언하지 않는다
+ * (design-tokens.md가 두 사본의 정본 — contracts-payments/panel.css와 같은 원칙).
+ *
+ * 아래 `:root` 블록은 그 외 — 이 화면(과 원본 시안의 다른 화면들)만 쓰는 원시값이다.
+ * 반경(`--r-*`)·간격(`--gap-*`)·그림자(`--shadow-*`) 스케일은 지금 앱의 `shared/ui/tokens.css`
+ * 가 쓰는 것과 이름 체계 자체가 다르다(거긴 `--card-radius`처럼 컴포넌트별 이름, 여긴 범용
+ * 스케일). 두 체계를 하나로 합칠지는 이번 통합 범위를 넘는 팀 논의가 필요해 지금은 로컬로
+ * 공존시킨다 — contracts-payments의 BEM vs 공백 클래스 표기 불일치와 같은 종류의 판단이다
+ * (feedback_loop/2026-09-03/contracts-payments.md 항목 4, 이번 건은
+ * feedback_loop/2026-09-04/project-management.md 참고).
+ *
+ * `--ico-*`(카테고리 아이콘 색)·`--page-w`(대표 페이지만 쓰는 폭)도 design-tokens.md 정본에
+ * 없는 이 화면 전용 값이라 여기 둔다. `--campaign-*-soft/-edge/-deep`도 마찬가지다 — 기본
+ * 3색(`--campaign-yellow`·`-plum`·`-lavender`)만 정본에 있어 `shared/ui/tokens.css`로
+ * 옮겼고, 파생 색조는 이 화면만 쓴다.
+ */
+:root {
+  --teal-600: #007c7e;
+  --teal-900: #073f43;
+  --action-quiet: var(--teal-700);
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+
+  --gap-1: 4px;
+  --gap-2: 8px;
+  --gap-3: 12px;
+  --gap-4: 16px;
+  --gap-5: 24px;
+  --gap-6: 32px;
+  --gutter: 32px;
+
+  --shadow-card: 0 1px 2px rgba(9, 13, 24, 0.04);
+  --shadow-raise: 0 6px 20px rgba(9, 13, 24, 0.08);
+  --shadow-hero: 0 2px 4px rgba(9, 13, 24, 0.06), 0 18px 44px rgba(9, 13, 24, 0.13);
+  --edge-top: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+
+  --campaign-yellow-soft: #fdf3d6;
+  --campaign-yellow-edge: #efdfaa;
+  --campaign-yellow-deep: #e8c765;
+
+  --ico-ink: var(--content);
+  --ico-blue: #2f6fed;
+  --ico-blue-soft: #8fb3f7;
+  --ico-blue-pale: #d7e4fb;
+  --ico-navy: #1c3a63;
+  --ico-navy-deep: #0f2440;
+  --ico-yellow: var(--campaign-yellow);
+  --ico-yellow-deep: var(--campaign-yellow-deep);
+  --ico-mint: #3fb28f;
+  --ico-grey: #c7cdd7;
+  --ico-grey-pale: #e6e9ee;
+
+  /* 시안 원본 1412px. 정본 --page-max(1180px)보다 넓다 — 대표 페이지는 목록 화면과 달리
+     가로를 넓게 쓰는 게 시안 의도라 판단했다. 최종값은 팀 확인 필요
+     (features/project-management/design/homepage-transplant-plan.md 9번 Decision). */
+  --page-w: 1412px;
+}
+
+@media (max-width: 1023px) {
+  :root { --gutter: 24px; }
+}
+@media (max-width: 767px) {
+  :root { --gutter: 16px; }
+}
+
+.home-wrap {
+  max-width: var(--page-w);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+/* ── 헤더 (Option C — AppShell을 쓰지 않고 이 화면만 자기 헤더를 그린다.
+   features/project-management/design/homepage-transplant-plan.md 4번 절 2026-09-04 결정) ── */
+.home-hdr {
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.home-hdr__in {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-6);
+  height: 72px;
+  max-width: var(--page-w);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+.home-hdr .brand {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  white-space: nowrap;
+  color: var(--content);
+  text-decoration: none;
+}
+.home-hdr .brand em {
+  font-style: normal;
+  color: var(--action);
+}
+.home-hdr nav {
+  display: flex;
+  gap: var(--gap-6);
+  margin-right: auto;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--content-secondary);
+}
+.home-hdr nav a,
+.home-hdr nav button {
+  color: inherit;
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.home-hdr nav a:hover,
+.home-hdr nav button:hover {
+  color: var(--content);
+}
+.home-hdr__act {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-4);
+}
+.home-hdr .login {
+  font-size: 15px;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+}
+.home-hdr .btn-reg {
+  border: 0;
+  border-radius: var(--r-md);
+  padding: 13px 21px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--content-inverse);
+  background: linear-gradient(180deg, var(--teal-500), var(--teal-700));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), var(--shadow-card);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.home-hdr .btn-reg:hover {
+  background: linear-gradient(180deg, var(--teal-600), var(--teal-900));
+}
+/* 시안엔 없던 것 — data-session-actions 슬롯이 로그인 상태에 뭘 그리는지는
+   bundle.html의 demo/session.js(paintHeader)에 있었다("이름 · 로그아웃 · 프로젝트 등록").
+   로그아웃 버튼 자체 모양은 원본에 없어(공백만 파인, 여기서 처음 만든 클래스) 새로 정의한다. */
+.home-hdr__logout {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--content-tertiary);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.home-hdr__logout:hover { color: var(--content); border-color: var(--border-focus); }
+
+/* ── 히어로 ── */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 540px) minmax(0, 1fr);
+  gap: var(--gap-6);
+  padding: var(--gap-6) 0 var(--gap-4);
+  align-items: start;
+}
+.hero__copy { padding-top: var(--gap-5); }
+.hero h1 {
+  margin: 0;
+  font-size: 44px;
+  line-height: 1.32;
+  letter-spacing: -0.045em;
+  font-weight: 800;
+  text-wrap: balance;
+}
+.hero .sub {
+  margin: var(--gap-4) 0 var(--gap-5);
+  color: var(--content-secondary);
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+.search { display: flex; gap: var(--gap-2); }
+.searchbox {
+  flex: 1;
+  min-width: 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+  padding: 0 var(--gap-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+.searchbox input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  font: inherit;
+  font-size: 16px;
+  color: var(--content);
+}
+.searchbox input::placeholder { color: var(--content-tertiary); }
+.searchbox:focus-within { border-color: var(--border-focus); box-shadow: var(--shadow-raise); }
+.find-btn {
+  min-width: 124px;
+  height: 60px;
+  border: 0;
+  border-radius: var(--r-md);
+  padding: 0 var(--gap-5);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--content-inverse);
+  background: linear-gradient(180deg, var(--teal-500), var(--teal-700));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), var(--shadow-card);
+  cursor: pointer;
+}
+.find-btn:hover { background: linear-gradient(180deg, var(--teal-600), var(--teal-900)); }
+
+.keywords {
+  margin: var(--gap-5) 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-2) var(--gap-3);
+  font-size: 13.5px;
+}
+.keywords > strong { font-weight: 800; }
+.keywords a { color: var(--action-quiet); font-weight: 600; text-decoration: none; }
+.keywords a:hover { text-decoration: underline; }
+
+/* ── 기획전 배너 슬라이드 ── */
+.promo { position: relative; }
+.promo__stack {
+  position: absolute;
+  inset: 17px 15px auto 48px;
+  height: 342px;
+  border-radius: var(--r-lg);
+  background: var(--campaign-plum);
+  transform: rotate(-2deg);
+  z-index: 0;
+}
+.promo__view {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+.promo__track { display: flex; transition: transform var(--dur-normal) var(--ease-entrance); }
+.banner {
+  flex: 0 0 100%;
+  min-height: 349px;
+  display: grid;
+  grid-template-columns: minmax(320px, 40%) minmax(0, 1fr);
+  background: var(--campaign-yellow);
+}
+.banner__copy { padding: 34px 22px 24px 31px; display: flex; flex-direction: column; }
+.pill {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  height: 27px;
+  padding: 0 13px;
+  border-radius: var(--r-pill);
+  background: var(--campaign-plum);
+  color: var(--campaign-yellow);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.banner h2 {
+  margin: var(--gap-5) 0 var(--gap-3);
+  font-size: 25px;
+  line-height: 1.28;
+  letter-spacing: -0.045em;
+  color: var(--campaign-plum);
+}
+.banner p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--campaign-plum); opacity: 0.85; }
+.banner .cta {
+  margin-top: var(--gap-5);
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  height: 39px;
+  padding: 0 var(--gap-4);
+  border-radius: var(--r-sm);
+  background: var(--action);
+  color: var(--content-inverse);
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.banner .cta:hover { background: var(--action-hover); }
+.banner__visual { background: var(--campaign-yellow-soft); overflow: hidden; }
+.banner__visual img { width: 100%; height: 100%; object-fit: cover; object-position: 52% 50%; display: block; }
+
+.promo__nav { position: absolute; left: 31px; bottom: 17px; z-index: 2; display: flex; align-items: center; gap: 10px; }
+.promo__count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--campaign-plum);
+  background: rgba(255, 255, 255, 0.5);
+  padding: 7px 14px;
+  border-radius: var(--r-pill);
+  font-variant-numeric: tabular-nums;
+}
+.promo__nav button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--campaign-plum);
+  font: inherit;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+.promo__nav button:hover { background: var(--surface); }
+
+/* ── 내 프로젝트 요약 — 로그인한 의뢰인에게만. 데이터 자체가 없어 지금은 마운트 지점만 있다
+   (조준영 Step 2 포트 대기 — homepage-transplant-plan.md 5번 절) ── */
+.resume {
+  position: relative;
+  z-index: 2;
+  margin: -24px var(--gap-5) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-4);
+  padding: var(--gap-4) var(--gap-5);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-hero), var(--edge-top);
+}
+.resume__main { min-width: 0; flex: 1; }
+.resume__k { display: block; font-size: 11.5px; font-weight: 700; color: var(--content-tertiary); letter-spacing: 0.02em; }
+.resume__title {
+  display: block;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.resume__go { flex: none; font-size: 13px; font-weight: 700; color: var(--action-quiet); white-space: nowrap; text-decoration: none; }
+.resume__go:hover { text-decoration: underline; }
+.resume[data-anon='true'] .resume__title { color: var(--content-secondary); font-weight: 500; font-size: 14px; white-space: normal; }
+
+/* ── 카테고리 ── */
+.cats { border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); background: var(--surface); }
+.cats__grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  max-width: var(--page-w);
+  margin: 0 auto;
+  padding: var(--gap-4) var(--gutter);
+}
+.cat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: var(--gap-3) 4px;
+  border-radius: var(--r-md);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--content);
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+.cat:hover { background: var(--surface-subtle); }
+.cat__ico { position: relative; width: 63px; height: 55px; display: grid; place-items: center; }
+.cat__ico svg { width: 56px; height: 49px; }
+.cat__hot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translate(30%, -30%);
+  background: var(--action);
+  color: var(--content-inverse);
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 7px;
+}
+.ln { fill: none; stroke: var(--ico-ink); stroke-width: 1.5; }
+
+/* ── 섹션 공통 ── */
+.sec { padding: var(--gap-6) 0; }
+.sec__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--gap-4); margin-bottom: var(--gap-2); }
+.sec__head h3 { margin: 0; font-size: 23px; letter-spacing: -0.03em; }
+.sec__more { color: var(--content-secondary); font-size: 13px; font-weight: 600; background: none; border: 0; font-family: inherit; cursor: pointer; padding: 0; text-decoration: none; }
+.sec__more:hover { color: var(--action-quiet); text-decoration: underline; }
+.sec__note { margin: 0 0 var(--gap-4); font-size: 13px; color: var(--content-tertiary); }
+
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap-4); list-style: none; margin: 0; padding: 0; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--gap-5); list-style: none; margin: 0; padding: 0; }
+
+/* 프로젝트 카드는 shared/ui/tokens.css의 .pcard를 그대로 쓴다(ProjectCard.tsx 공유) — 여기선
+   시안에 맞춘 그림자 미세조정만 얹는다. */
+.home .pcard { box-shadow: var(--shadow-card), var(--edge-top); }
+
+/* ── 추천 전문가(목업) ── */
+.ecard {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: var(--shadow-card), var(--edge-top);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.ecard:hover { box-shadow: var(--shadow-raise); border-color: var(--border-focus); }
+.ecard__who { display: flex; align-items: center; gap: 10px; padding: var(--gap-4) var(--gap-4) 0; }
+.avatar {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--r-pill);
+  display: grid;
+  place-items: center;
+  color: var(--content-inverse);
+  background: var(--navy-500);
+  font-weight: 700;
+}
+.ecard__name { font-weight: 700; }
+.ecard__title { display: block; font-size: 12px; color: var(--content-tertiary); }
+.ecard__facts {
+  display: flex;
+  gap: var(--gap-4);
+  margin: var(--gap-3) 0 0;
+  padding: var(--gap-3) var(--gap-4) var(--gap-4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12.5px;
+  color: var(--content-tertiary);
+}
+
+footer.home-footer { border-top: 1px solid var(--border-subtle); background: var(--surface); }
+footer.home-footer .home-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-5);
+  padding-top: var(--gap-5);
+  padding-bottom: var(--gap-6);
+  font-size: 13px;
+  color: var(--content-tertiary);
+}
+footer.home-footer button {
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ── 1280 / 1024 / 768 / 360 ── */
+@media (max-width: 1279px) {
+  .hero { grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: var(--gap-5); }
+  .hero h1 { font-size: 37px; }
+  .cats__grid { grid-template-columns: repeat(5, 1fr); }
+  .grid4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 1023px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero__copy { padding-top: 0; }
+  .promo__stack { inset: 14px 12px 14px 36px; height: auto; }
+  .banner { grid-template-columns: 1fr; }
+  .banner__visual { order: -1; aspect-ratio: 16 / 7; }
+  .grid3 { grid-template-columns: repeat(2, 1fr); }
+  .resume { flex-wrap: wrap; margin-inline: var(--gap-3); gap: var(--gap-3); }
+  .resume__main { flex: 1 1 100%; }
+}
+@media (max-width: 767px) {
+  .home-hdr__in { height: auto; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; gap: var(--gap-4); }
+  .home-hdr nav { order: 3; width: 100%; gap: var(--gap-4); overflow-x: auto; padding-bottom: 2px; }
+  .home-hdr nav a, .home-hdr nav button { white-space: nowrap; }
+  .hero h1 { font-size: 28px; line-height: 1.25; }
+  .hero .sub { font-size: 15px; }
+  .search { flex-wrap: wrap; }
+  .searchbox { flex: 1 1 100%; height: 52px; }
+  .find-btn { flex: 1 1 100%; height: 48px; }
+  .keywords { gap: var(--gap-3); font-size: 13px; }
+  .banner__copy { padding: var(--gap-4); }
+  .banner h2 { font-size: 22px; }
+  .promo__nav { left: var(--gap-4); bottom: var(--gap-3); }
+  .cats__grid { grid-template-columns: repeat(4, 1fr); gap: var(--gap-2); }
+  .cat { font-size: 12px; gap: 6px; }
+  .cat__ico { width: 48px; height: 44px; }
+  .cat__ico svg { width: 42px; height: 38px; }
+  .grid3, .grid4 { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .promo__track { transition: none !important; }
+}

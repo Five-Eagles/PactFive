@@ -2,10 +2,10 @@ import type { AuthProvider, ProviderErrorCode } from "../server/auth.port";
 import { ProviderAuthError } from "../server/auth.port";
 import type {
   OAuthProvider,
+  ProviderSessionCredential,
   ProviderSession,
   ProviderUser,
-  RefreshResult,
-  RegistrationIntent,
+  VerifiedAccessSession,
 } from "../server/auth.types";
 
 type MockProviderAccount = ProviderUser & {
@@ -27,7 +27,6 @@ export class MockAuthProvider implements AuthProvider {
   private readonly accountsByEmail = new Map<string, MockProviderAccount>();
   private readonly accountsById = new Map<string, MockProviderAccount>();
   private readonly confirmationTokens = new Map<string, string>();
-  private readonly registrationIntents = new Map<string, RegistrationIntent>();
   private readonly sessions = new Map<string, MockSessionState>();
   private readonly oauthCodes = new Map<string, QueuedOAuthCode>();
   private readonly calls: Array<{ name: string; detail?: string }> = [];
@@ -35,7 +34,6 @@ export class MockAuthProvider implements AuthProvider {
   private sessionSequence = 100;
   private oauthSequence = 0;
   private confirmationSequence = 0;
-  private failIntentSave = false;
   private nextRefreshError: {
     code: ProviderErrorCode;
     correlation: "AUTO" | string | null;
@@ -65,10 +63,6 @@ export class MockAuthProvider implements AuthProvider {
     return this.latestProviderFlowState;
   }
 
-  failNextIntentSave(): void {
-    this.failIntentSave = true;
-  }
-
   failNextRefresh(code: ProviderErrorCode, correlatedProviderSessionId: string | null | "AUTO" = "AUTO"): void {
     this.nextRefreshError = { code, correlation: correlatedProviderSessionId };
   }
@@ -87,19 +81,6 @@ export class MockAuthProvider implements AuthProvider {
 
   getCallNames(): string[] {
     return this.calls.map((call) => call.name);
-  }
-
-  getRegistrationIntent(authUserId: string): Promise<RegistrationIntent | null> {
-    const intent = this.registrationIntents.get(authUserId);
-    return Promise.resolve(intent ? { ...intent } : null);
-  }
-
-  findRegistrationIntentByEmail(email: string): Promise<RegistrationIntent | null> {
-    const normalized = this.normalizeEmail(email);
-    const intent = [...this.registrationIntents.values()].find(
-      (candidate) => this.normalizeEmail(candidate.email) === normalized,
-    );
-    return Promise.resolve(intent ? { ...intent } : null);
   }
 
   getConfirmationToken(email: string): string | null {
@@ -142,21 +123,6 @@ export class MockAuthProvider implements AuthProvider {
     return Boolean(account && !account.emailVerified && account.password === password);
   }
 
-  async saveRegistrationIntent(intent: RegistrationIntent): Promise<void> {
-    this.record("saveRegistrationIntent");
-    if (this.failIntentSave) {
-      this.failIntentSave = false;
-      throw new ProviderAuthError("PROVIDER_UNAVAILABLE");
-    }
-    this.registrationIntents.set(intent.authUserId, { ...intent });
-  }
-
-  async clearRegistrationIntent(authUserId: string, nonce: string): Promise<void> {
-    this.record("clearRegistrationIntent");
-    const current = this.registrationIntents.get(authUserId);
-    if (current?.nonce === nonce) this.registrationIntents.delete(authUserId);
-  }
-
   async deleteUnconfirmedUser(authUserId: string): Promise<void> {
     this.record("deleteUnconfirmedUser");
     const account = this.accountsById.get(authUserId);
@@ -164,7 +130,6 @@ export class MockAuthProvider implements AuthProvider {
     this.accountsById.delete(authUserId);
     this.accountsByEmail.delete(account.email);
     this.confirmationTokens.delete(account.email);
-    this.registrationIntents.delete(authUserId);
   }
 
   async requestEmailConfirmation(email: string): Promise<void> {
@@ -223,12 +188,15 @@ export class MockAuthProvider implements AuthProvider {
     return this.issueSession(queued.account);
   }
 
-  async refreshSession(refreshToken: string): Promise<RefreshResult> {
+  async refreshSession(input: {
+    refreshToken: string;
+    expectedProviderSessionId: string;
+  }): Promise<ProviderSession> {
     this.record("refreshSession");
     const state = [...this.sessions.values()].find(
       (candidate) =>
         candidate.active &&
-        (candidate.current.refreshToken === refreshToken || candidate.previousRefreshToken === refreshToken),
+        (candidate.current.refreshToken === input.refreshToken || candidate.previousRefreshToken === input.refreshToken),
     );
     if (this.nextRefreshError) {
       const { code, correlation } = this.nextRefreshError;
@@ -237,9 +205,12 @@ export class MockAuthProvider implements AuthProvider {
       throw new ProviderAuthError(code, code, providerSessionId);
     }
     if (!state) throw new ProviderAuthError("REFRESH_TOKEN_NOT_FOUND");
+    if (state.current.providerSessionId !== input.expectedProviderSessionId) {
+      throw new ProviderAuthError("INVALID_CREDENTIALS");
+    }
 
-    if (state.previousRefreshToken === refreshToken) {
-      return { session: { ...state.current }, outcome: "PARENT_RECOVERED" };
+    if (state.previousRefreshToken === input.refreshToken) {
+      return { ...state.current };
     }
 
     const oldRefreshToken = state.current.refreshToken;
@@ -250,10 +221,10 @@ export class MockAuthProvider implements AuthProvider {
     }
     state.previousRefreshToken = oldRefreshToken;
     state.current = next;
-    return { session: { ...next }, outcome: "ROTATED" };
+    return { ...next };
   }
 
-  async verifyAccessToken(accessToken: string): Promise<ProviderSession> {
+  async verifyAccessToken(accessToken: string): Promise<VerifiedAccessSession> {
     this.record("verifyAccessToken");
     if (this.nextAccessVerificationError) {
       const code = this.nextAccessVerificationError;
@@ -267,14 +238,20 @@ export class MockAuthProvider implements AuthProvider {
         candidate.current.accessTokenExpiresAt.getTime() > Date.now(),
     );
     if (!state) throw new ProviderAuthError("INVALID_CREDENTIALS");
-    return { ...state.current };
+    const { refreshToken: _refreshToken, ...verified } = state.current;
+    return { ...verified };
   }
 
-  async signOut(providerSessionId: string): Promise<void> {
-    this.record("signOut", providerSessionId);
+  async revokeSession(credential: ProviderSessionCredential): Promise<void> {
+    this.record("signOut", credential.providerSessionId);
     if (this.signOutShouldFail) throw new ProviderAuthError("PROVIDER_UNAVAILABLE");
-    const state = this.sessions.get(providerSessionId);
-    if (state) state.active = false;
+    const state = this.sessions.get(credential.providerSessionId);
+    if (!state || !state.active) return;
+    const credentialMatches = credential.kind === "ACCESS_TOKEN"
+      ? state.current.accessToken === credential.accessToken
+      : state.current.refreshToken === credential.refreshToken || state.previousRefreshToken === credential.refreshToken;
+    if (!credentialMatches) throw new ProviderAuthError("INVALID_CREDENTIALS");
+    state.active = false;
   }
 
   private issueSession(account: MockProviderAccount): ProviderSession {

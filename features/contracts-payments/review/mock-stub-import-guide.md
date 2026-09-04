@@ -2,10 +2,11 @@
 
 | | |
 |---|---|
-| 받는 사람 | 유동우 (project-management) · 최윤석 (applications) |
+| 받는 사람 | 유동우 (project-management) · 조준영 (applications) · 팀장 (notifications) |
 | 보내는 사람 | 조준영 (contracts-payments) |
 | 날짜 | 2026-08-26 |
-| 정본 | `features/contracts-payments/api-contract.md` · `prototype/` |
+| 갱신 | 2026-09-03 검증 PASS 91 (공개 API `preparePayment`·`confirmPayment` 파사드) |
+| 정본 | `features/contracts-payments/api-contract.md` · `prototype/` · `review/yoonseok-ports-contract.md` |
 
 4함수 Mock 스텁을 붙였습니다. 정본은 API 계약 문서이고, Mock은 그 계약의 스탠드인입니다.
 `features/{기능}/prototype/` 기준 상대 경로입니다. **`prototype/index.ts`만 import**하세요.
@@ -20,7 +21,7 @@ import {
 import type { ProjectTransactionPort } from "../../contracts-payments/prototype";
 ```
 
-검증: 리포 루트에서 `npx tsx features/contracts-payments/prototype/run.tsx` → PASS 28.
+검증: 리포 루트에서 `npx tsx features/contracts-payments/prototype/run.tsx` → PASS 91.
 
 ---
 
@@ -95,7 +96,7 @@ markPaymentPending 본문에는 `contractId`가 있어야 합니다. 없으면 4
 
 ---
 
-## 최윤석님께 (지원 수락 선행)
+## 조준영님께 (지원 수락 선행)
 
 네 함수를 **호출하거나 구현하지 않습니다.** 수락이 끝난 뒤에만 조준영이 계약 흐름에 들어갑니다.
 
@@ -108,6 +109,7 @@ markPaymentPending 본문에는 `contractId`가 있어야 합니다. 없으면 4
 
 시드 `prj_alive`는 1~3이 끝난 상태(`CONTRACT_PENDING` + `acceptedApplicationId: app_123`)다.
 최윤석 2026-08-26 회신으로 이 순서는 확정이다.
+수락 이후 결제·리뷰·알림 발행까지는 아래 알림·손잡이 절과 `yoonseok-ports-contract.md` §3.
 
 restore 때 알아 두실 것:
 
@@ -118,12 +120,52 @@ restore 때 알아 두실 것:
 
 ---
 
+## 팀장님께 (알림 포트 · 수락 손잡이)
+
+`features/notifications/`는 조준영이 채우지 않습니다. **맞출 계약**만 있습니다. 구현 요청이 아닙니다. Y1·Y3·Y4·Y5는 팀장 회신 전제. 지원 손잡이·S1·S2는 조준영이 2026-09-03 예로 닫았습니다.
+
+입구는 **`prototype/index.ts`만**. `createPublicApiMock` · `AcceptedApplicationHandoff` · `NotificationTriggerPort`.
+
+```ts
+import {
+  createPublicApiMock,
+  createNotificationTriggerMock,
+  toAcceptedApplicationHandoff,
+} from "../../contracts-payments/prototype";
+import type {
+  AcceptedApplicationHandoff,
+  NotificationTriggerPort,
+} from "../../contracts-payments/prototype";
+
+const api = createPublicApiMock();
+const handoff: AcceptedApplicationHandoff | null = toAcceptedApplicationHandoff(
+  await api.projects.getProjectNegotiationContext("prj_alive"),
+);
+// { projectId, acceptedApplicationId: "app_123", transactionStatus: "CONTRACT_PENDING" }
+
+const notifications: NotificationTriggerPort = createNotificationTriggerMock();
+```
+
+| export | 역할 |
+|---|---|
+| `createPublicApiMock` | 합의·서명·결제 스탠드인. 손잡이 없으면 `proposeNegotiationOffer` 409 |
+| `AcceptedApplicationHandoff` | 수락이 끝난 뒤에만 합의 진입. `toAcceptedApplicationHandoff`가 null이면 들어가지 않음 |
+| `NotificationTriggerPort` | 조준영 `publish*`만. 팀장 `createPaymentCompletedNotification` · `createReviewRequestedNotification` |
+
+호출 순서 한 장: 수락 → `CONTRACT_PENDING` + `acceptedApplicationId` → `proposeNegotiationOffer` → 수락·서명·`markPaymentPending`·confirm → `PAID` → `publishPaymentCompleted` → `startProjectTransaction` → (납품 2종은 시그니처만) → `COMPLETED` → `publishReviewRequested`. 표는 `yoonseok-ports-contract.md` §3.
+
+- `publishDeliveryRequested` · `publishDeliveryApproved`는 Increment 1에서 호출하지 않습니다.
+- 포트 throw여도 `PAID`·`COMPLETED`는 유지합니다 (PRD §5.6).
+- `REVIEW_REQUESTED`는 작성 가능 시점입니다. 공개·`REVIEW_CREATED`가 아닙니다.
+
+---
+
 ## 호출 서비스 (조준영 쪽, 참고)
 
 I-30 때문에 complete는 납품 `APPROVED` ∧ 정산 `RELEASED`가 아니면 **포트를 부르지 않습니다.** 다른 도메인이 이 가드를 쓸 필요는 없습니다.
 
 ```ts
-import { completeProjectTransactionIfSettled } from "../../contracts-payments/prototype/server/contract-transaction.service";
+import { completeProjectTransactionIfSettled } from "../../contracts-payments/prototype/server/project-transaction.service";
 ```
 
 ---

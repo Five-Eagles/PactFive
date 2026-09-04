@@ -39,6 +39,12 @@ ADR-0007, 인증 방식은 ADR-0008, 외부 벤더 연동 원칙은 ADR-0009).
 | 최윤석 | applications · notifications |
 | 조준영 | contracts-payments · reviews |
 
+## 배포 채널
+프론트엔드 배포(Vite) - Vercel
+URL : pact-five-seven.vercel.app
+백엔드 배포(Express) - Vercel
+URL : pact-five-server.vercel.app
+
 ## 진행 상황
 
 | 마일스톤 | 목표 |
@@ -65,16 +71,48 @@ sdd-framework/         작업 흐름·컨벤션 문서
 
 ## 로컬에서 확인하기
 
+### 통합 앱 (`app/web` + `app/server`)
+
+```bash
+npm run dev
+```
+
+`app/server`(http://localhost:3000)와 `app/web`(http://localhost:5174)을 함께 띄우고 Ctrl+C로
+한 번에 종료합니다. 브라우저에서는 **http://localhost:5174** 로 접속하세요. `app/web`의 vite
+proxy가 `/api` 요청을 3000번으로 넘기므로 `VITE_API_BASE_URL`이나 CORS 설정 없이 동작합니다.
+
+두 앱의 `node_modules`는 `predev`(`scripts/ensure-app-deps.js`)가 없을 때 자동으로 설치합니다 —
+npm workspaces를 쓰지 않으므로(ADR-0007) 루트·`app/server`·`app/web` 세 곳이 각자 의존성을
+갖습니다.
+
+인증은 `AUTH_PROVIDER_MODE`를 지정하지 않으면 로컬 mock 모드로 동작해 Supabase 자격증명 없이
+실행됩니다. 개발용 고정 토큰은 `Bearer pactfive-mock-client-01`(의뢰인) ·
+`Bearer pactfive-mock-freelancer-01`(프리랜서) 두 개입니다.
+
+`/internal/v1/...`(서버 간 내부 계약)까지 확인하려면 서비스 토큰을 함께 넘깁니다. 값이 없으면
+열어주는 대신 503을 반환합니다(fail-closed, `app/server/src/shared/require-service-token.ts`).
+
+```bash
+INTERNAL_SERVICE_TOKEN=dev-token npm run dev     # macOS · Linux · Git Bash
+$env:INTERNAL_SERVICE_TOKEN='dev-token'; npm run dev   # PowerShell
+```
+
+> bash 스크립트를 선호하면 `scripts/run-integrated-app.sh`도 같은 일을 합니다. 다만 Windows
+> PowerShell에서 `bash`는 WSL을 가리켜 실패할 수 있으므로(`npm run dev`에는 해당 없음)
+> `& "C:\Program Files\Git\bin\bash.exe" scripts/run-integrated-app.sh`처럼 전체 경로를 씁니다.
+
+### 프로토타입 화면 (`features/*/prototype/web`)
+
 ```bash
 npm install
-npm run preview:dev   # 프로토타입 화면을 브라우저에서 확인 (tools/preview)
+npm run preview:dev   # 프로토타입 화면을 브라우저에서 확인 (tools/preview, 5173)
 ```
 
 의존성 설치는 `prototype/run.tsx` 실행이나 `npm run preview:dev` 실행 시 자동으로 확인·설치됩니다
 (`scripts/ensure-deps.js`). 개별 기능 프로토타입 검증은 각 `features/{기능}/prototype/run.tsx`를
 `npx tsx`로 실행하면 됩니다.
 
-실제 배포 URL과 `app/web`·`app/server` 실행 방법은 구현 착수 후 이 섹션에 추가됩니다.
+실제 배포 URL은 배포 착수 후 이 섹션에 추가됩니다.
 
 ## 더 알아보기
 

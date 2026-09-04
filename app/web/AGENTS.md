@@ -7,10 +7,36 @@
 
 ## 통합 시 기본 방침 — 재해석해서 일관되게 다시 짠다
 
-`features/{기능}/prototype/web/`의 코드를 그대로 복사하지 않는다. 담당자가 표현한 **의도**
-(spec.md의 규칙, design/*.html의 필수 요소 목록, api-contract.md의 계약)를 읽고, 이 문서의
-구조에 맞게 다시 구현한다 (`sdd-framework/integration-workflow.md` 3단계, ADR-0006과 동일한
-원칙). 담당자마다 폴더 구성이 달라도 통합 결과물은 8개 기능이 전부 같은 모양이어야 한다.
+`features/{기능}/prototype/web/`의 코드를 그대로 복사하지 않는다. 담당자가 표현한 **의도**를
+읽고, 이 문서의 구조에 맞게 다시 구현한다 (`sdd-framework/integration-workflow.md` 3단계,
+ADR-0006과 동일한 원칙). 담당자마다 폴더 구성이 달라도 통합 결과물은 8개 기능이 전부 같은
+모양이어야 한다.
+
+### 무엇이 무엇의 정본인가 (2026-08-28 추가)
+
+**의도는 네 곳에 나뉘어 있고, 같은 것을 두 곳이 다르게 말하면 아래 순서가 이긴다.**
+
+| 무엇 | 정본 | 비고 |
+|---|---|---|
+| 화면 구조 — 레이아웃·영역 구성·무엇이 어디에 놓이는가 | **`features/{기능}/design/*.html`** | `prototype/web/*.tsx`가 아니다 |
+| 화면 문구 | `design/*.html`의 "필수 요소 목록" (PRD §14를 옮긴 것) | 시안의 **일부**다 |
+| 색·간격·컴포넌트 치수 | `design-system/design-tokens.md` → `design/_tokens.css` | `app/web/src/shared/ui/tokens.css`가 그 사본 |
+| 모션 규칙(등장·퇴장·전환) | `design-system/design-tokens.md` §13 | 규칙은 텍스트가 정본 |
+| 구현 예시(참고용) | `ux-philosophy/reference-main.html`(메인/홈) · `reference/project-management/*.html`(목록·상세류 포함 개별 파일 7장, 2026-09-03 고정 스냅샷) | 전부 색상·컴포넌트 값의 정본은 아님. 처음부터 design-tokens.md 토큰만 써서 reference-main.html 같은 색상 불일치는 없다. **개별 파일만 읽는다** — 같은 폴더의 `project-management-bundle.html`은 base64 이미지가 인라인된 400KB·최대 줄 6만 자짜리 단일 파일이라 사람이 브라우저로 인터랙션을 확인할 때만 열고, AI가 구조 참고용으로 통째로 읽지 않는다(`reference/README.md` 참고). 원본(`features/project-management/design/reference-proposal/`)은 담당자(유동우)가 계속 갱신하지만, 스프린트 기간 참고 기준을 흔들지 않으려 2026-09-03 시점으로 고정했다 — 고정 시점·범위·다시 얼리는 절차는 `reference/README.md` 참고. (2026-09-02: 이전에 있던 레이아웃 리듬·컴포넌트 조합 참고 자료는 팀 회의에서 반려되어 제거했다 — 경위는 `docs/decisions/0012-*.md` 참고) |
+| 규칙·상태 판정 | `spec.md` | |
+| 요청/응답 형태 | `api-contract.md` | |
+
+**`design/*.html`을 "필수 요소 목록이 적힌 표"로만 읽지 않는다.** 그 파일에는 화면의 실제
+마크업과 CSS가 들어 있다 — 2단 그리드인지, 사이드바가 sticky인지, 카드가 어디서 끊기는지,
+앱 셸(`.frame > header`)에 무엇이 있는지가 전부 거기 있다. 목록 섹션만 확인하고 파일을 닫으면
+문구만 맞고 구조는 전혀 다른 화면이 나온다.
+
+**`prototype/web/*.tsx`는 참고다.** 담당자가 뼈대만 짜두고 시안에서 더 진전시킨 경우가 있어,
+둘이 다르면 **시안이 옳다**. 프로토타입 코드를 구조의 근거로 삼지 않는다.
+
+> 2026-08-28 통합에서 실제로 이 순서를 어겨 SCR-B02(프로젝트 상세)를 프로토타입 컴포넌트
+> 기준으로 만들었고, 시안의 2단 레이아웃·사이드바·`.kv` 행이 통째로 빠졌다.
+> `feedback_loop/2026-08-28/project-management.md` 항목 5 참고.
 
 재해석 과정에서 원본에 없던 공백을 메웠다면 `feedback_loop/`에 남긴다 — 무엇을 어떻게 메웠는지
 담당자가 다음 작업일에 확인하고 자기 spec에 반영할 수 있어야 한다.
@@ -48,6 +74,26 @@ app/web/src/features/{기능명}/          # 예: user-management (features/ 폴
 
 폴더 **안**의 세부 구성(컴포넌트를 몇 개로 쪼갤지, 하위 폴더를 더 팔지)은 기능마다 자유다.
 아래 "폴더 간 접점"만 공통 규칙으로 고정한다.
+
+### 섹션이 여러 개인 화면 — `{screenName}/` 하위 폴더로 쪼갠다 (2026-09-04 추가)
+
+한 화면의 JSX가 대략 300줄을 넘거나, 시각적으로 독립된 섹션이 3개 이상이면
+`{screenName}/` 하위 폴더를 만들어 섹션별 파일로 쪼갠다. 최상위 `{Screen}Page.tsx`는
+데이터 패칭·상태·섹션 조립만 하고, 각 섹션 파일은 props로 받은 것만 그린다(자체 fetch
+금지 — Page가 내려준다). 배너 캐러셀처럼 화면 밖으로 나갈 일 없는 로컬 UI 상태(현재 슬라이드
+인덱스 등)는 섹션 파일이 직접 가져도 된다. 예시(project-management의 대표 페이지):
+
+```
+features/project-management/
+  HomePage.tsx     # 섹션 조립 + 데이터 패칭만
+  home/
+    Hero.tsx        # 섹션 하나, 상태 없음
+    PromoCarousel.tsx  # 섹션 하나, 로컬 UI 상태 있음
+    ...
+```
+
+(근거: `features/project-management/design/homepage-transplant-plan.md` 7번 절 — 화면 하나가
+6개 섹션·약 11,000자였던 첫 사례에서 정한 규칙)
 
 ## 폴더 간 접점 — 기능끼리 직접 참조하지 않는다
 
@@ -92,6 +138,31 @@ base URL·인증 헤더 주입·에러 처리는 **횡단 관심사**다. 기능
 - 공통 에러 처리 (401 → 로그인 화면으로, 그 외 4xx/5xx → 일관된 에러 객체로 변환)
 - 요청/응답 JSON 직렬화
 
+## 시안에는 있지만 아직 없는 화면 — 숨기지 않고 안내한다 (2026-09-04 추가)
+
+시안(`design/*.html`)에는 있는데 실제로 아직 없는 화면·기능을 가리키는 버튼/링크가 종종
+나온다(예: 대표 페이지의 "전문가 찾기" nav — PRD §7.1에 화면 자체가 없다). **`href="#"`나
+빈 `onClick`으로 조용히 죽이지 않는다** — 사용자는 그걸 고장으로 읽는다. 대신 상태에 따라
+둘 중 하나로 안내한다. 두 상태는 다르다:
+
+**Case 1 — 화면 자체가 없다** (기능 폴더도, spec도, prototype도 없다)
+→ `shared/ui/NotYetDialog.tsx` + `<NotYetTrigger screenKey="...">`. 제자리에서 모달만
+뜨고 이동하지 않는다. "닫기"로 그냥 닫힌다.
+
+**Case 2 — 경로·기능 폴더·spec/prototype은 있는데 `app/`에 화면이 아직 안 붙었다**
+(`App.tsx`의 `NOT_INTEGRATED_ROUTES`가 정확히 이 상태)
+→ `shared/ui/ComingSoonOverlay.tsx`. 실제로 그 라우트로 이동은 시키되(주소가 바뀐다),
+렌더된 내용을 블러 처리하고 모달을 강제로 띄운다. 바깥 클릭·Esc로는 안 닫히고, "뒤로가기"
+버튼(`navigate(-1)`, 방문 기록이 없으면 `APP_ROUTES.home`)으로만 닫힌다.
+
+두 컴포넌트 모두 `shared/notYetScreens.ts`(이름·담당·명세 위치·`hasRoute` 레지스트리)를
+같이 참조한다 — 어느 화면이 어느 Case인지는 이 레지스트리의 `hasRoute` 값이 정한다. 새 키를
+추가할 때 담당이 아직 없으면 "담당 미정"으로 정직하게 적는다 — 지어내지 않는다.
+
+(근거·전례: `features/project-management/design/reference-proposal/bundle.html`의
+`demo/notyet.js`가 Case 1을 이미 이 방식으로 구현해 뒀었다. `features/project-management/
+design/homepage-transplant-plan.md` 6·6-1번 절 참고.)
+
 ## 외부 벤더(Supabase 등) 접근
 
 화면 컴포넌트가 Supabase 클라이언트 SDK를 직접 import하지 않는다. `app/server/AGENTS.md`의
@@ -116,6 +187,18 @@ Vite는 `VITE_`로 시작하는 변수만 클라이언트에 노출한다. 뒤�
 `sdd-framework/integration-workflow.md`의 UI 게이트(design-system/ux-philosophy 체크리스트)에
 더해 아래도 확인한다:
 
+**화면이 시안과 같은가** (2026-08-28 추가 — 아래 코드 규칙만 있고 이 항목이 없어서 실제로
+빠졌다):
+
+- [ ] `design/*.html`을 열어 **화면 단위로** 대조했다 — 목록 섹션만 보지 않았다
+- [ ] `SCR-Bxx → app/web 컴포넌트` 매핑을 통합 기록(`feedback_loop/` 또는 PR 본문)에 남겼다.
+      시안에 있는데 이번에 만들지 않은 화면은 **왜 뺐는지**와 함께 적었다
+- [ ] 시안의 영역 구성(단 나누기·사이드바·카드 경계·앱 셸)이 반영됐다
+- [ ] `npm run check:design`이 통과한다 (`design/_tokens.css`의 클래스가
+      `shared/ui/tokens.css`에 있는가 — 빠지면 시안의 레이아웃을 쓸 수 없다)
+
+**코드 규칙**:
+
 - [ ] 폴더는 기능명, 파일은 도메인명 규칙을 따른다
 - [ ] `{도메인}.routes.tsx`가 있고 `App.tsx`에 등록되어 있다
 - [ ] 다른 기능 폴더의 파일을 import하지 않는다 (배럴도 없다)
@@ -124,6 +207,8 @@ Vite는 `VITE_`로 시작하는 변수만 클라이언트에 노출한다. 뒤�
 - [ ] Supabase 등 벤더 SDK를 컴포넌트가 직접 import하지 않는다
 - [ ] `VITE_` 변수에 비밀값이 들어가 있지 않다
 - [ ] `shared/`에 새로 추가된 게 있다면 팀장이 직접 추가했거나 관련 담당자와 협의한 것이다
+- [ ] 시안에 있지만 아직 없는 화면을 가리키는 버튼/링크가 `href="#"`나 빈 `onClick`으로 죽어
+      있지 않다 — `NotYetDialog`(화면 없음) 또는 `ComingSoonOverlay`(라우트는 있음)로 안내한다
 
 (2026-08-27 작성 — `app/server/AGENTS.md`와 짝을 이루는 문서. 근거: "기능 담당자 통제성 확보"
 원칙 — 폴더 안은 담당자 재량, 폴더 간 접점만 팀 공통 규칙으로 고정한다.)

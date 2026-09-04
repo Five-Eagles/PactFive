@@ -10,7 +10,7 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
 
 ## 항목 1 — 웹 화면은 로그인(`/login`)만 반영했다. 회원가입·이메일 확인 화면은 이번 범위 밖
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - spec.md의 "웹 라우트 목록"은 `/login`, `/sign-up`, `/auth/confirm`, `/terms`, `/privacy`를 전부
@@ -34,12 +34,14 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
 **담당자 메모**
 - 회원가입·이메일 확인 화면(`/sign-up`, `/auth/confirm`)을 언제 만들지 정해서 `spec.md`의
   ASSUMPTION 표시를 갱신해 달라. 그 전까지 `/sign-up` 링크는 클릭하면 404가 뜬다.
+- 2026-08-27 오민혁: 두 화면을 실제 가입·확인 E2E 전 필수 후속 UI로 정하고, 현재 미구현·운영
+  차단 상태를 `spec.md`에 명시했다. high-fi 계약 없이 이번 안정화 PR에서 화면을 임의 구현하지 않는다.
 
 ---
 
 ## 항목 2 — app/web·app/server가 타입을 공유하지 못해 DTO를 웹 쪽에 복사했다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - 원본 `prototype/web/*`는 `../../server/auth.types`를 상대 경로로 그대로 import했다. 이건
@@ -60,12 +62,14 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
 **담당자 메모**
 - API 계약(요청/응답 필드)이 바뀌면 이 두 파일을 함께 고쳐야 한다. 자주 어긋나면
   `change-requests/`로 타입 공유 방식(npm workspaces 등) 재검토를 요청해 달라.
+- 2026-08-27 오민혁: 독립 배포 패키지의 임시 DTO 중복, 서버 정본, 동시 갱신·재검토 조건을
+  `spec.md`와 `api-contract.md`에 편입했다.
 
 ---
 
 ## 항목 3 — `api/auth.ts`를 `shared/http.ts`로 옮기며 `shared/http.ts` 자체를 확장했다
 
-상태: 미확인
+상태: 재이슈
 
 **Fact — spec/api-contract에 없던 부분**
 - 원본은 `fetch`를 직접 호출했다. 팀장 통합 지시가 "반드시 `shared/http.ts`의 `http` 객체를
@@ -92,12 +96,28 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
 **담당자 메모**
 - 다른 기능이 다른 에러 형식을 쓰려 하면 여기서 충돌한다. `docs/naming-convention.md`에
   공통 에러 형식을 정식으로 못 박는 걸 다음 팀 회의 안건으로 올려 달라.
+- 2026-08-27 오민혁: 현재 envelope는 user-management 작업 계약으로만 유지한다. 프로젝트 공통
+  표준 채택은 여러 기능과 `shared/http.ts`에 영향을 주므로 관련 담당자·팀장 회의 안건으로 재이슈한다.
+- 2026-08-27 오민혁: 통합 앱의 배포 예시는 별도 `*.vercel.app` 서버 주소를 직접 가리키지만 현재
+  계약은 동일 출처 `/api/v1`과 `SameSite=Strict` Refresh 쿠키를 전제로 한다. 같은 Origin rewrite/BFF
+  또는 same-site 커스텀 도메인 중 하나와 API base의 `/api` 포함 규칙을 팀장이 확정해야 하므로,
+  라이브 인증 E2E 전 배포 차단 안건으로 함께 재이슈한다.
+- **2026-09-03 팀장**: Origin rewrite/BFF 쪽으로 확정했다 — 커스텀 도메인은 구매하지 않고
+  `*.vercel.app` 그대로 쓰기로 했고, `app/web/vercel.json`에 `/api/*` → `app/server` 프록시
+  rewrite를 둬서 브라우저 관점에서는 계속 동일 출처로 본다. `SameSite=Strict`를 `None`으로
+  낮출 필요가 없다 — same-origin 요청은 `Strict`로도 그대로 통과한다. 근거·기각한 대안(커스텀
+  도메인, HttpOnly 쿠키 포기)은 `docs/decisions/0013-web-origin-same-origin-rewrite.md` 참고.
+  API base에 `/api` 포함 규칙은 지금 코드(`app/web/vite.config.ts`의 `/api` 프록시, 신규
+  `vercel.json`의 `source: "/api/:path*"`)와 그대로 맞다 — 바꿀 것 없다. 다만
+  `app/web/vercel.json`의 실제 `destination`은 Vercel 프로젝트를 만들어 `app/server`의 실제
+  배포 URL을 확인해야 채울 수 있어 아직 자리표시자다 — 첫 배포 때 마무리한다. 이견 있으면
+  알려 달라, 없으면 이 항목은 반영완료로 닫아도 된다.
 
 ---
 
 ## 항목 4 — Origin 검증은 단일 문자열만 비교한다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - `auth.service.ts`의 `requireAllowedOrigin(origin, allowedOrigin)`은 원본부터 문자열 하나와
@@ -117,12 +137,14 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
 **담당자 메모**
 - 스테이징 도메인을 추가로 열 계획이 있으면 미리 알려 달라 — `auth.service.ts`를 배열 비교로
   바꿔야 한다(원본 파일이라 조준영이 아니라 오민혁이 고쳐야 하는 부분).
+- 2026-08-27 오민혁: 기존 단일 문자열 호출의 하위 호환을 유지하면서 복수 Origin 완전 일치
+  검증을 prototype controller/service/router와 R17 테스트에 반영했다.
 
 ---
 
 ## 항목 5 — `shared/require-auth.ts` 신설
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - `app/server/AGENTS.md`는 포트/어댑터 3종(인증·결제·AI)만 정의했고, "다른 기능이 로그인한
@@ -146,5 +168,7 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
 **담당자 메모**
 - `req.user`를 쓰는 다음 기능을 만들 때 이 미들웨어를 재사용해 달라. 실제 Supabase 어댑터가
   준비되면 `app.ts`의 `AccessTokenVerifier` 주입부만 바꾸면 된다.
+- 2026-08-27 오민혁: 다른 보호 기능은 주입형 `AccessTokenVerifier`를 재사용하고 공급자 SDK나
+  Refresh Token을 직접 참조하지 않는 책임 경계를 `spec.md`와 `api-contract.md`에 편입했다.
 
 ---

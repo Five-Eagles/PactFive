@@ -3,6 +3,9 @@
   "private": true,
   "description": "프로토타입 실행(prototype/run.tsx)·브라우저 프리뷰(tools/preview)에 필요한 최소 의존성. app/web, app/server용 package.json은 Step 1 구현 착수 시 별도로 확정한다. 모노레포로 확정(ADR-0007) — Vercel 프로젝트 2개(app/web, app/server 각각 Root Directory로 지정), npm workspaces는 도입하지 않음.",
   "scripts": {
+    "predev": "node scripts/ensure-deps.js && node scripts/ensure-app-deps.js",
+    "dev": "concurrently --names server,web --prefix-colors cyan,magenta --kill-others-on-fail \"npm --prefix app/server run dev\" \"npm --prefix app/web run dev\"",
+    "check:design": "node scripts/check-design-drift.js",
     "sample:login": "tsx features/sample-login/prototype/run.tsx",
     "prepreview:dev": "node scripts/ensure-deps.js",
     "preview:dev": "vite",
@@ -10,17 +13,19 @@
     "preview:build": "vite build"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "typescript": "^5.6.3",
-    "tsx": "^4.19.2",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@types/node": "^22.9.0",
+    "concurrently": "^10.0.5",
     "express": "^4.21.1",
-    "@types/express": "^4.17.21",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
     "vite": "^6.3.5"
   }
 }

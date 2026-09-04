@@ -1,4 +1,4 @@
-import type { AuthSessionRecord, UserRecord } from "./auth.types";
+import type { AuthSessionRecord, RegistrationIntent, UserRecord } from "./auth.types";
 
 export interface UserRepository {
   findByAuthUserId(authUserId: string): Promise<UserRecord | null>;
@@ -37,4 +37,13 @@ export interface AuthSessionRepository {
   consumeOAuthNonce(nonce: string, expiresAt: Date): Promise<boolean>;
 }
 
-export type AuthRepositories = UserRepository & AuthSessionRepository;
+// 가입 역할·이름·returnTo는 PactFive 애플리케이션 상태다. 공급자 app_metadata나 Admin
+// listUsers 전체 순회에 숨기지 않고 앱 저장소의 명시적 CAS 경계로 분리한다.
+export interface RegistrationIntentRepository {
+  saveRegistrationIntent(intent: RegistrationIntent): Promise<void>;
+  findRegistrationIntentByAuthUserId(authUserId: string): Promise<RegistrationIntent | null>;
+  findRegistrationIntentByEmail(email: string): Promise<RegistrationIntent | null>;
+  clearRegistrationIntent(authUserId: string, nonce: string): Promise<void>;
+}
+
+export type AuthRepositories = UserRepository & AuthSessionRepository & RegistrationIntentRepository;

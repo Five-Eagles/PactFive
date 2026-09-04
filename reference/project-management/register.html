@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>프로젝트 등록 — 제안</title>
+<link rel="stylesheet" href="_tokens.css" />
+<style>
+  /* ═══════════════════════════════════════════════════════
+     SCR-B03 · B04 · B05 — 등록 3단계
+
+     문구는 `design/high-fi-register.html` 의 "필수 요소 목록" 을 그대로 쓴다.
+     그 목록은 `prototype/run.tsx` 가 기계적으로 확인하는 정본이다 —
+     여기서 말을 바꾸면 화면과 테스트가 갈라진다.
+
+     **입력한 것을 잃지 않는다** (ux-philosophy §6 작업 보호).
+     단계를 오가도, 새로고침해도 남는다.
+     ═══════════════════════════════════════════════════════ */
+
+  .reg { max-width:760px; margin:0 auto; padding:var(--gap-6) var(--gutter) var(--gap-7); }
+
+  /* 단계 표시. 번호가 실제 순서다 — 앞 단계를 마쳐야 다음이 열린다 */
+  .steps { display:flex; align-items:center; gap:var(--gap-2);
+    margin-bottom:var(--gap-5); }
+  .steps li { display:flex; align-items:center; gap:var(--gap-2);
+    font-size:13px; color:var(--content-tertiary); }
+  .steps ol { display:contents; }
+  .steps__n { display:grid; place-items:center; width:26px; height:26px;
+    border-radius:var(--r-pill); background:var(--muted);
+    color:var(--content-tertiary); font-size:13px; font-weight:800; }
+  .steps li[aria-current="step"] { color:var(--content); font-weight:700; }
+  .steps li[aria-current="step"] .steps__n { background:var(--action);
+    color:var(--content-inverse); }
+  .steps li[data-done="true"] .steps__n { background:var(--success-surface);
+    color:var(--success); }
+  .steps__bar { flex:1; height:1px; background:var(--border-subtle); }
+
+  .panel { padding:var(--gap-5); box-shadow:var(--shadow-card), var(--edge-top); }
+  .panel h2 { margin:0 0 var(--gap-5); font-size:20px; letter-spacing:-.02em; }
+
+  .field { margin-bottom:var(--gap-5); }
+  .field > label, .field > b { display:block; font-size:13px; font-weight:700;
+    margin-bottom:6px; }
+  .field input[type="text"], .field input[type="date"], .field textarea, .field select {
+    width:100%; padding:0 var(--gap-3); height:var(--field-h);
+    border:1px solid var(--border); border-radius:var(--r-md);
+    background:var(--surface); font:inherit; font-size:15px; color:var(--content); }
+  .field textarea { height:auto; min-height:132px; padding:var(--gap-3);
+    line-height:1.7; resize:vertical; }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    outline:2px solid var(--border-focus); outline-offset:1px; border-color:var(--border-focus); }
+  .help { margin:6px 0 0; font-size:12.5px; color:var(--content-tertiary); line-height:1.6; }
+  /* 색 하나로만 알리지 않는다. 문구와 role 을 함께 쓴다 (§12 금지 패턴) */
+  .err { margin:6px 0 0; font-size:12.5px; color:var(--danger); font-weight:600; }
+  .field[data-invalid="true"] input, .field[data-invalid="true"] textarea,
+  .field[data-invalid="true"] select { border-color:var(--danger); }
+
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:var(--gap-4); }
+
+  .skills { display:flex; flex-wrap:wrap; gap:var(--gap-2); }
+  .skills label { display:inline-flex; align-items:center; gap:6px;
+    padding:8px var(--gap-3); border:1px solid var(--border-subtle);
+    border-radius:var(--r-pill); font-size:13px; cursor:pointer;
+    transition:border-color var(--dur-feedback) var(--ease-feedback),
+               background var(--dur-feedback) var(--ease-feedback); }
+  .skills label:has(input:checked) { border-color:var(--action);
+    background:var(--surface-selected); color:var(--action-quiet); font-weight:700; }
+  .skills input { accent-color:var(--action); }
+
+  /* AI 단가 분석. 조건부로만 나타나므로 필수 요소 목록에서 제외된 자리다 */
+  .ai { margin-top:var(--gap-4); padding:var(--gap-4);
+    border-radius:var(--r-md); background:var(--campaign-yellow-soft);
+    border:1px solid var(--campaign-yellow-edge); }
+  .ai b { display:block; font-size:15px; margin-bottom:4px; }
+  .ai p { margin:0; font-size:13px; line-height:1.7; color:var(--content-secondary); }
+  .ai .btn { margin-top:var(--gap-3); }
+
+  /* 최종 확인 */
+  .review { border:1px solid var(--border-subtle); border-radius:var(--r-md); }
+  .review__row { display:grid; grid-template-columns:110px minmax(0,1fr) auto;
+    gap:var(--gap-3); align-items:baseline;
+    padding:var(--gap-3) var(--gap-4); border-bottom:1px solid var(--border-subtle);
+    font-size:14px; }
+  .review__row:last-child { border-bottom:0; }
+  .review__k { color:var(--content-tertiary); font-size:13px; }
+  .review__v { min-width:0; word-break:break-word; }
+  .review__edit { font-size:13px; font-weight:700; color:var(--action-quiet); }
+  .review__edit:hover { text-decoration:underline; }
+
+  .acts { display:flex; gap:var(--gap-3); margin-top:var(--gap-5); }
+  .acts .btn { min-width:112px; }
+  .acts .spacer { flex:1; }
+
+  .saved { margin:var(--gap-4) 0 0; font-size:12.5px; color:var(--content-tertiary); }
+
+  .note { max-width:var(--page-max); margin:0 auto var(--gap-3);
+    padding:var(--gap-2) var(--gap-3); border-radius:var(--r-md);
+    background:var(--info-surface); color:var(--info); font-size:13px; line-height:1.6; }
+
+  @media (max-width:767px) {
+    .two { grid-template-columns:1fr; }
+    .steps li span:last-child { display:none; }
+    .review__row { grid-template-columns:96px minmax(0,1fr); }
+    .review__edit { grid-column:2; justify-self:start; }
+    .acts { flex-wrap:wrap; }
+    .acts .btn { flex:1 1 100%; }
+    .acts .spacer { display:none; }
+  }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+
+<div class="page" style="padding-top:var(--gap-3)">
+  <p class="note"><b>SCR-B03 · B04 · B05.</b> 문구는
+  <code>design/high-fi-register.html</code> 의 「필수 요소 목록」을 그대로 쓴다 —
+  <code>prototype/run.tsx</code> 가 기계적으로 확인하는 정본이다.</p>
+</div>
+
+<header class="appbar">
+  <div class="appbar__in">
+    <a class="logo" href="main.html">Pact<em>Five</em></a>
+    <nav><a href="browse.html">프로젝트 찾기</a><a href="experts.html">전문가 찾기</a></nav>
+    <span class="spacer"></span>
+    <span data-session-actions></span>
+  </div>
+</header>
+
+<main class="reg" id="reg">
+  <!-- demo/register.js 가 단계에 맞춰 그린다 -->
+</main>
+
+<script src="demo/data.js"></script>
+<script src="demo/engine.js"></script>
+<script src="demo/experts.js"></script>
+<script src="demo/bookmarks.js"></script>
+<script src="demo/session.js"></script>
+<script src="demo/register.js"></script>
+<script src="demo/notyet.js"></script>
+<script>
+window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit.register = function () {
+  window.PactFiveRegister.render();
+  window.PactFiveSession.paintHeader();
+};
+
+if (document.getElementById("reg")) {
+  window.PactFiveSession.bind();
+  window.PactFiveNotYet.bind();
+  window.PactFiveRegister.bind();
+  window.addEventListener("hashchange", function () { window.PactFiveInit.register(); });
+  document.addEventListener("pactfive:session", function () {
+    window.PactFiveSession.paintHeader();
+  });
+  window.PactFiveInit.register();
+}
+</script>
+
+</body>
+</html>

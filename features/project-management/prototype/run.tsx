@@ -515,6 +515,16 @@ async function main() {
       "대기 지원이 남으면 사유 PENDING_APPLICATIONS_REMAIN",
     );
     check(pend.recruitmentStatus === "CLOSED", "이 경우 모집은 CLOSED 를 유지한다");
+
+    // 규칙 31 — CANCELED 는 다른 거래 상태로 되돌아가지 않는다.
+    // start·complete 는 위에서 봤고, 복원도 막혀야 한다.
+    await expectError("취소된 프로젝트 복원", 409, "PROJECT_TRANSITION_CONFLICT", () =>
+      svc.restorePreContractProject("prj_canceled", {
+        ...envelope(IDEMPOTENCY_KEY.restorePreContract("ngt_5")),
+        negotiationId: "ngt_5",
+        reason: "CLIENT_REJECTED",
+      }),
+    );
   }
 
   /* --- 5-7. applyPricingAnalysisBudget (규칙 40) --- */
@@ -785,6 +795,57 @@ async function main() {
         bySkill.body.items.every((i) => i.skills.some((s) => s.skillId === "FIGMA")),
       "기술 필터",
     );
+    /* ── 검색어 (규칙 62·63) ──────────────────────────────
+       2026-09-03 실측에서 두 가지가 드러났다.
+         "React"        → 0건 (React 를 요구하는 프로젝트가 있는데도)
+         "브랜드 디자인" → 0건 (통째로 찾아서 "브랜드 리뉴얼 디자인" 을 못 잡음)
+       둘 다 여기서 막는다. */
+
+    // 규칙 62 — 기술 이름으로도 찾는다
+    const byTech = api.listProjects({ keyword: "React" });
+    check(
+      byTech.body.items.length > 0 &&
+        byTech.body.items.every((i) => i.skills.some((sk) => sk.skillId === "REACT")),
+      "규칙 62: 기술 표시 이름으로 찾힌다 (React)",
+    );
+    check(
+      api.listProjects({ keyword: "REACT" }).body.totalCount === byTech.body.totalCount,
+      "규칙 62: 대소문자를 가리지 않는다",
+    );
+    check(
+      api.listProjects({ keyword: "nodejs" }).body.items.every((i) =>
+        i.skills.some((sk) => sk.skillId === "NODEJS"),
+      ) && api.listProjects({ keyword: "nodejs" }).body.totalCount > 0,
+      "규칙 62: 기술 코드로도 찾힌다 (nodejs)",
+    );
+
+    // 규칙 63 — 띄어쓰기로 끊어서 전부 만족하는 것만
+    const twoWords = api.listProjects({ keyword: "관리 시스템" });
+    check(twoWords.body.totalCount > 0, "규칙 63: 두 낱말이 떨어져 있어도 찾힌다");
+    check(
+      twoWords.body.items.every(
+        (i) => i.title.includes("관리") || i.title.includes("시스템"),
+      ),
+      "규칙 63: 찾힌 것들이 실제로 그 낱말을 갖고 있다",
+    );
+    check(
+      api.listProjects({ keyword: "관리 없는낱말xyz" }).body.totalCount === 0,
+      "규칙 63: 낱말끼리는 AND 다 — 하나만 걸리면 안 나온다",
+    );
+    check(
+      api.listProjects({ keyword: "   " }).body.totalCount ===
+        api.listProjects({}).body.totalCount,
+      "공백만 넣으면 조건이 없는 것과 같다",
+    );
+
+    // 제목·설명은 그대로 본다 (기존 동작이 깨지지 않았는지)
+    check(
+      api.listProjects({ keyword: "쇼핑몰" }).body.items.some((i) =>
+        i.title.includes("쇼핑몰"),
+      ),
+      "제목 검색은 그대로 동작한다",
+    );
+
     const byBudget = api.listProjects({ minBudget: 5_000_000 });
     check(byBudget.body.items.every((i) => i.budgetAmount >= 5_000_000), "예산 하한 필터");
 
@@ -947,6 +1008,18 @@ async function main() {
       api.closeRecruitment(CLIENT_A, "prj_canceled"),
     );
   }
+  {
+    // 규칙 25 — deadlineNotifiedAt 이 이미 있으면 후처리를 다시 요청하지 않는다.
+    // 배치가 마감 시각 경과를 이미 알렸는데 의뢰인이 수동 마감을 누른 경우다.
+    const { api, repo: r, ext: e } = newApi();
+    r.update("prj_open_locked", { deadlineNotifiedAt: "2026-08-25T00:00:00Z" });
+    const res = await api.closeRecruitment(CLIENT_A, "prj_open_locked");
+    check(res.body.recruitmentStatus === "CLOSED", "규칙 25: 마감 자체는 된다");
+    check(
+      e.calls.rejectPendingApplications.length === 0,
+      "규칙 25: 이미 알린 뒤면 일괄 거절을 다시 요청하지 않는다",
+    );
+  }
 
   /* --- 6-7. 취소 (규칙 26~31) --- */
   section("공개 API — 취소");
@@ -1087,7 +1160,629 @@ async function main() {
     );
   }
 
-  /* ═══════════ 7. 화면 필수 요소 43개 — 다음 라운드에서 추가 ═══════════ */
+  /* ═══════════ 6-9. 환경 변수 주입 ═══════════ */
+  section("환경 변수 주입");
+  {
+    const { loadConfig, resetConfigWarnings, MissingEnvError } = await import("./server/config");
+
+    resetConfigWarnings();
+    const warnings: string[] = [];
+    const dev = loadConfig({ INTERNAL_SERVICE_TOKEN: "real-token-from-env" }, (m) =>
+      warnings.push(m),
+    );
+    check(dev.internalServiceToken === "real-token-from-env", ".env 값을 읽는다");
+    check(warnings.length === 0, "값이 있으면 경고하지 않는다");
+
+    resetConfigWarnings();
+    const warned: string[] = [];
+    const fallback = loadConfig({}, (m) => warned.push(m));
+    check(fallback.internalServiceToken.length > 0, "개발에서는 기본값으로 뜬다");
+    check(warned.length === 1, "다만 경고를 남긴다 — 조용히 넘어가지 않는다");
+    loadConfig({}, (m) => warned.push(m));
+    check(warned.length === 1, "같은 키로 두 번 경고하지 않는다");
+
+    // 운영에서 키가 없으면 **서버가 뜨지 않는다.**
+    // 떠서 요청마다 401 을 뱉는 것보다 배포가 멈추는 쪽이 빨리 발견된다.
+    let threw: unknown = null;
+    try {
+      loadConfig({ NODE_ENV: "production" }, () => {});
+    } catch (e) {
+      threw = e;
+    }
+    check(threw instanceof MissingEnvError, "운영에서 키가 없으면 즉시 실패한다");
+    check(
+      (threw as Error | null)?.message.includes(".env") ?? false,
+      "실패 메시지가 어디에 넣어야 하는지 알려준다",
+    );
+
+    const prod = loadConfig({ NODE_ENV: "production", INTERNAL_SERVICE_TOKEN: "prod-token" });
+    check(prod.internalServiceToken === "prod-token", "운영에서도 값이 있으면 정상");
+  }
+
+  /* ═══════════ 6-10. engagement 에 제공하는 읽기 3종 ═══════════ */
+  section("공개 API — engagement 제공 읽기 3종");
+  {
+    const { createProjectReadService } = await import("./server/project-read.service");
+    const r = createProjectRepositoryMock(createFixedClock(AT));
+    const read = createProjectReadService({ repo: r, now: () => AT });
+
+    const one = await read.getProjectCardData("prj_open_free");
+    check(one !== null, "카드 1장 조회");
+    check(one !== null && !("transactionStatus" in one), "거래 상태를 주지 않는다");
+    check(one !== null && !("deletedAt" in one), "삭제 여부를 값으로 주지 않는다");
+    check(one?.createdAt !== undefined, "동점 정렬용 createdAt 은 포함한다");
+
+    check(
+      (await read.getProjectCardData("prj_deleted")) === null,
+      "삭제된 프로젝트는 null",
+    );
+    check(
+      (await read.getProjectCardData("prj_closed")) !== null,
+      "마감된 것은 정상적으로 준다 (engagement 규칙 7·13)",
+    );
+
+    const bulk = await read.getProjectCardDataBulk([
+      "prj_open_free",
+      "prj_deleted",
+      "prj_closed",
+    ]);
+    check(bulk.size === 2, "묶음 조회에서 삭제된 id 는 빠진다");
+    check(!bulk.has("prj_deleted"), "빠진 id 를 보고 부르는 쪽이 걸러낸다");
+
+    const candidates = await read.findRecommendationCandidates({
+      excludeProjectId: "prj_open_free",
+      category: "DESIGN",
+      skillIds: ["FIGMA"],
+    });
+    check(
+      !candidates.some((c) => c.projectId === "prj_open_free"),
+      "자기 자신을 후보에 넣지 않는다",
+    );
+    check(
+      candidates.every((c) => c.recruitmentStatus === "OPEN"),
+      "OPEN 인 것만 후보다",
+    );
+    check(
+      !candidates.some((c) => c.projectId === "prj_deleted"),
+      "삭제된 것은 후보가 아니다",
+    );
+
+    // 규칙 14 의 계산이 project.service.ts 와 어긋나지 않는지 대조한다.
+    // 두 파일에 같은 계산이 있어서, 한쪽만 고치면 여기서 걸린다.
+    const { api: svc } = newApi();
+    for (const id of ["prj_scheduled", "prj_open_free", "prj_closed", "prj_reopenable"]) {
+      const viaRead = await read.getProjectCardData(id);
+      const viaPublic = svc.getProject(null, id);
+      check(
+        viaRead?.recruitmentStatus === viaPublic.body.recruitmentStatus,
+        `규칙 14 계산 일치 — ${id}`,
+      );
+    }
+  }
+
+  /* ═══════════ 7. 화면 필수 요소 43개 ═══════════ */
+
+  const React = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { ProjectRegisterForm } = await import("./web/ProjectRegisterForm");
+  const { ProjectBrowse, ProjectDetail } = await import("./web/ProjectBrowse");
+  const { MyProjectList, ProjectEditForm, ReopenRecruitmentDialog } = await import(
+    "./web/ProjectManage"
+  );
+
+  /**
+   * 아래 목록은 `design/high-fi-*.html` 의 "필수 요소 목록" 을 그대로 옮긴 것이고,
+   * 그 목록은 PRD §14 문구 정본을 옮긴 것이다.
+   * **이 목록에 없는 문구를 여기 넣지 않는다** — 넣는 순간 정본과 갈라진다.
+   */
+  const REQUIRED = {
+    "high-fi-register.html": [
+      // SCR-B03
+      "프로젝트 제목",
+      "예) 쇼핑몰 웹사이트 구축",
+      "5자 이상 100자 이하로 입력해 주세요.",
+      "프로젝트 설명",
+      "어떤 작업이 필요한지 구체적으로 적어 주세요.",
+      "20자 이상 적어 주시면 AI 단가 분석을 더 정확하게 받을 수 있습니다.",
+      "카테고리",
+      "다음",
+      // SCR-B04
+      "모집 시작일 (선택)",
+      "비워두면 바로 모집을 시작합니다",
+      "모집 마감일",
+      "모집 기간은 7일 이상을 권장합니다. 최대 1년까지 설정할 수 있습니다.",
+      "예산",
+      "예) 5,000,000",
+      "단위는 원입니다. 나중에 지원자가 생기면 변경할 수 없습니다.",
+      // SCR-B05
+      "필요한 기술",
+      "최소 1개, 최대 10개까지 선택할 수 있습니다.",
+      "입력한 내용을 확인해 주세요",
+      "수정",
+      "등록하기",
+    ],
+    "high-fi-browse.html": [
+      // SCR-B01
+      "프로젝트를 검색해 보세요",
+      "필터",
+      "최신순",
+      "마감임박순",
+      "예산 높은순",
+      "모집 중",
+      // SCR-B02
+      "예산",
+      "필요한 기술",
+      "지원하기",
+    ],
+    "high-fi-manage.html": [
+      // SCR-B07
+      "내 프로젝트",
+      "프로젝트 등록",
+      "수정",
+      "모집 마감",
+      "지원자 관리",
+      // SCR-B06
+      "프로젝트 수정",
+      "프로젝트 제목",
+      "프로젝트 설명",
+      "저장",
+      "취소",
+      // SCR-B10
+      "협상이 마무리되는 사이에 모집 마감일이 지났습니다. 마감일을 새로 정하면 다시 모집할 수 있습니다.",
+      "모집 마감일",
+      "다시 모집하기",
+      "그만두기",
+    ],
+  } as const;
+
+  const sampleItem = {
+    projectId: "prj_open_free",
+    title: "배달 앱 UI 개선",
+    category: { category: "DESIGN", displayName: "디자인" },
+    budgetAmount: 3_400_000,
+    recruitmentDeadlineAt: "2026-09-16T14:59:59Z",
+    recruitmentStatus: "OPEN" as const,
+    skills: [{ skillId: "FIGMA", displayName: "Figma" }],
+    applicationCount: 0,
+    client: { name: "김의뢰", companyName: "스튜디오 A" },
+  };
+
+  const manageItem = {
+    projectId: "prj_open_locked",
+    title: "쇼핑몰 웹사이트 구축",
+    budgetAmount: 5_000_000,
+    recruitmentDeadlineAt: "2026-09-16T14:59:59Z",
+    recruitmentStatus: "OPEN" as const,
+    pendingApplicationCount: 3,
+    editableFields: ["title", "description", "category", "skillIds"],
+    availableActions: ["EDIT", "CLOSE_RECRUITMENT", "CANCEL"],
+  };
+
+  // 기본 렌더링에서 나와야 한다. 조건부로만 뜨는 요소는 목록에서 이미 제외돼 있다.
+  const rendered = {
+    "high-fi-register.html": renderToStaticMarkup(
+      React.createElement(ProjectRegisterForm, {}),
+    ),
+    "high-fi-browse.html": [
+      renderToStaticMarkup(React.createElement(ProjectBrowse, { items: [sampleItem] })),
+      renderToStaticMarkup(
+        React.createElement(ProjectDetail, {
+          project: { ...sampleItem, description: "설명", recruitmentStartAt: null, canApply: true },
+        }),
+      ),
+    ].join("\n"),
+    "high-fi-manage.html": [
+      renderToStaticMarkup(React.createElement(MyProjectList, { items: [manageItem] })),
+      renderToStaticMarkup(
+        React.createElement(ProjectEditForm, {
+          project: { ...manageItem, description: "설명" },
+        }),
+      ),
+      renderToStaticMarkup(React.createElement(ReopenRecruitmentDialog, {})),
+    ].join("\n"),
+  };
+
+  /** HTML 엔티티를 되돌린다. renderToStaticMarkup 이 따옴표·괄호를 바꿔놓는다 */
+  function decode(html: string): string {
+    return html
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">");
+  }
+
+  let requiredTotal = 0;
+  for (const [file, texts] of Object.entries(REQUIRED)) {
+    section(`화면 필수 요소 — ${file}`);
+    const html = decode(rendered[file as keyof typeof rendered]);
+    for (const text of texts) {
+      requiredTotal += 1;
+      check(html.includes(text), `"${text}"`);
+    }
+  }
+  check(requiredTotal === 43, `필수 요소 합계 43개 (실제 ${requiredTotal}개)`);
+
+  // 원시 토큰을 화면이 직접 쓰면 디자인 시스템이 갈라진다.
+  // 색은 design/_tokens.css 의 CSS 변수로만 들어가야 한다.
+  const allHtml = Object.values(rendered).join("\n");
+  check(!/#[0-9A-Fa-f]{6}/.test(allHtml), "화면에 원시 색상값(#RRGGBB)이 박혀 있지 않다");
+  check(!allHtml.includes("workMode"), "workMode 는 쓰지 않는다 (CR-0004 — ERD 에 없는 필드)");
+
+  /* ═══════════ 8. 되돌릴 수 없는 행동 (CR-0006 결함 1) ═══════════ */
+  section("비파괴성 — 되돌릴 수 없는 행동");
+  {
+    const { DestructiveActionSummary, cancelEffects, deleteEffects } = await import(
+      "./web/DestructiveActionSummary"
+    );
+
+    // 취소는 프로젝트 하나만 바뀌는 것이 아니다. 그 영향이 실행 전에 보여야 한다.
+    const withApps = cancelEffects({ pendingApplicationCount: 5, hasContract: true });
+    check(
+      withApps.some((e) => e.includes("5건") && e.includes("알림")),
+      "취소: 지원자 수와 알림 발송을 실행 전에 알린다",
+    );
+    check(
+      withApps.some((e) => e.includes("합의") && e.includes("계약")),
+      "취소: 합의·계약 무효화를 알린다",
+    );
+    check(
+      withApps.some((e) => e.includes("다시 열 수 없")),
+      "취소: 되돌아갈 수 없다는 것을 알린다 (규칙 31)",
+    );
+
+    const noApps = cancelEffects({ pendingApplicationCount: 0, hasContract: false });
+    check(
+      !noApps.some((e) => e.includes("지원")),
+      "취소: 지원자가 없으면 그 문구를 만들지 않는다",
+    );
+    check(noApps.length > 0, "취소: 영향이 적어도 되돌릴 수 없다는 사실은 남는다");
+    check(deleteEffects().length > 0, "삭제: 영향을 알린다");
+
+    const html = decode(
+      renderToStaticMarkup(
+        React.createElement(DestructiveActionSummary, {
+          action: {
+            title: "프로젝트 취소",
+            subject: "쇼핑몰 웹사이트 구축",
+            effects: withApps,
+            confirmLabel: "취소합니다",
+          },
+          onConfirm: () => {},
+          onCancel: () => {},
+        }),
+      ),
+    );
+    check(html.includes("이 작업은 되돌릴 수 없습니다"), "확인 화면: 되돌릴 수 없다고 말한다");
+    check(html.includes("쇼핑몰 웹사이트 구축"), "확인 화면: 어느 프로젝트인지 보여준다");
+    check(html.includes("그만두기"), "확인 화면: 빠져나갈 길이 있다");
+    check(
+      html.includes('role="alertdialog"') && html.includes('aria-modal="true"'),
+      "확인 화면: 보조 기술에 경고 대화상자로 전달된다",
+    );
+    check(
+      html.includes("destructive-effects"),
+      "확인 화면: 영향 목록이 aria-describedby 로 연결된다",
+    );
+
+    // 되돌릴 수 있는 행동까지 확인을 붙이면 확인이 무뎌진다.
+    const listHtml = renderToStaticMarkup(
+      React.createElement(MyProjectList, { items: [manageItem] }),
+    );
+    check(
+      !listHtml.includes('role="alertdialog"'),
+      "목록: 확인 화면은 누르기 전에는 없다",
+    );
+  }
+
+  /* ═══════════ 9. 금액 출처 (CR-0006 결함 2) ═══════════ */
+  section("근거 이해 — 예산 출처");
+  {
+    const { MoneyBreakdown } = await import("./web/MoneyBreakdown");
+    const { ProjectEditForm } = await import("./web/ProjectManage");
+
+    // 규칙 8 — 분석을 연결하면 사용자 입력을 덮어쓴다. 그 사실이 저장돼야 한다.
+    const { api } = newApi();
+    const plain = await api.createProject(CLIENT_A, validCreate, TX);
+    check(plain.body.budgetSource === "CLIENT_INPUT", "직접 입력이면 CLIENT_INPUT");
+
+    const withAi = await api.createProject(
+      CLIENT_A,
+      { ...validCreate, budgetAmount: 9_999_999, pricingAnalysisId: "ana_valid" },
+      TX,
+    );
+    check(withAi.body.budgetSource === "AI_ANALYSIS", "분석을 연결하면 AI_ANALYSIS 로 바뀐다");
+    check(withAi.body.budgetAmount === 4_800_000, "금액도 분석 값으로 바뀐다 (규칙 8)");
+    check(withAi.body.budgetSourceAt === AT, "출처가 정해진 시각이 기록된다");
+
+    // 규칙 9 — 출처는 등록 의뢰인만 본다. 남이 알면 지원 금액 판단에 영향을 준다.
+    const anon = api.getProject(null, "prj_open_free");
+    check(!("budgetSource" in anon.body), "공개 상세에는 출처 키가 없다");
+    const free = api.getProject(FREELANCER, "prj_open_free");
+    check(!("budgetSource" in free.body), "프리랜서에게도 출처를 주지 않는다");
+
+    const source = decode(
+      renderToStaticMarkup(
+        React.createElement(MoneyBreakdown, {
+          amount: 4_800_000,
+          source: "AI_ANALYSIS",
+          sourceAt: "2026-09-01T00:00:00Z",
+        }),
+      ),
+    );
+    check(source.includes("AI 단가 분석이 제안한 금액입니다"), "AI 출처를 문장으로 말한다");
+    check(source.includes("2026.09.01"), "언제 정해졌는지 함께 준다");
+    check(
+      source.includes("직접 수정할 수 있습니다"),
+      "§6 선택권 — 추천을 되돌릴 수 있다는 것까지 알린다",
+    );
+
+    // 모르면 지어내지 않는다.
+    const unknown = renderToStaticMarkup(
+      React.createElement(MoneyBreakdown, { amount: 3_000_000 }),
+    );
+    check(
+      !unknown.includes("AI") && !unknown.includes("직접 입력한"),
+      "출처를 모르면 아무 말도 하지 않는다",
+    );
+    check(unknown.includes("3,000,000"), "출처를 몰라도 금액은 보여준다");
+
+    const edit = decode(
+      renderToStaticMarkup(
+        React.createElement(ProjectEditForm, {
+          project: {
+            ...manageItem,
+            description: "설명",
+            budgetSource: "AI_ANALYSIS" as const,
+            budgetSourceAt: "2026-09-01T00:00:00Z",
+          },
+        }),
+      ),
+    );
+    check(edit.includes("AI 단가 분석이 제안한 금액입니다"), "수정 화면에 출처가 붙는다");
+  }
+
+  /* ═══════════ 10. 작업 보호 (CR-0006 결함 3) ═══════════ */
+  section("작업 보호 — 등록 입력 보존");
+  {
+    const { createMemoryDraftStore } = await import("./web/useDraft");
+    const { ProjectRegisterForm } = await import("./web/ProjectRegisterForm");
+
+    const store = createMemoryDraftStore();
+
+    // 아직 아무것도 안 넣었으면 저장할 것도 없다.
+    renderToStaticMarkup(React.createElement(ProjectRegisterForm, { draftStore: store }));
+    check(Object.keys(store.dump()).length === 0, "입력이 없으면 아무것도 저장하지 않는다");
+
+    // 저장된 초안이 있으면 되살린다. 서버 렌더링에서도 값이 들어가야 한다.
+    const saved = createMemoryDraftStore();
+    saved.write(
+      "pactfive:draft:project-register",
+      JSON.stringify({
+        version: 1,
+        savedAt: "2026-09-02T10:30:00Z",
+        value: {
+          title: "물류 관리 도구 개발",
+          description: "창고 재고를 실시간으로 확인할 수 있는 도구가 필요합니다.",
+          category: "WEB_DEVELOPMENT",
+          recruitmentStartAt: "",
+          recruitmentDeadlineAt: "",
+          budgetAmount: "6100000",
+          skillIds: ["NODEJS"],
+        },
+      }),
+    );
+    const html = decode(
+      renderToStaticMarkup(React.createElement(ProjectRegisterForm, { draftStore: saved })),
+    );
+    check(html.includes("물류 관리 도구 개발"), "저장된 초안을 되살린다");
+    check(html.includes("창고 재고를"), "긴 설명도 되살린다 — 다시 쓰지 않게 하는 것이 목적이다");
+
+    // **몰래 되살리지 않는다.** 무엇이 복원됐는지 알리고 버릴 길을 준다.
+    check(html.includes("작성 중이던 내용을 불러왔습니다"), "복원했다는 사실을 알린다");
+    check(html.includes("2026-09-02 10:30"), "언제 저장된 것인지 알린다");
+    check(html.includes("처음부터 작성"), "초안을 버릴 길이 있다 (§6 선택권)");
+    check(html.includes('role="status"'), "복원 안내가 보조 기술에 전달된다");
+
+    // 필드 구성이 바뀌면 옛 초안을 되살리지 않는다.
+    // 되살리면 없는 칸에 값이 들어가거나 새 칸이 비어 더 헷갈린다.
+    const stale = createMemoryDraftStore();
+    stale.write(
+      "pactfive:draft:project-register",
+      JSON.stringify({ version: 0, savedAt: "2026-08-01T00:00:00Z", value: { title: "옛 초안" } }),
+    );
+    const staleHtml = renderToStaticMarkup(
+      React.createElement(ProjectRegisterForm, { draftStore: stale }),
+    );
+    check(!staleHtml.includes("옛 초안"), "형식이 다른 옛 초안은 되살리지 않는다");
+    check(
+      stale.dump()["pactfive:draft:project-register"] === undefined,
+      "되살리지 않은 초안은 지운다",
+    );
+
+    // 깨진 값이면 조용히 버린다. 사용자가 할 수 있는 것이 없다.
+    const broken = createMemoryDraftStore();
+    broken.write("pactfive:draft:project-register", "{ 깨진 JSON");
+    const brokenHtml = renderToStaticMarkup(
+      React.createElement(ProjectRegisterForm, { draftStore: broken }),
+    );
+    check(
+      !brokenHtml.includes("작성 중이던 내용"),
+      "깨진 초안으로 복원 안내를 띄우지 않는다",
+    );
+
+    // 저장 자체가 실패하는 브라우저 설정이 있다. 그래도 입력을 막지 않는다.
+    const failing = {
+      read: () => null,
+      write: () => {
+        throw new Error("quota");
+      },
+      remove: () => {},
+    };
+    let threw = false;
+    try {
+      renderToStaticMarkup(React.createElement(ProjectRegisterForm, { draftStore: failing }));
+    } catch {
+      threw = true;
+    }
+    check(!threw, "저장이 막힌 환경에서도 화면이 뜬다 — 보존은 편의지 필수가 아니다");
+  }
+
+  /* ═══════════ 11. 수정 화면이 editableFields 를 다 쓴다 ═══════════ */
+  section("수정 화면 — 규칙 15 의 잠금 반영");
+  {
+    const { ProjectEditForm } = await import("./web/ProjectManage");
+
+    // 대기 지원 0건 — 예산·일정까지 고칠 수 있어야 한다 (규칙 15 를 뒤집은 것)
+    const free = decode(
+      renderToStaticMarkup(
+        React.createElement(ProjectEditForm, {
+          project: {
+            ...manageItem,
+            description: "설명",
+            pendingApplicationCount: 0,
+            editableFields: [
+              "title",
+              "description",
+              "category",
+              "skillIds",
+              "budgetAmount",
+              "recruitmentStartAt",
+              "recruitmentDeadlineAt",
+            ],
+          },
+        }),
+      ),
+    );
+    check(free.includes("모집 마감일"), "지원 0건: 마감일 칸이 있다");
+    check(free.includes("모집 시작일 (선택)"), "지원 0건: 시작일 칸이 있다");
+    check(
+      (free.match(/readonly/gi) || []).length === 0,
+      "지원 0건: 읽기 전용인 칸이 없다",
+    );
+
+    // 대기 지원 3건 — 예산과 일정이 잠긴다. 숨기지 않고 이유를 말한다.
+    const locked = decode(
+      renderToStaticMarkup(
+        React.createElement(ProjectEditForm, {
+          project: { ...manageItem, description: "설명" },
+        }),
+      ),
+    );
+    check(locked.includes("모집 마감일"), "지원 3건: 칸을 숨기지 않는다");
+    check((locked.match(/readonly/gi) || []).length >= 3, "지원 3건: 예산·일정이 읽기 전용");
+    check(
+      locked.includes("지원자 3명이 있어 모집 일정은 변경할 수 없습니다."),
+      "지원 3건: 왜 잠겼는지 말한다",
+    );
+    check(locked.includes("프로젝트 제목"), "지원 3건: 제목은 계속 고칠 수 있다");
+  }
+
+  section("접근 가능성 — 막힌 행동의 사유");
+  {
+    const { PermissionAwareActions } = await import("./web/ui");
+
+    const html = decode(
+      renderToStaticMarkup(
+        React.createElement(PermissionAwareActions, {
+          actions: [
+            { id: "EDIT", label: "수정", available: true },
+            {
+              id: "DELETE",
+              label: "삭제",
+              available: false,
+              blockedReason: "지원자 3명이 있어 삭제할 수 없습니다",
+            },
+          ],
+        }),
+      ),
+    );
+
+    // 세 경로로 같은 이유가 전해져야 한다 — 눈 · 마우스 · 보조 기술.
+    check(
+      html.includes(">지원자 3명이 있어 삭제할 수 없습니다<"),
+      "보이는 문구로 이유를 말한다",
+    );
+    check(
+      html.includes('title="지원자 3명이 있어 삭제할 수 없습니다"'),
+      "마우스 사용자에게 title 로도 전한다",
+    );
+    check(
+      html.includes('aria-label="삭제 — 지원자 3명이 있어 삭제할 수 없습니다"'),
+      "aria-label 이 사유를 함께 읽어 준다 — title 은 키보드·보조 기술에 전달되지 않는다",
+    );
+    check(html.includes("disabled"), "막힌 버튼은 눌리지 않는다");
+
+    // 열린 버튼에는 붙이지 않는다. 붙으면 읽어 주는 이름이 보이는 글자와 달라진다.
+    check(
+      !html.includes('aria-label="수정'),
+      "열린 버튼에는 aria-label 을 붙이지 않는다",
+    );
+    check(!/title="[^"]*"[^>]*>수정/.test(html), "열린 버튼에는 title 도 붙이지 않는다");
+  }
+
+  section("검색어 — 이전과 후 대조");
+  {
+    const { api } = newApi();
+    // 대표페이지 인기 검색어와 기술 이름을 실제로 돌려본다.
+    for (const k of ["React", "Figma", "쇼핑몰", "리뉴얼", "관리 시스템", "브랜드 디자인"]) {
+      const n = api.listProjects({ keyword: k }).body.totalCount;
+      console.log(`      ${k.padEnd(12)} ${String(n).padStart(2)}건`);
+    }
+    check(api.listProjects({ keyword: "React" }).body.totalCount > 0, "React 가 0건이 아니다");
+    check(api.listProjects({ keyword: "Figma" }).body.totalCount > 0, "Figma 가 0건이 아니다");
+  }
+
+  section("비파괴성 — 모집 마감도 확인을 거친다");
+  {
+    const { MyProjectList } = await import("./web/ProjectManage");
+    const { closeRecruitmentEffects } = await import("./web/DestructiveActionSummary");
+
+    // 처음에는 확인 없이 바로 실행했다. 재모집으로 되돌릴 수 있다고 봤기 때문인데,
+    // 지원자에게 간 거절 알림은 되돌아가지 않는다 (2026-09-03 항목 1)
+    let ran: string[] = [];
+    const item = {
+      ...manageItem,
+      pendingApplicationCount: 3,
+      availableActions: ["CLOSE_RECRUITMENT"],
+    };
+    const html = decode(
+      renderToStaticMarkup(
+        React.createElement(MyProjectList, {
+          items: [item],
+          onAction: (a: string) => ran.push(a),
+        }),
+      ),
+    );
+    check(html.includes("모집 마감"), "모집 마감 버튼이 있다");
+    check(
+      !html.includes("모집을 마감할까요?"),
+      "누르기 전에는 확인 화면이 없다",
+    );
+
+    const effects = closeRecruitmentEffects({ pendingApplicationCount: 3 });
+    check(
+      effects.some((e) => e.includes("3건이 거절 처리됩니다")),
+      "몇 건이 거절되는지 숫자로 말한다",
+    );
+    check(
+      effects.some((e) => e.includes("다시 모집하려면")),
+      "되돌리려면 무엇을 해야 하는지 말한다",
+    );
+    check(
+      closeRecruitmentEffects({ pendingApplicationCount: 0 }).every(
+        (e) => !e.includes("거절"),
+      ),
+      "지원이 없으면 거절 문구를 붙이지 않는다",
+    );
+
+    // 항목 2 — 사람에게 가는 일이 먼저다
+    const { cancelEffects } = await import("./web/DestructiveActionSummary");
+    const both = cancelEffects({ pendingApplicationCount: 2, hasContract: true });
+    check(both[0]!.includes("지원"), "취소 문구: 지원자 거절이 첫 줄이다");
+    check(both[1]!.includes("계약"), "취소 문구: 계약 무효가 둘째 줄이다");
+    check(both[2]!.includes("모집"), "취소 문구: 프로젝트 상태가 마지막이다");
+  }
 
   section("결과");
   console.log(`PASS ${passCount} · FAIL ${failCount}`);

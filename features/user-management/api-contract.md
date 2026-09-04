@@ -2,6 +2,8 @@
 
 > 상태: **작업 가설**. 구현 후 팀장 통합 단계에서 확정한다. 단, 동일 이메일 연결, OAuth intent,
 > 세션 동기화 책임, 서버/BFF 쿠키 방식은 2026-08-25 user-management **DECISION**으로 잠갔다.
+> 2026-08-26에는 8월 27일 구현 범위에 맞춰 가입 intent 저장 책임과 실제 Supabase SDK가 표현 가능한
+> Refresh·Access 검증·세션 폐기 포트 계약을 정합화했다.
 > Base URL은 `/api/v1`이며, 아래의 `/auth`는 인증 도메인 네임스페이스다. 그 아래 리소스 경로는
 > 복수 명사와 kebab-case를 쓴다.
 
@@ -18,13 +20,23 @@
   `Max-Age`는 `auth_sessions.expires_at`까지 남은 시간이고 Refresh 때 수명을 임의 연장하지 않는다.
 - 웹은 인증 API를 브라우저 기준 동일 출처의 `/api/v1`으로 호출하고 `credentials: 'include'`를
   사용한다. 가입·가입 복구·확인 메일 재전송·이메일 확인·로그인·OAuth 시작·Refresh·로그아웃처럼 세션 또는
-  인증 쿠키를 만들거나 바꾸는 동일 출처 `POST | DELETE` 요청은 허용 Origin을 문자열로 정확히
-  비교하고, 누락되거나 다른 Origin이면 상태 변경 전에 거부한다. 공급자에서 돌아오는 OAuth `GET`
+  인증 쿠키를 만들거나 바꾸는 `POST | DELETE` 요청은 환경에 설정된 허용 Origin 목록의 각 완전한
+  문자열과 정확히 비교한다. wildcard·접두사·접미사 비교는 허용하지 않으며, Origin이 누락되거나
+  목록의 어느 값과도 일치하지 않으면 상태 변경 전에 거부한다. 공급자에서 돌아오는 OAuth `GET`
   콜백은 cross-site navigation이므로 Origin 대신 PKCE와 일회용 OAuth intent를 검증한다. 모든 인증
   응답에는 `Cache-Control: private, no-store`를 설정한다.
+- 운영 배포는 웹 Origin에서 `/api`를 서버로 rewrite/BFF 하거나 웹·API를 같은 schemeful site의
+  커스텀 도메인에 둔다. 서로 다른 `*.vercel.app` 프로젝트를 직접 연결하면 `SameSite=Strict`
+  Refresh 쿠키 전제와 맞지 않으므로 허용하지 않는다. 직접 API host를 설정하는 방식을 채택하면
+  base URL에 `/api`를 포함해 아래 `/v1/...` 클라이언트 경로가 서버 `/api/v1/...`와 정확히
+  일치해야 한다. 다른 cross-site 쿠키 정책은 CSRF 경계를 다시 설계하는 팀 change request 없이는
+  도입하지 않는다.
 - 브라우저 Supabase Auth SDK의 세션 지속과 자동 갱신은 사용하지 않는다. 서버의
   `supabase-auth.adapter.ts`만 요청 단위 SDK 인스턴스로 명시적 로그인·PKCE code 교환·Refresh·
-  현재 세션 로그아웃을 수행한다.
+  현재 세션 로그아웃을 수행한다. 모든 클라이언트는 `autoRefreshToken: false`,
+  `detectSessionInUrl: false`이며 전역 또는 파일 영속 저장소를 공유하지 않는다. 일반·Admin·Refresh·
+  검증 작업은 `persistSession: false`다. OAuth 시작·교환만 Supabase SDK가 주입 PKCE 저장소를 사용하도록
+  요청 단위 메모리 저장소에서 `true`이며, 이 저장소는 작업 종료 뒤 남지 않는다.
 - Refresh Token fingerprint와 rotation 감사 정보는 ERD의 `auth_sessions`에 기록한다. 토큰 자체의
   발급·교환·검증·재사용 최종 판정과 공급자 세션 폐기는 Supabase Auth가 담당한다.
 - 모든 보호 API는 JWT 서명·만료와 앱 사용자를 검증한 뒤 JWT `session_id`와 같은
@@ -34,6 +46,10 @@
   두고 `expires_at`을 만들며 Refresh로 연장하지 않는다. 승인자가 다른 값을 선택하면 SPEC·이 계약·
   환경 변수 예시를 같은 변경으로 갱신한다.
 - 오류 응답 형식은 다음과 같다.
+
+  이 envelope는 user-management의 작업 계약이다. `docs/naming-convention.md`의 프로젝트 공통 오류
+  형식이 확정되기 전에는 다른 기능의 전역 표준으로 간주하지 않으며, 공통화는 팀장과 관련 기능
+  담당자의 change request 승인 뒤 별도 변경으로 수행한다.
 
 ```json
 {
@@ -52,8 +68,15 @@
 | controller | Refresh/OAuth intent 쿠키 읽기·설정·삭제와 HTTP 응답 |
 | `AuthSessionService` | 공급자 호출, 사용자 검사, `auth_sessions` 변경 순서와 실패 보상의 유일한 조정자 |
 | `AuthSessionRepository` | `auth_sessions` 생성·조건부 rotation·폐기 |
+| `RegistrationIntentRepository` | 앱 소유 가입 이름·역할·`returnTo` 저장, UUID/email 조회, `authUserId + nonce` 조건부 제거 |
 | `supabase-auth.adapter.ts` | Supabase SDK 호출과 공급자 결과·오류의 도메인 타입 변환 |
 | 브라우저 | Access Token 메모리 보관, 같은 탭 인증 mutation 직렬화, epoch별 Refresh single-flight와 로그아웃 epoch. Refresh Token·Supabase 세션은 소유하지 않음 |
+| 보호 API 인증 미들웨어 | composition root가 주입한 `AccessTokenVerifier`로 공급자 토큰과 활성 로컬 세션을 모두 검증하고 `{ userId, role }`만 주입. 다른 기능은 Supabase SDK나 Refresh Token을 직접 참조하지 않음 |
+
+ADR-0007의 독립 배포 구조에서 필드 계약 정본은 이 `api-contract.md`다. 통합 앱의 TypeScript
+사본 중에는 `app/server` DTO를 기준으로 두고 `app/web`에는 실제 소비 필드만 임시로 중복한다.
+요청·응답 필드가 바뀌면 서버·웹 DTO를 같은 변경에서 함께 갱신한다. 공용 타입 패키지는 불일치가
+반복될 때 change request로 재검토한다.
 
 이메일 가입 요청은 Confirm Email 활성화로 공급자 세션이 발급되지 않으므로 `users`·`auth_sessions`를
 만들지 않고 Refresh 쿠키·Access Token을 반환하지 않는다. 이메일 확인 완료·로그인·OAuth 콜백은
@@ -111,16 +134,15 @@ Supabase `signUp` 결과의 `session`은 반드시 `null`이어야 한다. 서�
 
 ```ts
 type EmailRegistrationIntent = {
-  version: 1;
   nonce: string;
   authUserId: string;
-  normalizedEmail: string;
+  email: string;
   name: string;
   role: UserRole;
   returnTo: string;
   issuedAt: string;
   expiresAt: string;
-  recoveryProofExpiresAt: string;
+  recoveryExpiresAt: string;
 };
 ```
 
@@ -133,14 +155,19 @@ intent TTL은 발급 또는 정상 재전송 시점부터 24시간이다. 확인
 intent가 만료됐다면 새 요청의 전체 이름·역할·`returnTo`로 intent를 교체할 수 있다. 확인된 계정이나
 이미 존재하는 앱 사용자의 정보는 가입 요청으로 바꾸지 않는다.
 
-`signUp`이 사용자 UUID를 반환하면 서버 어댑터가 위 값을 인증 암호화해 서버만 쓸 수 있는
-`app_metadata.pactfive_registration_intent`에 넣는다. 저장 실패 시 이 요청에서 새로 만든 미확인
-공급자 사용자를 보상 삭제하고 503으로 종료한다. 확인 링크의 token hash와 intent 원문은 API 응답에
+`signUp`이 사용자 UUID를 반환하면 `AuthSessionService`가 위 값을 PactFive 애플리케이션의
+`RegistrationIntentRepository`에 저장한다. 공급자 `app_metadata`나 Admin `listUsers` 전체 순회는
+가입 intent 저장·조회 경계로 사용하지 않는다. 공개 `signUp` 응답의 `identities`는 기존 미확인
+계정에도 존재할 수 있어 신규 생성·소유권 증거로 신뢰하지 않는다. 모든 sessionless 결과에서 같은
+비밀번호로 미확인 계정 소유권을 재검증한다. 공급자가 신규 생성을 신뢰성 있게 증명한 경우에만 저장
+실패 시 보상 삭제하고, live Supabase처럼 증명할 수 없으면 토큰·앱 사용자 없이 남겨 정상 재접수로
+복구한다. 확인 링크의 token hash와 intent 원문은 API 응답에
 반환하지 않는다. 일반 `user_metadata.name`·`user_metadata.role`은
 사용자가 수정할 수 있으므로 권한·역할 정본으로 신뢰하지 않는다. 이메일 확인 때 공급자가 검증한
-이메일·Supabase 사용자 UUID와 intent의 `normalizedEmail`·`authUserId`, 만료, nonce, 인증 태그를
-모두 검사하고 검증된 intent의 이름·역할과 다시 검증한 `returnTo`만 가입 완료에 사용한다. 직접
-Supabase `signUp`을 호출해 인증 태그가 유효한 PactFive intent가 없는 사용자는 자기복구 endpoint로도
+이메일·Supabase 사용자 UUID와 저장된 intent의 `email`·`authUserId`, 만료, nonce를 모두 검사하고
+일치한 intent의 이름·역할과 다시 검증한 `returnTo`만 가입 완료에 사용한다. 제거는
+`authUserId + nonce`가 일치하는 최신 행에만 적용한다. 직접 Supabase `signUp`을 호출해 PactFive 앱
+저장소에 대응하는 intent가 없는 사용자는 자기복구 endpoint로도
 PactFive 가입을 완료할 수 없다. 이런 계정은 자동 생성하지 않고 감사 가능한 수동 지원 절차로 보낸다.
 
 형식이 유효한 요청은 신규 이메일, 기존 확인 계정, 확인 대기 계정 모두 같은 202 본문을 반환한다.
@@ -155,8 +182,9 @@ PactFive 가입을 완료할 수 없다. 이런 계정은 자동 생성하지 �
   함께 반환하되 계정 존재 여부는 드러내지 않는다.
 - 503 `AUTH_CONFIGURATION_INVALID` — Confirm Email이 꺼져 공급자가 가입 즉시 세션을 반환했거나
   이메일 확인 링크 설정이 BFF 계약과 맞지 않는다. 반환된 공급자 세션은 폐기한다.
-- 503 `AUTH_REGISTRATION_SYNC_FAILED` — 새 미확인 공급자 사용자에 서버 소유 intent를 연결하지 못했다.
-  이 요청에서 새로 만든 공급자 사용자만 보상 삭제하고 토큰·쿠키를 반환하지 않는다.
+- 503 `AUTH_REGISTRATION_SYNC_FAILED` — 미확인 공급자 사용자에 앱 소유 intent를 연결하지 못했다.
+  신뢰 가능한 신규 생성 신호가 있는 경우에만 보상 삭제하고, 그렇지 않으면 재접수 가능한 미확인
+  상태로 남긴다. 어느 경우에도 토큰·쿠키를 반환하지 않는다.
 - 503 `AUTH_PROVIDER_UNAVAILABLE` — Supabase Auth 또는 이메일 발송 계층에 연결할 수 없다.
 
 ## POST /api/v1/auth/email-confirmation-requests
@@ -227,10 +255,10 @@ Path=/; Max-Age=<authSessionRemainingSeconds>`과 `Cache-Control: private, no-st
 }
 ```
 
-공급자 확인 성공, 보호된 `EmailRegistrationIntent` 검증, `auth_user_id`가 같은 `users` 생성 또는
+공급자 확인 성공, 앱 저장소의 `EmailRegistrationIntent` 검증, `auth_user_id`가 같은 `users` 생성 또는
 멱등 일치 검사, `auth_sessions` 생성이 모두 끝난 뒤에만 토큰과 쿠키를 노출한다. 앱 반영이 실패하면
 공급자 현재 세션을 폐기하고 쿠키를 설정하지 않는다. 확인은 성공했지만 앱 반영이 실패한 경우에도
-보호된 intent를 즉시 지우지 않는다. 다음 이메일 로그인에서 검증된 공급자 이메일과 아직 유효한
+저장된 intent를 즉시 지우지 않는다. 다음 이메일 로그인에서 검증된 공급자 이메일과 아직 유효한
 intent를 다시 확인해 `users`·`auth_sessions` 생성을 멱등 완료한 뒤에만 intent를 제거한다. 이미 확인된
 사용자의 일반 로그인은 이 endpoint가 아니라 `POST /auth/sessions`를 사용한다.
 
@@ -277,15 +305,15 @@ GET 요청과 서버 access log로 전송되지 않는다. 화면은 `Referrer-P
 `409 AUTH_CONTEXT_CONFLICT`로 거부한다. MVP 계정 전환은 이메일·OAuth·가입 확인·가입 복구 모두
 현재 세션을 로그아웃한 뒤 새 흐름으로만 시작한다.
 
-Supabase 이메일 로그인이 성공했는데 대응하는 PactFive `users`가 없으면 보호된 intent를 확인한다.
-24시간 intent가 유효하면 사용자·세션 생성을 멱등 완료한다. 24시간 TTL은 지났지만 인증 태그·
+Supabase 이메일 로그인이 성공했는데 대응하는 PactFive `users`가 없으면 앱 저장소의 intent를 확인한다.
+24시간 intent가 유효하면 사용자·세션 생성을 멱등 완료한다. 24시간 TTL은 지났지만 저장된 intent의
 `authUserId`·이메일·nonce가 맞고 30일 recovery proof 기간 안이면, 공급자 현재 세션을 폐기하고
 10분짜리 `__Host-pactfiveRegistrationRecovery` 쿠키를 설정한 뒤 토큰 없이
 `409 REGISTRATION_COMPLETION_REQUIRED`를 반환한다. 이 쿠키는 `version`, `authUserId`,
 `normalizedEmail`, 원 intent nonce, 발급/만료 시각만 인증 암호화하며 공급자 Token을 담지 않는다.
 속성은 `Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=600`, `Domain` 미지정이다. 사용자는 같은
 이메일의 소유권을 비밀번호로 다시 증명하면서 이름·역할을 선택하는 아래 가입 복구 endpoint로
-이동한다. PactFive 서명 증거가 없거나 위변조됐거나 30일이 지났다면 공급자 세션을 폐기하고
+이동한다. PactFive 앱 저장소의 대응 intent가 없거나 복구 쿠키가 위변조됐거나 30일이 지났다면 공급자 세션을 폐기하고
 `403 REGISTRATION_NOT_AVAILABLE`로 종료해 직접 Supabase 가입 우회를 막는다.
 
 응답 200 (`Set-Cookie: __Host-pactfiveRefreshToken=...; Secure; HttpOnly; SameSite=Strict;
@@ -319,7 +347,7 @@ Path=/; Max-Age=<authSessionRemainingSeconds>` 포함):
   화면을 안내한다.
 - 409 `AUTH_CONTEXT_CONFLICT` — 이미 로그인된 브라우저에서 다른 이메일 로그인을 시도했다.
   공급자 자격 증명을 소비하거나 기존 역할·세션을 바꾸지 않는다.
-- 403 `REGISTRATION_NOT_AVAILABLE` — PactFive가 시작한 가입이라는 서명 증거가 없거나 30일 recovery
+- 403 `REGISTRATION_NOT_AVAILABLE` — PactFive 앱 저장소에 대응하는 가입 intent가 없거나 30일 recovery
   proof 기간이 지났다. 자동 가입을 허용하지 않는다.
 - 422 `VALIDATION_ERROR` — 이메일 형식 또는 필수 필드가 유효하지 않다.
 - 422 `UNSAFE_RETURN_TO` — 제공된 `returnTo`가 내부 경로 허용 규칙을 통과하지 못한다.
@@ -349,8 +377,8 @@ intent에서 역할이나 이름을 추측하지 않는다.
 ```
 
 서버는 정확한 Origin과 10분 복구 쿠키의 인증 태그·nonce·만료를 확인한 뒤 Supabase 이메일 로그인을
-수행하고, 공급자 이메일 확인 완료, 쿠키와 같은 `auth.users.id`·정규화 이메일, 원 intent의 유효한
-서명과 30일 recovery proof 기간, 활성 이메일 충돌 부재, 해당 UUID의 PactFive 사용자 부재를 다시
+수행하고, 공급자 이메일 확인 완료, 쿠키와 같은 `auth.users.id`·정규화 이메일, 앱 저장소 원 intent의
+UUID·이메일·nonce와 30일 recovery proof 기간, 활성 이메일 충돌 부재, 해당 UUID의 PactFive 사용자 부재를 다시
 검증한다. 모든 조건이 맞을 때만 `users`와 `auth_sessions`를 만들고 일반 로그인과 같은 200 응답·
 Refresh 쿠키를 반환하며 복구 쿠키를 제거한다. 이미 앱 사용자가 있으면 이름·역할을 절대 바꾸지
 않는다. 중간 실패에서는 공급자 세션을 폐기하고 일반 Refresh 쿠키를 반환하지 않는다.
@@ -359,7 +387,7 @@ Refresh 쿠키를 반환하며 복구 쿠키를 제거한다. 이미 앱 사용�
 
 - 401 `INVALID_CREDENTIALS` — 이메일 또는 비밀번호가 올바르지 않다.
 - 403 `EMAIL_VERIFICATION_REQUIRED` — 공급자 이메일 확인이 완료되지 않았다.
-- 403 `REGISTRATION_RECOVERY_INVALID` — 복구 쿠키 또는 원 PactFive intent의 서명·UUID·이메일·nonce가
+- 403 `REGISTRATION_RECOVERY_INVALID` — 복구 쿠키 또는 앱 저장소 원 PactFive intent의 UUID·이메일·nonce가
   없거나 일치하지 않는다. 직접 Supabase 가입 계정은 이 오류로 자동 생성을 차단한다.
 - 410 `REGISTRATION_RECOVERY_EXPIRED` — 10분 복구 쿠키 또는 30일 recovery proof 기간이 끝났다.
 - 409 `REGISTRATION_NOT_AVAILABLE` — 앱 사용자가 이미 있거나 탈퇴·이메일·UUID 충돌로 복구할 수 없다.
@@ -427,10 +455,11 @@ type OAuthIntent = {
 };
 ```
 
-`providerFlowState`는 Supabase SDK가 만들고 검증하는 PKCE code verifier 등 code 교환용 불투명
-저장 상태다. PactFive는 이를 생성 규칙으로 재구현하거나 해석하지 않는다. 시작 요청에서 SDK가 만든
-값을 암호화 OAuth intent 쿠키에 보존하고, 콜백 요청에서는 그 쿠키를 검증·복호화해 새 요청 단위 SDK
-저장소에 복원한 뒤 code를 교환한다. `returnTo`는 한 번 URL decode한 뒤에도 단일 `/`로 시작하는 상대
+`providerFlowState`는 Supabase SDK 2.112.4가 반환한 `flowId`와 그 flow에 귀속된 PKCE 저장소 snapshot을
+묶은 code 교환용 불투명 상태다. PactFive는 verifier 생성·검증 규칙을 재구현하지 않는다. 시작 요청의
+요청 단위 메모리 저장소에서 SDK가 만든 snapshot과 `flowId`를 암호화 OAuth intent 쿠키에 보존하고,
+콜백 요청에서는 그 쿠키를 검증·복호화해 새 요청 단위 SDK 저장소에 snapshot을 복원한 뒤 같은
+`flowId`로 code를 교환한다. `returnTo`는 한 번 URL decode한 뒤에도 단일 `/`로 시작하는 상대
 경로여야 하고, scheme/host, `//`, 역슬래시, 제어문자, fragment는 거부한다. 현재 허용 목록은 `/`,
 `/projects`, `/projects/new`, `/bookmarks`, `/profile` 및 `/projects/{projectId}`(`prj_` 식별자)다.
 목록 밖 값은 422로 거부한다. 웹 라우트 확정 시 이 목록도 함께 검토한다.
@@ -509,11 +538,14 @@ Supabase 사용자 매핑 정본으로 사용하지 않으며, 첫 가입 출처
 서버는 쿠키 원문을 서버 전용 키의 HMAC-SHA-256 fingerprint로 바꿔 활성
 `refresh_token_hash` 또는 `previous_token_hash` 행을 찾는다. 공급자 성공 뒤 기대한 현재
 fingerprint를 조건으로 `current → previous`, `new → current`를 원자적으로 반영한다.
+`AuthProvider.refreshSession({ refreshToken, expectedProviderSessionId })`은 별도 `outcome`을 만들지
+않고 `ProviderSession`을 반환하며, 어댑터는 JWT `session_id`가 기대값과 일치하는지 먼저 검증한다.
 공급자가 반환한 Access Token의 `session_id`는 행의 `provider_session_id`와 반드시 일치해야 한다.
 `previous_token_hash` 일치만으로 재사용을 판정하지 않는다. Supabase가 정상 reuse interval 또는
-parent-token 복구로 성공하면, 입력이 현재 fingerprint였을 때만 CAS rotation하고 입력이 직전
-fingerprint였으며 반환값이 이미 저장된 현재 토큰이면 활성 상태와 기대 current fingerprint를
-조건으로 `last_used_at`만 CAS 갱신한 뒤 쿠키를 재발급한다. 이 조건부 touch가 로그아웃/선행 rotation
+parent-token 복구로 성공하면, 서비스가 DB에서 찾은 `CURRENT | PREVIOUS` 후보와 반환된 Refresh Token
+fingerprint를 비교한다. CURRENT 입력에 같은 fingerprint가 반환되면 touch, 새 fingerprint가 반환되면
+CAS rotation하고, PREVIOUS 입력에는 반환값이 이미 저장된 CURRENT fingerprint일 때만 touch 후 현재
+쿠키를 재발급한다. 다른 조합은 동기화 실패로 닫는다. 이 조건부 touch가 로그아웃/선행 rotation
 때 실패하면 최신 세션 행을 ID로 다시 읽어 실제 폐기·만료는 401과 공급자 정리로, 정상 선행 rotation은
 503 재조정으로 구분한다. 어댑터가
 해당 공급자 세션에 상관 가능한 Supabase `refresh_token_already_used`를 받은 경우에만 해당 행을
@@ -531,9 +563,10 @@ HttpOnly 쿠키 때문에 로그아웃이 막혀서는 안 된다.
 1. Refresh Token fingerprint로 식별 가능한 활성 `auth_sessions`를
    `revoked_reason=LOGOUT`으로 조건부 폐기한다. 행이 없거나 이미 폐기됐어도 성공으로 수렴한다.
 2. Bearer Token이 유효하고 쿠키 세션과 `provider_session_id`가 같으면 현재 Supabase 세션 폐기에
-   사용한다. Bearer가 누락·만료됐거나 두 세션이 다르면 자격 증명을 섞어 공급자를 호출하지 않고
+   `revokeSession({ kind: 'ACCESS_TOKEN', providerSessionId, accessToken })`을 사용한다. Bearer가
+   누락·만료됐거나 두 세션이 다르면 자격 증명을 섞어 공급자를 호출하지 않고
    불일치만 감사한다. 서버가 쿠키 세션에 안전하게 연결된 공급자 자격 증명으로 폐기할 수 있으면
-   best effort로 수행한다.
+   `REFRESH_TOKEN` credential을 사용해 같은 `providerSessionId`인지 검증한 뒤 best effort로 수행한다.
 3. Origin 검증 뒤의 모든 인증 결과에서 Refresh 쿠키를
    `Max-Age=0; Secure; HttpOnly; SameSite=Strict; Path=/`로 제거하고 OAuth intent·가입 복구 쿠키도
    함께 제거한다. 브라우저는 로그아웃 호출 즉시 인증 epoch를 증가시키고, 이전 epoch에서 늦게 끝난
@@ -546,7 +579,8 @@ HttpOnly 쿠키 때문에 로그아웃이 막혀서는 안 된다.
 
 에러:
 
-- 403 `ORIGIN_NOT_ALLOWED` — Origin이 누락됐거나 허용 Origin과 정확히 일치하지 않는다. 이 경우에는
+- 403 `ORIGIN_NOT_ALLOWED` — Origin이 누락됐거나 설정된 허용 Origin 목록의 어느 완전한 문자열과도
+  정확히 일치하지 않는다. 이 경우에는
   CSRF 로그아웃을 막기 위해 세션·쿠키를 바꾸지 않는다.
 - 503 `AUTH_LOGOUT_SYNC_FAILED` — 로컬 `auth_sessions` 조회·폐기를 확정하지 못했다. 브라우저의
   메모리 컨텍스트와 세 인증 쿠키는 제거하지만 서버측 즉시 폐기는 보장하지 못하므로, 운영 구현은
@@ -564,7 +598,9 @@ HttpOnly 쿠키 때문에 로그아웃이 막혀서는 안 된다.
   "email": "user@example.com",
   "name": "홍길동",
   "role": "CLIENT",
-  "profileImageUrl": null
+  "profileImageUrl": null,
+  "authenticated": true,
+  "accessTokenExpiresAt": "2026-08-27T01:00:00.000Z"
 }
 ```
 
@@ -649,7 +685,10 @@ type CreateOAuthAuthorizationResponse = { authorizationUrl: string; expiresAt: s
 
 type RefreshAuthSessionInput = { refreshToken: string };
 type RefreshAuthSessionResponse = { accessToken: string; accessTokenExpiresAt: string };
-type GetCurrentAuthContextResponse = UserAuthSummary;
+type GetCurrentAuthContextResponse = UserAuthSummary & {
+  authenticated: true;
+  accessTokenExpiresAt: string;
+};
 
 type ErrorDetail = { field: string; reason: string };
 type ErrorResponse = {
@@ -662,11 +701,37 @@ type ErrorResponse = {
 
 ## Supabase 포트/어댑터 경계
 
+```ts
+type VerifiedAccessSession = Omit<ProviderSession, 'refreshToken'>;
+type ProviderSessionCredential =
+  | { kind: 'ACCESS_TOKEN'; providerSessionId: string; accessToken: string }
+  | { kind: 'REFRESH_TOKEN'; providerSessionId: string; refreshToken: string };
+
+interface AuthProvider {
+  refreshSession(input: {
+    refreshToken: string;
+    expectedProviderSessionId: string;
+  }): Promise<ProviderSession>;
+  verifyAccessToken(accessToken: string): Promise<VerifiedAccessSession>;
+  revokeSession(credential: ProviderSessionCredential): Promise<void>;
+}
+```
+
 - controller/service는 `AuthProvider`를 정의한 `auth.port.ts`만 참조한다.
 - `supabase-auth.adapter.ts`만 Supabase SDK와 공급자별 오류·세션 자료구조를 안다.
 - 브라우저에는 Supabase Auth 세션 클라이언트를 두지 않는다. 서버 어댑터의 일반 요청용 SDK는
   `autoRefreshToken: false`, `persistSession: false`, `detectSessionInUrl: false`로 두고, OAuth에는
-  요청 단위 PKCE 저장소로 보호된 intent의 `providerFlowState`를 사용한다.
+  SDK가 주입 저장소를 실제 사용하도록 `persistSession: true`인 요청 단위 메모리 저장소를 사용한다.
+  이 값은 브라우저·파일·전역 세션 지속을 뜻하지 않으며 시작·교환 작업이 끝나면 폐기된다. Admin
+  클라이언트는 일반 요청과 같은 비영속 옵션을 적용한다.
+- 가입 intent는 `AuthProvider` 책임이 아니다. `AuthSessionService`가
+  `RegistrationIntentRepository`에서 UUID/email로 조회하고 `authUserId + nonce` 조건으로 제거한다.
+- `refreshSession`의 `expectedProviderSessionId`는 supplied Refresh Token이 다른 세션으로 바뀌는 것을
+  차단한다. rotation·parent 복구 판정은 어댑터가 임의 `outcome`으로 추측하지 않고 서비스가 DB
+  fingerprint와 반환된 `ProviderSession.refreshToken`을 비교해 결정한다.
+- `verifyAccessToken`은 Refresh Token이 없는 `VerifiedAccessSession`만 반환한다. `revokeSession`은
+  ACCESS 또는 REFRESH credential과 기대 `providerSessionId`의 상관관계를 확인한 뒤 해당 Supabase
+  세션을 폐기하며 자격 증명 종류를 섞지 않는다.
 - 구체 어댑터 연결은 composition root에서만 한다. Google/Kakao 키나 Supabase 키를 service,
   DTO, 응답, 로그에 넣지 않는다.
 - PactFive service는 `users.deleted_at`, 역할, OAuth 연결 충돌과 안전한 `returnTo`를 판정한다.
@@ -687,6 +752,11 @@ type ErrorResponse = {
   ERD v1.5에서 사용되지 않는 `users.password_hash`를 제거하는 변경을 승인받으며, 그 전까지 해당
   필드를 새 구현의 의존성으로 추가하지 않는다.
 
+2026-08-26 현재 8월 27일 범위의 `@supabase/supabase-js` 2.112.4 기반 live 어댑터 구현 초안과
+`flowId`·PKCE SDK 저장소 snapshot의 시작→콜백 복원 결정적 fake-client 테스트를 완료했다. Supabase
+대시보드 readback, 실제 Google/Kakao 브라우저 왕복과 Postgres 저장소 E2E는 계속 **OPEN**이며, 이
+로컬 구현 초안을 라이브 통합 완료로 간주하지 않는다.
+
 ## 통합 전 미확정 — 교차 탭 인증 성공 경합
 
 같은 탭의 로그인·OAuth 시작·Refresh·로그아웃은 브라우저의 공용 인증 mutation queue와 Refresh
@@ -700,7 +770,7 @@ ADR에서 승인하고 이 계약에 반영하기 전에는 live Supabase/Google
 
 ## 외부 계정·키 준비 상태 (구현 전 게이트)
 
-2026-08-25 현재 저장소 문서만으로는 다음 항목이 **확인되지 않았다**. 실제 비밀값을 이 문서나
+2026-08-26 현재 저장소 문서만으로는 다음 항목이 **확인되지 않았다**. 실제 비밀값을 이 문서나
 커밋에 기록하지 않고, 담당자가 대시보드에서 존재·활성 여부만 확인해야 한다.
 
 | 대상 | 확인할 항목 | 현재 판정 |

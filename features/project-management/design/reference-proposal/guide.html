@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>이용 방법 · 안전한 거래 — 제안</title>
+<link rel="stylesheet" href="_tokens.css" />
+<style>
+  /* ═══════════════════════════════════════════════════════
+     이용 방법 · 안전한 거래
+
+     ⚠ PRD 화면 목록(§7.1)에 없는 정적 안내 페이지다. 헤더의 두 메뉴가
+     가리킬 곳이 필요해 형식만 채웠다.
+
+     **내용은 지어내지 않았다.** 여기 적힌 흐름·상태·규칙은 전부
+     PRD §5(도메인 통합 계약)와 각 spec.md 에 있는 것이다 —
+     문서를 읽은 사람이 화면에서 같은 말을 보게 하는 것이 이 페이지의 일이다.
+
+     한 파일에 두 절을 담는다. 나눌 만큼 길지 않고, 둘이 이어서 읽혀야 한다.
+     ═══════════════════════════════════════════════════════ */
+
+  .band { background:var(--campaign-yellow-soft);
+    border-bottom:1px solid var(--campaign-yellow-edge); }
+  .band__in { max-width:var(--page-max); margin:0 auto;
+    padding:var(--gap-6) var(--gutter) var(--gap-5); }
+  .band h1 { margin:0; font-size:32px; letter-spacing:-.04em; font-weight:800; }
+  .band p { margin:var(--gap-3) 0 0; font-size:15px; max-width:56ch;
+    color:var(--content-secondary); }
+
+  /* 목차. 두 절뿐이라 짧게 */
+  .toc { display:flex; gap:var(--gap-2); margin-top:var(--gap-4); }
+  .toc a { padding:7px var(--gap-4); border-radius:var(--r-pill);
+    border:1px solid var(--campaign-yellow-edge); background:var(--surface);
+    font-size:13px; font-weight:700; color:var(--content-secondary); }
+  .toc a:hover { border-color:var(--action); color:var(--action-quiet); }
+
+  .sec { padding:var(--gap-7) 0; }
+  .sec + .sec { padding-top:0; }
+  .sec > h2 { margin:0 0 var(--gap-2); font-size:24px; letter-spacing:-.03em; }
+  .sec > .lede { margin:0 0 var(--gap-5); font-size:14.5px; max-width:60ch;
+    color:var(--content-secondary); line-height:1.8; }
+
+  /* ── 단계 ────────────────────────────────────────────────
+     번호가 실제 순서다. 등록해야 지원이 오고, 수락해야 계약이 열린다 */
+  .flow { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--gap-4); }
+  .step { position:relative; padding:var(--gap-5) var(--gap-4);
+    box-shadow:var(--shadow-card), var(--edge-top); }
+  .step__n { display:grid; place-items:center; width:30px; height:30px;
+    border-radius:var(--r-pill); background:var(--campaign-yellow);
+    color:var(--campaign-plum); font-size:14px; font-weight:800;
+    margin-bottom:var(--gap-3); }
+  .step h3 { margin:0 0 var(--gap-2); font-size:16px; letter-spacing:-.02em; }
+  .step p { margin:0; font-size:13.5px; line-height:1.75; color:var(--content-secondary); }
+  .step__who { display:inline-block; margin-top:var(--gap-3);
+    padding:3px 9px; border-radius:var(--r-pill);
+    background:var(--surface-selected); color:var(--action-quiet);
+    font-size:11.5px; font-weight:700; }
+
+  /* ── 안전 장치 ─────────────────────────────────────────── */
+  .safe { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--gap-4); }
+  .safe article { display:flex; gap:var(--gap-4); padding:var(--gap-5);
+    box-shadow:var(--shadow-card), var(--edge-top); }
+  .safe__ico { position:relative; flex:none; width:44px; height:44px;
+    display:grid; place-items:center; }
+  .safe__ico::before { content:""; position:absolute; inset:5px -5px -5px 5px;
+    border-radius:var(--r-md); background:var(--campaign-yellow-edge); }
+  .safe__ico::after { content:""; position:absolute; inset:0; z-index:0;
+    border-radius:var(--r-md); background:var(--surface);
+    border:1px solid var(--navy-200); box-shadow:var(--edge-top); }
+  .safe__ico svg { position:relative; z-index:1; }
+  .safe h3 { margin:0 0 6px; font-size:15.5px; letter-spacing:-.02em; }
+  .safe p { margin:0; font-size:13.5px; line-height:1.75; color:var(--content-secondary); }
+  .safe__src { display:block; margin-top:var(--gap-2); font-size:12px;
+    color:var(--content-tertiary); }
+
+  .ln { fill:none; stroke:var(--navy-700); stroke-width:1.5;
+    stroke-linecap:round; stroke-linejoin:round; }
+  .fill { fill:var(--navy-200); }
+  .plate { fill:var(--navy-100); }
+
+  /* ── 자주 묻는 것 ──────────────────────────────────────── */
+  .qa { border-top:1px solid var(--border-subtle); }
+  .qa details { border-bottom:1px solid var(--border-subtle); }
+  .qa summary { padding:var(--gap-4) var(--gap-2); font-size:15px; font-weight:600;
+    cursor:pointer; list-style:none; display:flex; align-items:center; gap:var(--gap-3); }
+  .qa summary::-webkit-details-marker { display:none; }
+  .qa summary::before { content:"+"; flex:none; width:20px; height:20px;
+    display:grid; place-items:center; border-radius:var(--r-sm);
+    background:var(--surface-selected); color:var(--action-quiet);
+    font-weight:800; font-size:14px; }
+  .qa details[open] summary::before { content:"−"; }
+  .qa p { margin:0; padding:0 var(--gap-2) var(--gap-4) 44px;
+    font-size:14px; line-height:1.8; color:var(--content-secondary); max-width:66ch; }
+
+  .cta-row { display:flex; gap:var(--gap-3); margin-top:var(--gap-6); }
+
+  .note { max-width:var(--page-max); margin:0 auto var(--gap-3);
+    padding:var(--gap-2) var(--gap-3); border-radius:var(--r-md);
+    background:var(--info-surface); color:var(--info); font-size:13px; line-height:1.6; }
+
+  @media (max-width:1023px) {
+    .flow { grid-template-columns:repeat(2,1fr); }
+    .safe { grid-template-columns:1fr; }
+  }
+  @media (max-width:767px) {
+    .band h1 { font-size:25px; }
+    .flow { grid-template-columns:1fr; }
+    .cta-row { flex-wrap:wrap; }
+    .cta-row .btn { flex:1 1 100%; }
+    .qa p { padding-left:var(--gap-2); }
+  }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+
+<div class="page" style="padding-top:var(--gap-3)">
+  <p class="note"><b>제안 — 확정 아님.</b> PRD 화면 목록(§7.1)에 없는 정적 안내 페이지다.
+  <b>내용은 지어내지 않았다</b> — 흐름·상태·규칙은 PRD §5 와 각 <code>spec.md</code> 에 있는 것이다.</p>
+</div>
+
+<header class="appbar">
+  <div class="appbar__in">
+    <a class="logo" href="main.html">Pact<em>Five</em></a>
+    <nav><a href="browse.html">프로젝트 찾기</a><a href="experts.html">전문가 찾기</a></nav>
+    <span class="spacer"></span>
+    <span data-session-actions></span>
+  </div>
+</header>
+
+<section class="band">
+  <div class="band__in">
+    <h1>등록부터 정산까지 한곳에서</h1>
+    <p>프로젝트를 올리고, 지원을 받고, 합의한 금액으로 계약하고, 납품을 확인한 뒤 정산합니다.
+      각 단계에서 무슨 일이 일어나는지 양쪽이 같은 화면에서 봅니다.</p>
+    <p class="toc">
+      <a href="#how">이용 방법</a>
+      <a href="#safety">안전한 거래</a>
+    </p>
+  </div>
+</section>
+
+<main class="page">
+
+  <!-- ═══════ 이용 방법 ═══════ -->
+  <section class="sec" id="how">
+    <h2>이용 방법</h2>
+    <p class="lede">네 단계입니다. 앞 단계를 마쳐야 다음이 열립니다 —
+      등록해야 지원이 오고, 수락해야 계약이 열립니다.</p>
+
+    <div class="flow">
+      <article class="card step">
+        <span class="step__n num">1</span>
+        <h3>프로젝트 등록</h3>
+        <p>제목·설명·카테고리를 적고 일정과 예산을 정합니다. 설명을 20자 이상 적으면
+          AI 단가 분석이 비슷한 프로젝트를 근거로 예산 범위를 알려줍니다.</p>
+        <span class="step__who">의뢰인</span>
+      </article>
+
+      <article class="card step">
+        <span class="step__n num">2</span>
+        <h3>지원과 수락</h3>
+        <p>경력·제안 금액·예상 기간이 같은 자리에 같은 순서로 표시됩니다.
+          한 명을 수락하면 나머지 지원은 자동으로 정리되고 지원자에게도 결과가 갑니다.</p>
+        <span class="step__who">프리랜서 → 의뢰인</span>
+      </article>
+
+      <article class="card step">
+        <span class="step__n num">3</span>
+        <h3>합의와 계약</h3>
+        <p>금액과 일정을 맞춘 뒤 그대로 계약서가 됩니다. 따로 문서를 만들 필요가 없고,
+          제안·수정·수락 기록이 모두 남습니다.</p>
+        <span class="step__who">양쪽</span>
+      </article>
+
+      <article class="card step">
+        <span class="step__n num">4</span>
+        <h3>납품과 정산</h3>
+        <p>결제한 금액은 바로 넘어가지 않습니다. 납품을 확인하고 승인한 뒤에 정산됩니다.
+          완료되면 서로 평가를 남깁니다.</p>
+        <span class="step__who">양쪽</span>
+      </article>
+    </div>
+
+    <div class="cta-row">
+      <a class="btn primary" href="register.html">프로젝트 등록하기</a>
+      <a class="btn secondary" href="browse.html">프로젝트 찾아보기</a>
+    </div>
+  </section>
+
+  <!-- ═══════ 안전한 거래 ═══════ -->
+  <section class="sec" id="safety">
+    <h2>안전한 거래</h2>
+    <p class="lede">돈과 약속이 오가는 곳이라 되돌릴 수 없는 일이 생기지 않도록
+      네 가지를 정해 두었습니다.</p>
+
+    <div class="safe">
+      <article class="card">
+        <span class="safe__ico">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+            <path class="plate" d="M12 2.2 20 5.4v6.1c0 4.6-3.3 8.2-8 9.7-4.7-1.5-8-5.1-8-9.7V5.4z"/>
+            <path class="fill" d="M12 2.2 20 5.4v6.1c0 .5 0 1-.1 1.4H12z"/>
+            <path class="ln" d="M12 2.2 20 5.4v6.1c0 4.6-3.3 8.2-8 9.7-4.7-1.5-8-5.1-8-9.7V5.4z"/>
+            <path class="ln" d="M8.6 11.6 11 14 15.6 9.4"/>
+          </svg>
+        </span>
+        <span>
+          <h3>결제한 금액은 보관됩니다</h3>
+          <p>결제해도 바로 넘어가지 않습니다. 납품을 확인하고 승인한 뒤에 정산됩니다.
+            승인 전에는 어느 쪽도 임의로 가져갈 수 없습니다.</p>
+          <span class="safe__src">에스크로 결제 · PRD §5.2</span>
+        </span>
+      </article>
+
+      <article class="card">
+        <span class="safe__ico">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+            <path class="plate" d="M5 2.6h8.6L19.4 8v13.4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.6a1 1 0 0 1 1-1z"/>
+            <path class="fill" d="M13.6 2.6 19.4 8h-5.8z"/>
+            <path class="ln" d="M5 2.6h8.6L19.4 8v13.4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.6a1 1 0 0 1 1-1z"/>
+            <path class="ln" d="M13.6 2.6 19.4 8h-5.8z"/>
+            <path class="ln" d="M7.6 17.4c1.9-2.4 2.9-4.3 2.9-5.7 0-1.2-1.4-1.1-1.4.2 0 2.3 3.3 6.1 4.8 6.1.9 0 1.4-.5 1.4-1"/>
+          </svg>
+        </span>
+        <span>
+          <h3>합의한 금액이 그대로 계약서가 됩니다</h3>
+          <p>따로 옮겨 적지 않으므로 금액이 어긋날 일이 없습니다.
+            제안·수정·수락이 모두 기록으로 남아 나중에 확인할 수 있습니다.</p>
+          <span class="safe__src">전자 계약 · PRD §5.2</span>
+        </span>
+      </article>
+
+      <article class="card">
+        <span class="safe__ico">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+            <rect class="plate" x="3.5" y="10" width="17" height="11" rx="2.4"/>
+            <rect class="fill" x="3.5" y="10" width="17" height="4" rx="2.4"/>
+            <rect class="ln" x="3.5" y="10" width="17" height="11" rx="2.4"/>
+            <path class="ln" d="M7.6 10V7.2a4.4 4.4 0 0 1 8.8 0V10"/>
+            <path class="ln" d="M12 14.6v2.8"/>
+          </svg>
+        </span>
+        <span>
+          <h3>되돌릴 수 없는 일은 먼저 확인합니다</h3>
+          <p>삭제·취소처럼 되돌릴 수 없는 행동은 무슨 일이 일어나는지 먼저 보여주고
+            누르게 합니다. 대기 중인 지원이 몇 건 거절되는지까지 말합니다.</p>
+          <span class="safe__src">ux-philosophy §6 비파괴성</span>
+        </span>
+      </article>
+
+      <article class="card">
+        <span class="safe__ico">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="plate" cx="12" cy="12" r="9.2"/>
+            <path class="fill" d="M12 2.8a9.2 9.2 0 0 1 9.2 9.2H12z"/>
+            <circle class="ln" cx="12" cy="12" r="9.2"/>
+            <path class="ln" d="M12 6.8V12l3.4 2"/>
+          </svg>
+        </span>
+        <span>
+          <h3>지원자가 생기면 조건이 잠깁니다</h3>
+          <p>지원한 뒤에 예산이나 마감일이 바뀌면 지원자가 다른 조건으로 지원한 셈이 됩니다.
+            그래서 대기 중인 지원이 있으면 그 둘은 바꿀 수 없습니다.</p>
+          <span class="safe__src">project-management 규칙 15</span>
+        </span>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═══════ 자주 묻는 것 ═══════ -->
+  <section class="sec">
+    <h2>자주 묻는 것</h2>
+    <div class="qa">
+      <details>
+        <summary>등록한 프로젝트를 지울 수 있나요?</summary>
+        <p>지원자가 없으면 지울 수 있습니다. 대기 중인 지원이 한 건이라도 있으면
+          지울 수 없습니다 — 지원자 쪽 기록이 함께 사라지기 때문입니다.
+          그때는 모집을 마감하거나 프로젝트를 취소합니다.</p>
+      </details>
+      <details>
+        <summary>예산을 나중에 바꿀 수 있나요?</summary>
+        <p>지원자가 생기기 전까지는 바꿀 수 있습니다. 지원이 들어온 뒤에는
+          예산과 모집 일정이 잠깁니다. 제목·설명·필요 기술은 계속 고칠 수 있습니다.</p>
+      </details>
+      <details>
+        <summary>협상하는 사이에 마감일이 지나면요?</summary>
+        <p>다시 모집할 수 있습니다. 마감일을 새로 정하면 모집이 열립니다 —
+          그동안 오간 합의 내용은 그대로 남습니다.</p>
+      </details>
+      <details>
+        <summary>마감된 프로젝트는 목록에서 사라지나요?</summary>
+        <p>기본 목록에서는 빠집니다. 지원할 수 없는 것이 섞여 있으면 찾는 데 방해가 되기
+          때문입니다. 필터에서 <b>마감 포함</b>을 고르면 볼 수 있고,
+          저장해 둔 것은 마감돼도 마이페이지에 남습니다.</p>
+      </details>
+      <details>
+        <summary>수수료는 얼마인가요?</summary>
+        <p>아직 정해지지 않았습니다. 정해지면 결제 화면에서 수수료와 정산액을
+          나누어 보여줍니다.</p>
+      </details>
+    </div>
+
+    <div class="cta-row">
+      <a class="btn primary" href="register.html">프로젝트 등록하기</a>
+      <a class="btn secondary" href="browse.html">프로젝트 찾아보기</a>
+    </div>
+  </section>
+</main>
+
+<script src="demo/data.js"></script>
+<script src="demo/engine.js"></script>
+<script src="demo/experts.js"></script>
+<script src="demo/bookmarks.js"></script>
+<script src="demo/session.js"></script>
+<script src="demo/notyet.js"></script>
+<script>
+window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit.guide = function () {
+  window.PactFiveSession.paintHeader();
+};
+
+if (document.getElementById("how")) {
+  window.PactFiveSession.bind();
+  window.PactFiveNotYet.bind();
+  document.addEventListener("pactfive:session", function () {
+    window.PactFiveSession.paintHeader();
+  });
+  window.PactFiveInit.guide();
+}
+</script>
+
+</body>
+</html>

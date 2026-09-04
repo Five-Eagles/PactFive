@@ -1,0 +1,6 @@
+/* preview:dev 하네스가 시안 body 패딩에 밀리지 않게 한다.
+ * 오버레이·reduced-motion은 ../../design/panel.css. 앱 셸은 넣지 않는다. */
+body {
+  padding: 0;
+  margin: 0;
+}
