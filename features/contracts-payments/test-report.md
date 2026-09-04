@@ -1,17 +1,19 @@
 # contracts-payments 테스트 결과
 
 담당자: 조준영            테스트 날짜: 2026-09-03
-테스트한 커밋: 커밋 전 (`run.tsx` 하이브리드 AGR-01·DLV-01 검증 포함)
+테스트한 커밋: 커밋 전 (`run.tsx` 하이브리드 AGR-01·CTR-01·DLV-01 검증 포함)
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 163, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 174, FAIL 개수: 0)
 
 키 없는 환경. 규칙 9 sandbox는 「해당 없음」 1건 PASS.
 
 `npm run preview:dev`(localhost:5175)에서 합의 생성 → 대기 → 프리랜서 응답 → 수락 모달 → 거절 모달(사유 3종) → 취소 화면을 클릭으로 확인. 1280px는 `.agreement-grid` 2열. 360px는 1열 스택, 생성·응답 CTA는 sticky.
 
 납품은 스위치 납품 전 → M01 → 검토 대기 → M03 → M02 → 정산 대기 → 완료. 1280px는 `.delivery-grid` 2열. 360px는 1열 스택, 납품 전·의뢰인 검토 CTA는 sticky. `APPROVED`+`PAID`는 「정산 처리 중」이지 완료가 아니다.
+
+서명은 스위치 미서명 → M01 → 상대 대기 → 결제 필요 → M02 → 작업 중. 1280px는 `.contract-grid` 2열. `SIGNED`만으로는 작업 시작을 표시하지 않는다.
 
 ## spec.md 규칙별 확인
 
@@ -33,14 +35,14 @@
 | 14 샌드박스 결제 범위 | 규칙 9 Mock. 웹훅 E2E·결제 취소·PG 환불 없음 | 안 함 (해당 없음) |
 | 15 취소 무효화 | `run.tsx` 「무효화 NOT_NEEDED」·「DONE」·멱등 | 통과 |
 | 16 공개 API 경로 | `run.tsx` 「현재 조회」. GET payment 당사자 200 · 비당사자 403 · 없음 404. POST payments 준비·confirm. GET delivery 납품 없음 200 · 비당사자 403 · 없음 404 | 통과 |
-| 17 라우트·UX | `run.tsx` 필수 카피(제안하기·수락하기·거절하기·계약서 확인·합의를 수락할까요?·거절 확인). 취소 우선·종료 상태 버튼 없음·의뢰인 대기 시 수정 없음. 403/404 금액 숨김. 서명·결제 기존 필수 요소 | 통과 |
+| 17 라우트·UX | `run.tsx` 필수 카피(제안하기·수락하기·거절하기·계약서 확인·서명하기·M01·M02·결제하기). 취소·SIGNED 후 서명하기 없음. `SIGNED`만으로 작업 시작 아님. 403 금액 숨김 | 통과 |
 | 18 Increment 1 테스트 목록 | 규칙 22로 이동 | 안 함 (해당 없음) |
 | 19 계약·결제 전이표 | `run.tsx` PG 실패 키면 FAILED · 재시도 후 승인 성공 PAID. 계약 전이는 규칙 12·15 | 통과 (결제 행 Mock) |
 | 20 수락 시 계약 필드 | `run.tsx` 「수락 시 계약 필드」 (`getContract`) | 통과 |
 | 21 FAILED 재시도·웹훅 | `run.tsx` 같은 paymentId·새 orderId READY · 옛 orderId confirm 409 · 「retrievePayment FAILED」. 웹훅 없음 | 통과 (Mock). 웹훅은 해당 없음 |
 | 22 Increment 1 백로그 | `run.tsx` 빈 생성 · 수락/거절 멱등 · 거절→restore · 비당사자 403 · 로딩 · LOAD_FAILED · 409 재조회 · 취소 후 변경 숨김 | 통과 |
 | 23 납품 Increment | `run.tsx` 취소 우선 · APPROVED+PAID≠완료 · 종료 상태 납품/승인 버튼 없음 · 403 파일명 없음 · GET null 200 · 승인 PAID는 complete 미호출 | 통과 |
-| UI(design/web) | 하이브리드 AGR-01·DLV-01 페이지 + 서명·결제 패널. preview:dev 1280 2열 / 360 스택 | 통과 |
+| UI(design/web) | 하이브리드 AGR-01·CTR-01·DLV-01 페이지 + 결제 패널. preview:dev 1280 2열 / 모바일 스택 | 통과 |
 
 규칙 4의 I-30은 호출자 검증이다. `completeProjectTransactionIfSettled`가 APPROVED∧RELEASED 전에는 포트를 부르지 않는다. 납품 승인 Mock이 `PAID`만이면 complete를 호출하지 않는다.
 

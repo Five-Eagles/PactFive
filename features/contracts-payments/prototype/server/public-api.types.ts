@@ -76,6 +76,7 @@ export type SignContractResponse = {
 
 export type GetContractResponse = {
   contractId: string;
+  projectId: string;
   status: ContractStatus;
   termsSnapshot: {
     schemaVersion: 1;
@@ -83,9 +84,14 @@ export type GetContractResponse = {
     currency: "KRW";
     projectTitle: string;
   };
+  workStartDate: string;
+  workEndDate: string;
   clientSignedAt: string | null;
   freelancerSignedAt: string | null;
   signedAt: string | null;
+  transactionStatus: ProjectTransactionStatus;
+  canceledAt: string | null;
+  paymentStatus: "READY" | "PENDING" | "PAID" | "FAILED" | null;
 };
 
 export type GetPaymentResponse = {

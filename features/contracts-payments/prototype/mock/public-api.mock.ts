@@ -255,6 +255,18 @@ export function createPublicApiMock(
     };
   }
 
+  function paymentStatusFor(projectId: string): GetContractResponse["paymentStatus"] {
+    for (const [paymentId, mappedProjectId] of paymentProjectIds) {
+      if (mappedProjectId !== projectId) continue;
+      try {
+        return payments.getPayment(paymentId).status;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+
   async function requireDeliveryContract(contractId: string, actorUserId: string) {
     const seed = deliveryContracts.get(contractId);
     if (!seed) {
@@ -490,14 +502,20 @@ export function createPublicApiMock(
       if (!row) {
         throw new DomainContractError("PROJECT_NOT_FOUND", "계약을 찾을 수 없습니다.");
       }
-      await requireParty(row.projectId, actorUserId);
+      const ctx = await requireParty(row.projectId, actorUserId);
       return {
         contractId: row.contractId,
+        projectId: row.projectId,
         status: row.status,
         termsSnapshot: row.termsSnapshot,
+        workStartDate: row.workStartDate,
+        workEndDate: row.workEndDate,
         clientSignedAt: row.clientSignedAt,
         freelancerSignedAt: row.freelancerSignedAt,
         signedAt: row.signedAt,
+        transactionStatus: ctx.transactionStatus,
+        canceledAt: ctx.canceledAt,
+        paymentStatus: paymentStatusFor(row.projectId),
       };
     },
 

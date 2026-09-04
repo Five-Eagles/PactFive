@@ -56,6 +56,7 @@ import {
   type AgreementViewerSession,
 } from "./web/agreement.view-model";
 import { deriveDeliveryUiState, toDeliveryViewModel } from "./web/delivery.view-model";
+import { deriveContractUiState, toContractViewModel } from "./web/contract.view-model";
 
 function findRepoRoot(startDir: string): string {
   let dir = startDir;
@@ -993,6 +994,32 @@ async function main() {
     } else {
       fail("규칙 17: 서명 취소 후 서명하기 숨김", signCanceled);
     }
+    hasText(
+      "규칙 17: 서명 M01 제목",
+      htmlOf(React.createElement(ContractSignPanel, { uiState: "READY_TO_SIGN" })),
+      "계약 내용에 동의하고 서명할까요?",
+    );
+    const signPay = htmlOf(React.createElement(ContractSignPanel, { uiState: "SIGNED_PAYMENT_REQUIRED" }));
+    hasText("규칙 17: 서명 결제하기", signPay, "결제하기");
+    if (!signPay.includes('class="btn primary">서명하기')) {
+      pass("규칙 17: 체결 후 서명하기 숨김");
+    } else {
+      fail("규칙 17: 체결 후 서명하기 숨김", signPay);
+    }
+    hasText(
+      "규칙 17: 서명 M02 제목",
+      htmlOf(React.createElement(ContractSignPanel, { uiState: "SIGNED_PAYMENT_REQUIRED", initialModal: "signed" })),
+      "양측 서명이 완료되었습니다",
+    );
+    const signProgress = htmlOf(React.createElement(ContractSignPanel, { uiState: "IN_PROGRESS" }));
+    if (!signProgress.includes("서명하기")) pass("규칙 17: 작업 중 서명하기 숨김");
+    else fail("규칙 17: 작업 중 서명하기 숨김", signProgress);
+    const signForbidden = htmlOf(React.createElement(ContractSignPanel, { uiState: "FORBIDDEN" }));
+    if (!signForbidden.includes("money") && !signForbidden.includes("서명하기")) {
+      pass("규칙 17: 서명 403 민감 정보 없음");
+    } else {
+      fail("규칙 17: 서명 403 민감 정보 없음", signForbidden);
+    }
 
     const checkout = htmlOf(React.createElement(PaymentPanel));
     hasText("규칙 17: 결제 금액", checkout, "결제 금액");
@@ -1820,6 +1847,77 @@ async function main() {
       pass("규칙 23: 404 민감 정보 없음");
     } else {
       fail("규칙 23: 404 민감 정보 없음", notFound);
+    }
+  }
+
+  {
+    const payWait = deriveContractUiState({
+      contractStatus: "SIGNED",
+      paymentStatus: "READY",
+      transactionStatus: "CONTRACT_PENDING",
+      viewerHasSigned: true,
+      viewerRole: "CLIENT",
+    });
+    if (payWait === "SIGNED_PAYMENT_REQUIRED") pass("규칙 17: SIGNED+미결제는 결제 필요");
+    else fail("규칙 17: SIGNED+미결제는 결제 필요", payWait);
+
+    const work = deriveContractUiState({
+      contractStatus: "SIGNED",
+      paymentStatus: "PAID",
+      transactionStatus: "IN_PROGRESS",
+      viewerHasSigned: true,
+      viewerRole: "CLIENT",
+    });
+    if (work === "IN_PROGRESS") pass("규칙 17: SIGNED+PAID+IN_PROGRESS는 작업 시작");
+    else fail("규칙 17: SIGNED+PAID+IN_PROGRESS는 작업 시작", work);
+
+    const notWork = deriveContractUiState({
+      contractStatus: "SIGNED",
+      paymentStatus: "READY",
+      transactionStatus: "IN_PROGRESS",
+      viewerHasSigned: true,
+      viewerRole: "FREELANCER",
+    });
+    if (notWork === "SIGNED_PAYMENT_WAIT") pass("규칙 17: SIGNED만으로 작업 시작 아님");
+    else fail("규칙 17: SIGNED만으로 작업 시작 아님", notWork);
+
+    const readySign = deriveContractUiState({
+      contractStatus: "DRAFT",
+      paymentStatus: null,
+      transactionStatus: "CONTRACT_PENDING",
+      viewerHasSigned: false,
+      viewerRole: "CLIENT",
+    });
+    if (readySign === "READY_TO_SIGN") pass("규칙 17: DRAFT 미서명은 서명 가능");
+    else fail("규칙 17: DRAFT 미서명은 서명 가능", readySign);
+
+    const forbiddenVm = toContractViewModel(
+      {
+        contractId: "ctr_secret",
+        projectId: "prj_secret",
+        status: "DRAFT",
+        termsSnapshot: {
+          schemaVersion: 1,
+          amount: 1_000_000,
+          currency: "KRW",
+          projectTitle: MOCK_PROJECT_TITLE,
+        },
+        workStartDate: "2026-09-03",
+        workEndDate: "2026-09-30",
+        clientSignedAt: null,
+        freelancerSignedAt: null,
+        signedAt: null,
+        transactionStatus: "CONTRACT_PENDING",
+        canceledAt: null,
+        paymentStatus: null,
+      },
+      CLIENT_SESSION,
+      "FORBIDDEN",
+    );
+    if (forbiddenVm.uiState === "FORBIDDEN" && forbiddenVm.contract.amount === 0) {
+      pass("규칙 17: 서명 403 ViewModel 민감 정보 없음");
+    } else {
+      fail("규칙 17: 서명 403 ViewModel 민감 정보 없음", forbiddenVm);
     }
   }
 

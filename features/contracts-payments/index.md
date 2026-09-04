@@ -27,6 +27,7 @@
   GET `/api/v1/payments/:paymentId` (`getPayment`)와 POST 준비·승인 (`preparePayment`·`confirmPayment`) 포함.
   `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~23 Mock을 확인한다.
   합의 화면은 하이브리드 AGR-01(페이지 본문, ViewModel). `/agreements` 5종 폐기 유지.
+  서명 화면은 하이브리드 CTR-01(페이지 본문, ViewModel). 설계서 신설 `CONTRACT_*` 코드는 쓰지 않는다.
   납품 화면은 하이브리드 DLV-01(페이지 본문, ViewModel). 네이밍 2경로
   (`POST /contracts/:id/deliveries` + `POST /deliveries/:id/approve`)는 쓰지 않는다.
   I-30은 화면에서 `APPROVED`+`PAID`(정산 대기)와 `APPROVED`+`RELEASED`(완료)를 나눈다.

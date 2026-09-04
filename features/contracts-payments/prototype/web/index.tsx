@@ -5,6 +5,7 @@ import "./preview.css";
 import { AgreementPanel, type AgreementView } from "./AgreementPanel";
 import type { AgreementUiState } from "./agreement.view-model";
 import { ContractSignPanel } from "./ContractSignPanel";
+import type { ContractUiState } from "./contract.view-model";
 import { DeliveryPanel } from "./DeliveryPanel";
 import type { DeliveryUiState } from "./delivery.view-model";
 import { PaymentPanel } from "./PaymentPanel";
@@ -13,7 +14,14 @@ export { AgreementPanel, ContractSignPanel, DeliveryPanel, PaymentPanel };
 
 type PreviewScreen =
   | { id: "payment"; label: string; slug: string }
-  | { id: "sign"; label: string; slug: string }
+  | {
+      id: "sign";
+      label: string;
+      slug: string;
+      uiState?: ContractUiState;
+      loading?: boolean;
+      modal?: "sign" | "signed";
+    }
   | { id: "agreement"; label: string; slug: string; uiState?: AgreementUiState; view?: AgreementView; amountError?: boolean }
   | {
       id: "delivery";
@@ -26,7 +34,19 @@ type PreviewScreen =
 
 const PREVIEW_SCREENS: PreviewScreen[] = [
   { id: "payment", label: "결제", slug: "pay" },
-  { id: "sign", label: "서명", slug: "sign" },
+  { id: "sign", label: "서명 · 미서명", slug: "ctr-ready", uiState: "READY_TO_SIGN" },
+  { id: "sign", label: "서명 · M01", slug: "ctr-m01", uiState: "READY_TO_SIGN", modal: "sign" },
+  { id: "sign", label: "서명 · 상대 대기", slug: "ctr-wait", uiState: "WAITING_COUNTERPART" },
+  { id: "sign", label: "서명 · 결제 필요", slug: "ctr-pay", uiState: "SIGNED_PAYMENT_REQUIRED" },
+  { id: "sign", label: "서명 · 결제 대기", slug: "ctr-paywait", uiState: "SIGNED_PAYMENT_WAIT" },
+  { id: "sign", label: "서명 · M02", slug: "ctr-m02", uiState: "SIGNED_PAYMENT_REQUIRED", modal: "signed" },
+  { id: "sign", label: "서명 · 작업 중", slug: "ctr-progress", uiState: "IN_PROGRESS" },
+  { id: "sign", label: "서명 · 불러오는 중", slug: "ctr-loading", loading: true },
+  { id: "sign", label: "서명 · 실패", slug: "ctr-fail", uiState: "LOAD_FAILED" },
+  { id: "sign", label: "서명 · 409", slug: "ctr-stale", uiState: "STALE" },
+  { id: "sign", label: "서명 · 취소", slug: "ctr-canceled", uiState: "PROJECT_CANCELED" },
+  { id: "sign", label: "서명 · 403", slug: "ctr-403", uiState: "FORBIDDEN" },
+  { id: "sign", label: "서명 · 404", slug: "ctr-404", uiState: "NOT_FOUND" },
   { id: "agreement", label: "합의 · 제안 전", slug: "agr-create", uiState: "NOT_PROPOSED" },
   { id: "agreement", label: "합의 · 입력 오류", slug: "agr-error", uiState: "NOT_PROPOSED", amountError: true },
   { id: "agreement", label: "합의 · 응답 대기", slug: "agr-wait", uiState: "WAITING_RESPONSE" },
@@ -85,7 +105,14 @@ export default function PaymentsPreview() {
         ))}
       </div>
       {screen.id === "payment" ? <PaymentPanel /> : null}
-      {screen.id === "sign" ? <ContractSignPanel /> : null}
+      {screen.id === "sign" ? (
+        <ContractSignPanel
+          key={screen.label}
+          uiState={screen.uiState}
+          loading={screen.loading}
+          initialModal={screen.modal}
+        />
+      ) : null}
       {screen.id === "agreement" ? (
         <AgreementPanel
           key={screen.label}

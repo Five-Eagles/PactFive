@@ -80,10 +80,10 @@ export function DeliveryPanel({
   return (
     <>
       <article className={showFixedCta ? "delivery-page has-fixed-cta" : "delivery-page"}>
-        <header className="delivery-page-head">
-          <h2 className="page-title">납품 관리</h2>
-          <DeliveryBadge uiState={resolved.uiState} />
-        </header>
+        <DeliveryPageHead
+          uiState={resolved.uiState}
+          showLinks={Boolean(resolved.project.id)}
+        />
         <div className="delivery-grid">
           <div className="delivery-main">
             <DeliveryMain vm={resolved} onDownload={() => setDownloadOpen(true)} />
@@ -218,6 +218,32 @@ function fixtureDto(
   return { ...base, delivery: null };
 }
 
+/** 제목과 계약·프로젝트 텍스트 링크. 앱 셸은 넣지 않는다. */
+function DeliveryPageHead({
+  uiState,
+  showLinks,
+  showBadge = true,
+}: {
+  uiState: DeliveryUiState;
+  showLinks: boolean;
+  showBadge?: boolean;
+}) {
+  return (
+    <header className="delivery-page-head">
+      <div className="delivery-page-head-copy">
+        <h2 className="page-title">납품 관리</h2>
+        {showLinks ? (
+          <p className="delivery-page-links">
+            <a href="#project">프로젝트</a>
+            <a href="#contract">계약</a>
+          </p>
+        ) : null}
+      </div>
+      {showBadge ? <DeliveryBadge uiState={uiState} /> : null}
+    </header>
+  );
+}
+
 function DeliveryBadge({ uiState }: { uiState: DeliveryUiState }) {
   const badge = badgeFor(uiState);
   return badge ? <Badge tone={badge.tone} label={badge.label} /> : null;
@@ -245,9 +271,7 @@ function badgeFor(uiState: DeliveryUiState): { tone: FeedbackTone; label: string
 function DeliveryLoadingPage() {
   return (
     <article className="delivery-page" aria-busy="true">
-      <header className="delivery-page-head">
-        <h2 className="page-title">납품 관리</h2>
-      </header>
+      <DeliveryPageHead uiState="WORK_IN_PROGRESS" showLinks={false} showBadge={false} />
       <div className="delivery-grid">
         <div className="delivery-main">
           <section className="panel">
@@ -301,21 +325,31 @@ function DeliveryMain({
           <Button variant="primary">프로젝트 확인</Button>
         </div>
       ) : null}
-      {uiState === "SETTLEMENT_PENDING" ? (
-        <div className="btn-row after-offer">
-          <Button variant="secondary">결제·정산 확인</Button>
-        </div>
-      ) : null}
-      {uiState === "COMPLETED" ? (
-        <div className="btn-row after-offer">
-          <Button variant="primary">리뷰 작성</Button>
-        </div>
-      ) : null}
       {uiState === "WAITING_REVIEW" && permissions.canDownload ? (
         <div className="btn-row">
           <Button variant="secondary" onClick={onDownload}>
             다운로드
           </Button>
+        </div>
+      ) : null}
+      {uiState === "SETTLEMENT_PENDING" ? (
+        <div className="btn-row after-offer">
+          {permissions.canDownload ? (
+            <Button variant="secondary" onClick={onDownload}>
+              다운로드
+            </Button>
+          ) : null}
+          <Button variant="secondary">결제·정산 확인</Button>
+        </div>
+      ) : null}
+      {uiState === "COMPLETED" ? (
+        <div className="btn-row after-offer">
+          {permissions.canDownload ? (
+            <Button variant="secondary" onClick={onDownload}>
+              다운로드
+            </Button>
+          ) : null}
+          <Button variant="primary">리뷰 작성</Button>
         </div>
       ) : null}
     </section>
@@ -423,7 +457,7 @@ function DeliverySide({ vm }: { vm: DeliveryDetailViewModel }) {
             <h3 className="agreement-card-title">거래 진행</h3>
             <ProgressList vm={vm} />
           </section>
-          <section className="panel">
+          <section className="panel" id="project">
             <h3 className="agreement-card-title">프로젝트</h3>
             <dl className="facts">
               <dt>프로젝트 제목</dt>
@@ -431,6 +465,11 @@ function DeliverySide({ vm }: { vm: DeliveryDetailViewModel }) {
               <dt>거래</dt>
               <dd>{TRANSACTION_LABEL[vm.project.transactionStatus] ?? vm.project.transactionStatus}</dd>
             </dl>
+            <p className="caption">
+              <a id="contract" href="#contract">
+                계약 확인
+              </a>
+            </p>
           </section>
           <section className="panel">
             <h3 className="agreement-card-title">상대방</h3>
@@ -447,6 +486,7 @@ function DeliverySide({ vm }: { vm: DeliveryDetailViewModel }) {
   );
 }
 
+/** 끝난 단계만 완료 라벨을 쓴다. PAID는 정산 완료로 보이지 않는다. */
 function ProgressList({ vm }: { vm: DeliveryDetailViewModel }) {
   const items: Array<[boolean, string, string]> = [
     [vm.progress.contractDone, "계약", "계약 완료"],
@@ -457,10 +497,10 @@ function ProgressList({ vm }: { vm: DeliveryDetailViewModel }) {
   ];
   return (
     <ol className="progress-steps">
-      {items.map(([done, stage, label]) => (
+      {items.map(([done, stage, doneLabel]) => (
         <li key={stage} className={done ? "done" : undefined}>
           <span>{stage}</span>
-          <span>{label}</span>
+          <span>{done ? doneLabel : "대기"}</span>
         </li>
       ))}
     </ol>

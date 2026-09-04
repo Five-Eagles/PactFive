@@ -387,10 +387,42 @@
 
 .delivery-page-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 24px;
+}
+
+.delivery-page-head-copy {
+  min-width: 0;
+}
+
+.delivery-page-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 4px 0 0;
+}
+
+.delivery-page-links a,
+.delivery-side .caption a {
+  color: var(--action);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.delivery-page-links a:hover,
+.delivery-side .caption a:hover {
+  text-decoration: underline;
+}
+
+.delivery-side .caption { margin: 4px 0 0; }
+
+.delivery-page-head .badge {
+  margin-top: 4px;
+  flex-shrink: 0;
 }
 
 .delivery-page .page-title {
@@ -479,8 +511,8 @@
     grid-template-columns: 1fr;
     grid-template-areas:
       "main"
-      "side"
-      "cta";
+      "cta"
+      "side";
   }
 
   .delivery-side { position: static; }
@@ -498,6 +530,7 @@
     padding: 12px 16px;
     background: var(--surface);
     border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 16px var(--surface);
   }
 
   .has-fixed-cta .delivery-cta-bar .btn {
@@ -508,3 +541,124 @@
 
   .has-fixed-cta .delivery-side { padding-bottom: 72px; }
 }
+
+/* CTR-01 페이지 본문. 앱 셸 없음. delivery-page와 값을 맞추되 선택자는 분리한다. */
+.contract-page {
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 32px;
+}
+
+.contract-page .panel {
+  max-width: none;
+  padding: 24px;
+}
+
+.contract-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.contract-page-head-copy { min-width: 0; }
+
+.contract-page-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 4px 0 0;
+}
+
+.contract-page-links a {
+  color: var(--action);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.contract-page-links a:hover { text-decoration: underline; }
+
+.contract-page-head .badge {
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.contract-page .page-title {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  margin: 0;
+}
+
+.contract-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-areas:
+    "main side"
+    "cta side";
+  gap: 24px;
+  align-items: start;
+}
+
+.contract-main { grid-area: main; }
+.contract-side { grid-area: side; }
+.contract-cta-bar { grid-area: cta; }
+
+.contract-main,
+.contract-side {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.contract-side { position: sticky; top: 24px; }
+
+.contract-cta-bar { margin-top: 0; width: 100%; }
+
+.screen:has(.contract-page) { max-width: 1200px; }
+
+@media (max-width: 1000px) {
+  .contract-page { padding-inline: 16px; }
+
+  .contract-page .panel { padding: 16px; }
+
+  .contract-page .page-title {
+    font-size: 20px;
+    line-height: 28px;
+  }
+
+  .contract-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "main"
+      "cta"
+      "side";
+  }
+
+  .contract-side { position: static; }
+
+  .has-fixed-cta .contract-cta-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    margin-inline: -16px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 16px var(--surface);
+  }
+
+  .has-fixed-cta .contract-cta-bar .btn {
+    flex: 1;
+    height: 48px;
+    min-height: 48px;
+  }
+
+  .has-fixed-cta .contract-side { padding-bottom: 72px; }
+}
+

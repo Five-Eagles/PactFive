@@ -257,6 +257,8 @@ AGR-01 우측 컬럼·거절 분기: `projectTitle`, `recruitmentStatus`, `trans
 ### GET /api/v1/contracts/:contractId
 
 규칙 20. 당사자. `terms_snapshot`·서명 시각·`status`. PDF 없음.
+CTR-01 우측 컬럼 가설: `projectId`, `workStartDate`, `workEndDate`, `transactionStatus`,
+`canceledAt`, `paymentStatus`. `termsHash`·`availableActions`는 넣지 않는다.
 
 ### POST /api/v1/contracts/:contractId/sign — `signContract`
 
@@ -469,11 +471,17 @@ type PaymentGateway = {
 };
 type GetContractResponse = {
   contractId: string;
+  projectId: string;
   status: ContractStatus;
   termsSnapshot: { schemaVersion: 1; amount: number; currency: 'KRW'; projectTitle: string };
+  workStartDate: string;
+  workEndDate: string;
   clientSignedAt: string | null;
   freelancerSignedAt: string | null;
   signedAt: string | null;
+  transactionStatus: ProjectTransactionStatus;
+  canceledAt: string | null;
+  paymentStatus: PaymentStatus | null;
 };
 type GetPaymentResponse = {
   paymentId: string;
