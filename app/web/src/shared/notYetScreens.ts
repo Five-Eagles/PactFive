@@ -17,11 +17,6 @@
  */
 export type NotYetScreenKey =
   | 'experts'
-  | 'guide'
-  | 'safety'
-  | 'footer-terms'
-  | 'footer-privacy'
-  | 'footer-support'
   | 'applications'
   | 'ai-pricing'
   | 'reviews'
@@ -35,13 +30,10 @@ export type NotYetScreen = {
 };
 
 export const NOT_YET_SCREENS: Record<NotYetScreenKey, NotYetScreen> = {
-  // 2026-09-04 — 미리보기 화면이 생겼다 (project-management/preview/)
+  // 2026-09-04 — 미리보기 화면이 생겼다 (project-management/preview/).
+  // 같은 날 guide·safety·footer 3종은 실제 화면이 되어 이 표에서 빠졌다 —
+  // 남겨두면 다음 사람이 "아직 없는 화면" 으로 읽는다.
   experts: { name: '전문가 찾기', hasRoute: true },
-  guide: { name: '이용 방법', hasRoute: false },
-  safety: { name: '안전한 거래', hasRoute: false },
-  'footer-terms': { name: '이용약관', hasRoute: false },
-  'footer-privacy': { name: '개인정보처리방침', hasRoute: false },
-  'footer-support': { name: '고객센터', hasRoute: false },
   applications: { name: '지원하기', hasRoute: true },
   'ai-pricing': { name: 'AI 단가 분석', hasRoute: true },
   reviews: { name: '리뷰', hasRoute: true },

@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { NotYetTrigger } from '../../../shared/ui/NotYetDialog';
 import { PREVIEW_ROUTES } from '../preview/preview.paths';
-import type { NotYetScreenKey } from '../../../shared/notYetScreens';
+import { INFO_ROUTES } from '../info/info.paths';
 import { PROJECT_ROUTES } from '../project.routes';
 
 /**
@@ -20,14 +19,12 @@ type Slide = {
   body: string;
   ctaLabel: string;
   /**
-   * 어디로 보내는가. 둘 중 하나만 준다.
+   * 어디로 보내는가. 셋 다 실제 주소다.
    *
-   * `to`        — 실제 경로. 미리보기 화면(`ComingSoonOverlay` 뒤)도 여기 해당한다.
-   *                주소는 진짜로 바뀌므로 링크가 맞다.
-   * `screenKey` — 아직 갈 곳이 없다. 제자리에서 다이얼로그만 연다.
+   * 2026-09-04 이전에는 갈 곳이 없어 제자리 다이얼로그를 여는 슬라이드가 있었다.
+   * 지금은 전문가 찾기·안전한 거래 화면이 생겨 전부 이동한다.
    */
-  ctaTo?: string;
-  ctaScreenKey?: NotYetScreenKey;
+  ctaTo: string;
   image: string;
 };
 
@@ -79,7 +76,7 @@ function buildSlides(): Slide[] {
     ),
     body: '합의한 금액과 일정이 그대로 계약서가 됩니다',
     ctaLabel: '진행 방식 보기',
-    ctaScreenKey: 'safety',
+    ctaTo: INFO_ROUTES.safety,
     image: '/images/home/expert-branding.jpg',
   },
   ];
@@ -124,15 +121,9 @@ export function PromoCarousel() {
                 <span className="pill">{slide.pill}</span>
                 <h2>{slide.title}</h2>
                 <p>{slide.body}</p>
-                {slide.ctaTo ? (
-                  <Link className="cta" to={slide.ctaTo}>
-                    {slide.ctaLabel}
-                  </Link>
-                ) : (
-                  <NotYetTrigger screenKey={slide.ctaScreenKey!} className="cta">
-                    {slide.ctaLabel}
-                  </NotYetTrigger>
-                )}
+                <Link className="cta" to={slide.ctaTo}>
+                  {slide.ctaLabel}
+                </Link>
               </div>
               <div className="banner__visual">
                 <img src={slide.image} alt="" width={640} height={360} />

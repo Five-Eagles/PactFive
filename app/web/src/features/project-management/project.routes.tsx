@@ -7,6 +7,7 @@ import { ProjectEditPage } from './ProjectEditPage';
 import { ProjectManagePage } from './ProjectManagePage';
 import { ProjectRegisterForm } from './ProjectRegisterForm';
 import { previewRoutes } from './preview/preview.routes';
+import { infoRoutes } from './info/info.routes';
 
 /**
  * project-management 라우트 정의 + 경로 상수.
@@ -90,6 +91,11 @@ export function projectRoutes({
       {/* 시안에는 있지만 아직 만들기로 정하지 않은 화면들 — 전부 ComingSoonOverlay 뒤다.
           담당이 정해지면 그 기능 폴더로 옮기고 여기서 뺀다 (preview/preview.routes.tsx) */}
       {previewRoutes()}
+
+      {/* 안내 화면 — 이용 방법·안전한 거래·약관·개인정보·고객센터.
+          이쪽은 블러를 덮지 않는다. 이미 정해진 것을 설명할 뿐이라 완성된 화면이다
+          (info/info.routes.tsx) */}
+      {infoRoutes()}
     </>
   );
 }

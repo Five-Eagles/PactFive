@@ -25,31 +25,6 @@ export const DEV_SCREEN_NOTES: Record<NotYetScreenKey, DevScreenNote> = {
     where: 'app/web/src/features/project-management/preview/ (시안: design/reference-proposal/experts.html)',
     note: 'PRD 화면 목록(§7.1)에 프리랜서 탐색 화면이 없다. 만들지 말지부터 팀이 정해야 한다.',
   },
-  guide: {
-    owner: '유동우 (대표페이지 위성 화면)',
-    where: 'features/project-management/design/reference-proposal/guide.html',
-    note: '',
-  },
-  safety: {
-    owner: '유동우 (대표페이지 위성 화면)',
-    where: 'features/project-management/design/reference-proposal/guide.html #safety',
-    note: '',
-  },
-  'footer-terms': {
-    owner: '담당 미정',
-    where: 'features/project-management/design/homepage-transplant-plan.md 9번 Decision',
-    note: '',
-  },
-  'footer-privacy': {
-    owner: '담당 미정',
-    where: 'features/project-management/design/homepage-transplant-plan.md 9번 Decision',
-    note: '',
-  },
-  'footer-support': {
-    owner: '담당 미정',
-    where: 'features/project-management/design/homepage-transplant-plan.md 9번 Decision',
-    note: '',
-  },
   applications: {
     owner: '조준영 (2026-09-03 재배정)',
     where: 'features/applications/',

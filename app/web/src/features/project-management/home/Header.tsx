@@ -1,6 +1,6 @@
 import { Link, NavLink } from 'react-router-dom';
-import { NotYetTrigger } from '../../../shared/ui/NotYetDialog';
 import { PREVIEW_ROUTES } from '../preview/preview.paths';
+import { INFO_ROUTES } from '../info/info.paths';
 import { APP_ROUTES } from '../../../shared/routes';
 import { AUTH_ROUTES } from '../../user-management/auth.routes';
 import { PROJECT_ROUTES } from '../project.routes';
@@ -12,9 +12,10 @@ import { PROJECT_ROUTES } from '../project.routes';
  * 루트로 삼기로 했기 때문이다 — 이 화면만 그렇고, 다른 화면은 여전히 AppShell을 쓴다
  * (`features/project-management/design/homepage-transplant-plan.md` 4번 절).
  *
- * "이용 방법"·"안전한 거래"는 아직 갈 곳이 없다 → `NotYetTrigger`(Case 1).
- * "전문가 찾기"는 2026-09-04 부터 실제 라우트가 생겼다 — 화면은 그려지되 `ComingSoonOverlay`
- * 가 블러와 다이얼로그를 덮는다(Case 2). 그래서 여기서는 평범한 `NavLink` 다.
+ * 2026-09-04 부터 네 메뉴가 모두 실제 주소로 간다.
+ * "이용 방법"·"안전한 거래"는 완성된 화면이라 그냥 열리고, "전문가 찾기"는 화면은
+ * 그려지되 `ComingSoonOverlay` 가 블러와 다이얼로그를 덮는다. 어느 쪽이든 이동은
+ * 진짜라서 여기서는 전부 평범한 `NavLink` 다.
  *
  * 오른쪽 영역(`.hdr__act`)은 시안 markup에 `data-session-actions`로 비워 두고
  * `bundle.html`의 `demo/session.js`(`paintHeader`)가 채우는 것으로 돼 있었다 — 거기 적힌
@@ -40,8 +41,8 @@ export function HomeHeader({ viewer, myActivityHref, onLogout }: HomeHeaderProps
         <nav aria-label="주요 메뉴">
           <NavLink to={PROJECT_ROUTES.browse}>프로젝트 찾기</NavLink>
           <NavLink to={PREVIEW_ROUTES.experts}>전문가 찾기</NavLink>
-          <NotYetTrigger screenKey="guide">이용 방법</NotYetTrigger>
-          <NotYetTrigger screenKey="safety">안전한 거래</NotYetTrigger>
+          <NavLink to={INFO_ROUTES.guide}>이용 방법</NavLink>
+          <NavLink to={INFO_ROUTES.safety}>안전한 거래</NavLink>
         </nav>
         <div className="home-hdr__act">
           {viewer ? (
