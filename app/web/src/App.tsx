@@ -164,6 +164,10 @@ function AppRoutes() {
 
       {reviewRoutes()}
 
+      {applicationRoutes()}
+
+      {reviewRoutes()}
+
       {NOT_INTEGRATED_ROUTES.map(({ path, featureName }) => (
         <Route
           key={path}
