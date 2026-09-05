@@ -1,6 +1,6 @@
 // =====================================================================
 // PactFive MVP — ERD (DBML)   [서비스명·팀명 PactFive — 팀 회의 확정]
-// 파일명   : PactFive_ERD_v1.4.dbml (내용은 v1.5로 개정됨 — 파일명은 유지, 상태 줄 참고)
+// 파일명   : PactFive_ERD_v1.4.dbml (내용은 v1.6으로 개정됨 — 파일명은 유지, 상태 줄 참고)
 // 작성     : 김락원 (팀장) — PRD v4.0 §6.10 (D-06) 진행 순서 2단계
 // 근거     : WORKBRIDGE_PRD_v4.0 §2(상태 정본) · §3.1(필드 사전) · §6(데이터 모델)
 //            §8(공통 코드) · §13(API 스키마) · 부록 A(명명 규칙) / RFP §3~§4
@@ -9,12 +9,15 @@
 //            정본-구현 불일치 5건을 반영한다 — 근거는 아래 [C5] 항목들과
 //            feedback_loop/2026-09-04/project-management.md 참고.
 // 도구     : dbdiagram.io (DBML) — PRD §6.10 RECOMMENDATION
-// 상태     : 초안 확정 v1.5 — PRD v6.5 대조 반영.
+// 상태     : 초안 확정 v1.6 — PRD v6.5 대조 반영.
 //            v1.4 반영분(알림 enum 정합화·재모집 마감일 기준점 보정·negotiation_offer.status
 //            구현 규칙 확정)에 더해, v1.5는 project_category/business_field 값 정정,
 //            users.password_hash 노트 정정(ADR-0008 반영), users.auth_user_id 신설,
 //            registration_intents 테이블 신설(20번째 엔티티), projects.budget_source 신설
-//            (CR-0007 종결)을 반영한다.
+//            (CR-0007 종결)을 반영한다. v1.6은 pricing_analyses 결과 컬럼 nullable화,
+//            실패 스냅샷·fingerprint 버전 컬럼 신설, 멱등키 범위를 요청자별 복합
+//            unique로 변경, pricing_application_receipts 테이블 신설(21번째 엔티티)을
+//            반영한다(CR-AP-001·003~006 종결).
 //            (반영 근거와 반려 사유는 PactFive_ERD_v1.4_설계검토.html §9 Decision Log 참조)
 //
 //            [C4] 2026-08-26 정정 (E-26, 구현 담당자 질의 Q-09)
@@ -34,6 +37,16 @@
 //            누락(auth_user_id)·가입 의도 저장소 누락(registration_intents)·예산 출처
 //            컬럼 누락(CR-0007)도 함께 발견해 이번 개정에 같이 반영한다.
 //
+//            [C6] 2026-09-04 정정·신설 (E-32~E-37, 팀장 — ai-pricing CR-AP-001·003~006 채택)
+//            오민혁이 ai-pricing Step 2(동기식 MVP) 구현을 마치며 제기한 CR 6건 중 5건
+//            (CR-AP-002 카테고리 값은 [C5]로 이미 해결)을 검토해 전부 채택한다. 프로토타입
+//            코드(pricing-analysis.types.ts, in-memory 저장소)가 이미 이 CR들이 요청하는
+//            모양(nullable 결과, 실패 스냅샷, 요청자별 멱등 범위, fingerprint 버전)으로
+//            구현·테스트돼 있어, ERD가 코드를 따라가는 정정이다(E-27~E-31과 같은 성격).
+//            CR-AP-003(교차 도메인 원자성)만 새 설계 판단이 필요했는데, ai-pricing과
+//            project-management가 같은 Postgres DB를 쓰므로 saga/outbox 없이 단일 DB
+//            트랜잭션으로 충분하다고 판단해 CR 원안보다 단순화해 채택한다(팀장 판단).
+//
 // 표기 규칙
 //   [F]  Fact        — PRD/RFP에 명시된 내용
 //   [A]  Assumption  — PRD에 없어 김락원이 채운 값. 담당자 확인 필요
@@ -45,6 +58,8 @@
 //   [C4] v1.4 정정    — 구현 담당자 질의(Q-09) 반영분. 근거는 Decision Log E-26 참조
 //   [C5] v1.5 정정·신설 — 실제 구현 대조 중 발견한 정본-구현 불일치 반영분.
 //                       근거는 Decision Log E-27~E-31 참조 (2026-09-04, 팀장)
+//   [C6] v1.6 정정·신설 — ai-pricing CR-AP-001·003~006 채택분.
+//                       근거는 Decision Log E-32~E-37 참조 (2026-09-04, 팀장)
 //
 // 절대 규칙 (PRD 부록 A.3)
 //   - projects 에 status 단일 필드를 만들지 않는다
@@ -971,15 +986,18 @@ Table pricing_analyses {
   project_id         varchar(30) [null, note: 'I-25 프로젝트 연결은 비어 있을 수 있다(등록 전 분석)']
 
   input_snapshot     jsonb       [not null, note: '[C] E-20: input_description(text) 대체. {title, description, category} 스냅샷']
-  recommended_amount integer     [not null, note: 'AI가 추천한 전체 예상 총 단가. CHECK > 0 (부록)']
-  breakdown          jsonb       [not null, note: '단위 기능 목록: [{name, description, amount, rationale}] (RFP §3.5.2)']
+  recommended_amount integer     [null, note: '[C6] E-32: APPROVED 에서만 NOT NULL. AI가 추천한 전체 예상 총 단가. CHECK > 0 (부록)']
+  breakdown          jsonb       [null, note: '[C6] E-32: APPROVED 에서만 NOT NULL. 단위 기능 목록: [{name, description, amount, rationale}] (RFP §3.5.2)']
 
   model_name             varchar(50)  [null, note: '[R] 사용한 LLM 모델']
   prompt_version          varchar(20)  [null, note: '[R] 프롬프트 버전. 결과 품질 회귀 추적용 [X]']
   result_schema_version   varchar(20)  [null, note: '[C] E-20: breakdown JSON 구조 버전. 파싱 실패 원인 추적']
-  failure_code            varchar(50)  [null, note: '[C] E-20: 공급자 실패/시간초과/파싱·검증 실패 코드 (review_status=REJECTED 사유)']
-  idempotency_key          varchar(100) [not null, unique, note: '[C] E-20: 같은 요청의 중복 생성 방지 키']
-  request_fingerprint      varchar(64)  [null, note: '[C] E-20: 입력 해시. 캐시/재시도 판별용']
+  failure_code             varchar(50)  [null, note: '[C] E-20: 공급자 실패/시간초과/파싱·검증 실패 코드 (review_status=REJECTED 사유)']
+  failure_snapshot         jsonb        [null, note: '[C6] E-34: REJECTED 에서만 NOT NULL. exact replay용 최초 공개 {code,message,retryable} 사본. 공급자 원문 제외']
+  failure_http_status      smallint     [null, note: '[C6] E-34: REJECTED 에서만 NOT NULL. 최초 공개 502|504']
+  idempotency_key          varchar(100) [not null, note: '[C6] E-35: 같은 요청의 중복 생성 방지 키. unique 범위는 아래 indexes 참조(요청자별로 변경)']
+  request_fingerprint      varchar(64)  [not null, note: '[C6] E-37: 입력 해시. 캐시/재시도 판별용. 매 생성 시 항상 계산되므로 NOT NULL로 정정']
+  input_fingerprint_schema_version varchar(20) [not null, note: '[C6] E-37: request_fingerprint 계산에 쓴 정규화 규칙 버전. 공개 응답에 노출 안 함']
 
   review_status      pricing_analysis_review_status [not null, default: 'PENDING']
   reviewed_at        timestamptz [null, note: '[C] E-20: PENDING이면 NULL, APPROVED/REJECTED면 NOT NULL (부록 CHECK)']
@@ -991,6 +1009,7 @@ Table pricing_analyses {
   indexes {
     (requester_id, created_at)
     project_id
+    (requester_id, idempotency_key) [unique, note: '[C6] E-35: 생성 멱등 키 unique 범위. 기존 idempotency_key 단독 global unique를 대체']
   }
   note: '''
   AI 단가 분석. (PRD §6.1 #17)
@@ -1002,6 +1021,36 @@ Table pricing_analyses {
       별도 테이블(pricing_analysis_items)을 만들면 18번째 엔티티가 되고,
       조회는 항상 "리포트 전체"이지 항목 단건이 아니다. [X]
       대가: 항목 단위 검색/집계가 어렵다. MVP 범위에 그 요구가 없다.
+
+  [C6] E-32 결과 컬럼 nullable화 (CR-AP-001 채택, 오민혁 제기)
+      Step 2는 PENDING으로 먼저 예약한 뒤 결과를 검증하므로, 처리 중·실패 행에는
+      recommended_amount·breakdown이 없다. 상태별 조합은 CHECK로 강제한다(DBML은
+      멀티컬럼 CHECK를 테이블 단위로 못 그려 부록에 SQL로 남긴다):
+        PENDING  -> recommended_amount·breakdown·failure_code·failure_snapshot·
+                    failure_http_status·reviewed_at 전부 NULL
+        APPROVED -> recommended_amount·breakdown·reviewed_at NOT NULL,
+                    failure_code·failure_snapshot·failure_http_status NULL
+        REJECTED -> recommended_amount·breakdown NULL,
+                    failure_code·failure_snapshot·failure_http_status·reviewed_at NOT NULL
+      오민혁의 Step 2 프로토타입(pricing-analysis.types.ts)이 이미 이 모양으로 구현·
+      테스트돼 있어 ERD가 코드를 따라가는 정정이다(E-27~E-31과 같은 성격).
+
+  [C6] E-34 실패 재생 스냅샷 신설 (CR-AP-004 채택, 오민혁 제기)
+      REJECTED exact replay는 최초 502/504 상태와 공개 오류 body를 그대로 반환해야
+      한다. failure_code만으로 매 요청 문구를 다시 만들면 배포 사이 문구·HTTP 매핑이
+      바뀔 때 같은 멱등 키의 응답이 달라진다. failure_snapshot·failure_http_status에
+      최초 공개 실패를 원자적으로 함께 저장하고, replay는 이 사본을 그대로 쓴다.
+
+  [C6] E-35 생성 멱등 키 unique 범위 변경 (CR-AP-005 채택, 오민혁 제기)
+      idempotency_key 단일 컬럼 global unique는 서로 다른 사용자가 우연히 같은 키를
+      쓰면 충돌한다. (requester_id, idempotency_key) 복합 unique로 바꿔 사용자 범위
+      안에서만 충돌하게 한다.
+
+  [C6] E-37 request_fingerprint 스키마 버전 컬럼 신설 (CR-AP-006 채택, 오민혁 제기)
+      입력 정규화·직렬화 규칙이 바뀐 뒤에도 과거 해시를 올바로 재검증하려면 그
+      해시를 계산한 규칙 버전을 저장해야 한다. input_fingerprint_schema_version을
+      신설하고, 매 생성 시 request_fingerprint와 함께 원자적으로 기록한다. 이 값은
+      항상 계산되는 값이라 request_fingerprint도 nullable에서 NOT NULL로 함께 정정한다.
 
   [C] E-20 review_status 의미 재정의 (오민혁 검토의견 §4.2 MUST 반영)
       MVP에는 관리자 역할·승인 화면이 없다. review_status 는 "사람의 가격 승인"이 아니라
@@ -1038,6 +1087,51 @@ Table pricing_analyses {
           RETURNING recommended_amount;
 
           영향받은 행이 0건이면 애플리케이션은 "이미 적용됨/승인 안 됨"으로 409 처리한다.
+
+  [C6] E-33 기존 프로젝트 적용의 교차 도메인 원자성 확정 (CR-AP-003 채택·단순화, 오민혁 제기)
+      기존 프로젝트에 추천 예산을 적용하면 projects.budget_amount(project-management)와
+      pricing_analyses.project_id/applied_at(ai-pricing)이 함께 바뀐다. CR-AP-003 원안은
+      두 도메인이 "미래에 서로 다른 DB로 분리될 수도 있다"는 전제로 saga/outbox 보상
+      경계까지 요구했지만, 지금 두 도메인은 같은 Postgres DB(schema.prisma 한 파일) 위에
+      있어 단일 DB 트랜잭션(Prisma $transaction)으로 충분하다 — 팀장 판단으로 원안보다
+      단순화해 채택한다. 적용 요청의 멱등 결과는 pricing_analyses 밖의 별도 테이블
+      pricing_application_receipts(아래 신설, E-36)에 원자적으로 함께 커밋한다.
+      실제 DB 트랜잭션이 붙기 전까지(마이그레이션은 CR-0007과 같은 원칙으로 9/9 기능완료
+      이후) 이 원자적 포트가 없으면 API는 mutation을 시작하지 않고 503
+      PRICING_APPLICATION_UNAVAILABLE로 fail-closed한다 — 이는 스펙이 이미 요구하는
+      동작이라 별도 결정이 필요 없다.
+  '''
+}
+
+
+Table pricing_application_receipts {
+  id                  varchar(30) [pk, note: 'par_...']
+  operation           varchar(30) [not null, note: '[C6] E-36: 현재 값은 APPLY_PRICING_ANALYSIS 하나뿐']
+  actor_user_id        varchar(30) [not null, note: '요청자. users 참조']
+  idempotency_key      varchar(100) [not null, note: '적용 요청 Idempotency-Key. pricing_analyses.idempotency_key(생성용)와 별개 범위']
+  pricing_analysis_id  varchar(30) [not null, note: 'pricing_analyses 참조']
+  project_id           varchar(30) [not null, note: 'projects 참조']
+  request_fingerprint  varchar(64) [not null, note: '같은 키·다른 fingerprint 재요청을 409로 구분하기 위한 해시']
+  http_status          smallint    [not null, note: '최초 응답 HTTP 상태 (200 성공 | 409 충돌)']
+  response_body        jsonb       [not null, note: 'exact replay용 최초 공개 응답 사본']
+  processed_at         timestamptz [not null, note: '최초 처리 완료 시각']
+  created_at           timestamptz [not null, default: `now()`]
+
+  indexes {
+    (actor_user_id, idempotency_key) [unique, note: '적용 멱등 결과 unique 범위. (operation, actor_user_id, idempotency_key)와 동등 — operation이 현재 1종뿐이라 생략']
+    pricing_analysis_id
+  }
+  note: '''
+  [C6] E-36 기존 프로젝트 적용(POST /pricing-analyses/:id/apply) 전용 멱등 결과 저장소
+  (CR-AP-003 채택, 오민혁 제기). 21번째 엔티티 — 오민혁 담당, §6.10 검증 범위에 추가.
+  분석 생성 멱등(pricing_analyses.idempotency_key)과 적용 멱등은 서로 다른 작업·키
+  범위라 같은 컬럼에 덮어쓰지 않고 별도 테이블로 분리했다. 조회 순서는
+  ① 이 테이블에서 (actor_user_id, idempotency_key) 기존 결과 조회 ->
+  ② 있으면 같은 fingerprint일 때만 저장된 http_status·response_body를 그대로 재생,
+  다른 fingerprint면 409 IDEMPOTENCY_KEY_REUSED ->
+  ③ 없을 때만 pricing_analyses·projects를 잠그고 검증·갱신 후 이 행을 함께 커밋한다.
+  이 행 저장과 pricing_analyses.applied_at/project_id 갱신, projects.budget_amount
+  갱신은 전부 같은 DB 트랜잭션으로 commit되거나 전부 rollback된다(E-33 참고).
   '''
 }
 
@@ -1090,6 +1184,9 @@ Ref: reviews.reviewee_id             > users.id            // N:1
 // --- AI 분석 축 ---
 Ref: pricing_analyses.requester_id   > users.id            // N:1
 Ref: pricing_analyses.project_id     > projects.id         // N:1 (NULL 허용, I-25)
+Ref: pricing_application_receipts.actor_user_id       > users.id             // N:1 [C6] E-36 신설
+Ref: pricing_application_receipts.pricing_analysis_id > pricing_analyses.id  // N:1 [C6] E-36 신설
+Ref: pricing_application_receipts.project_id          > projects.id         // N:1 [C6] E-36 신설
 
 // notifications.resource_id 는 의도적으로 Ref 를 걸지 않는다 (다형성 참조).
 // 이유와 대가는 notifications 테이블 주석 참조.
@@ -1162,12 +1259,32 @@ Ref: pricing_analyses.project_id     > projects.id         // N:1 (NULL 허용, 
 //    CREATE UNIQUE INDEX uq_skills_custom_name_key
 //      ON skills(created_by_user_id, name_key) WHERE is_custom = true;
 //
-//  [C] pricing_analyses  (E-20 상태·추적성)
-//    CHECK (recommended_amount > 0)
-//    CHECK ((review_status = 'PENDING' AND reviewed_at IS NULL)
-//           OR (review_status IN ('APPROVED','REJECTED') AND reviewed_at IS NOT NULL))
+//  [C] [C6] pricing_analyses  (E-20 상태·추적성, E-32 nullable화로 CHECK 갱신 — CR-AP-001)
+//    CHECK (recommended_amount IS NULL OR recommended_amount > 0)
+//    CHECK (
+//      (review_status = 'PENDING'
+//        AND recommended_amount IS NULL AND breakdown IS NULL
+//        AND failure_code IS NULL AND failure_snapshot IS NULL AND failure_http_status IS NULL
+//        AND reviewed_at IS NULL)
+//      OR (review_status = 'APPROVED'
+//        AND recommended_amount IS NOT NULL AND breakdown IS NOT NULL
+//        AND failure_code IS NULL AND failure_snapshot IS NULL AND failure_http_status IS NULL
+//        AND reviewed_at IS NOT NULL)
+//      OR (review_status = 'REJECTED'
+//        AND recommended_amount IS NULL AND breakdown IS NULL
+//        AND failure_code IS NOT NULL AND failure_snapshot IS NOT NULL
+//        AND failure_http_status IS NOT NULL AND reviewed_at IS NOT NULL)
+//    )                                                                             -- [C6] E-32, CR-AP-001
 //    CHECK (applied_at IS NULL OR review_status = 'APPROVED')                     -- I-26
+//    CREATE UNIQUE INDEX uq_pricing_analyses_requester_idempotency
+//      ON pricing_analyses(requester_id, idempotency_key);                        -- [C6] E-35, CR-AP-005
+//      (기존 idempotency_key 단독 UNIQUE 컬럼 제약은 제거하고 위 복합 인덱스로 대체)
 //    (재적용 방지의 실제 강제는 CHECK가 아니라 E-21의 조건부 UPDATE 패턴 — pricing_analyses 테이블 note 참조)
+//
+//  [C6] pricing_application_receipts  (E-36 신설, CR-AP-003 채택·단순화)
+//    CREATE UNIQUE INDEX uq_pricing_application_receipts_actor_idempotency
+//      ON pricing_application_receipts(actor_user_id, idempotency_key);
+//    CHECK (http_status IN (200, 409))
 //
 //  [C] 권한 회수 권장 — §5.1 "DB 보장" 오분류 정정 (E-16, 오민혁 MUST)
 //    updated_at/deleted_at 컬럼의 부재는 UPDATE/DELETE 자체를 막지 못한다. 진짜 강제하려면

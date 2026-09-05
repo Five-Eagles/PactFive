@@ -28,6 +28,12 @@ import { createPublicApiService } from './features/contracts-payments/public-api
 import { createPublicApiRouter } from './features/contracts-payments/public-api.routes';
 import { hasPgSecretKey, createTossPaymentsAdapter } from './features/contracts-payments/toss-payments.adapter';
 import type { PaymentGateway } from './features/contracts-payments/payment.port';
+import { InMemoryPricingAnalysisRepository } from './features/ai-pricing/in-memory-pricing-analysis.repository';
+import { InMemoryPricingAnalysisRateLimit } from './features/ai-pricing/in-memory-pricing-analysis-rate-limit';
+import { createPricingAnalysisClaimPort } from './features/ai-pricing/pricing-analysis-claim.adapter';
+import { ProjectBudgetApplicationAdapter } from './features/ai-pricing/project-budget-application.adapter';
+import { OpenAIPricingAnalyzer } from './features/ai-pricing/openai.adapter';
+import { createPricingAnalysisRouter } from './features/ai-pricing/pricing-analysis.router';
 
 /**
  * Express 앱 — 순수 모듈. 여기서 `app.listen()`을 호출하지 않는다.
@@ -187,6 +193,17 @@ const projectRepository = new InMemoryProjectRepository();
 const projectPorts = createInMemoryExternalPorts();
 const projectNow = () => new Date().toISOString();
 
+// ai-pricing의 저장소는 project-management보다 먼저 만든다 — 아래 CR-0003 회신(연결 포트)이
+// project.service.ts/project-contract.service.ts 구성 전에 준비돼야 하기 때문이다.
+// PricingAnalysisRateLimit 은 무제한(In-memory-first, 실제 창 기반 제한은 Prisma 도입 이후).
+const pricingAnalysisRepository = new InMemoryPricingAnalysisRepository();
+const pricingAnalysisRateLimit = new InMemoryPricingAnalysisRateLimit();
+
+// CR-0003(유동우, 2026-08-26) 회신 — project-management가 등록·예산반영 시점에 부르는
+// PricingAnalysisClaimPort를 여기서 실제로 연결한다. 등록 전에는 fail-closed 스텁이었다
+// (in-memory-external.adapter.ts의 createUnavailablePricingPort).
+projectPorts.pricing = createPricingAnalysisClaimPort(pricingAnalysisRepository);
+
 const projectService = createProjectService({
   repo: projectRepository,
   ports: projectPorts,
@@ -212,6 +229,49 @@ app.use(
     optionalAuth,
     requireServiceToken,
   }),
+);
+
+// ---------------------------------------------------------------------------
+// ai-pricing — 단가 분석 3종(생성·조회·예산 반영). features/ai-pricing/spec.md Step 2.
+//
+// 예산 반영(POST .../apply)은 project-management가 이미 갖고 있는 계약 함수 7
+// (applyPricingAnalysisBudget, 규칙 40)에 위임한다 — 팀장 결정(2026-09-04). 이 어댑터는
+// project-management를 직접 import하지 않는다(app/web/AGENTS.md "폴더 간 접점") — 여기서는
+// `projectContractService`를 그 모양 그대로 delegate로 끼운다(contracts-payments의
+// project-management.adapter.ts와 같은 패턴).
+//
+// OpenAI 연동은 PG_SECRET_KEY와 같은 원칙이다 — 다만 라우트 자체를 막는 대신
+// OpenAIPricingAnalyzer.configured가 false를 돌려주게 두고, 분석 생성만 서비스 레이어에서
+// 503 PRICING_ANALYZER_UNAVAILABLE로 막는다(pricing-analysis.service.ts). 조회·예산 반영은
+// OpenAI 없이도 동작해야 하므로 라우트 단위로 끊지 않는다.
+// ---------------------------------------------------------------------------
+
+const pricingAnalysisAnalyzer = new OpenAIPricingAnalyzer({
+  apiKey: process.env.OPENAI_API_KEY ?? '',
+  model: process.env.OPENAI_PRICING_MODEL ?? '',
+  schemaCompatibleModels: (process.env.OPENAI_PRICING_SCHEMA_MODELS ?? '')
+    .split(',')
+    .map((model) => model.trim())
+    .filter(Boolean),
+});
+
+const projectBudgetApplication = new ProjectBudgetApplicationAdapter(
+  projectContractService,
+  pricingAnalysisRepository,
+);
+
+app.use(
+  createPricingAnalysisRouter(
+    {
+      repository: pricingAnalysisRepository,
+      analyzer: pricingAnalysisAnalyzer,
+      rateLimit: pricingAnalysisRateLimit,
+      projectBudgetApplication,
+      now: projectNow,
+      nextAnalysisId: () => `pra_${randomId()}`,
+    },
+    { requireAuth },
+  ),
 );
 
 // ---------------------------------------------------------------------------

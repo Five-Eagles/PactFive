@@ -2,17 +2,17 @@
 
 | 항목 | 내용 |
 |---|---|
-| 원본 | `docs/domain/reference/erd-v1.4.html` (DBML: `docs/domain/reference/erd-v1.4.dbml`, 파일명은 v1.4 유지·내용은 v1.5) |
+| 원본 | `docs/domain/reference/erd-v1.4.html` (DBML: `docs/domain/reference/erd-v1.4.dbml`, 파일명은 v1.4 유지·내용은 v1.6) |
 | 작성 | 김락원 (팀장) |
-| 버전 | v1.5 |
+| 버전 | v1.6 |
 | 근거 | `docs/domain/prd.md` §6 데이터 모델 (PRD v6.5 대조 완료) |
-| 반영일 | 2026-08-25 (v1.5 개정: 2026-09-04) |
+| 반영일 | 2026-08-25 (v1.5 개정: 2026-09-04, v1.6 개정: 2026-09-04) |
 | 상태 | **구현 초안 확정** — 엔티티 수 고정 원칙은 폐기되었다(D-62·D-70·D-78 종결). 새 엔티티는 담당자를 명시하고 §6.10 검증 범위에 추가하는 방식으로 계속 확장될 수 있다 |
 
 이 문서는 원본을 요약한 포인터입니다. 필드 단위 상세, 불변식 30개 매핑, DBML로 표현 못하는
 SQL 제약, 확장 지점은 원본 HTML을 직접 엽니다.
 
-## 엔티티 20종 (담당자별)
+## 엔티티 21종 (담당자별)
 
 | 담당자 | 엔티티 |
 |---|---|
@@ -20,12 +20,12 @@ SQL 제약, 확장 지점은 원본 HTML을 직접 엽니다.
 | 유동우 | `projects`, `project_skills`, `bookmarks` |
 | 최윤석 | `applications`, `notifications` |
 | 조준영 | `agreements`, `negotiation_offer`, `contracts`, `contract_signature_audits`, `payments`, `deliveries`, `reviews` |
-| 오민혁 | `pricing_analyses` |
+| 오민혁 | `pricing_analyses`, `pricing_application_receipts` |
 
 `auth_sessions`(E-22)와 `negotiation_offer`(E-25)는 v1.3~v1.4에서, `registration_intents`(E-30,
-v1.5)는 2026-09-04에 신설된 엔티티다 — 과거 v1.2의 "17종 고정" 원칙(구 E-01)은 PRD §6.1 D-62에서
-이미 폐기된 것으로 확인되어 철회됐다 (아래 "최근 확정 사항" 참고). 담당자는 자기 담당 절만
-확인하면 된다 (원본 §6.10 검증 범위).
+v1.5)와 `pricing_application_receipts`(E-36, v1.6)는 2026-09-04에 신설된 엔티티다 — 과거 v1.2의
+"17종 고정" 원칙(구 E-01)은 PRD §6.1 D-62에서 이미 폐기된 것으로 확인되어 철회됐다 (아래 "최근
+확정 사항" 참고). 담당자는 자기 담당 절만 확인하면 된다 (원본 §6.10 검증 범위).
 
 ## enum 값 목록 (저장 enum 12종)
 
@@ -407,25 +407,58 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 #### `pricing_analyses`
 
+**(v1.6 변경)** `recommended_amount`·`breakdown`은 `PENDING`/`REJECTED`에 결과가 없어 NOT NULL →
+NULL로, `idempotency_key`는 단독 unique → `(requester_id, idempotency_key)` 복합 unique로,
+`request_fingerprint`는 매 생성 시 항상 계산돼 NULL → NOT NULL로 정정했다. `failure_snapshot`·
+`failure_http_status`·`input_fingerprint_schema_version` 3개 컬럼을 신설했다 (CR-AP-001·004·005·006
+채택, E-32·34·35·37 — 아래 "최근 확정 사항" 참고).
+
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
 | `id` | varchar(30) | PK | PK |
 | `requester_id` | varchar(30) | NOT NULL | `users` 참조 |
 | `project_id` | varchar(30) | NULL | `projects` 참조 |
 | `input_snapshot` | jsonb | NOT NULL | AI 분석 요청 시점의 입력값 스냅샷 (jsonb) |
-| `recommended_amount` | integer | NOT NULL | AI 추천 금액 |
-| `breakdown` | jsonb | NOT NULL | 추천 금액 산출 근거 (jsonb) |
+| `recommended_amount` | integer | NULL | AI 추천 금액. `APPROVED`에서만 NOT NULL |
+| `breakdown` | jsonb | NULL | 추천 금액 산출 근거 (jsonb). `APPROVED`에서만 NOT NULL |
 | `model_name` | varchar(50) | NULL | 사용한 AI 모델 |
 | `prompt_version` | varchar(20) | NULL | 프롬프트 버전 — 재현성 추적용 |
 | `result_schema_version` | varchar(20) | NULL | `breakdown`/`input_snapshot`의 스키마 버전 |
 | `failure_code` | varchar(50) | NULL | — (원본 §3 해당 절 참고) |
-| `idempotency_key` | varchar(100) | NOT NULL | 중복 요청 방지 키 |
-| `request_fingerprint` | varchar(64) | NULL | 요청 내용 해시 (캐싱/중복 탐지 추정) |
+| `failure_snapshot` | jsonb | NULL | **(v1.6 신설)** `REJECTED`에서만 NOT NULL. exact replay용 최초 공개 실패 사본 |
+| `failure_http_status` | smallint | NULL | **(v1.6 신설)** `REJECTED`에서만 NOT NULL. 최초 공개 502\|504 |
+| `idempotency_key` | varchar(100) | NOT NULL | 중복 요청 방지 키. unique 범위는 `(requester_id, idempotency_key)` |
+| `request_fingerprint` | varchar(64) | NOT NULL | 요청 내용 해시 (캐싱/중복 탐지) |
+| `input_fingerprint_schema_version` | varchar(20) | NOT NULL | **(v1.6 신설)** `request_fingerprint` 계산 규칙 버전 |
 | `review_status` | pricing_analysis_review_status | NOT NULL | 담당자가 AI 추천을 검토했는지 (`pricing_analysis_review_status`) |
 | `reviewed_at` | timestamptz | NULL | — (원본 §3 해당 절 참고) |
 | `applied_at` | timestamptz | NULL | 추천 금액을 실제 프로젝트에 적용한 시각 |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 | `updated_at` | timestamptz | NOT NULL | 수정 시각 |
+
+#### `pricing_application_receipts` (v1.6 신설 — E-36, 오민혁 담당)
+
+기존 프로젝트에 AI 추천 예산을 적용(`POST /pricing-analyses/:id/apply`)할 때의 멱등 결과 저장소다.
+분석 생성 멱등(`pricing_analyses.idempotency_key`)과는 작업·키 범위가 달라 별도 테이블로 분리했다.
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `id` | varchar(30) | PK | `par_...` |
+| `operation` | varchar(30) | NOT NULL | 현재 `APPLY_PRICING_ANALYSIS` 하나뿐 |
+| `actor_user_id` | varchar(30) | NOT NULL | 요청자. `users` 참조 |
+| `idempotency_key` | varchar(100) | NOT NULL | 적용 요청 Idempotency-Key |
+| `pricing_analysis_id` | varchar(30) | NOT NULL | `pricing_analyses` 참조 |
+| `project_id` | varchar(30) | NOT NULL | `projects` 참조 |
+| `request_fingerprint` | varchar(64) | NOT NULL | 같은 키·다른 fingerprint 재요청을 409로 구분 |
+| `http_status` | smallint | NOT NULL | 최초 응답 HTTP 상태 (200\|409) |
+| `response_body` | jsonb | NOT NULL | exact replay용 최초 공개 응답 사본 |
+| `processed_at` | timestamptz | NOT NULL | 최초 처리 완료 시각 |
+| `created_at` | timestamptz | NOT NULL | 생성 시각 |
+
+unique 범위는 `(actor_user_id, idempotency_key)`. 이 행 저장과 `pricing_analyses.applied_at`/
+`project_id` 갱신, `projects.budget_amount` 갱신은 같은 DB 트랜잭션으로 함께 commit되거나 함께
+rollback된다 — ai-pricing과 project-management가 같은 Postgres DB를 쓰기 때문에 saga/outbox 없이
+단일 트랜잭션으로 충분하다고 판단했다(CR-AP-003 단순화 채택, E-33).
 
 ## 최근 확정 사항 (Decision Log 요약)
 
@@ -457,6 +490,21 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
   - `registration_intents` 신설 — 20번째 엔티티. 이메일 확인 대기 중인 가입 시도 저장소 (E-30)
   - `projects.budget_source`/`budget_source_at` 신설 — CR-0007 종결. AI 단가 분석의 예산
     덮어쓰기 사실을 화면에 노출 (E-31)
+- **(v1.6, 2026-09-04)** ai-pricing Step 2(동기식 MVP) 구현 완료 후 오민혁이 제기한 CR 6건 중
+  5건(CR-AP-002 카테고리 값은 위 E-27로 이미 해결) 채택 (PRD D-92):
+  - `pricing_analyses.recommended_amount`/`breakdown` nullable화 + 상태별 CHECK 신설 — `PENDING`/
+    `REJECTED`에는 결과가 없다 (E-32, CR-AP-001)
+  - 기존 프로젝트 적용의 교차 도메인 원자성 확정 — `pricing_application_receipts` 신설(21번째
+    엔티티)로 적용 멱등 결과를 분리 저장. CR 원안(saga/outbox 대비)은 두 도메인이 같은 Postgres
+    DB를 쓰므로 단일 DB 트랜잭션으로 단순화해 채택 (E-33·E-36, CR-AP-003)
+  - `failure_snapshot`/`failure_http_status` 신설 — `REJECTED` exact replay가 배포 사이에도 같은
+    응답을 재생하도록 최초 공개 실패를 원자적으로 저장 (E-34, CR-AP-004)
+  - `idempotency_key` unique 범위를 단독 컬럼 → `(requester_id, idempotency_key)` 복합으로 변경
+    — 서로 다른 사용자의 같은 키가 충돌하지 않도록 (E-35, CR-AP-005)
+  - `input_fingerprint_schema_version` 신설 + `request_fingerprint`를 NULL 허용 → NOT NULL로 정정
+    — 입력 정규화 규칙이 바뀌어도 과거 해시를 올바로 재검증 (E-37, CR-AP-006)
+  - 오민혁의 Step 2 프로토타입이 이미 이 CR들이 요청하는 모양으로 구현·테스트돼 있어, E-27~E-31과
+    같은 성격의 "코드가 맞고 ERD가 뒤처진" 정정이다 — CR-AP-003만 새로운 설계 판단이었다
 
 엔티티 수 고정 원칙 폐기(D-62·D-70)에 따라 앞으로도 새 엔티티는 담당자 명시 + §6.10 검증 범위
 추가만으로 계속 신설될 수 있다. 전체 Decision Log는 원본 §9(Decision Log), PRD 부록 E 참고.

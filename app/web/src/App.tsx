@@ -13,6 +13,7 @@ import { useAuth } from './features/user-management/useAuth';
 import { projectRoutes, PROJECT_ROUTES } from './features/project-management/project.routes';
 import { engagementRoutes, ENGAGEMENT_ROUTES } from './features/engagement/bookmark.routes';
 import { contractRoutes } from './features/contracts-payments/contract.routes';
+import { pricingAnalysisRoutes } from './features/ai-pricing/pricing-analysis.routes';
 import { BookmarkButton } from './features/engagement/BookmarkButton';
 import { RecommendationSection } from './features/engagement/RecommendationSection';
 import { useBookmarkedIds } from './features/engagement/useBookmark';
@@ -37,7 +38,6 @@ setUnauthorizedHandler(() => {
  */
 const NOT_INTEGRATED_ROUTES: Array<{ path: string; featureName: NotYetScreenKey }> = [
   { path: '/applications', featureName: 'applications' },
-  { path: '/ai-pricing', featureName: 'ai-pricing' },
   { path: '/reviews', featureName: 'reviews' },
   { path: '/notifications', featureName: 'notifications' },
 ];
@@ -140,6 +140,8 @@ function AppRoutes() {
       })}
 
       {contractRoutes({ viewerId: viewer?.userId ?? null })}
+
+      {pricingAnalysisRoutes({ projectDetailHref: PROJECT_ROUTES.detail })}
 
       {NOT_INTEGRATED_ROUTES.map(({ path, featureName }) => (
         <Route

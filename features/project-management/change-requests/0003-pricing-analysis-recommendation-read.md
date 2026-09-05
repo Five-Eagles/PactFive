@@ -4,8 +4,16 @@
 |---|---|
 | 제기 | 유동우 (project-management) · 2026-08-26 |
 | 확인 필요 | 오민혁 (ai-pricing) |
-| 상태 | 제안 — 임시 어댑터로 구현, 회신 후 확정 |
+| 상태 | 반영 완료 — 2026-09-04 ai-pricing app/ 통합에서 확정 |
 | 관련 | spec.md 규칙 40·52·53 · api-contract.md `apply-pricing-budget` |
+
+**팀장 결정 (2026-09-04)**: 제안된 모양 그대로 확정했다. 실제 구현은
+`app/server/src/features/ai-pricing/pricing-analysis-claim.adapter.ts`의
+`createPricingAnalysisClaimPort()` — `getPricingAnalysisRecommendation`·
+`claimPricingAnalysisForCreatedProject` 둘 다 ai-pricing의 `PricingAnalysisRepository`에
+직접 붙였다. 임시 어댑터(`createUnavailablePricingPort`)는 `app.ts`에서 이 실제 구현으로
+교체됐다. 관련해서 CR-0012(project-management)를 새로 열었다 — `applyPricingAnalysisBudget`
+쪽에 이 함수를 쓰면서 대조하다 발견한 별개 검증 누락 건이다.
 
 ## 요약
 
