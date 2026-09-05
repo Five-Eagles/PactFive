@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, setAuthTokenProvider } from '../../shared/http';
-import type { AuthenticatedSessionResponse, OAuthProvider } from './auth.types';
+import type {
+  AuthenticatedSessionResponse,
+  CompleteRegistrationInput,
+  OAuthProvider,
+  RegisterInput,
+  UserRole,
+} from './auth.types';
 import {
+  completeRegistration as completeRegistrationRequest,
+  confirmEmail as confirmEmailRequest,
   createAuthSession,
   createOAuthAuthorization,
   deleteCurrentAuthSession,
   getCurrentAuthContext,
   refreshAuthSession,
+  registerAccount,
   requestEmailConfirmation,
 } from './api/auth';
 
@@ -17,7 +26,11 @@ import {
  * `api/{도메인}.ts`가 보호 API를 호출할 때도 이 훅이 관리하는 accessToken을 자동으로 쓴다.
  */
 export type AuthViewState =
-  | { status: 'anonymous'; message: string | null; action: null | 'RESEND' | 'COMPLETE_REGISTRATION' }
+  | {
+      status: 'anonymous';
+      message: string | null;
+      action: null | 'RESEND' | 'COMPLETE_REGISTRATION' | 'LOGOUT';
+    }
   | { status: 'restoring'; message: null; action: null }
   | { status: 'submitting'; message: null; action: null }
   | { status: 'authenticated'; message: null; action: null; session: AuthenticatedSessionResponse }
@@ -82,7 +95,12 @@ export function reduceAuthFailure(error: unknown): AuthViewState {
     if (error.code === 'REGISTRATION_COMPLETION_REQUIRED') {
       return { status: 'anonymous', message: error.message, action: 'COMPLETE_REGISTRATION' };
     }
-    if (error.status === 503) {
+    // 2026-09-05 — 가입/가입 복구 도중 이미 다른 계정으로 로그인돼 있는 충돌.
+    // 원본(prototype useAuth.ts)의 action: "LOGOUT" 분기를 그대로 옮겼다.
+    if (error.code === 'AUTH_CONTEXT_CONFLICT') {
+      return { status: 'anonymous', message: error.message, action: 'LOGOUT' };
+    }
+    if (error.status >= 500 && error.status <= 599) {
       return { status: 'retryable', message: error.message, action: 'RETRY' };
     }
     if (error.status === 401) clearAccessTokenInMemory();
@@ -101,7 +119,8 @@ export function createReturnNavigator(navigate: (path: string) => void): (path: 
   };
 }
 
-export function useAuth() {
+export function useAuth(options: { restoreOnMount?: boolean } = {}) {
+  const restoreOnMount = options.restoreOnMount ?? true;
   const [state, setState] = useState<AuthViewState>({ status: 'anonymous', message: null, action: null });
 
   const login = useCallback(async (input: { email: string; password: string; returnTo: string }) => {
@@ -147,13 +166,65 @@ export function useAuth() {
     }
   }, []);
 
-  const startOAuth = useCallback(async (oauthProvider: OAuthProvider, returnTo: string) => {
+  // 2026-09-05 — 회원가입도 소셜로 시작할 수 있어 role을 선택적으로 함께 보낸다
+  // (원본 prototype useAuth.ts와 동일, `CreateOAuthAuthorizationInput.role`은 이미 있었다).
+  const startOAuth = useCallback(async (oauthProvider: OAuthProvider, returnTo: string, role?: UserRole) => {
     const capturedEpoch = authEpoch.advance();
     setState({ status: 'submitting', message: null, action: null });
     try {
-      const result = await createOAuthAuthorization({ oauthProvider, returnTo });
+      const result = await createOAuthAuthorization({ oauthProvider, returnTo, role });
       if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
       window.location.assign(result.authorizationUrl);
+    } catch (error) {
+      if (!authEpoch.isCurrent(capturedEpoch)) throw error;
+      setState(reduceAuthFailure(error));
+      throw error;
+    }
+  }, []);
+
+  // 2026-09-05 — 회원가입 3종. 원본(prototype useAuth.ts)의 register/completeRegistration/
+  // confirmEmail을 그대로 옮겼다. register는 세션을 만들지 않는다(이메일 확인 대기) — 성공하면
+  // anonymous로 돌아가되 서버가 준 안내 문구만 message에 싣는다.
+  const register = useCallback(async (input: RegisterInput) => {
+    const capturedEpoch = authEpoch.advance();
+    setState({ status: 'submitting', message: null, action: null });
+    try {
+      const response = await registerAccount(input);
+      if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
+      setState({ status: 'anonymous', message: response.message, action: null });
+      return response;
+    } catch (error) {
+      if (!authEpoch.isCurrent(capturedEpoch)) throw error;
+      setState(reduceAuthFailure(error));
+      throw error;
+    }
+  }, []);
+
+  const completeRegistration = useCallback(async (input: CompleteRegistrationInput) => {
+    const capturedEpoch = authEpoch.advance();
+    setState({ status: 'submitting', message: null, action: null });
+    try {
+      const session = await completeRegistrationRequest(input);
+      if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
+      accessTokenInMemory = session.accessToken;
+      setState({ status: 'authenticated', message: null, action: null, session });
+      return session;
+    } catch (error) {
+      if (!authEpoch.isCurrent(capturedEpoch)) throw error;
+      setState(reduceAuthFailure(error));
+      throw error;
+    }
+  }, []);
+
+  const confirmEmail = useCallback(async (tokenHash: string) => {
+    const capturedEpoch = authEpoch.advance();
+    setState({ status: 'submitting', message: null, action: null });
+    try {
+      const session = await confirmEmailRequest(tokenHash);
+      if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
+      accessTokenInMemory = session.accessToken;
+      setState({ status: 'authenticated', message: null, action: null, session });
+      return session;
     } catch (error) {
       if (!authEpoch.isCurrent(capturedEpoch)) throw error;
       setState(reduceAuthFailure(error));
@@ -188,8 +259,18 @@ export function useAuth() {
   }, []);
 
   useEffect(() => {
-    void restore().catch(() => undefined);
-  }, [restore]);
+    if (restoreOnMount) void restore().catch(() => undefined);
+  }, [restore, restoreOnMount]);
 
-  return { state, login, restore, startOAuth, resendConfirmation, logout };
+  return {
+    state,
+    login,
+    register,
+    completeRegistration,
+    confirmEmail,
+    restore,
+    startOAuth,
+    resendConfirmation,
+    logout,
+  };
 }

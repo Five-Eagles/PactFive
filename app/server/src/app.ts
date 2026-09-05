@@ -1,5 +1,8 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import { config as loadEnvFile } from 'dotenv';
 import cors from 'cors';
 import { createAuthRouter } from './features/user-management/auth.routes';
 import { AuthSessionService } from './features/user-management/auth.service';
@@ -51,6 +54,17 @@ import { createReviewRouter } from './features/reviews/review.router';
  *   - api/index.ts   → Vercel 서버리스
  *   - src/server.ts  → 로컬 독립 서버
  */
+
+// 2026-09-05 버그 수정 — tsx는 .env를 자동으로 읽지 않는다. 그동안 리포 루트 `.env`(Supabase·
+// OpenAI·토스페이먼츠 키 등)를 채워도 아무 코드가 이걸 process.env로 올려주지 않아서, 이
+// 파일이 조용히 모든 값을 "비어 있음"으로 읽고 각 기능의 mock/미설정 기본값으로 빠졌다
+// (예: user-management가 AUTH_PROVIDER_MODE=supabase를 무시하고 계속 MockAuthProvider를 써서,
+// 회원가입 화면은 성공을 보여주지만 실제 확인 메일은 나가지 않았다). 이 한 줄로 두 진입점
+// (api/index.ts, src/server.ts) 모두에서 로컬 실행 시 루트 .env가 실제로 반영된다.
+// 이미 설정된 값(Vercel 배포 환경변수 등)은 덮어쓰지 않는다(dotenv 기본 동작 — override: false).
+// 배포 환경처럼 이 경로에 .env가 없으면 조용히 아무 효과가 없다.
+loadEnvFile({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../.env') });
+
 const app = express();
 
 // app/web과 app/server는 Vercel 프로젝트가 분리돼 있어 배포 시 오리진이 다르다 (ADR-0007).

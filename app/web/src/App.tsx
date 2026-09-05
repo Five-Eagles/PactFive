@@ -13,7 +13,7 @@ import { useAuth } from './features/user-management/useAuth';
 import { projectRoutes, PROJECT_ROUTES } from './features/project-management/project.routes';
 import { engagementRoutes, ENGAGEMENT_ROUTES } from './features/engagement/bookmark.routes';
 import { contractRoutes } from './features/contracts-payments/contract.routes';
-import { pricingAnalysisRoutes } from './features/ai-pricing/pricing-analysis.routes';
+import { pricingAnalysisRoutes, PRICING_ANALYSIS_ROUTES } from './features/ai-pricing/pricing-analysis.routes';
 import { applicationRoutes, APPLICATION_ROUTES } from './features/applications/application.routes';
 import { reviewRoutes } from './features/reviews/review.routes';
 import { BookmarkButton } from './features/engagement/BookmarkButton';
@@ -115,6 +115,17 @@ function AppRoutes() {
   const applyHref = (projectId: string) => APPLICATION_ROUTES.apply(projectId);
   const applicantsHref = (projectId: string) => APPLICATION_ROUTES.manage(projectId);
 
+  // ai-pricing ↔ project-management 등록 폼 왕복 (2026-09-05) — 두 폴더는 서로 import하지
+  // 않으므로 실제 쿼리 문자열 조립은 여기서만 한다.
+  const pricingAnalysisHref = (query: { title: string; description: string; category: string }) => {
+    const params = new URLSearchParams();
+    if (query.title) params.set('title', query.title);
+    if (query.description) params.set('description', query.description);
+    if (query.category) params.set('category', query.category);
+    const qs = params.toString();
+    return qs ? `${PRICING_ANALYSIS_ROUTES.new}?${qs}` : PRICING_ANALYSIS_ROUTES.new;
+  };
+
   const routes = (
     <Routes>
       {authRoutes}
@@ -136,6 +147,7 @@ function AppRoutes() {
         },
         applyHref,
         applicantsHref,
+        pricingAnalysisHref,
       })}
 
       {engagementRoutes({
@@ -146,7 +158,11 @@ function AppRoutes() {
 
       {contractRoutes({ viewerId: viewer?.userId ?? null })}
 
-      {pricingAnalysisRoutes({ projectDetailHref: PROJECT_ROUTES.detail })}
+      {pricingAnalysisRoutes({ projectDetailHref: PROJECT_ROUTES.detail, registerHref: PROJECT_ROUTES.register })}
+
+      {applicationRoutes()}
+
+      {reviewRoutes()}
 
       {applicationRoutes()}
 
