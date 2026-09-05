@@ -28,12 +28,15 @@ export const PRICING_ANALYSIS_ROUTES = {
 export type PricingAnalysisRouteProps = {
   /** project-management의 PROJECT_ROUTES.detail — 폴더 간 접점은 App.tsx에서만 잇는다. */
   projectDetailHref: (projectId: string) => string;
+  /** project-management 소유 — 등록 폼(3단계 퍼널) 경로. "이 추천 예산 사용하기"를 누르면
+   * 여기로 돌아간다(2026-09-05, 폴더 간 접점은 App.tsx에서만 잇는다). */
+  registerHref?: string;
 };
 
-export function pricingAnalysisRoutes({ projectDetailHref }: PricingAnalysisRouteProps) {
+export function pricingAnalysisRoutes({ projectDetailHref, registerHref }: PricingAnalysisRouteProps) {
   return (
     <>
-      <Route path="/pricing-analyses/new" element={<NewPricingAnalysisPage />} />
+      <Route path="/pricing-analyses/new" element={<NewPricingAnalysisPage registerHref={registerHref} />} />
       <Route
         path="/pricing-analyses/:pricingAnalysisId/apply"
         element={<PricingAnalysisApplyPage projectDetailHref={projectDetailHref} />}

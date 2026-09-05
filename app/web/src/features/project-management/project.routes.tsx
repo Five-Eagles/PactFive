@@ -44,6 +44,8 @@ export type ProjectRouteSlots = {
   applyHref?: (projectId: string) => string;
   /** applications 소유 — 지원자 관리 화면 경로. 위와 같은 슬롯 원칙. */
   applicantsHref?: (projectId: string) => string;
+  /** ai-pricing 소유 — AI 추천 예산 화면 경로. 위와 같은 슬롯 원칙(2026-09-05). */
+  pricingAnalysisHref?: (query: { title: string; description: string; category: string }) => string;
   /** 대표 페이지 전용 — 이 화면은 AppShell을 안 쓰고 자기 헤더를 그려서 세션 정보가 직접 필요하다
    * (homepage-transplant-plan.md 4번 절 Option C). */
   homeViewer: { email: string; role: 'CLIENT' | 'FREELANCER'; userId: string } | null;
@@ -58,6 +60,7 @@ export function projectRoutes({
   renderRecommendations,
   applyHref,
   applicantsHref,
+  pricingAnalysisHref,
   homeViewer,
   homeMyActivityHref,
   onHomeLogout,
@@ -81,7 +84,10 @@ export function projectRoutes({
         element={<ProjectBrowsePage renderBookmark={renderBookmark} />}
       />
       {/* 등록 경로를 상세보다 먼저 둔다 — `/projects/new` 가 `:projectId` 로 잡히면 안 된다 */}
-      <Route path={PROJECT_ROUTES.register} element={<ProjectRegisterForm />} />
+      <Route
+        path={PROJECT_ROUTES.register}
+        element={<ProjectRegisterForm pricingAnalysisHref={pricingAnalysisHref} />}
+      />
       <Route
         path="/projects/:projectId"
         element={
