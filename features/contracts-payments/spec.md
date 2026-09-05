@@ -12,7 +12,7 @@
 ## 범위
 
 - 포함: 4함수 호출 계약, `PaymentGateway.confirmPayment`·`retrievePayment`, 금액 합의·계약 서명·
-  샌드박스 결제 Mock, 납품 Increment(조회·요청·승인 Mock + DLV-01 시안).
+  샌드박스 결제 Mock, 납품 Increment, 정산 실행 Mock(규칙 24), 합의·계약 무효화 Mock(규칙 25).
 - 제외: 위젯 구현, 에스크로·지급대행 실연동, PG 환불, 리뷰, `acceptProjectApplication` 구현,
   `projects` 테이블 직접 UPDATE. 제안 철회는 Increment 1 제외. 납품 반려·재납품은 MVP 제외.
 
@@ -165,15 +165,16 @@
 
 10. **금액 합의는 다회차 도메인이다.** `negotiation_offer.round`가 라운드다. 활성 제안은 최신
     round 1건. 저장 enum은 `PROPOSED`·`ACCEPTED`·`REJECTED`만 (D-81). 2차 설계서 `PENDING`은
-    `PROPOSED`, `SUPERSEDED`는 이전 round다. 제안 철회는 Increment 1에서 하지 않는다.
-    Increment 1 화면: 의뢰인 최초 제안 → 프리랜서 수락 또는 최종 거절 (프론트 AGR-01).
+    `PROPOSED`, `SUPERSEDED`는 이전 round다. 과거 라운드는 화면에서 「이후 제안으로 대체됨」으로만
+    표시한다 (AGR-03). 제안 철회는 Increment 1에서 하지 않는다.
+    Increment 1 화면: 의뢰인 최초 제안 → 최신 offer 수신자의 수락·재제안 또는 최종 거절 (AGR-01·AGR-02).
     최초 `proposeNegotiationOffer`는 해당 `application_id`에 `agreements`가 없으면 1건을 만든다.
     `application_id` = 수락 지원서, `proposed_by_user_id` = 제안자(Increment 1은 의뢰인),
     `agreed_amount` = 이번 offer `offered_amount` (`PROPOSED`여도 NOT NULL), `status` =
     `PROPOSED`, `responded_at` = null. 이어서 offer round 1. Increment 1은 지원서당 합의 1건
     (I-15). 수락·거절 시 `responded_at`을 찍고 거절 offer에는 `rejected_reason`을 남긴다.
-    재제안 API는 계약에 두되 Increment 1 테스트 범위 밖이다. 진입은 `AcceptedApplicationHandoff`
-    (`CONTRACT_PENDING` + 수락 지원 1건, 규칙 7).
+    재제안은 AGR-02 `counterNegotiationOffer`다. 제안 철회는 Increment 밖이다. 진입은
+    `AcceptedApplicationHandoff` (`CONTRACT_PENDING` + 수락 지원 1건, 규칙 7).
 
 11. **수락은 합의 확정과 계약 `DRAFT` 생성을 한 트랜잭션에서 한다.** `acceptNegotiationOffer`.
     최신 round의 수신자만. 성공 후 `agreements.status = ACCEPTED`, `contracts.status = DRAFT`.
@@ -182,8 +183,8 @@
     필드 복사는 규칙 20.
 
 12. **계약 상태.** `DRAFT` → 첫 서명 성공 시 `SIGNING` → 양쪽 서명 시 `SIGNED`.
-    `signed_at`은 양쪽이 채워진 순간에만 찍는다. 무효화·프로젝트 취소 경로는 `CANCELED`.
-    전이표는 규칙 19.
+    `signed_at`은 양쪽이 채워진 순간에만 찍는다. 서명 순서는 자유다 (CTR-02). 무효화·프로젝트
+    취소 경로는 `CANCELED`. 취소 후 서명은 409 `PROJECT_TRANSITION_CONFLICT`. 전이표는 규칙 19.
 
 13. **`signContract`.** 계약 당사자만. 멱등 키 `contract-sign-{contractId}-{signerId}`.
     같은 계약·같은 서명자 감사는 1건 (I-19). 재호출은 200, `client_signed_at` /
@@ -193,21 +194,23 @@
 
 14. **샌드박스 결제는 승인까지다.** 준비 → 위젯/리다이렉트 → 규칙 9 `confirmPayment` → 웹훅은
     조회 API로 재검증 → `PAID` → 규칙 3 `startProjectTransaction`. 규칙 6은 PG 요청 직전.
-    에스크로·지급대행·실정산·PG 환불은 제외. `RELEASED`는 정산 설계서(다음 스프린트).
-    「결제 취소」는 계약 취소 설계서의 환불 경로이지 Toss MVP가 아니다.
+    prepare는 계약 `SIGNED` 의뢰인만, PG 정보 전 `markPaymentPending`. Redirect·웹훅만으로
+    `PAID`가 되지 않는다 (PAY-02). 에스크로·지급대행·실송금·PG 환불은 제외. `RELEASED`는
+    규칙 24. 「결제 취소」는 계약 취소 설계서의 환불 경로이지 Toss MVP가 아니다.
     전이·FAILED·조회는 규칙 19·21.
 
-15. **프로젝트 취소 경로**는 `invalidateAgreementAndContract`다 (합의 `REJECTED`, 계약
-    `CANCELED`, 서명 감사 보존). restore와 반대 방향이다 (규칙 5). `paymentPendingAt`이 있으면
-    일반 취소는 `409 PROJECT_CANCEL_AFTER_PAYMENT` (규칙 6).
+15. **프로젝트 취소 경로**는 `invalidateAgreementAndContract`다. restore와 반대 방향이다
+    (규칙 5). 실행 불변식은 규칙 25.
 
 16. **공개 API 경로 (함수명이 정본).** Increment 1 REST:
     `POST /api/v1/projects/:projectId/negotiation-offers` (`proposeNegotiationOffer`),
     `GET /api/v1/projects/:projectId/negotiation-offers/current`,
+    `POST .../negotiation-offers/:offerId/counter` (`counterNegotiationOffer`),
     `POST .../negotiation-offers/:offerId/accept` (`acceptNegotiationOffer`),
     `POST .../negotiation-offers/:offerId/reject` (`rejectNegotiationOffer`),
     `GET /api/v1/contracts/:contractId` (규칙 20), `POST /api/v1/contracts/:contractId/sign`,
-    `POST /api/v1/payments` (준비), `GET /api/v1/payments/:paymentId` (규칙 21),
+    `POST /api/v1/payments` (준비), `GET /api/v1/payments/:paymentId` (규칙 21) · `.../settlement` (SET-01) ·
+    `GET /api/v1/projects/:projectId/cancellation` (CAN-01),
     `POST /api/v1/payments/confirm` (규칙 9).
     납품 Increment: `GET /api/v1/contracts/:contractId/delivery`,
     `POST .../deliveries/upload-prepare`, `POST .../deliveries/request`,
@@ -218,18 +221,19 @@
 
 17. **프론트 라우트 초안.** `/projects/:projectId/agreements` (생성 모드),
     `/projects/:projectId/agreements/:agreementId` (AGR-01 상세),
-    `/projects/:projectId/contracts/:contractId` (CTR-01 서명),
-    `/projects/:projectId/payments/:paymentId` (체크아웃, `payments.id`),
-    `/projects/:projectId/contracts/:contractId/delivery` (DLV-01, 식별자는 `contractId`).
+    `/projects/:projectId/contracts/:contractId` (CTR-01 서명, 앱 셸 없는 페이지 본문·ViewModel),
+    `/projects/:projectId/payments/:paymentId` (PAY-01) · `.../settlement` (SET-01, `payments.id`),
+    `/projects/:projectId/contracts/:contractId/delivery` (DLV-01, 식별자는 `contractId`),
+    `/projects/:projectId/cancellation` (CAN-01 취소 결과, 앱 셸 없는 페이지 본문·ViewModel).
     Toss `orderId`는 `pg_order_id`이며 화면 경로에 쓰지 않는다.
     UX: 로딩, 빈 생성 모드, `LOAD_FAILED` 재시도, `STALE`/409 후 재조회, 프로젝트 취소 시
     변경 버튼 숨김 (프론트 v2.0). 서명·결제도 같은 패턴. 취소된 프로젝트 서명은
     "프로젝트가 취소되었습니다".
 
-18. **Increment 1 백로그·테스트는 규칙 22.** 재제안·철회·에스크로·환불은 Increment 밖이다.
+18. **Increment 1 백로그·테스트는 규칙 22.** 재제안은 AGR-02. 철회·에스크로·환불은 Increment 밖이다.
 
 19. **계약·결제 전이표.** `payments.status`와 규칙 6 `paymentPendingAt`은 다른 칸이다.
-    `RELEASED`/`REFUNDED`는 Increment 1 밖.
+    `PAID` → 규칙 24 `RELEASED`. `REFUNDED`는 MVP 미구현.
     계약: `DRAFT` —첫 `signContract`→ `SIGNING` —양쪽→ `SIGNED`(`signed_at`).
     `DRAFT`|`SIGNING`|`SIGNED`(미결제) —`invalidateAgreementAndContract`→ `CANCELED`.
     `PAID` 이후 계약 취소·환불은 제외. 서명 순서는 자유. `CANCELED`에서 서명은 거부.
@@ -237,7 +241,8 @@
     `payment_amount` = `agreed_amount`, `platform_fee_amount` = `floor(amount × 0.1)`(D-14),
     `settlement_amount` = 차액, `currency` = `KRW`, `pg_provider` = `TOSS_PAYMENTS`.
     `READY` —confirm 수신→ `PENDING` —규칙 9 성공→ `PAID` → `publishPaymentCompleted` → 규칙 3.
-    `PENDING` —금액 불일치·PG 실패→ `FAILED`(`failed_at`·`failure_code`·`raw_response`).
+    `PENDING` —금액 불일치→ `FAILED`. 승인 timeout·유실은 `PENDING` 유지 후 `retrievePayment`로
+    복구한다 (PAY-02). `PAID`는 `PENDING`/`FAILED`로 되돌리지 않는다.
     `FAILED` —같은 행에 새 `pg_order_id`를 넣고 `READY`로 되돌린다. 옛 `orderId` confirm은 409.
     같은 `pg_order_id`로 confirm 재시도 금지 (I-20).
 
@@ -251,8 +256,8 @@
     `terms_snapshot`을 보고 `signContract`. PDF 생성·대기 없음.
 
 21. **FAILED 재시도·웹훅.** 실패 주문은 재confirm하지 않는다. 재결제는 같은 `paymentId`에
-    새 `orderId`(규칙 19, I-17). 토스 웹훅은 브라우저 API가 아니다. 서버가
-    `PaymentGateway`로 재조회한 뒤 `payments`를 맞춘다. 포트 `retrievePayment`는 Mock에 있다.
+    새 `orderId`(규칙 19, I-17). 토스 웹훅은 브라우저 API가 아니다. prototype
+    `receivePaymentWebhook`이 수신 후 `retrievePayment`로 재검증한다 (PAY-02). 포트는 Mock에 있다.
     화면 폴링: `GET /api/v1/payments/:paymentId` → `READY`|`PENDING`|`PAID`|`FAILED`. 당사자만.
     `PAID`인데 start가 실패하면 PG를 되돌리지 않고 규칙 3을 재시도한다 (규칙 7).
 
@@ -261,17 +266,41 @@
     `design/` high-fi 3화면(합의·서명·결제, 규칙 17). inbound `invalidateAgreementAndContract`
     (`cancellationId`, `actorUserId`, `reason: PROJECT_CANCELED`, `projectCanceledAt` →
     `DONE`|`NOT_NEEDED`|`FAILED`, D-89). `PaymentGateway.retrievePayment`(규칙 21).
-    제외: 위젯 실연동, 에스크로·`RELEASED`, PG 환불, 재제안·철회.
+    제외: `app/` 미반영, 실에스크로·실송금, PG 환불, 철회. `RELEASED`는 규칙 24. 위젯은 `PG_CLIENT_KEY`가 있을 때만
+    prototype 패널. 키 없으면 stub/`keyMissing` (PAY-02). 재제안은 AGR-02.
     완료 기준 — 합의 12: 빈 생성 / 의뢰인 제안 / 현재 조회 / 수락→DRAFT / 수락 멱등 /
     거절→restore / 거절 멱등 / 로딩 / `LOAD_FAILED` 재시도 / 409 재조회 / 취소 후 변경 숨김 /
     비당사자 403. 서명 2 + 결제 Mock(규칙 9, 기존) + `FAILED` 후 같은 행 새 `orderId` `READY` 1.
     restore는 규칙 5 기존.
 
 23. **납품 Increment.** 계약당 1건, 프리랜서 1회 요청 → 의뢰인 명시적 승인. 반려·재납품 없음.
-    선행: 계약 `SIGNED` ∧ 결제 `PAID` ∧ 프로젝트 `IN_PROGRESS`. GET은 납품 행이 없어도 200
-    (`delivery: null`). 화면은 `APPROVED`∧`PAID`를 완료로 보지 않는다. `RELEASED`일 때만
-    규칙 4 complete. 오류 코드는 규칙 8 5종(+공개 401·403). 납품 요청·승인 경로에서만
-    `publishDeliveryRequested`·`publishDeliveryApproved`. 실저장소·실에스크로는 Mock 스텁.
+    `IN_PROGRESS` 진입 시 `ensureDeliveryForContract`(초기 `IN_PROGRESS`, 업로드·요청 시 멱등 보정).
+    GET은 행을 돌려준다(요청 전 `status: IN_PROGRESS`, `file`/`message` null). 화면은
+    `APPROVED`∧`PAID`를 완료로 보지 않는다. 승인·정산 `RELEASED`(Mock 헬퍼, 지급 버튼 없음)
+    양쪽에서 규칙 4를 재평가한다. 한쪽만이면 complete 미호출. `Idempotency-Key` 필수(같은 키·다른
+    본문 409). `upload-prepare` 본문 `{ fileName, contentType, size, sha256 }`, 요청
+    `{ objectKey, uploadId, message }`. 검사 미완 422. 오류는 규칙 8 5종(+공개 401·403).
+    설계서 `DELIVERY_*` 코드는 쓰지 않는다. 납품 경로에서만 납품 publish. 실저장소·실AV는 스텁.
+    ERD 제안: `fileObjectKey`·`fileSha256`·`version`·`requestedBy`(팀장 반영).
+
+24. **정산 실행 (SET-01 v2).** 수수료 `floor(paymentAmount × 1000 / 10000)`, 결제 생성 시
+    스냅샷. PG 비용은 정산액에서 빼지 않는다. `APPROVED` 전 `RELEASED` 불가. Payment당 실행
+    원장 1건. 성공과 `RELEASED`는 같이 기록. 사용자 API는 GET only. 승인 후 evaluate만.
+    Sandbox 결과는 Mock `simulateSettlementResult`. 실패는 `PAID` 유지. UNKNOWN은
+    PROCESSING, 새 지급 없음. 같은 멱등 키·같은 본문 재사용, 다른 본문 409. C-03은
+    `APPROVED ∧ RELEASED`만, 호출 전 조회. 409면 재조회: `COMPLETED` 성공, `CANCELED` 자동
+    복구 금지. 오류는 규칙 8 5종. `SETTLEMENT_*` 코드·지급 버튼·운영 화면 없음. 화면은
+    「정산 시뮬레이션」.
+
+25. **합의·계약 무효화 (CAN-01 v2).** 의뢰인 즉시 취소 가능 구간은 `NONE`·결제 전
+    `CONTRACT_PENDING`. `paymentPendingAt`/`IN_PROGRESS`/`COMPLETED`는 취소·무효화 거부.
+    inbound는 합의 `REJECTED`·계약 `CANCELED`. 서명 감사·terms 스냅샷은 삭제·수정 없음.
+    멱등: 같은 `cancellationId`·같은 본문 재사용, 다른 본문 409. 이미 무효화면
+    `alreadyProcessed`. `postActions`: `applicationRejection`은 `NOT_NEEDED`.
+    `contractInvalidation`은 `DONE`/`NOT_NEEDED`/`FAILED`. `notification`은 발송 없이
+    `NOT_NEEDED`(실패 시드만 `FAILED`). `FAILED`는 프로젝트 취소 실패가 아니다. GET은
+    202 후처리 화면. 화면 「프로젝트가 취소되었습니다」. 법적 무효·환불 버튼·삭제 금지.
+    A-07 `POST /cancel`·72시간 동의·PG 환불·`INVALIDATED`는 제외.
 
 ## 크기 기준
 

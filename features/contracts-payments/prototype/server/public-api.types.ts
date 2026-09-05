@@ -37,6 +37,12 @@ export function isPublicApiError(err: unknown): err is PublicApiError {
 
 export type ProposeNegotiationOfferInput = { amount: number; currency: "KRW" };
 
+export type CounterNegotiationOfferInput = {
+  amount: number;
+  currency: "KRW";
+  expectedRound: number;
+};
+
 export type NegotiationOfferView = {
   offerId: string;
   round: number;
@@ -59,6 +65,7 @@ export type CurrentNegotiationOfferResponse = {
   applicationId: string | null;
   reopened: boolean | null;
   notReopenedReason: NotReopenedReason | null;
+  offers: NegotiationOfferView[];
 };
 
 export type AcceptNegotiationOfferInput = { expectedRound: number };
@@ -76,6 +83,7 @@ export type SignContractResponse = {
 
 export type GetContractResponse = {
   contractId: string;
+  projectId: string;
   status: ContractStatus;
   termsSnapshot: {
     schemaVersion: 1;
@@ -83,16 +91,30 @@ export type GetContractResponse = {
     currency: "KRW";
     projectTitle: string;
   };
+  workStartDate: string;
+  workEndDate: string;
   clientSignedAt: string | null;
   freelancerSignedAt: string | null;
   signedAt: string | null;
+  transactionStatus: ProjectTransactionStatus;
+  canceledAt: string | null;
+  paymentStatus: "READY" | "PENDING" | "PAID" | "FAILED" | null;
 };
+
+export type PaymentProjectTransactionStatus = "CONTRACT_PENDING" | "IN_PROGRESS" | "CANCELED";
 
 export type GetPaymentResponse = {
   paymentId: string;
+  contractId: string;
   orderId: string;
   amount: number;
+  currency: "KRW";
+  platformFeeAmount: number;
+  settlementAmount: number;
   status: "READY" | "PENDING" | "PAID" | "FAILED";
+  projectTitle: string;
+  projectTransactionStatus: PaymentProjectTransactionStatus;
+  environment: "SANDBOX";
 };
 
 export type InvalidateAgreementInput = {
@@ -110,9 +132,92 @@ export type InvalidateAgreementResponse = {
   result: "DONE" | "NOT_NEEDED" | "FAILED";
 };
 
+export type PostActionResult = "DONE" | "NOT_NEEDED" | "FAILED";
+
+export type GetCancellationResponse = {
+  projectId: string;
+  projectTitle: string;
+  recruitmentStatus: RecruitmentStatus;
+  transactionStatus: ProjectTransactionStatus;
+  paymentPendingAt: string | null;
+  canceledAt: string | null;
+  acceptedApplicationId: string | null;
+  agreementStatus: "PROPOSED" | "ACCEPTED" | "REJECTED" | null;
+  contractStatus: ContractStatus | null;
+  hasSignatureAudit: boolean;
+  postActions: {
+    applicationRejection: PostActionResult;
+    contractInvalidation: PostActionResult;
+    notification: PostActionResult;
+  } | null;
+};
+
 export type DeliveryStatus = "IN_PROGRESS" | "DELIVERY_REQUESTED" | "APPROVED";
 
 export type DeliveryPaymentStatus = "READY" | "PENDING" | "PAID" | "FAILED" | "RELEASED";
+
+export type SettlementProjectTransactionStatus =
+  | "CONTRACT_PENDING"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELED";
+
+export type GetSettlementResponse = {
+  paymentId: string;
+  contractId: string;
+  projectId: string;
+  projectTitle: string;
+  environment: "SANDBOX";
+  provider: "MANUAL_SIMULATION";
+  currency: "KRW";
+  paymentAmount: number;
+  platformFeeRateBps: number;
+  platformFeeAmount: number;
+  settlementAmount: number;
+  paymentStatus: DeliveryPaymentStatus;
+  deliveryStatus: DeliveryStatus | null;
+  projectTransactionStatus: SettlementProjectTransactionStatus;
+  canceledAt: string | null;
+  releasedAt: string | null;
+};
+
+export type SimulateSettlementResultInput = {
+  result: "SUCCESS" | "FAILURE" | "UNKNOWN";
+  idempotencyKey: string;
+};
+
+export type SettlementExecutionStatus =
+  | "PENDING"
+  | "BLOCKED"
+  | "ELIGIBLE"
+  | "REQUESTED"
+  | "PROCESSING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "REVIEW_REQUIRED";
+
+export type SettlementExecutionView = {
+  settlementId: string;
+  paymentId: string;
+  contractId: string;
+  status: SettlementExecutionStatus;
+  paymentAmount: number;
+  platformFeeRateBps: number;
+  platformFeeAmount: number;
+  settlementAmount: number;
+  feePolicyVersion: string;
+  pgCostAmount: number;
+  blockedReason: string | null;
+  payoutAttempts: number;
+  releasedAt: string | null;
+};
+
+export type SimulateSettlementResultResponse = {
+  alreadyProcessed: boolean;
+  paymentStatus: DeliveryPaymentStatus;
+  executionStatus: SettlementExecutionStatus;
+  payoutAttempts: number;
+};
 
 export type DeliveryFileView = {
   fileName: string;
@@ -145,14 +250,28 @@ export type GetDeliveryResponse = {
   canApprove: boolean;
   canDownload: boolean;
   canReview: boolean;
+  alreadyProcessed?: boolean;
+};
+
+export type PrepareDeliveryUploadInput = {
+  fileName: string;
+  contentType: string;
+  size: number;
+  sha256: string;
 };
 
 export type PrepareDeliveryUploadResponse = {
+  uploadId: string;
   uploadUrl: string;
   objectKey: string;
   expiresAt: string;
 };
 
-export type RequestDeliveryInput = { objectKey: string; message: string };
+export type RequestDeliveryInput = {
+  objectKey: string;
+  uploadId: string;
+  message: string;
+  idempotencyKey: string;
+};
 
-export type ApproveDeliveryInput = { expectedVersion?: number };
+export type ApproveDeliveryInput = { expectedVersion?: number; idempotencyKey: string };

@@ -12,144 +12,283 @@
 
 <div class="meta">
   <h1>결제</h1>
-  <p>패널만 · 앱 셸 없음 · /projects/:projectId/payments/:paymentId · design-system v1.0 · 규칙 9·17</p>
+  <p>페이지 본문 · 앱 셸 없음 · /projects/:projectId/payments/:paymentId · design-system v1.0 · PAY-01 · 규칙 9·14·17</p>
   <span class="fi">high-fi</span>
 </div>
 
 <section class="screen">
-  <div class="id">체크아웃 · 금액 근거</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">결제</h2>
+  <div class="id">결제 가능 · PAYMENT_AVAILABLE</div>
+  <article class="payment-page has-fixed-cta">
+    <header class="payment-page-head">
+      <div class="payment-page-head-copy">
+        <h1 class="page-title">계약 결제</h1>
+        <p class="payment-page-links"><a href="#contract">계약서</a></p>
+      </div>
       <span class="badge neutral">결제 전</span>
-    </div>
-    <p class="status-copy">의뢰인이 결제하면 거래가 <strong>진행 중</strong>으로 바뀝니다.</p>
-    <dl class="facts">
-      <dt>프로젝트 제목</dt>
-      <dd>쇼핑몰 웹사이트 구축</dd>
-      <dt>결제 금액</dt>
-      <dd><span class="money">100,000원</span></dd>
-      <dt>플랫폼 수수료</dt>
-      <dd><span class="money">10,000원</span></dd>
-      <dt>정산액</dt>
-      <dd><span class="money">90,000원</span></dd>
-    </dl>
-    <p class="helper">이 금액은 합의에서 확정된 값입니다. 수수료는 10%(원 미만 버림)이며 화면에서 바꾸지 않습니다.</p>
-    <p class="helper">결제해도 바로 넘어가지 않습니다. 납품 승인 뒤에 정산됩니다.</p>
-    <div class="btn-row">
-      <button type="button" class="btn primary">결제하기</button>
+    </header>
+    <p class="sandbox-banner">
+      <span class="badge info">Sandbox 테스트 결제</span>
+      <span>실제 금액이 청구되지 않습니다.</span>
+    </p>
+    <div class="payment-grid">
+      <aside class="payment-side">
+        <section class="panel">
+          <h2 class="agreement-card-title">결제 요약</h2>
+          <p class="caption">Sandbox 테스트 결제</p>
+          <p class="offer-amount"><span class="money">100,000원</span></p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">테스트 결제 진행</button>
+          </div>
+        </section>
+      </aside>
+      <div class="payment-main">
+        <section class="panel" id="contract">
+          <p class="status-copy" role="status">의뢰인이 결제하면 거래가 <strong>진행 중</strong>으로 바뀝니다.</p>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>결제 금액</dt>
+            <dd><span class="money">100,000원</span></dd>
+            <dt>플랫폼 수수료</dt>
+            <dd><span class="money">10,000원</span></dd>
+            <dt>정산액</dt>
+            <dd><span class="money">90,000원</span></dd>
+          </dl>
+          <p class="helper">이 금액은 합의에서 확정된 값입니다. 화면에서 바꾸지 않으며 서버가 보낸 숫자를 그대로 보여 줍니다.</p>
+          <p class="helper">결제해도 바로 넘어가지 않습니다. 납품 승인 뒤에 정산됩니다.</p>
+          <p class="helper">결제창으로 이동합니다. 카드 정보는 PactFive가 저장하지 않습니다.</p>
+        </section>
+      </div>
+      <div class="payment-cta-bar btn-row">
+        <button type="button" class="btn primary">테스트 결제 진행</button>
+      </div>
     </div>
   </article>
 </section>
 
+<section class="screen overlay-demo">
+  <div class="id">PAY-M01 · 진행 확인</div>
+  <div class="overlay-backdrop open">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="pay-m01-title">
+      <h2 class="title" id="pay-m01-title">Sandbox 테스트 결제를 진행할까요?</h2>
+      <p class="status-copy">쇼핑몰 웹사이트 구축, 금액 <strong><span class="money">100,000원</span></strong>. 실제 금액이 청구되지 않습니다.</p>
+      <div class="btn-row">
+        <button type="button" class="btn quiet">취소</button>
+        <button type="button" class="btn primary">결제창 열기</button>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="screen">
-  <div class="id">키 없음</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">결제</h2>
+  <div class="id">키 없음 · KEY_MISSING</div>
+  <article class="payment-page">
+    <header class="payment-page-head">
+      <div class="payment-page-head-copy">
+        <h1 class="page-title">계약 결제</h1>
+      </div>
       <span class="badge warning">연동 준비 중</span>
-    </div>
-    <p class="notice warning" role="status">결제 연동 준비 중</p>
-    <p class="status-copy">지금은 결제를 진행할 수 없습니다. 연동이 끝나면 다시 시도해 주세요.</p>
-    <div class="btn-row">
-      <button type="button" class="btn secondary">다시 시도</button>
+    </header>
+    <p class="sandbox-banner">
+      <span class="badge info">Sandbox 테스트 결제</span>
+      <span>실제 금액이 청구되지 않습니다.</span>
+    </p>
+    <div class="payment-grid">
+      <aside class="payment-side">
+        <section class="panel">
+          <h2 class="agreement-card-title">결제 요약</h2>
+          <div class="btn-row">
+            <button type="button" class="btn secondary">다시 시도</button>
+          </div>
+        </section>
+      </aside>
+      <div class="payment-main">
+        <section class="panel">
+          <p class="notice warning" role="status">결제 연동 준비 중</p>
+          <p class="status-copy">지금은 결제를 진행할 수 없습니다. 연동이 끝나면 다시 시도해 주세요.</p>
+        </section>
+      </div>
     </div>
   </article>
 </section>
 
 <section class="screen">
-  <div class="id">처리 중</div>
-  <article class="panel" aria-busy="true">
-    <div class="panel-head">
-      <h2 class="title">결제</h2>
+  <div class="id">결과 확인 중 · PAYMENT_CONFIRMING</div>
+  <article class="payment-page" aria-busy="true">
+    <header class="payment-page-head">
+      <div class="payment-page-head-copy">
+        <h1 class="page-title">계약 결제</h1>
+      </div>
       <span class="badge warning">처리 중</span>
-    </div>
-    <p class="status-copy">결제를 확인하고 있습니다. <strong>잠시만 기다려 주세요</strong>.</p>
-    <dl class="facts">
-      <dt>프로젝트 제목</dt>
-      <dd>쇼핑몰 웹사이트 구축</dd>
-      <dt>결제 금액</dt>
-      <dd><span class="money">100,000원</span></dd>
-      <dt>플랫폼 수수료</dt>
-      <dd><span class="money">10,000원</span></dd>
-      <dt>정산액</dt>
-      <dd><span class="money">90,000원</span></dd>
-    </dl>
-    <div class="btn-row">
-      <button type="button" class="btn primary" aria-busy="true" disabled>결제하기</button>
+    </header>
+    <p class="sandbox-banner">
+      <span class="badge info">Sandbox 테스트 결제</span>
+      <span>실제 금액이 청구되지 않습니다.</span>
+    </p>
+    <div class="payment-grid">
+      <aside class="payment-side">
+        <section class="panel">
+          <h2 class="agreement-card-title">결제 요약</h2>
+          <p class="offer-amount"><span class="money">100,000원</span></p>
+          <div class="btn-row">
+            <button type="button" class="btn primary" aria-busy="true" disabled>상태 확인</button>
+          </div>
+        </section>
+      </aside>
+      <div class="payment-main">
+        <section class="panel">
+          <p class="status-copy" role="status">결제 결과를 확인하고 있습니다. <strong>잠시만 기다려 주세요</strong>.</p>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>결제 금액</dt>
+            <dd><span class="money">100,000원</span></dd>
+            <dt>플랫폼 수수료</dt>
+            <dd><span class="money">10,000원</span></dd>
+            <dt>정산액</dt>
+            <dd><span class="money">90,000원</span></dd>
+          </dl>
+        </section>
+      </div>
     </div>
   </article>
 </section>
 
 <section class="screen">
-  <div class="id">결제 완료</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">결제</h2>
-      <span class="badge success">결제 완료</span>
+  <div class="id">완료 · PAID</div>
+  <article class="payment-page">
+    <header class="payment-page-head">
+      <div class="payment-page-head-copy">
+        <h1 class="page-title">계약 결제</h1>
+      </div>
+      <span class="badge success">Sandbox 완료</span>
+    </header>
+    <p class="sandbox-banner">
+      <span class="badge info">Sandbox 테스트 결제</span>
+      <span>실제 금액이 청구되지 않습니다.</span>
+    </p>
+    <div class="payment-grid">
+      <aside class="payment-side">
+        <section class="panel">
+          <h2 class="agreement-card-title">결제 요약</h2>
+          <p class="offer-amount"><span class="money">100,000원</span></p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">내 프로젝트</button>
+          </div>
+        </section>
+      </aside>
+      <div class="payment-main">
+        <section class="panel">
+          <p class="status-copy" role="status">Sandbox 결제가 완료되었습니다. 거래가 <strong>진행 중</strong>입니다.</p>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>결제 금액</dt>
+            <dd><span class="money">100,000원</span></dd>
+            <dt>플랫폼 수수료</dt>
+            <dd><span class="money">10,000원</span></dd>
+            <dt>정산액</dt>
+            <dd><span class="money">90,000원</span></dd>
+          </dl>
+        </section>
+      </div>
     </div>
-    <p class="status-copy">결제가 완료되었습니다. 거래가 <strong>진행 중</strong>입니다.</p>
-    <dl class="facts">
-      <dt>프로젝트 제목</dt>
-      <dd>쇼핑몰 웹사이트 구축</dd>
-      <dt>결제 금액</dt>
-      <dd><span class="money">100,000원</span></dd>
-      <dt>플랫폼 수수료</dt>
-      <dd><span class="money">10,000원</span></dd>
-      <dt>정산액</dt>
-      <dd><span class="money">90,000원</span></dd>
-    </dl>
   </article>
 </section>
 
 <section class="screen">
-  <div class="id">결제 실패</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">결제</h2>
+  <div class="id">동기화 중 · PAID_SYNCING</div>
+  <article class="payment-page">
+    <header class="payment-page-head">
+      <div class="payment-page-head-copy">
+        <h1 class="page-title">계약 결제</h1>
+      </div>
+      <span class="badge warning">처리 중</span>
+    </header>
+    <p class="sandbox-banner">
+      <span class="badge info">Sandbox 테스트 결제</span>
+      <span>실제 금액이 청구되지 않습니다.</span>
+    </p>
+    <div class="payment-grid">
+      <aside class="payment-side">
+        <section class="panel">
+          <h2 class="agreement-card-title">결제 요약</h2>
+          <p class="offer-amount"><span class="money">100,000원</span></p>
+          <div class="btn-row">
+            <button type="button" class="btn primary" disabled>상태 확인</button>
+          </div>
+        </section>
+      </aside>
+      <div class="payment-main">
+        <section class="panel">
+          <p class="status-copy" role="status">결제 완료, 작업 시작 처리 중. 새 결제는 만들지 않습니다.</p>
+        </section>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">실패 · FAILED_RETRYABLE</div>
+  <article class="payment-page has-fixed-cta">
+    <header class="payment-page-head">
+      <div class="payment-page-head-copy">
+        <h1 class="page-title">계약 결제</h1>
+      </div>
       <span class="badge danger">결제 실패</span>
-    </div>
-    <p class="notice danger" role="alert">결제 실패</p>
-    <p class="status-copy">실패한 결제는 쓰지 않고, 같은 결제로 다시 시도합니다.</p>
-    <dl class="facts">
-      <dt>프로젝트 제목</dt>
-      <dd>쇼핑몰 웹사이트 구축</dd>
-      <dt>결제 금액</dt>
-      <dd><span class="money">100,000원</span></dd>
-      <dt>플랫폼 수수료</dt>
-      <dd><span class="money">10,000원</span></dd>
-      <dt>정산액</dt>
-      <dd><span class="money">90,000원</span></dd>
-    </dl>
-    <div class="btn-row">
-      <button type="button" class="btn primary">다시 결제</button>
+    </header>
+    <p class="sandbox-banner">
+      <span class="badge info">Sandbox 테스트 결제</span>
+      <span>실제 금액이 청구되지 않습니다.</span>
+    </p>
+    <div class="payment-grid">
+      <aside class="payment-side">
+        <section class="panel">
+          <h2 class="agreement-card-title">결제 요약</h2>
+          <p class="offer-amount"><span class="money">100,000원</span></p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">다시 결제</button>
+          </div>
+        </section>
+      </aside>
+      <div class="payment-main">
+        <section class="panel">
+          <p class="notice danger" role="alert">결제 실패</p>
+          <p class="status-copy">실패한 결제는 쓰지 않고, 같은 결제로 다시 시도합니다.</p>
+        </section>
+      </div>
+      <div class="payment-cta-bar btn-row">
+        <button type="button" class="btn primary">다시 결제</button>
+      </div>
     </div>
   </article>
 </section>
 
 <section class="required">
   <h2>필수 요소 목록</h2>
-  <p class="lead">기본 렌더링(체크아웃)과 키 없음 상태의 <strong>정확한 텍스트</strong>다.
+  <p class="lead">기본 렌더링(결제 가능)과 키 없음 상태의 <strong>정확한 텍스트</strong>다.
   <code>prototype/run.tsx</code>가 <code>PaymentPanel</code>을 렌더링해 확인한다.</p>
   <table>
     <thead><tr><th>화면</th><th>종류</th><th>텍스트</th></tr></thead>
     <tbody>
-      <tr><td rowspan="5">체크아웃</td><td>금액</td><td>결제 금액</td></tr>
+      <tr><td rowspan="6">결제 가능</td><td>배지</td><td>Sandbox 테스트 결제</td></tr>
+      <tr><td>금액</td><td>결제 금액</td></tr>
       <tr><td>금액</td><td>플랫폼 수수료</td></tr>
       <tr><td>금액</td><td>정산액</td></tr>
       <tr><td>안내</td><td>결제해도 바로 넘어가지 않습니다</td></tr>
-      <tr><td>버튼</td><td>결제하기</td></tr>
+      <tr><td>버튼</td><td>테스트 결제 진행</td></tr>
+      <tr><td>M01</td><td>제목</td><td>Sandbox 테스트 결제를 진행할까요?</td></tr>
       <tr><td rowspan="2">키 없음</td><td>안내</td><td>연동 준비 중</td></tr>
       <tr><td>버튼</td><td>다시 시도</td></tr>
       <tr><td>처리 중</td><td>배지</td><td>처리 중</td></tr>
-      <tr><td>완료</td><td>배지</td><td>결제 완료</td></tr>
+      <tr><td>완료</td><td>안내</td><td>Sandbox 결제가 완료되었습니다</td></tr>
       <tr><td rowspan="2">실패</td><td>안내</td><td>결제 실패</td></tr>
       <tr><td>버튼</td><td>다시 결제</td></tr>
     </tbody>
   </table>
   <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
-  프로젝트 제목·금액 숫자(데이터). 키 없음 화면에는 결제하기와 금액 줄이 <strong>없어야</strong> 한다.
-  프론트는 시크릿을 읽지 않는다.</p>
+  프로젝트 제목·금액 숫자(데이터). 키 없음 화면에는 테스트 결제 진행과 금액 줄이 <strong>없어야</strong> 한다.
+  프론트는 시크릿을 읽지 않는다. 에스크로·지급 완료 문구는 쓰지 않는다.</p>
 </section>
 
 </body>

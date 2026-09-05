@@ -80,10 +80,10 @@ export function DeliveryPanel({
   return (
     <>
       <article className={showFixedCta ? "delivery-page has-fixed-cta" : "delivery-page"}>
-        <header className="delivery-page-head">
-          <h2 className="page-title">납품 관리</h2>
-          <DeliveryBadge uiState={resolved.uiState} />
-        </header>
+        <DeliveryPageHead
+          uiState={resolved.uiState}
+          showLinks={Boolean(resolved.project.id)}
+        />
         <div className="delivery-grid">
           <div className="delivery-main">
             <DeliveryMain vm={resolved} onDownload={() => setDownloadOpen(true)} />
@@ -185,7 +185,18 @@ function fixtureDto(
     canReview: false,
   };
   if (uiState === "READY_TO_DELIVER" || uiState === "WORK_IN_PROGRESS") {
-    return { ...base, delivery: null };
+    return {
+      ...base,
+      delivery: {
+        deliveryId: "dlv_preview",
+        status: "IN_PROGRESS",
+        version: 0,
+        message: null,
+        requestedAt: null,
+        approvedAt: null,
+        file: null,
+      },
+    };
   }
   if (uiState === "WAITING_REVIEW" || uiState === "ACTION_REQUIRED") {
     return { ...base, delivery: requested, downloadUrl: "https://example/short", canDownload: true };
@@ -218,6 +229,35 @@ function fixtureDto(
   return { ...base, delivery: null };
 }
 
+/** 제목과 계약·프로젝트·정산 텍스트 링크. 앱 셸은 넣지 않는다. */
+function DeliveryPageHead({
+  uiState,
+  showLinks,
+  showBadge = true,
+}: {
+  uiState: DeliveryUiState;
+  showLinks: boolean;
+  showBadge?: boolean;
+}) {
+  return (
+    <header className="delivery-page-head">
+      <div className="delivery-page-head-copy">
+        <h2 className="page-title">납품 관리</h2>
+        {showLinks ? (
+          <p className="delivery-page-links">
+            <a href="#project">프로젝트</a>
+            <a href="#contract">계약</a>
+            {uiState === "SETTLEMENT_PENDING" || uiState === "COMPLETED" ? (
+              <a href="#settlement">정산 확인</a>
+            ) : null}
+          </p>
+        ) : null}
+      </div>
+      {showBadge ? <DeliveryBadge uiState={uiState} /> : null}
+    </header>
+  );
+}
+
 function DeliveryBadge({ uiState }: { uiState: DeliveryUiState }) {
   const badge = badgeFor(uiState);
   return badge ? <Badge tone={badge.tone} label={badge.label} /> : null;
@@ -245,9 +285,7 @@ function badgeFor(uiState: DeliveryUiState): { tone: FeedbackTone; label: string
 function DeliveryLoadingPage() {
   return (
     <article className="delivery-page" aria-busy="true">
-      <header className="delivery-page-head">
-        <h2 className="page-title">납품 관리</h2>
-      </header>
+      <DeliveryPageHead uiState="WORK_IN_PROGRESS" showLinks={false} showBadge={false} />
       <div className="delivery-grid">
         <div className="delivery-main">
           <section className="panel">
@@ -301,21 +339,36 @@ function DeliveryMain({
           <Button variant="primary">프로젝트 확인</Button>
         </div>
       ) : null}
-      {uiState === "SETTLEMENT_PENDING" ? (
-        <div className="btn-row after-offer">
-          <Button variant="secondary">결제·정산 확인</Button>
-        </div>
-      ) : null}
-      {uiState === "COMPLETED" ? (
-        <div className="btn-row after-offer">
-          <Button variant="primary">리뷰 작성</Button>
-        </div>
-      ) : null}
       {uiState === "WAITING_REVIEW" && permissions.canDownload ? (
         <div className="btn-row">
           <Button variant="secondary" onClick={onDownload}>
             다운로드
           </Button>
+        </div>
+      ) : null}
+      {uiState === "SETTLEMENT_PENDING" ? (
+        <div className="btn-row after-offer">
+          {permissions.canDownload ? (
+            <Button variant="secondary" onClick={onDownload}>
+              다운로드
+            </Button>
+          ) : null}
+          <a className="caption" href="#settlement">
+            정산 확인
+          </a>
+        </div>
+      ) : null}
+      {uiState === "COMPLETED" ? (
+        <div className="btn-row after-offer">
+          {permissions.canDownload ? (
+            <Button variant="secondary" onClick={onDownload}>
+              다운로드
+            </Button>
+          ) : null}
+          <a className="caption" href="#settlement">
+            정산 확인
+          </a>
+          <Button variant="primary">리뷰 작성</Button>
         </div>
       ) : null}
     </section>
@@ -423,7 +476,7 @@ function DeliverySide({ vm }: { vm: DeliveryDetailViewModel }) {
             <h3 className="agreement-card-title">거래 진행</h3>
             <ProgressList vm={vm} />
           </section>
-          <section className="panel">
+          <section className="panel" id="project">
             <h3 className="agreement-card-title">프로젝트</h3>
             <dl className="facts">
               <dt>프로젝트 제목</dt>
@@ -431,6 +484,11 @@ function DeliverySide({ vm }: { vm: DeliveryDetailViewModel }) {
               <dt>거래</dt>
               <dd>{TRANSACTION_LABEL[vm.project.transactionStatus] ?? vm.project.transactionStatus}</dd>
             </dl>
+            <p className="caption">
+              <a id="contract" href="#contract">
+                계약 확인
+              </a>
+            </p>
           </section>
           <section className="panel">
             <h3 className="agreement-card-title">상대방</h3>
@@ -447,6 +505,7 @@ function DeliverySide({ vm }: { vm: DeliveryDetailViewModel }) {
   );
 }
 
+/** 끝난 단계만 완료 라벨을 쓴다. PAID는 정산 완료로 보이지 않는다. */
 function ProgressList({ vm }: { vm: DeliveryDetailViewModel }) {
   const items: Array<[boolean, string, string]> = [
     [vm.progress.contractDone, "계약", "계약 완료"],
@@ -457,10 +516,10 @@ function ProgressList({ vm }: { vm: DeliveryDetailViewModel }) {
   ];
   return (
     <ol className="progress-steps">
-      {items.map(([done, stage, label]) => (
+      {items.map(([done, stage, doneLabel]) => (
         <li key={stage} className={done ? "done" : undefined}>
           <span>{stage}</span>
-          <span>{label}</span>
+          <span>{done ? doneLabel : "대기"}</span>
         </li>
       ))}
     </ol>
@@ -508,6 +567,8 @@ function DeliverDialog({
   maxFileSizeMiB: number;
   onClose: () => void;
 }) {
+  const [submitting, setSubmitting] = useState(false);
+
   return (
     <div
       className={open ? "overlay-backdrop open" : "overlay-backdrop"}
@@ -524,11 +585,17 @@ function DeliverDialog({
           파일 1개와 메시지를 보낸 뒤에는 교체할 수 없습니다. 서버가 허용한 형식만 올릴 수
           있습니다. 크기 상한은 {maxFileSizeMiB}MB입니다.
         </p>
+        <p className="caption">제출하면 파일 안전성 검사를 진행합니다.</p>
+        {submitting ? (
+          <p className="status-copy" role="status">
+            파일 안전성 검사를 진행하고 있습니다.
+          </p>
+        ) : null}
         <div className="field-row">
           <label className="label" htmlFor="deliver-file">
             결과물 파일
           </label>
-          <input className="field" id="deliver-file" name="file" type="file" />
+          <input className="field" id="deliver-file" name="file" type="file" disabled={submitting} />
         </div>
         <div className="field-row">
           <label className="label" htmlFor="deliver-message">
@@ -541,17 +608,25 @@ function DeliverDialog({
             maxLength={1000}
             rows={4}
             placeholder="전달할 내용을 적어 주세요."
+            disabled={submitting}
           />
         </div>
         <label className="choice">
-          <input type="checkbox" name="confirm-once" />
+          <input type="checkbox" name="confirm-once" disabled={submitting} />
           <span>제출 후 파일 교체·재납품이 불가함을 확인했습니다</span>
         </label>
         <div className="btn-row">
           <Button variant="quiet" onClick={onClose}>
             닫기
           </Button>
-          <Button variant="primary" onClick={onClose}>
+          <Button
+            variant="primary"
+            disabled={submitting}
+            onClick={() => {
+              if (submitting) return;
+              setSubmitting(true);
+            }}
+          >
             납품 요청
           </Button>
         </div>

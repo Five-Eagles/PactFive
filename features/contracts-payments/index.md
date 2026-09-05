@@ -15,7 +15,7 @@
   알림 포트·수락 손잡이 계약은 `review/yoonseok-ports-contract.md` (수락→결제→리뷰 호출 순서).
   알림 import 입구는 `review/mock-stub-import-guide.md` 알림·손잡이 절.
   8/27 설계서 평가·최적안은 `review/spec-design-eval.md`.
-  금주 마감은 `review/week-wrap-2026-08-28.md`.
+  금주 마감은 `review/week-wrap-2026-09-04.md` (지난주 `week-wrap-2026-08-28.md`).
   ADR-0012 패널 vs 레퍼런스 확인은 `review/reference-panel-gap-2026-09-02.md`.
   팀장(알림)·조준영(지원) 접점 확정 요청은 `review/yoonseok-ports-confirm-2026-09-02.md`.
   팀장 패널 이식성 확정 요청은 `review/teamlead-panel-portability-2026-09-02.md`.
@@ -25,10 +25,21 @@
   `NotificationTriggerPort`는 publish만. 발송은 팀장.
   공개 API 스탠드인은 `createPublicApiMock` (`prototype/index.ts` export).
   GET `/api/v1/payments/:paymentId` (`getPayment`)와 POST 준비·승인 (`preparePayment`·`confirmPayment`) 포함.
-  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~23 Mock을 확인한다.
-  합의 화면은 하이브리드 AGR-01(페이지 본문, ViewModel). `/agreements` 5종 폐기 유지.
+  GET `/api/v1/payments/:paymentId/settlement` (`getSettlement`)는 결제 행+납품+프로젝트를 조립한다.
+  GET `/api/v1/projects/:projectId/cancellation` (`getCancellation`)는 프로젝트+합의·계약+무효화 결과를 조립한다.
+  브라우저 `POST /cancel`은 이 폴더가 부르지 않는다.
+  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~25 Mock을 확인한다.
+  합의 화면은 하이브리드 AGR-01·AGR-02·AGR-03(페이지 본문, ViewModel). `/agreements` 5종 폐기 유지.
+  재제안은 `POST .../negotiation-offers/:offerId/counter`. 설계서 `AGREEMENT_*` 코드는 쓰지 않는다.
+  서명 화면은 하이브리드 CTR-01·CTR-02(페이지 본문, ViewModel). 설계서 신설 `CONTRACT_*` 코드는 쓰지 않는다.
+  결제 화면은 하이브리드 PAY-01·PAY-02(페이지 본문, ViewModel). 설계서 신설 `PAYMENT_FORBIDDEN` 코드는 쓰지 않는다.
+  정산 화면은 하이브리드 SET-01 v2.0(페이지 본문, ViewModel). GET 조립. 실행은 내부 Mock.
+  설계서 신설 `SETTLEMENT_*` 코드·지급 버튼·운영 화면은 쓰지 않는다.
+  취소 화면은 하이브리드 CAN-01 v2.0(페이지 본문, ViewModel). 무효화 실행은 내부 Mock.
+  설계서 신설 `CANCEL_*` 코드·A-07 POST·환불은 쓰지 않는다.
   납품 화면은 하이브리드 DLV-01(페이지 본문, ViewModel). 네이밍 2경로
   (`POST /contracts/:id/deliveries` + `POST /deliveries/:id/approve`)는 쓰지 않는다.
+  GET은 요청 전 `IN_PROGRESS` 행. 승인·정산 `RELEASED` 양쪽에서 complete. `DELIVERY_*` 코드 없음.
   I-30은 화면에서 `APPROVED`+`PAID`(정산 대기)와 `APPROVED`+`RELEASED`(완료)를 나눈다.
 
 ### Mock 시드 (성공·실패 재현)
@@ -48,8 +59,8 @@
 | `prj_deadline` | restore `DEADLINE_PASSED` |
 | `prj_pending_apps` | restore `PENDING_APPLICATIONS_REMAIN` |
 
-- design/: high-fi (`agreement.html` · `contract-sign.html` · `payment.html` · `delivery.html`).
-  합의·납품은 페이지 본문(최대 1200px, 8:4). 서명·결제는 패널. 앱 셸 없음.
+- design/: high-fi (`agreement.html` · `contract-sign.html` · `payment.html` · `delivery.html` · `settlement.html` · `cancellation.html`).
+  합의·납품은 페이지 본문(최대 1200px, 8:4). 서명·결제·정산·취소는 페이지 본문(ViewModel). 앱 셸 없음.
   `_tokens.css`는 design-system v1.0 사본. 키 없음 UX는
   `prototype/web/PaymentPanel.tsx` `view="keyMissing"`.
   오버레이·reduced-motion은 `design/panel.css`. 합의 거절은 확인 다이얼로그 (앱 셸·stagger 없음).
@@ -99,3 +110,14 @@
 | 2026-09-03 | 알림 발송 담당을 팀장으로. applications 손잡이·S1·S2는 조준영 확정 |
 | 2026-09-03 | 하이브리드 AGR-01. `/agreements` 5종 폐기 유지. `run.tsx` 상태 산정·필수 카피. 실측 PASS 120 |
 | 2026-09-03 | 하이브리드 DLV-01. 네이밍 2경로 미사용. I-30 화면 구분. `run.tsx` 실측 PASS 163 |
+| 2026-09-04 | 하이브리드 PAY-01. 라우트·오류 코드 유지. Sandbox 페이지·ViewModel. 실 Toss 미연동 |
+| 2026-09-04 | 하이브리드 SET-01. 정산 조회 GET 조립. 지급 버튼·운영 시뮬레이션 없음 |
+| 2026-09-04 | 하이브리드 CAN-01. 취소 결과 GET 조립. A-07 POST·환불 없음 |
+| 2026-09-04 | 하이브리드 AGR-02. 수신자 재제안 Mock·화면. `/agreements` 5종·신설 오류 코드 없음 |
+| 2026-09-04 | 하이브리드 AGR-03. 과거 라운드 대체됨 표시. SUPERSEDED 저장 없음 |
+| 2026-09-04 | 하이브리드 CTR-02. 서명 순서 자유·취소 후 409. `CONTRACT_*` 코드 없음 |
+| 2026-09-04 | 하이브리드 PAY-02. SIGNED 의뢰인 prepare·mark·PENDING 복구·웹훅 Mock. `PAYMENT_*` 신설 코드 없음 |
+| 2026-09-04 | 하이브리드 DLV-01 v2.0. ensureDelivery·멱등 키·승인/정산 양쪽 complete. `DELIVERY_*` 없음. 실측 PASS 290 |
+| 2026-09-04 | 하이브리드 SET-01 v2.0. 수수료 스냅샷·ELIGIBLE·RELEASED 원자·C-03 409 재판정. `SETTLEMENT_*` 없음. 실측 PASS 308 |
+| 2026-09-04 | 하이브리드 CAN-01 v2.0. 무효화 멱등·결제 후 409·감사 보존·GET notification. 규칙 25. 실측 PASS 323 |
+| 2026-09-04 | 금주 wrap (`review/week-wrap-2026-09-04.md`). PASS 323. `app/`·A-07·실토스·환불은 다음 |
