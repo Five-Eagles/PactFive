@@ -15,6 +15,7 @@ build/
 out/
 .turbo/
 *.tsbuildinfo
+app/server/api/index.js
 
 # ===== Prisma / DB (로컬 개발용 DB 파일) =====
 app/server/prisma/*.db
