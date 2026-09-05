@@ -14,6 +14,8 @@ import { projectRoutes, PROJECT_ROUTES } from './features/project-management/pro
 import { engagementRoutes, ENGAGEMENT_ROUTES } from './features/engagement/bookmark.routes';
 import { contractRoutes } from './features/contracts-payments/contract.routes';
 import { pricingAnalysisRoutes } from './features/ai-pricing/pricing-analysis.routes';
+import { applicationRoutes, APPLICATION_ROUTES } from './features/applications/application.routes';
+import { reviewRoutes } from './features/reviews/review.routes';
 import { BookmarkButton } from './features/engagement/BookmarkButton';
 import { RecommendationSection } from './features/engagement/RecommendationSection';
 import { useBookmarkedIds } from './features/engagement/useBookmark';
@@ -37,8 +39,6 @@ setUnauthorizedHandler(() => {
  * (app/web/AGENTS.md "시안에는 있지만 아직 없는 화면" 절).
  */
 const NOT_INTEGRATED_ROUTES: Array<{ path: string; featureName: NotYetScreenKey }> = [
-  { path: '/applications', featureName: 'applications' },
-  { path: '/reviews', featureName: 'reviews' },
   { path: '/notifications', featureName: 'notifications' },
 ];
 
@@ -112,6 +112,9 @@ function AppRoutes() {
     <RecommendationSection projectId={projectId} detailHref={PROJECT_ROUTES.detail} />
   );
 
+  const applyHref = (projectId: string) => APPLICATION_ROUTES.apply(projectId);
+  const applicantsHref = (projectId: string) => APPLICATION_ROUTES.manage(projectId);
+
   const routes = (
     <Routes>
       {authRoutes}
@@ -131,6 +134,8 @@ function AppRoutes() {
         onHomeLogout: () => {
           void logout();
         },
+        applyHref,
+        applicantsHref,
       })}
 
       {engagementRoutes({
@@ -142,6 +147,10 @@ function AppRoutes() {
       {contractRoutes({ viewerId: viewer?.userId ?? null })}
 
       {pricingAnalysisRoutes({ projectDetailHref: PROJECT_ROUTES.detail })}
+
+      {applicationRoutes()}
+
+      {reviewRoutes()}
 
       {NOT_INTEGRATED_ROUTES.map(({ path, featureName }) => (
         <Route

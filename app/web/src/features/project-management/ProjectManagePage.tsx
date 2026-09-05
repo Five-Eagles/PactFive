@@ -92,9 +92,12 @@ function summaryOf(project: ClientProjectDetail): string {
 export type ProjectManagePageProps = {
   /** 로그인한 의뢰인의 id. 없으면 목록을 부를 수 없다 */
   clientId: string | null;
+  /** applications 소유 — 지원자 관리 화면 경로. 슬롯이라 이 폴더는 applications를 import하지
+   * 않는다 (app/web/AGENTS.md "폴더 간 접점"). */
+  applicantsHref?: (projectId: string) => string;
 };
 
-export function ProjectManagePage({ clientId }: ProjectManagePageProps) {
+export function ProjectManagePage({ clientId, applicantsHref }: ProjectManagePageProps) {
   const navigate = useNavigate();
   const { data, loading, error, reload } = useMyProjects(clientId);
   const [notice, setNotice] = useState<string | null>(null);
@@ -240,6 +243,11 @@ export function ProjectManagePage({ clientId }: ProjectManagePageProps) {
                     <Link to={PROJECT_ROUTES.detail(project.projectId)}>{project.title}</Link>
                   </h3>
                   <span className="row__sub">{summaryOf(project)}</span>
+                  {applicantsHref && (
+                    <div>
+                      <Link to={applicantsHref(project.projectId)}>지원자 관리</Link>
+                    </div>
+                  )}
                 </div>
 
                 <div className="row__badges">

@@ -17,8 +17,6 @@
  */
 export type NotYetScreenKey =
   | 'experts'
-  | 'applications'
-  | 'reviews'
   | 'notifications';
 
 export type NotYetScreen = {
@@ -31,10 +29,10 @@ export type NotYetScreen = {
 export const NOT_YET_SCREENS: Record<NotYetScreenKey, NotYetScreen> = {
   // 2026-09-04 — guide·safety·footer 3종은 실제 화면이 되어 이 표에서 빠졌다.
   // ai-pricing도 같은 날 실제 라우트가 붙어 이 표에서 빠졌다(feedback_loop/2026-09-04/
-  // ai-pricing.md). 남겨두면 다음 사람이 "아직 없는 화면" 으로 읽는다.
+  // ai-pricing.md). applications·reviews는 2026-09-05에 같은 이유로 빠졌다
+  // (feedback_loop/2026-09-05/applications.md, reviews.md). 남겨두면 다음 사람이
+  // "아직 없는 화면" 으로 읽는다.
   experts: { name: '전문가 찾기', hasRoute: true },
-  applications: { name: '지원하기', hasRoute: true },
-  reviews: { name: '리뷰', hasRoute: true },
   notifications: { name: '알림', hasRoute: true },
 };
 
@@ -48,12 +46,6 @@ export const NOT_YET_SCREENS: Record<NotYetScreenKey, NotYetScreen> = {
  *   experts        유동우 · app/web/src/features/project-management/preview/
  *                  (시안: design/reference-proposal/experts.html)
  *                  PRD 화면 목록(§7.1)에 프리랜서 탐색이 없다. 만들지 말지부터 팀이 정한다
- *
- *   applications   조준영 (2026-09-03 재배정) · features/applications/
- *                  서버·프로토타입은 있다(PR #52). app/web 화면 연결이 아직이다
- *
- *   reviews        조준영 · features/reviews/
- *                  프로토타입은 있다. app/web 화면 연결이 아직이다
  *
  *   notifications  담당 미정 · features/notifications/
  * ───────────────────────────────────────────────────────────── */
