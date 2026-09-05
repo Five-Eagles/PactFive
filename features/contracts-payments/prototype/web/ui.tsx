@@ -15,12 +15,13 @@ export const Button = forwardRef<
     variant: ButtonVariant;
     type?: "button" | "submit";
     disabled?: boolean;
+    busy?: boolean;
     form?: string;
     onClick?: () => void;
     children: ReactNode;
   }
 >(function Button(
-  { variant, type = "button", disabled = false, form, onClick, children },
+  { variant, type = "button", disabled = false, busy = false, form, onClick, children },
   ref,
 ) {
   return (
@@ -28,7 +29,8 @@ export const Button = forwardRef<
       ref={ref}
       type={type}
       className={`btn ${variant}`}
-      disabled={disabled}
+      disabled={disabled || busy}
+      aria-busy={busy ? "true" : undefined}
       form={form}
       onClick={onClick}
     >

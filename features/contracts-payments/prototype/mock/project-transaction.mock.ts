@@ -122,6 +122,7 @@ export function createProjectTransactionMock(
 ): ProjectTransactionPort & {
   getRecruitmentStartAt(projectId: string): string | null;
   getCallCounts(): Record<string, number>;
+  simulateCanceled(projectId: string, canceledAt: string): void;
 } {
   const serviceToken = options.serviceToken ?? MOCK_INTERNAL_SERVICE_TOKEN;
   const projects = seedProjects();
@@ -171,12 +172,19 @@ export function createProjectTransactionMock(
   const port: ProjectTransactionPort & {
     getRecruitmentStartAt(projectId: string): string | null;
     getCallCounts(): Record<string, number>;
+    simulateCanceled(projectId: string, canceledAt: string): void;
   } = {
     getRecruitmentStartAt(projectId: string): string | null {
       return projects.get(projectId)?.recruitmentStartAt ?? null;
     },
     getCallCounts() {
       return { ...callCounts };
+    },
+    // A-07 스탠드인. 이 폴더는 POST /cancel을 만들지 않는다.
+    simulateCanceled(projectId: string, canceledAt: string): void {
+      const row = findAlive(projectId);
+      row.transactionStatus = "CANCELED";
+      row.canceledAt = canceledAt;
     },
 
     async getProjectNegotiationContext(projectId: string) {
