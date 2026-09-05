@@ -1,0 +1,26 @@
+/** 규칙 6 ASSUMPTION. 팀장이 다른 일수를 정하면 이 값만 바꾼다. */
+export const SOLO_PUBLIC_AFTER_DAYS = 14;
+
+export const DAY_MS = 86_400_000;
+
+export const CLIENT_TO_FREELANCER_TAGS = [
+  'RESPONSIBILITY',
+  'COMMUNICATION',
+  'TECHNICAL_SKILL',
+  'SCHEDULE_COMPLIANCE',
+  'DELIVERABLE_QUALITY',
+] as const;
+
+export const FREELANCER_TO_CLIENT_TAGS = [
+  'REQUIREMENT_CLARITY',
+  'COMMUNICATION',
+  'FEEDBACK_SPEED',
+  'SCOPE_STABILITY',
+  'PAYMENT_RELIABILITY',
+] as const;
+
+export function tagsForDirection(
+  direction: 'CLIENT_TO_FREELANCER' | 'FREELANCER_TO_CLIENT',
+): readonly string[] {
+  return direction === 'CLIENT_TO_FREELANCER' ? CLIENT_TO_FREELANCER_TAGS : FREELANCER_TO_CLIENT_TAGS;
+}

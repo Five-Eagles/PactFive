@@ -34,6 +34,16 @@ import { createPricingAnalysisClaimPort } from './features/ai-pricing/pricing-an
 import { ProjectBudgetApplicationAdapter } from './features/ai-pricing/project-budget-application.adapter';
 import { OpenAIPricingAnalyzer } from './features/ai-pricing/openai.adapter';
 import { createPricingAnalysisRouter } from './features/ai-pricing/pricing-analysis.router';
+import { InMemoryApplicationRepository } from './features/applications/in-memory-application.repository';
+import { InMemoryApplicationNotificationPort } from './features/applications/in-memory-application-notification';
+import { createApplicationsPortAdapter } from './features/applications/applications-port.adapter';
+import { createProjectApplicationContextAdapter } from './features/applications/project-application-context.adapter';
+import { createAcceptProjectApplicationAdapter } from './features/applications/accept-project-application.adapter';
+import { createApplicationRouter } from './features/applications/application.router';
+import { InMemoryReviewRepository } from './features/reviews/in-memory-review.repository';
+import { InMemoryReviewEventPort } from './features/reviews/in-memory-review-event';
+import { createProjectReviewContextAdapter } from './features/reviews/project-review-context.adapter';
+import { createReviewRouter } from './features/reviews/review.router';
 
 /**
  * Express 앱 — 순수 모듈. 여기서 `app.listen()`을 호출하지 않는다.
@@ -204,6 +214,14 @@ const pricingAnalysisRateLimit = new InMemoryPricingAnalysisRateLimit();
 // (in-memory-external.adapter.ts의 createUnavailablePricingPort).
 projectPorts.pricing = createPricingAnalysisClaimPort(pricingAnalysisRepository);
 
+// applications(최윤석)의 저장소도 project-management보다 먼저 만든다 — 마감·취소 시
+// project-management가 부르는 ApplicationsPort.rejectPendingApplications를 여기서 실제로
+// 연결한다. 등록 전에는 fail-closed 스텁이었다(in-memory-external.adapter.ts의
+// createUnavailableApplicationsPort) — applications가 app/에 붙은 오늘부터 실제로 처리한다.
+const applicationRepository = new InMemoryApplicationRepository();
+const applicationNotifications = new InMemoryApplicationNotificationPort();
+projectPorts.applications = createApplicationsPortAdapter(applicationRepository, applicationNotifications);
+
 const projectService = createProjectService({
   repo: projectRepository,
   ports: projectPorts,
@@ -269,6 +287,34 @@ app.use(
       projectBudgetApplication,
       now: projectNow,
       nextAnalysisId: () => `pra_${randomId()}`,
+    },
+    { requireAuth },
+  ),
+);
+
+// ---------------------------------------------------------------------------
+// applications — 지원 5종(작성·목록 2종·수락·거절). features/applications/api-contract.md.
+//
+// 프로젝트 읽기(clientId·recruitmentStatus·transactionStatus·acceptedApplicationId)와
+// 수락 처리는 project-management의 `projectContractService`에 위임한다 — 이 폴더는
+// project-management를 직접 import하지 않는다(app/web/AGENTS.md "폴더 간 접점") — 여기서만
+// `projectContractService`를 그 모양 그대로 두 delegate에 끼운다(ai-pricing의
+// project-budget-application.adapter.ts와 같은 패턴). 그래서 이 두 어댑터는
+// projectContractService가 만들어진 **뒤에** 구성한다.
+// ---------------------------------------------------------------------------
+
+const projectApplicationContext = createProjectApplicationContextAdapter(projectContractService);
+const acceptProjectApplicationDelegate = createAcceptProjectApplicationAdapter(projectContractService);
+
+app.use(
+  createApplicationRouter(
+    {
+      repository: applicationRepository,
+      projectContext: projectApplicationContext,
+      notifications: applicationNotifications,
+      projectApplications: acceptProjectApplicationDelegate,
+      now: projectNow,
+      nextRequestId: () => randomId(),
     },
     { requireAuth },
   ),
@@ -353,6 +399,43 @@ app.use(
     requireAuth,
     paymentGatewayConfigured: paymentGateway !== null,
   }),
+);
+
+// ---------------------------------------------------------------------------
+// reviews — 공개 API 3종(작성·목록·요약). features/reviews/api-contract.md.
+//
+// 이 기능이 필요로 하는 프로젝트 조각은 project-management(clientId·transactionStatus)와
+// contracts-payments(freelancerId·contractId·contractStatus) 양쪽에 걸쳐 있다 —
+// `contractsPaymentsRepository`가 막 만들어진 이 지점에서만 두 delegate를 합칠 수 있어
+// applications·ai-pricing보다 뒤에 온다. "사용자가 존재하는가"는 user-management가 조회
+// 함수를 내놓기 전까지 engagement와 같은 방식으로 `roleByUserId` 캐시를 재사용한다
+// (review.types.ts UserExistsPort 주석).
+//
+// `getPublishedRatingAggregate`(내부 함수, api-contract.md)는 review.service.ts에 그대로
+// 있지만 이번 반영에서는 HTTP 어댑터를 만들지 않는다 — 아직 이 값을 구독하는 다른 기능이
+// app/에 없다(notifications 담당 미정). 필요해지면 그때 라우트를 연다
+// (feedback_loop/2026-09-05/reviews.md).
+// ---------------------------------------------------------------------------
+
+const reviewRepository = new InMemoryReviewRepository();
+const reviewEvents = new InMemoryReviewEventPort();
+const reviewProjectContext = createProjectReviewContextAdapter(projectContractService, contractsPaymentsRepository);
+
+app.use(
+  createReviewRouter(
+    {
+      repository: reviewRepository,
+      projectContext: reviewProjectContext,
+      userExistsPort: {
+        async userExists(userId: string) {
+          return roleByUserId.has(userId);
+        },
+      },
+      events: reviewEvents,
+      now: projectNow,
+    },
+    { requireAuth },
+  ),
 );
 
 app.use((_req: Request, res: Response) => {

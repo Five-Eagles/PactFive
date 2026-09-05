@@ -39,6 +39,11 @@ export type ProjectRouteSlots = {
   clientId: string | null;
   renderBookmark?: (projectId: string) => ReactNode;
   renderRecommendations?: (projectId: string) => ReactNode;
+  /** applications 소유 — 지원하기 화면 경로. 이 폴더는 applications를 import하지 않는다
+   * (app/web/AGENTS.md "폴더 간 접점"). App.tsx가 실제 경로를 끼운다. */
+  applyHref?: (projectId: string) => string;
+  /** applications 소유 — 지원자 관리 화면 경로. 위와 같은 슬롯 원칙. */
+  applicantsHref?: (projectId: string) => string;
   /** 대표 페이지 전용 — 이 화면은 AppShell을 안 쓰고 자기 헤더를 그려서 세션 정보가 직접 필요하다
    * (homepage-transplant-plan.md 4번 절 Option C). */
   homeViewer: { email: string; role: 'CLIENT' | 'FREELANCER'; userId: string } | null;
@@ -51,6 +56,8 @@ export function projectRoutes({
   clientId,
   renderBookmark,
   renderRecommendations,
+  applyHref,
+  applicantsHref,
   homeViewer,
   homeMyActivityHref,
   onHomeLogout,
@@ -81,10 +88,14 @@ export function projectRoutes({
           <ProjectDetailPage
             renderBookmark={renderBookmark}
             renderRecommendations={renderRecommendations}
+            applyHref={applyHref}
           />
         }
       />
-      <Route path={PROJECT_ROUTES.manage} element={<ProjectManagePage clientId={clientId} />} />
+      <Route
+        path={PROJECT_ROUTES.manage}
+        element={<ProjectManagePage clientId={clientId} applicantsHref={applicantsHref} />}
+      />
       {/* 등록(/projects/new)과 마찬가지로 :projectId 라우트보다 더 구체적인 경로다 */}
       <Route path="/my/projects/:projectId/edit" element={<ProjectEditPage />} />
 
