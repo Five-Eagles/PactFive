@@ -21,6 +21,17 @@
  * 우선하는지 추측할 필요가 아예 없어진다. `api/index.js`는 git에 커밋하지 않는다
  * (.gitignore, 배포 때마다 새로 만들어진다).
  */
-import app from './app';
+// 2026-09-06 임시 진단 로그 — Vercel이 정말 이 번들(api/index.js)을 실행하는지 직접 확인하기
+// 위한 마커. 정적 import로는 이 로그가 app.ts보다 먼저 찍힌다는 보장이 없어서(ESM은 import를
+// 먼저 평가한다) 동적 import + try/catch로 순서를 강제한다. 원인 확인되면 지운다.
+console.log('[vercel-handler] bundle entry reached, loading app.ts...');
+let app: (typeof import('./app'))['default'];
+try {
+  app = (await import('./app')).default;
+  console.log('[vercel-handler] app.ts loaded OK');
+} catch (err) {
+  console.error('[vercel-handler] FAILED to load app.ts:', err);
+  throw err;
+}
 
 export default app;
