@@ -11,15 +11,31 @@ Express `app`은 순수 모듈로 작성한다 (`app.listen()`을 이 파일 안
 
 - `app/server/src/app.ts` — Express `app` 생성·라우트 등록·미들웨어. `export default app;`만
   한다. `app.listen()` 없음.
-- `app/server/api/index.ts` (Vercel 서버리스 진입점) — `app.ts`의 `app`을 import해 그대로
-  `export default app`. Vercel Node 런타임이 Express `app`을 `(req, res)` 핸들러로 인식하므로
-  별도 어댑터가 필요 없다.
-- `app/server/src/server.ts` (독립 서버 진입점, 필요해지면 추가) — `app.ts`의 `app`을 import해
+- `app/server/src/vercel-handler.ts` (Vercel 서버리스 진입점의 소스) — `app.ts`의 `app`을
+  import해 그대로 `export default app`. Vercel Node 런타임이 Express `app`을 `(req, res)`
+  핸들러로 인식하므로 별도 어댑터가 필요 없다.
+- `app/server/src/server.ts` (독립 서버 진입점) — `app.ts`의 `app`을 import해
   `app.listen(PORT)` 한 줄만 추가한다. 비즈니스 로직 재작성 없음 — 이 파일 하나 추가/삭제로
   서버리스 ↔ 독립 서버 전환이 끝난다.
 
 컨트롤러/서비스/레포지토리 계층 구조와 파일명 규칙은 이 결정으로 바뀌지 않는다 —
 `docs/naming-convention.md` §6, `features/sample-login/prototype/server/` 그대로 따른다.
+
+### 빌드 산출물 — `api/index.js` (2026-09-05 추가)
+
+`app/server/api/`에는 소스(.ts)를 두지 않는다. `npm run build`가 `tsc --noEmit`(타입 검사)
+뒤에 esbuild로 `src/vercel-handler.ts`를 번들링해 `app/server/api/index.js`를 만든다 — Vercel이
+배포 시 이 폴더에서 찾는 서버리스 함수 파일이다. 이 파일은 git에 커밋하지 않는다
+(`.gitignore`), 매 배포마다 새로 생성된다.
+
+번들링하는 이유 — `tsconfig.json`이 `moduleResolution: "bundler"`라 상대경로 import에
+확장자가 없어도 되는데(`from './features/.../auth.routes'`), Vercel의 기본 처리가 이
+프로젝트에서 파일별 개별 트랜스파일만 하고 번들링은 하지 않아서 배포하면 Node의 실제 ESM
+로더가 확장자 없는 import를 못 찾고 `ERR_MODULE_NOT_FOUND`로 죽는다(`"type": "module"`이라
+CommonJS처럼 자동으로 확장자를 붙여주지 않는다). 로컬 `tsx`는 이 문제를 안 겪어서 로컬에서만
+잘 되는 것처럼 보인다 — **새 상대경로 import를 추가해도 로컬에서는 항상 통과하니, 배포
+전에는 반드시 `npm run build`를 로컬에서 한 번 돌려 `node api/index.js`를 직접 import해보고
+죽지 않는지 확인한다.**
 
 ## 외부 벤더 연동 (Supabase Auth·토스페이먼츠·OpenAI)
 
