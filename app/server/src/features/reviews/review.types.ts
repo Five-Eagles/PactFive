@@ -10,7 +10,7 @@
  *      나머지 절반은 contracts-payments(`freelancerId`·`contractId`·`contractStatus`)에
  *      있다 — 두 delegate를 합치는 `ProjectReviewContextPort`(비동기)로 분리했다.
  *   2. "사용자가 존재하는가"는 user-management가 아직 조회 함수를 내놓지 않아
- *      engagement의 `UserReadPort.getUserRole`과 같은 임시 연결(app.ts의 `roleByUserId`
+ *      engagement의 `UserReadPort.getUserRole`과 같은 임시 연결(express-app.ts의 `roleByUserId`
  *      캐시)을 재사용한다 — `UserExistsPort`로 분리했다(feedback_loop 2026-09-05 기록).
  *
  * `ReviewRepository`는 리뷰(`reviews`) 자기 자신의 행만 갖는다.
@@ -192,7 +192,7 @@ export type ProjectReviewContextPort = {
 };
 
 /** "사용자가 존재하는가" — user-management가 조회 함수를 내놓기 전까지의 잠정 연결
- * (app.ts의 `roleByUserId` 캐시, engagement의 UserReadPort와 같은 원칙). */
+ * (express-app.ts의 `roleByUserId` 캐시, engagement의 UserReadPort와 같은 원칙). */
 export type UserExistsPort = {
   userExists(userId: string): Promise<boolean>;
 };

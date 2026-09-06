@@ -28,7 +28,7 @@ import {
  *
  * 원본: features/contracts-payments/prototype/mock/public-api.mock.ts (67207c8)의 판정 로직을
  * 그대로 옮기되, 저장소는 시드값 없는 `ContractsPaymentsRepository`를 쓰고 내부 계약 4함수는
- * 실제 `ProjectTransactionPort`(project-management 어댑터, app.ts 조립)를 부른다.
+ * 실제 `ProjectTransactionPort`(project-management 어댑터, express-app.ts 조립)를 부른다.
  *
  * **알려진 범위 제한 (2026-09-03, 팀장)**: `acceptedApplicationId`가 실제로 어떤 사용자(프리랜서)의
  * 지원인지는 이 서비스가 조회할 방법이 없다 — applications 기능이 아직 app/에 통합되지 않았다
@@ -46,7 +46,7 @@ export type PreparePaymentDeps = {
   /**
    * 없으면(PG_SECRET_KEY 미설정) `requirePgConfigured` 미들웨어가 503으로 먼저 끊어
    * preparePayment·confirmPayment까지 오지 않는다. 그래도 null을 허용해 두는 것은
-   * 방어적 이중 검사다 — 조립 지점(app.ts) 실수로 미들웨어가 빠져도 500으로는 끊긴다.
+   * 방어적 이중 검사다 — 조립 지점(express-app.ts) 실수로 미들웨어가 빠져도 500으로는 끊긴다.
    */
   paymentGateway: PaymentGateway | null;
   now: () => string;

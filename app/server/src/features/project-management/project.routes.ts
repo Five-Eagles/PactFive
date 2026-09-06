@@ -8,14 +8,14 @@ import type { ProjectTransactionPort } from './project-transaction.port';
  * project-management 라우트.
  *
  * 두 묶음이 한 파일에 있다. 경로 접두사가 다르고 인증도 다르지만, 같은 도메인의 라우트
- * 정의를 두 파일로 쪼개면 조립 지점(app.ts)에서 등록을 빠뜨리기 쉽다.
+ * 정의를 두 파일로 쪼개면 조립 지점(express-app.ts)에서 등록을 빠뜨리기 쉽다.
  *
  * | 묶음 | 경로 | 인증 |
  * |---|---|---|
  * | 공개 API 9종 | `/api/v1/...` | 사용자 Access Token (`requireAuth` / `optionalAuth`) |
  * | 내부 계약 7종 | `/internal/v1/...` | 서비스 토큰 (`requireServiceToken`) — 규칙 49 |
  *
- * 미들웨어는 전부 호출부(app.ts)에서 주입한다.
+ * 미들웨어는 전부 호출부(express-app.ts)에서 주입한다.
  */
 export function createProjectManagementRouter(
   service: ProjectService,

@@ -10,7 +10,7 @@
  * 결함이 생길 수 있고, 나중에 떼어내기도 어려워진다.
  *
  * project-management 의 `project-read.service.ts` 가 이 세 함수를 그대로 구현한다
- * (CR-0001). 두 파일을 잇는 어댑터는 조립 지점(`app/server/src/app.ts`)에 있다 —
+ * (CR-0001). 두 파일을 잇는 어댑터는 조립 지점(`app/server/src/express-app.ts`)에 있다 —
  * **이 폴더가 project-management 폴더를 import 하지 않는다.**
  *
  * 근거: ADR-0009, app/web/AGENTS.md "폴더 간 접점"과 같은 원칙.

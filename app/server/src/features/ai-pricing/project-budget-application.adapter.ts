@@ -25,7 +25,7 @@ import {
  *
  * contracts-payments의 `project-management.adapter.ts`와 같은 원칙 — 기능 폴더 간 직접
  * import는 금지(app/web/AGENTS.md "폴더 간 접점")이므로 project-management의 타입을 여기서
- * import하지 않는다. 필요한 모양만 구조적으로 선언해 두고 app.ts가 실제 구현
+ * import하지 않는다. 필요한 모양만 구조적으로 선언해 두고 express-app.ts가 실제 구현
  * (`projectContractService`)을 끼운다.
  *
  * ## 알려진 gap — CR 필요 (유동우 확인 대기)
