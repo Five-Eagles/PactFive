@@ -79,6 +79,16 @@ Vercel에서 가장 표준적이고 문서가 많은 배포 모델이라 동작�
 있어야 한다. 배포 전에는 반드시 로컬에서 `npm run build`를 돌려 `node api/index.js`를 직접
 import해보고 안 죽는지 확인한다.
 
+**추가로 겪은 문제 — "Other" 프리셋이 요구하는 Output Directory (2026-09-07)**: Framework
+Preset을 "Other"로 바꾸고 처음 배포했을 때 `Error: No Output Directory named "public" found
+after the Build completed.`로 빌드가 실패했다. 원인(Fact) — Vercel의 "Other" 프리셋은
+"정적 파일을 CDN으로 서빙할 디렉터리"가 기본값으로 `public/`이라고 가정하는데, 이 프로젝트는
+정적 프론트엔드가 없는 순수 API 백엔드라 그런 폴더가 존재한 적이 없다. `/api` 서버리스
+함수는 Output Directory 설정과 무관하게 항상 인식되지만, Output Directory 자체가 없으면
+빌드 전체가 실패로 처리된다. **고친 방법**: `app/server/public/index.html`에 최소한의
+플레이스홀더 페이지를 커밋해뒀다 — 이 폴더가 실제로 존재하기만 하면 되므로, 이 파일을
+지우거나 이름을 바꾸지 않는다(누가 실수로 지우면 이 에러가 재발한다).
+
 ## 외부 벤더 연동 (Supabase Auth·토스페이먼츠·OpenAI)
 
 세 벤더 모두 인터페이스(포트) 뒤에 둔다 — 컨트롤러·서비스에서 벤더 SDK를 직접 import하지
