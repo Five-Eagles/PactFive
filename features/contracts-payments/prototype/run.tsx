@@ -3487,11 +3487,19 @@ async function main() {
     }
   }
 
-  // 규칙 25 — 무효화 실행. 동시 FOR UPDATE·실 A-07·지원 일괄 거절은 Mock 한계로 생략한다.
+  // 규칙 25 — 무효화 실행. CA-01·02·06·07·09~13·20~22와 동시 FOR UPDATE·실 A-07은 생략한다.
   {
     const api = createPublicApiMock();
     const none = await api.invalidateAgreementAndContract("prj_alive", invalidatePayload("cnl_25_none"));
-    if (none.result === "NOT_NEEDED" && none.alreadyProcessed === false) {
+    if (
+      none.result === "NOT_NEEDED" &&
+      none.state === "NOT_NEEDED" &&
+      none.alreadyProcessed === false &&
+      none.changed === false &&
+      none.signaturesPreserved === true &&
+      none.agreementStatus === null &&
+      none.contractStatus === null
+    ) {
       pass("규칙 25: 무효화 NOT_NEEDED");
     } else {
       fail("규칙 25: 무효화 NOT_NEEDED", none);
@@ -3501,13 +3509,21 @@ async function main() {
       currency: "KRW",
     });
     const done = await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_done"));
-    if (done.result === "DONE" && done.alreadyProcessed === false) {
+    if (
+      done.result === "DONE" &&
+      done.state === "DONE" &&
+      done.alreadyProcessed === false &&
+      done.changed === true &&
+      done.agreementStatus === "REJECTED" &&
+      done.contractStatus === null &&
+      done.signaturesPreserved === true
+    ) {
       pass("규칙 25: 무효화 DONE");
     } else {
       fail("규칙 25: 무효화 DONE", done);
     }
     const again = await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_done"));
-    if (again.result === "DONE" && again.alreadyProcessed === true) {
+    if (again.result === "DONE" && again.state === "DONE" && again.alreadyProcessed === true && again.changed === false) {
       pass("규칙 25: 무효화 멱등");
     } else {
       fail("규칙 25: 무효화 멱등", again);
@@ -3564,17 +3580,21 @@ async function main() {
     const contractId = accepted.contractId ?? "";
     await api.signContract(contractId, MOCK_FREELANCER_USER_ID);
     const beforeAudits = api.getSignatureAudits().filter((row) => row.contractId === contractId);
-    await api.invalidateAgreementAndContract("prj_restore", invalidatePayload("cnl_25_audit"));
+    const beforeContract = await api.getContract(contractId, MOCK_FREELANCER_USER_ID);
+    const invalidated = await api.invalidateAgreementAndContract("prj_restore", invalidatePayload("cnl_25_audit"));
     const afterAudits = api.getSignatureAudits().filter((row) => row.contractId === contractId);
     const contract = await api.getContract(contractId, MOCK_FREELANCER_USER_ID);
     if (
       beforeAudits.length === 1 &&
       afterAudits.length === beforeAudits.length &&
-      contract.status === "CANCELED"
+      contract.status === "CANCELED" &&
+      contract.freelancerSignedAt === beforeContract.freelancerSignedAt &&
+      invalidated.signaturesPreserved === true &&
+      invalidated.contractStatus === "CANCELED"
     ) {
       pass("규칙 25: SIGNING 무효화 후 감사 건수 유지");
     } else {
-      fail("규칙 25: SIGNING 무효화 후 감사 건수 유지", { beforeAudits, afterAudits, contract });
+      fail("규칙 25: SIGNING 무효화 후 감사 건수 유지", { beforeAudits, afterAudits, contract, invalidated });
     }
   }
 
@@ -3636,6 +3656,118 @@ async function main() {
       pass("규칙 25: GET notification 칸");
     } else {
       fail("규칙 25: GET notification 칸", canceled.postActions);
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    const proposed = await api.proposeNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    await api.acceptNegotiationOffer(
+      "prj_seq",
+      proposed.offer?.offerId ?? "",
+      MOCK_FREELANCER_USER_ID,
+      { expectedRound: 1 },
+    );
+    const before = await api.getCurrentNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID);
+    const invalidated = await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_draft"));
+    const after = await api.getCurrentNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID);
+    if (
+      before.contractStatus === "DRAFT" &&
+      invalidated.state === "DONE" &&
+      invalidated.agreementStatus === "REJECTED" &&
+      invalidated.contractStatus === "CANCELED" &&
+      after.agreementStatus === "REJECTED" &&
+      after.contractStatus === "CANCELED"
+    ) {
+      pass("규칙 25: CA-03 DRAFT 무효화");
+    } else {
+      fail("규칙 25: CA-03 DRAFT 무효화", { before, invalidated, after });
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    const contractId = await signBothSides(api, "prj_alive");
+    const before = await api.getContract(contractId, MOCK_CLIENT_USER_ID);
+    const pendingBefore = (await api.projects.getProjectNegotiationContext("prj_alive")).paymentPendingAt;
+    const invalidated = await api.invalidateAgreementAndContract("prj_alive", invalidatePayload("cnl_25_signed"));
+    const after = await api.getContract(contractId, MOCK_CLIENT_USER_ID);
+    const pendingAfter = (await api.projects.getProjectNegotiationContext("prj_alive")).paymentPendingAt;
+    if (
+      before.status === "SIGNED" &&
+      pendingBefore === null &&
+      invalidated.state === "DONE" &&
+      invalidated.signaturesPreserved === true &&
+      after.status === "CANCELED" &&
+      after.clientSignedAt === before.clientSignedAt &&
+      after.freelancerSignedAt === before.freelancerSignedAt &&
+      pendingAfter === null
+    ) {
+      pass("규칙 25: CA-05 SIGNED 미결제 무효화");
+    } else {
+      fail("규칙 25: CA-05 SIGNED 미결제 무효화", { before, after, invalidated, pendingAfter });
+    }
+    await expectCode("규칙 25: CA-15 취소 후 prepare 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      api.preparePayment("prj_alive", MOCK_CLIENT_USER_ID),
+    );
+  }
+
+  {
+    const api = createPublicApiMock();
+    const aliased = await api.invalidateAgreementAndContract("prj_alive", {
+      cancellationEventId: "cnl_25_alias",
+      actorUserId: MOCK_CLIENT_USER_ID,
+      reason: "PROJECT_CANCELED",
+      requestId: "req_cnl_25_alias",
+      idempotencyKey: "invalidate-cnl_25_alias",
+      occurredAt: MOCK_NOW,
+    });
+    const viaLegacy = await api.invalidateAgreementAndContract("prj_alive", invalidatePayload("cnl_25_alias"));
+    if (
+      aliased.state === "NOT_NEEDED" &&
+      aliased.result === "NOT_NEEDED" &&
+      viaLegacy.alreadyProcessed === true &&
+      viaLegacy.state === "NOT_NEEDED"
+    ) {
+      pass("규칙 25: cancellationEventId·occurredAt 별칭");
+    } else {
+      fail("규칙 25: cancellationEventId·occurredAt 별칭", { aliased, viaLegacy });
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    const restoreBefore = api.projects.getCallCounts().restorePreContractProject;
+    await api.proposeNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_restore"));
+    const restoreAfterInvalidate = api.projects.getCallCounts().restorePreContractProject;
+    api.simulateProjectCanceled("prj_seq", MOCK_NOW);
+    await expectCode("규칙 25: CA-23 취소 후 restore 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      restorePreContractProjectAfterReject(api.projects, "prj_seq", {
+        negotiationId: "ngt_cancel",
+        offerId: "off_1",
+        actorUserId: MOCK_CLIENT_USER_ID,
+        reason: "CLIENT_REJECTED",
+        requestId: "req_restore_after_cancel",
+        idempotencyKey: "negotiation-reject-after-cancel",
+        occurredAt: MOCK_NOW,
+      }),
+    );
+    const ctx = await api.projects.getProjectNegotiationContext("prj_seq");
+    if (
+      restoreAfterInvalidate === restoreBefore &&
+      ctx.transactionStatus === "CANCELED" &&
+      ctx.canceledAt === MOCK_NOW
+    ) {
+      pass("규칙 25: CA-23 restore 미호출·취소 유지");
+    } else {
+      fail("규칙 25: CA-23 restore 미호출·취소 유지", { restoreBefore, restoreAfterInvalidate, ctx });
     }
   }
 

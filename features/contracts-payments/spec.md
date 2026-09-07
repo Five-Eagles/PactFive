@@ -162,6 +162,7 @@
    키 없이 `createTossPaymentsAdapter()`를 부르면 `PgKeyMissingError` (`field: PG_SECRET_KEY`).
    키 이름: `PG_CLIENT_KEY`(위젯), `PG_SECRET_KEY`(서버, `VITE_` 금지). 값은 루트 `.env`만.
    깃에 넣지 않는다. 프론트는 시크릿을 읽지 않고, 키 없음은 `view="keyMissing"`이다.
+   app 공개 결제 POST는 키 없으면 503으로 끊을 수 있다. 규칙 8에 코드를 신설하지 않는다.
 
 10. **금액 합의는 다회차 도메인이다.** `negotiation_offer.round`가 라운드다. 활성 제안은 최신
     round 1건. 저장 enum은 `PROPOSED`·`ACCEPTED`·`REJECTED`만 (D-81). 2차 설계서 `PENDING`은
@@ -180,7 +181,8 @@
     최신 round의 수신자만. 성공 후 `agreements.status = ACCEPTED`, `contracts.status = DRAFT`.
     프론트 `CREATED`/`READY`는 `DRAFT`의 화면 별칭이며 API에 쓰지 않는다. 최종 거절은
     `agreements`·최신 offer를 `REJECTED`로 바꾼 뒤 규칙 5 `restorePreContractProject`만.
-    필드 복사는 규칙 20.
+    필드 복사는 규칙 20. applications가 수락 지원 `userId`를 주기 전에는 의뢰인이 아닌 첫
+    `accept` 호출자를 프리랜서로 둔다. 제3자가 먼저 호출하면 선점된다.
 
 12. **계약 상태.** `DRAFT` → 첫 서명 성공 시 `SIGNING` → 양쪽 서명 시 `SIGNED`.
     `signed_at`은 양쪽이 채워진 순간에만 찍는다. 서명 순서는 자유다 (CTR-02). 무효화·프로젝트
@@ -219,12 +221,13 @@
     프론트 설계서 `/agreements` 5종은 **폐기**한다. 내부 4함수는 `/internal/v1/...` (규칙 1).
     무효화 inbound는 `POST /internal/v1/projects/:projectId/invalidate-agreement` (규칙 22).
 
-17. **프론트 라우트 초안.** `/projects/:projectId/agreements` (생성 모드),
-    `/projects/:projectId/agreements/:agreementId` (AGR-01 상세),
-    `/projects/:projectId/contracts/:contractId` (CTR-01 서명, 앱 셸 없는 페이지 본문·ViewModel),
-    `/projects/:projectId/payments/:paymentId` (PAY-01) · `.../settlement` (SET-01, `payments.id`),
-    `/projects/:projectId/contracts/:contractId/delivery` (DLV-01, 식별자는 `contractId`),
-    `/projects/:projectId/cancellation` (CAN-01 취소 결과, 앱 셸 없는 페이지 본문·ViewModel).
+17. **프론트 라우트.** 통합된 3화면은 app 경로가 정본이다.
+    `/projects/:projectId/agreements` (합의),
+    `/contracts/:contractId/sign` (서명),
+    `/contracts/:contractId/payment` (결제, `paymentId`는 URL에 넣지 않는다).
+    아직 app 없는 초안: `/projects/:projectId/contracts/:contractId/delivery` (DLV-01),
+    `/projects/:projectId/payments/:paymentId/settlement` (SET-01),
+    `/projects/:projectId/cancellation` (CAN-01).
     Toss `orderId`는 `pg_order_id`이며 화면 경로에 쓰지 않는다.
     UX: 로딩, 빈 생성 모드, `LOAD_FAILED` 재시도, `STALE`/409 후 재조회, 프로젝트 취소 시
     변경 버튼 숨김 (프론트 v2.0). 서명·결제도 같은 패턴. 취소된 프로젝트 서명은
@@ -264,8 +267,9 @@
 22. **Increment 1 백로그·완료 기준.**
     백로그: 공개 API Mock(규칙 16 + GET contract/payment). `signContract` + 멱등·최초 시각 2.
     `design/` high-fi 3화면(합의·서명·결제, 규칙 17). inbound `invalidateAgreementAndContract`
-    (`cancellationId`, `actorUserId`, `reason: PROJECT_CANCELED`, `projectCanceledAt` →
-    `DONE`|`NOT_NEEDED`|`FAILED`, D-89). `PaymentGateway.retrievePayment`(규칙 21).
+    (`cancellationId`/`cancellationEventId`, `actorUserId`, `reason: PROJECT_CANCELED`,
+    `projectCanceledAt`/`occurredAt` → `DONE`|`NOT_NEEDED`|`FAILED`, D-89).
+    `PaymentGateway.retrievePayment`(규칙 21).
     제외: `app/` 미반영, 실에스크로·실송금, PG 환불, 철회. `RELEASED`는 규칙 24. 위젯은 `PG_CLIENT_KEY`가 있을 때만
     prototype 패널. 키 없으면 stub/`keyMissing` (PAY-02). 재제안은 AGR-02.
     완료 기준 — 합의 12: 빈 생성 / 의뢰인 제안 / 현재 조회 / 수락→DRAFT / 수락 멱등 /
@@ -292,15 +296,17 @@
     복구 금지. 오류는 규칙 8 5종. `SETTLEMENT_*` 코드·지급 버튼·운영 화면 없음. 화면은
     「정산 시뮬레이션」.
 
-25. **합의·계약 무효화 (CAN-01 v2).** 의뢰인 즉시 취소 가능 구간은 `NONE`·결제 전
-    `CONTRACT_PENDING`. `paymentPendingAt`/`IN_PROGRESS`/`COMPLETED`는 취소·무효화 거부.
-    inbound는 합의 `REJECTED`·계약 `CANCELED`. 서명 감사·terms 스냅샷은 삭제·수정 없음.
-    멱등: 같은 `cancellationId`·같은 본문 재사용, 다른 본문 409. 이미 무효화면
-    `alreadyProcessed`. `postActions`: `applicationRejection`은 `NOT_NEEDED`.
-    `contractInvalidation`은 `DONE`/`NOT_NEEDED`/`FAILED`. `notification`은 발송 없이
-    `NOT_NEEDED`(실패 시드만 `FAILED`). `FAILED`는 프로젝트 취소 실패가 아니다. GET은
-    202 후처리 화면. 화면 「프로젝트가 취소되었습니다」. 법적 무효·환불 버튼·삭제 금지.
-    A-07 `POST /cancel`·72시간 동의·PG 환불·`INVALIDATED`는 제외.
+25. **합의·계약 무효화 (CAN-01 v2).** 정본은 취소·합의·계약 설계서 v2.0 (2026-09-04).
+    의뢰인 즉시 취소 가능 구간은 `NONE`·결제 전 `CONTRACT_PENDING`.
+    `paymentPendingAt`/`IN_PROGRESS`/`COMPLETED`는 취소·무효화 거부. inbound는 합의
+    `REJECTED`·계약 `CANCELED`. 서명 감사·terms 스냅샷은 삭제·수정 없음. restore 호출 없음.
+    멱등: 같은 `cancellationId`/`cancellationEventId`·같은 본문 재사용, 다른 본문 409.
+    이미 무효화면 `alreadyProcessed`. 응답 `result`=`state`, `signaturesPreserved: true`.
+    GET `postActions`: `applicationRejection`은 `NOT_NEEDED`. `contractInvalidation`은
+    `DONE`/`NOT_NEEDED`/`FAILED`. `notification`은 발송 없이 `NOT_NEEDED`(실패 시드만
+    `FAILED`). `FAILED`는 프로젝트 취소 실패가 아니다. GET은 202 후처리 화면.
+    화면 「프로젝트가 취소되었습니다」. 공개 POST 취소(A-07, `/cancel` vs `/cancellations`)는
+    유동우. 법적 무효·환불 버튼·삭제·`INVALIDATED`/`TERMINATED`·§12 신설 코드는 제외.
 
 ## 크기 기준
 

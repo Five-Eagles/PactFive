@@ -1,18 +1,18 @@
 # contracts-payments 테스트 결과
 
-담당자: 조준영            테스트 날짜: 2026-09-04
-테스트한 커밋: 커밋 전 (`run.tsx` AGR-01·AGR-02·AGR-03·CTR-01·CTR-02·DLV-01·PAY-01·PAY-02·SET-01 v2.0·CAN-01 v2.0 검증 포함)
+담당자: 조준영            테스트 날짜: 2026-09-07
+테스트한 커밋: 커밋 전 (`run.tsx` AGR-01·AGR-02·AGR-03·CTR-01·CTR-02·DLV-01·PAY-01·PAY-02·SET-01 v2.0·CAN-01 설계서 v2.0 별칭 검증 포함)
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 323, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 329, FAIL 개수: 0)
 
 규칙 9 sandbox는 잘못된 paymentKey 승인 실패·retrieve 실패 프로브. 시크릿은 문서에 적지 않는다.
 
 정산은 slug `set-eligible` 등. `.settlement-grid`(본문 + 340px). 지급 실행 버튼 없음.
 수수료 스냅샷·ELIGIBLE·RELEASED 원자 반영·C-03 409 재판정. `SETTLEMENT_*` 코드 없음.
 
-취소는 slug `can-available`·`can-m01`·`can-followup` 등. `.cancellation-grid`(본문 + 340px). A-07 POST 없음. 무효화 멱등·결제 시작 후 409·서명 감사 보존. 202 후처리는 취소 실패가 아니다. 브라우저 자동화는 없어 `run.tsx` SSR로 확인했다.
+취소는 slug `can-available`·`can-m01`·`can-followup` 등. `.cancellation-grid`(본문 + 340px). A-07 POST 없음. 무효화 별칭·DRAFT/SIGNED 미결제·restore 409·서명 감사 보존. 202 후처리는 취소 실패가 아니다. 브라우저 자동화는 없어 `run.tsx` SSR로 확인했다.
 
 합의 재제안은 slug `agr-counter`·`agr-client-action`. 이력은 `agr-history`. 과거 라운드는 「이후 제안으로 대체됨」만. `/agreements/{id}` 5종·`AGREEMENT_*`·`SUPERSEDED` 저장 없음.
 
@@ -42,7 +42,7 @@
 | 19~22 | PENDING 복구·FAILED 재시도·웹훅 Mock·위젯 로더 분기·백로그 UX | 통과 |
 | 23 납품 Increment | GET IN_PROGRESS 행 · 멱등 1회 · 승인/정산 양쪽 complete · `DELIVERY_*` 없음 | 통과 |
 | 24 정산 실행 | 수수료 버림·스냅샷 불변·ELIGIBLE 1건·멱등·SUCCESS/FAILURE/UNKNOWN·C-03 409 재판정 | 통과 |
-| 25 합의·계약 무효화 | DONE/NOT_NEEDED/멱등·다른 본문 409·paymentPendingAt 409·감사 보존·FAILED 후처리·IN_PROGRESS 409 | 통과 |
+| 25 합의·계약 무효화 | DONE/NOT_NEEDED/멱등·별칭·CA-03 DRAFT·CA-05 SIGNED 미결제·CA-15 prepare 409·CA-23 restore 409·paymentPendingAt 409·감사 보존·FAILED 후처리 | 통과 |
 | UI(design/web) | AGR·CTR-02·PAY-02 확인 중·DLV·PAY·SET·CAN-01. 1280 2열 / 모바일 스택 | 통과 |
 
 규칙 4 I-30: APPROVED∧RELEASED 전에 complete 포트를 부르지 않는다.

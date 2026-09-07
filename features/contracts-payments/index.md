@@ -36,7 +36,7 @@
   정산 화면은 하이브리드 SET-01 v2.0(페이지 본문, ViewModel). GET 조립. 실행은 내부 Mock.
   설계서 신설 `SETTLEMENT_*` 코드·지급 버튼·운영 화면은 쓰지 않는다.
   취소 화면은 하이브리드 CAN-01 v2.0(페이지 본문, ViewModel). 무효화 실행은 내부 Mock.
-  설계서 신설 `CANCEL_*` 코드·A-07 POST·환불은 쓰지 않는다.
+  설계서 v2.0 정본. 공개 POST 취소는 유동우. `CANCEL_*` 코드·A-07 POST·환불은 쓰지 않는다.
   납품 화면은 하이브리드 DLV-01(페이지 본문, ViewModel). 네이밍 2경로
   (`POST /contracts/:id/deliveries` + `POST /deliveries/:id/approve`)는 쓰지 않는다.
   GET은 요청 전 `IN_PROGRESS` 행. 승인·정산 `RELEASED` 양쪽에서 complete. `DELIVERY_*` 코드 없음.
@@ -121,3 +121,5 @@
 | 2026-09-04 | 하이브리드 SET-01 v2.0. 수수료 스냅샷·ELIGIBLE·RELEASED 원자·C-03 409 재판정. `SETTLEMENT_*` 없음. 실측 PASS 308 |
 | 2026-09-04 | 하이브리드 CAN-01 v2.0. 무효화 멱등·결제 후 409·감사 보존·GET notification. 규칙 25. 실측 PASS 323 |
 | 2026-09-04 | 금주 wrap (`review/week-wrap-2026-09-04.md`). PASS 323. `app/`·A-07·실토스·환불은 다음 |
+| 2026-09-07 | feedback_loop 9/3·9/5 반영완료. 규칙 17을 app 경로에 맞춤. 키 없음 prototype Mock / app 503 구분 |
+| 2026-09-07 | 설계서 v2.0 하이브리드. invalidate 별칭·state/signaturesPreserved. 공개 POST는 유동우 |

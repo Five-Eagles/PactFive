@@ -12,7 +12,7 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
 
 ## 항목 1 — PR #64가 develop과 충돌해 팀장이 rebase 대신 merge로 대신 해결했다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - PR #64(`feature/contracts-payments`, "합의부터 취소까지... 규칙 23~25로 닫는다")의 분기점은
@@ -48,12 +48,15 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
   직접 훑어봐 주세요.
 - 이상 없으면 아래 상태를 `반영완료`로 바꿔주시면 이 항목은 닫힙니다. 다른 결정이었어야 했다면
   `재이슈`로 바꾸고 메모에 이유를 남겨주세요.
+- 2026-09-07 확인. 충돌 15개는 같은 담당자의 이전(PR #58)과 이후(PR #64)라 theirs(PR #64)가
+  맞다. merge 후 `origin/develop`과 `features/contracts-payments/` 파일 diff 없음. spec·api-contract
+  의도(규칙 23~25, 재제안·정산·무효화)도 PR #64가 정본이다.
 
 ---
 
 ## 항목 2 — [워크플로우 제안] AI 코딩 툴이 merge 이후에도 브랜치 동기화 없이 계속 커밋을 쌓고 있다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — 관찰된 패턴**
 - 오늘 확인한 조준영님 소유 브랜치 3개가 전부 같은 패턴을 보였다: `feature/applications`는
@@ -83,8 +86,8 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
    매번 기억하지 않아도 되게.
 
 **담당자 메모**
-- 이 항목은 조준영님뿐 아니라 팀 전체 작업 습관에 관한 제안입니다. 동의하면 `반영완료`로 바꾸고
-  다음 오전 회의 때 팀 규칙으로 올릴지 논의해주세요. 지금 방식이 낫다고 판단되면 `재이슈`로 바꾸고
-  이유를 남겨주세요.
+- 동의. PR merge 후 `daily-session-start`로 develop을 맞춘다. 2026-09-07 세션에서
+  `feature/contracts-payments`에 develop merge 완료. 작은 PR·merge 직후 동기화에 맞춘다.
+  항목 4(스크립트 경고)는 팀 전체 결정으로 둔다.
 
 ---

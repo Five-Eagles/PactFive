@@ -96,12 +96,24 @@ type InvalidateProjectState = {
   notification: PostActionResult;
 };
 
-/** 무효화 멱등은 cancellationId + reason/projectCanceledAt 해시로 본다. */
+/** 유동우 키와 설계서 v2.0 별칭을 한 사건으로 맞춘다. */
+function resolveInvalidateCommand(input: InvalidateAgreementInput): {
+  cancellationId: string;
+  projectCanceledAt: string;
+} {
+  return {
+    cancellationId: input.cancellationId ?? input.cancellationEventId ?? "",
+    projectCanceledAt: input.projectCanceledAt ?? input.occurredAt ?? "",
+  };
+}
+
+/** 무효화 멱등은 사건 id + reason/취소 시각 해시로 본다. */
 function invalidateBodyHash(input: InvalidateAgreementInput): string {
+  const resolved = resolveInvalidateCommand(input);
   return JSON.stringify({
     actorUserId: input.actorUserId,
     reason: input.reason,
-    projectCanceledAt: input.projectCanceledAt,
+    projectCanceledAt: resolved.projectCanceledAt,
   });
 }
 
@@ -141,6 +153,8 @@ type ContractRow = {
   clientSignedAt: string | null;
   freelancerSignedAt: string | null;
   signedAt: string | null;
+  canceledAt: string | null;
+  cancellationEventId: string | null;
 };
 
 type SignatureAudit = {
@@ -875,6 +889,8 @@ export function createPublicApiMock(
         clientSignedAt: null,
         freelancerSignedAt: null,
         signedAt: null,
+        canceledAt: null,
+        cancellationEventId: null,
       });
       const current = toCurrent(projectId, ctx);
       acceptIdempotency.set(idemKey, current);
@@ -1178,10 +1194,13 @@ export function createPublicApiMock(
       projectId: string,
       input: InvalidateAgreementInput,
     ): Promise<InvalidateAgreementResponse> {
-      if (!input.cancellationId || !input.actorUserId || !input.projectCanceledAt) {
-        throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
-          { field: "cancellationId", reason: "required" },
-        ]);
+      const resolved = resolveInvalidateCommand(input);
+      const missing: Array<{ field: string; reason: string }> = [];
+      if (!resolved.cancellationId) missing.push({ field: "cancellationId", reason: "required" });
+      if (!input.actorUserId) missing.push({ field: "actorUserId", reason: "required" });
+      if (!resolved.projectCanceledAt) missing.push({ field: "occurredAt", reason: "required" });
+      if (missing.length > 0) {
+        throw new DomainContractError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", missing);
       }
       const ctx = await projects.getProjectNegotiationContext(projectId);
       // 결제 시작 후면 원장을 건드리지 않는다.
@@ -1198,7 +1217,7 @@ export function createPublicApiMock(
         );
       }
       const bodyHash = invalidateBodyHash(input);
-      const cached = invalidateIdempotency.get(input.cancellationId);
+      const cached = invalidateIdempotency.get(resolved.cancellationId);
       if (cached) {
         if (cached.bodyHash !== bodyHash) {
           throw new DomainContractError(
@@ -1206,37 +1225,64 @@ export function createPublicApiMock(
             "프로젝트 상태가 변경되어 처리할 수 없습니다.",
           );
         }
-        return { ...cached.response, alreadyProcessed: true };
+        return { ...cached.response, alreadyProcessed: true, changed: false };
       }
-      const agreement = agreementFor(projectId);
-      const contract = [...contracts.values()].find((row) => row.projectId === projectId);
+      const snapshot = (): InvalidateAgreementResponse["agreementStatus"] => {
+        const row = agreementFor(projectId);
+        return row?.status === "REJECTED" ? "REJECTED" : null;
+      };
+      const contractSnapshot = (): InvalidateAgreementResponse["contractStatus"] => {
+        const row = [...contracts.values()].find((item) => item.projectId === projectId);
+        return row?.status === "CANCELED" ? "CANCELED" : null;
+      };
+      const toResponse = (
+        alreadyProcessed: boolean,
+        result: InvalidateAgreementResponse["result"],
+        changed: boolean,
+      ): InvalidateAgreementResponse => ({
+        alreadyProcessed,
+        result,
+        state: result,
+        projectId,
+        agreementStatus: snapshot(),
+        contractStatus: contractSnapshot(),
+        signaturesPreserved: true,
+        changed,
+      });
       const remember = (
         response: InvalidateAgreementResponse,
         notification: PostActionResult,
       ): InvalidateAgreementResponse => {
-        invalidateIdempotency.set(input.cancellationId, { bodyHash, response });
+        invalidateIdempotency.set(resolved.cancellationId, { bodyHash, response });
         invalidateByProject.set(projectId, { result: response.result, notification });
         return response;
       };
+      const agreement = agreementFor(projectId);
+      const contract = [...contracts.values()].find((row) => row.projectId === projectId);
+      // 취소 경로는 restore를 부르지 않는다.
       if (!agreement && !contract) {
-        return remember({ alreadyProcessed: false, result: "NOT_NEEDED" }, "NOT_NEEDED");
+        return remember(toResponse(false, "NOT_NEEDED", false), "NOT_NEEDED");
       }
       const alreadyInvalidated =
         (!agreement || agreement.status === "REJECTED") &&
         (!contract || contract.status === "CANCELED");
       if (alreadyInvalidated) {
-        return remember({ alreadyProcessed: true, result: "DONE" }, "NOT_NEEDED");
+        return remember(toResponse(true, "DONE", false), "NOT_NEEDED");
       }
       // 감사 배열은 push만 하고 여기서는 지우지 않는다.
       if (agreement) agreement.status = "REJECTED";
-      if (contract) contract.status = "CANCELED";
+      if (contract) {
+        contract.status = "CANCELED";
+        contract.canceledAt = resolved.projectCanceledAt;
+        contract.cancellationEventId = resolved.cancellationId;
+      }
       const failInvalidate = failNextInvalidateFlag;
       const failNotification = failNextNotificationFlag;
       failNextInvalidateFlag = false;
       failNextNotificationFlag = false;
       const result: PostActionResult = failInvalidate ? "FAILED" : "DONE";
       const notification: PostActionResult = failNotification ? "FAILED" : "NOT_NEEDED";
-      return remember({ alreadyProcessed: false, result }, notification);
+      return remember(toResponse(false, result, result === "DONE"), notification);
     },
 
     // SET-01 simulate FAILURE와 같이 내부 전용. 상태는 바꾼 뒤 FAILED를 낸다.
