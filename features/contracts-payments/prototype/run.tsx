@@ -6,7 +6,9 @@ import {
   canProposeNegotiationOffer,
   createNotificationTriggerMock,
   createProjectTransactionMock,
+  createMemoryLifecycleSnapshot,
   createPublicApiMock,
+  createTransactionLifecycleCoordinator,
   DomainContractError,
   isDomainContractError,
   isPublicApiError,
@@ -16,8 +18,10 @@ import {
   MOCK_OUTSIDER_USER_ID,
   MOCK_PAYMENT_ID,
   toAcceptedApplicationHandoff,
+  toApplicationClosureEventId,
   type DomainContractErrorCode,
   type GetDeliveryResponse,
+  type TransactionLifecycleSnapshot,
 } from "./index";
 import { createPaymentRecordMock } from "./mock/payment-record.mock";
 import {
@@ -244,6 +248,39 @@ async function expectCode(
     }
     fail(name, err);
   }
+}
+
+function orchSnapshot(
+  partial: Partial<TransactionLifecycleSnapshot> & Pick<TransactionLifecycleSnapshot, "projectId">,
+) {
+  return createMemoryLifecycleSnapshot({
+    contractId: "ctr_orch",
+    contractApplicationId: "app_123",
+    freelancerId: MOCK_FREELANCER_USER_ID,
+    contractStatus: "DRAFT",
+    paymentStatus: null,
+    deliveryStatus: null,
+    ...partial,
+  });
+}
+
+function failingStartOnce(port: ProjectTransactionPort): ProjectTransactionPort {
+  let failed = false;
+  return {
+    getProjectNegotiationContext: (projectId) => port.getProjectNegotiationContext(projectId),
+    markPaymentPending: (projectId, input) => port.markPaymentPending(projectId, input),
+    startProjectTransaction: async (projectId, input) => {
+      if (!failed) {
+        failed = true;
+        throw new Error("start failed");
+      }
+      return port.startProjectTransaction(projectId, input);
+    },
+    completeProjectTransaction: (projectId, input) =>
+      port.completeProjectTransaction(projectId, input),
+    restorePreContractProject: (projectId, input) =>
+      port.restorePreContractProject(projectId, input),
+  };
 }
 
 function invalidatePayload(
@@ -2098,8 +2135,14 @@ async function main() {
     );
     const contractId = accepted.contractId ?? "";
     const first = await api.signContract(contractId, MOCK_CLIENT_USER_ID);
-    if (first.status === "SIGNING" && first.clientSignedAt === MOCK_NOW && first.alreadyProcessed === false) {
+    if (
+      first.status === "SIGNING" &&
+      first.signedAt === null &&
+      first.clientSignedAt === MOCK_NOW &&
+      first.alreadyProcessed === false
+    ) {
       pass("규칙 12: 첫 서명 SIGNING");
+      pass("F02: 첫 서명 signedAt=null");
     } else {
       fail("규칙 12: 첫 서명 SIGNING", first);
     }
@@ -3230,6 +3273,7 @@ async function main() {
       await api.approveDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_CLIENT_USER_ID, {
         idempotencyKey: `appr-${key}`,
       });
+      await api.evaluateSettlement(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
     }
 
     {
@@ -3487,11 +3531,19 @@ async function main() {
     }
   }
 
-  // 규칙 25 — 무효화 실행. 동시 FOR UPDATE·실 A-07·지원 일괄 거절은 Mock 한계로 생략한다.
+  // 규칙 25 — 무효화 실행. CA-01·02·06·07·09~13·20~22와 동시 FOR UPDATE·실 A-07은 생략한다.
   {
     const api = createPublicApiMock();
     const none = await api.invalidateAgreementAndContract("prj_alive", invalidatePayload("cnl_25_none"));
-    if (none.result === "NOT_NEEDED" && none.alreadyProcessed === false) {
+    if (
+      none.result === "NOT_NEEDED" &&
+      none.state === "NOT_NEEDED" &&
+      none.alreadyProcessed === false &&
+      none.changed === false &&
+      none.signaturesPreserved === true &&
+      none.agreementStatus === null &&
+      none.contractStatus === null
+    ) {
       pass("규칙 25: 무효화 NOT_NEEDED");
     } else {
       fail("규칙 25: 무효화 NOT_NEEDED", none);
@@ -3501,13 +3553,21 @@ async function main() {
       currency: "KRW",
     });
     const done = await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_done"));
-    if (done.result === "DONE" && done.alreadyProcessed === false) {
+    if (
+      done.result === "DONE" &&
+      done.state === "DONE" &&
+      done.alreadyProcessed === false &&
+      done.changed === true &&
+      done.agreementStatus === "REJECTED" &&
+      done.contractStatus === null &&
+      done.signaturesPreserved === true
+    ) {
       pass("규칙 25: 무효화 DONE");
     } else {
       fail("규칙 25: 무효화 DONE", done);
     }
     const again = await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_done"));
-    if (again.result === "DONE" && again.alreadyProcessed === true) {
+    if (again.result === "DONE" && again.state === "DONE" && again.alreadyProcessed === true && again.changed === false) {
       pass("규칙 25: 무효화 멱등");
     } else {
       fail("규칙 25: 무효화 멱등", again);
@@ -3564,17 +3624,21 @@ async function main() {
     const contractId = accepted.contractId ?? "";
     await api.signContract(contractId, MOCK_FREELANCER_USER_ID);
     const beforeAudits = api.getSignatureAudits().filter((row) => row.contractId === contractId);
-    await api.invalidateAgreementAndContract("prj_restore", invalidatePayload("cnl_25_audit"));
+    const beforeContract = await api.getContract(contractId, MOCK_FREELANCER_USER_ID);
+    const invalidated = await api.invalidateAgreementAndContract("prj_restore", invalidatePayload("cnl_25_audit"));
     const afterAudits = api.getSignatureAudits().filter((row) => row.contractId === contractId);
     const contract = await api.getContract(contractId, MOCK_FREELANCER_USER_ID);
     if (
       beforeAudits.length === 1 &&
       afterAudits.length === beforeAudits.length &&
-      contract.status === "CANCELED"
+      contract.status === "CANCELED" &&
+      contract.freelancerSignedAt === beforeContract.freelancerSignedAt &&
+      invalidated.signaturesPreserved === true &&
+      invalidated.contractStatus === "CANCELED"
     ) {
       pass("규칙 25: SIGNING 무효화 후 감사 건수 유지");
     } else {
-      fail("규칙 25: SIGNING 무효화 후 감사 건수 유지", { beforeAudits, afterAudits, contract });
+      fail("규칙 25: SIGNING 무효화 후 감사 건수 유지", { beforeAudits, afterAudits, contract, invalidated });
     }
   }
 
@@ -3636,6 +3700,118 @@ async function main() {
       pass("규칙 25: GET notification 칸");
     } else {
       fail("규칙 25: GET notification 칸", canceled.postActions);
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    const proposed = await api.proposeNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    await api.acceptNegotiationOffer(
+      "prj_seq",
+      proposed.offer?.offerId ?? "",
+      MOCK_FREELANCER_USER_ID,
+      { expectedRound: 1 },
+    );
+    const before = await api.getCurrentNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID);
+    const invalidated = await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_draft"));
+    const after = await api.getCurrentNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID);
+    if (
+      before.contractStatus === "DRAFT" &&
+      invalidated.state === "DONE" &&
+      invalidated.agreementStatus === "REJECTED" &&
+      invalidated.contractStatus === "CANCELED" &&
+      after.agreementStatus === "REJECTED" &&
+      after.contractStatus === "CANCELED"
+    ) {
+      pass("규칙 25: CA-03 DRAFT 무효화");
+    } else {
+      fail("규칙 25: CA-03 DRAFT 무효화", { before, invalidated, after });
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    const contractId = await signBothSides(api, "prj_alive");
+    const before = await api.getContract(contractId, MOCK_CLIENT_USER_ID);
+    const pendingBefore = (await api.projects.getProjectNegotiationContext("prj_alive")).paymentPendingAt;
+    const invalidated = await api.invalidateAgreementAndContract("prj_alive", invalidatePayload("cnl_25_signed"));
+    const after = await api.getContract(contractId, MOCK_CLIENT_USER_ID);
+    const pendingAfter = (await api.projects.getProjectNegotiationContext("prj_alive")).paymentPendingAt;
+    if (
+      before.status === "SIGNED" &&
+      pendingBefore === null &&
+      invalidated.state === "DONE" &&
+      invalidated.signaturesPreserved === true &&
+      after.status === "CANCELED" &&
+      after.clientSignedAt === before.clientSignedAt &&
+      after.freelancerSignedAt === before.freelancerSignedAt &&
+      pendingAfter === null
+    ) {
+      pass("규칙 25: CA-05 SIGNED 미결제 무효화");
+    } else {
+      fail("규칙 25: CA-05 SIGNED 미결제 무효화", { before, after, invalidated, pendingAfter });
+    }
+    await expectCode("규칙 25: CA-15 취소 후 prepare 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      api.preparePayment("prj_alive", MOCK_CLIENT_USER_ID),
+    );
+  }
+
+  {
+    const api = createPublicApiMock();
+    const aliased = await api.invalidateAgreementAndContract("prj_alive", {
+      cancellationEventId: "cnl_25_alias",
+      actorUserId: MOCK_CLIENT_USER_ID,
+      reason: "PROJECT_CANCELED",
+      requestId: "req_cnl_25_alias",
+      idempotencyKey: "invalidate-cnl_25_alias",
+      occurredAt: MOCK_NOW,
+    });
+    const viaLegacy = await api.invalidateAgreementAndContract("prj_alive", invalidatePayload("cnl_25_alias"));
+    if (
+      aliased.state === "NOT_NEEDED" &&
+      aliased.result === "NOT_NEEDED" &&
+      viaLegacy.alreadyProcessed === true &&
+      viaLegacy.state === "NOT_NEEDED"
+    ) {
+      pass("규칙 25: cancellationEventId·occurredAt 별칭");
+    } else {
+      fail("규칙 25: cancellationEventId·occurredAt 별칭", { aliased, viaLegacy });
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    const restoreBefore = api.projects.getCallCounts().restorePreContractProject;
+    await api.proposeNegotiationOffer("prj_seq", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    await api.invalidateAgreementAndContract("prj_seq", invalidatePayload("cnl_25_restore"));
+    const restoreAfterInvalidate = api.projects.getCallCounts().restorePreContractProject;
+    api.simulateProjectCanceled("prj_seq", MOCK_NOW);
+    await expectCode("규칙 25: CA-23 취소 후 restore 409", "PROJECT_TRANSITION_CONFLICT", () =>
+      restorePreContractProjectAfterReject(api.projects, "prj_seq", {
+        negotiationId: "ngt_cancel",
+        offerId: "off_1",
+        actorUserId: MOCK_CLIENT_USER_ID,
+        reason: "CLIENT_REJECTED",
+        requestId: "req_restore_after_cancel",
+        idempotencyKey: "negotiation-reject-after-cancel",
+        occurredAt: MOCK_NOW,
+      }),
+    );
+    const ctx = await api.projects.getProjectNegotiationContext("prj_seq");
+    if (
+      restoreAfterInvalidate === restoreBefore &&
+      ctx.transactionStatus === "CANCELED" &&
+      ctx.canceledAt === MOCK_NOW
+    ) {
+      pass("규칙 25: CA-23 restore 미호출·취소 유지");
+    } else {
+      fail("규칙 25: CA-23 restore 미호출·취소 유지", { restoreBefore, restoreAfterInvalidate, ctx });
     }
   }
 
@@ -3824,6 +4000,535 @@ async function main() {
       htmlOf(React.createElement(AgreementPanel, { uiState: "REJECTED_REOPENED" })),
       "상대가 제안을 거절했습니다",
     );
+  }
+
+  // 규칙 26 — 교차 생명주기 Coordinator (AND·역순·멱등·원장 유지)
+  {
+    const occurredAt = "2026-08-25T07:00:00Z";
+
+    {
+      const projects = createProjectTransactionMock();
+      const snapshots = orchSnapshot({
+        projectId: "prj_alive",
+        contractStatus: "SIGNED",
+        paymentStatus: "PAID",
+      });
+      const notifications = createNotificationTriggerMock();
+      const coordinator = createTransactionLifecycleCoordinator({
+        projects,
+        snapshots,
+        notifications,
+      });
+      await coordinator.onPaymentPaid({
+        eventId: "evt_paid_both",
+        projectId: "prj_alive",
+        occurredAt,
+      });
+      const context = await projects.getProjectNegotiationContext("prj_alive");
+      const reviewCount = notifications
+        .getPublished()
+        .filter((event) => event.type === "REVIEW_REQUESTED").length;
+      if (
+        projects.getCallCounts().startProjectTransaction === 1 &&
+        context.transactionStatus === "IN_PROGRESS" &&
+        reviewCount === 0
+      ) {
+        pass("규칙 26: SIGNED+PAID → start 1회 IN_PROGRESS");
+      } else {
+        fail("규칙 26: SIGNED+PAID → start 1회 IN_PROGRESS", {
+          counts: projects.getCallCounts(),
+          context,
+          reviewCount,
+        });
+      }
+    }
+
+    {
+      const projects = createProjectTransactionMock();
+      const snapshots = orchSnapshot({
+        projectId: "prj_alive",
+        contractStatus: "DRAFT",
+        paymentStatus: "PAID",
+      });
+      const coordinator = createTransactionLifecycleCoordinator({
+        projects,
+        snapshots,
+        notifications: createNotificationTriggerMock(),
+      });
+      await coordinator.onPaymentPaid({
+        eventId: "evt_paid_only",
+        projectId: "prj_alive",
+        occurredAt,
+      });
+      const context = await projects.getProjectNegotiationContext("prj_alive");
+      if (
+        projects.getCallCounts().startProjectTransaction === 0 &&
+        context.transactionStatus === "CONTRACT_PENDING" &&
+        snapshots.get().paymentStatus === "PAID"
+      ) {
+        pass("규칙 26: PAID만이면 start 미호출");
+      } else {
+        fail("규칙 26: PAID만이면 start 미호출", {
+          counts: projects.getCallCounts(),
+          context,
+          snapshot: snapshots.get(),
+        });
+      }
+    }
+
+    {
+      const projects = createProjectTransactionMock();
+      const snapshots = orchSnapshot({
+        projectId: "prj_alive",
+        contractStatus: "SIGNED",
+        paymentStatus: null,
+      });
+      const coordinator = createTransactionLifecycleCoordinator({
+        projects,
+        snapshots,
+        notifications: createNotificationTriggerMock(),
+      });
+      await coordinator.onContractSigned({
+        eventId: "evt_signed_only",
+        projectId: "prj_alive",
+        occurredAt,
+      });
+      const context = await projects.getProjectNegotiationContext("prj_alive");
+      if (
+        projects.getCallCounts().startProjectTransaction === 0 &&
+        context.transactionStatus === "CONTRACT_PENDING"
+      ) {
+        pass("규칙 26: SIGNED만이면 start 미호출");
+      } else {
+        fail("규칙 26: SIGNED만이면 start 미호출", {
+          counts: projects.getCallCounts(),
+          context,
+        });
+      }
+    }
+
+    {
+      const projects = createProjectTransactionMock();
+      const snapshots = orchSnapshot({
+        projectId: "prj_in_progress",
+        contractStatus: "SIGNED",
+        paymentStatus: "RELEASED",
+        deliveryStatus: "APPROVED",
+      });
+      const notifications = createNotificationTriggerMock();
+      const coordinator = createTransactionLifecycleCoordinator({
+        projects,
+        snapshots,
+        notifications,
+      });
+      await coordinator.onPaymentReleased({
+        eventId: "evt_released_both",
+        projectId: "prj_in_progress",
+        occurredAt,
+      });
+      const context = await projects.getProjectNegotiationContext("prj_in_progress");
+      const reviews = notifications
+        .getPublished()
+        .filter((event) => event.type === "REVIEW_REQUESTED");
+      if (
+        projects.getCallCounts().completeProjectTransaction === 1 &&
+        context.transactionStatus === "COMPLETED" &&
+        reviews.length === 1
+      ) {
+        pass("규칙 26: APPROVED+RELEASED → complete 1회 + REVIEW_REQUESTED");
+      } else {
+        fail("규칙 26: APPROVED+RELEASED → complete 1회 + REVIEW_REQUESTED", {
+          counts: projects.getCallCounts(),
+          context,
+          published: notifications.getPublished(),
+        });
+      }
+    }
+
+    {
+      const projects = createProjectTransactionMock();
+      const snapshots = orchSnapshot({
+        projectId: "prj_in_progress",
+        contractStatus: "SIGNED",
+        paymentStatus: "PAID",
+        deliveryStatus: "APPROVED",
+      });
+      const notifications = createNotificationTriggerMock();
+      const coordinator = createTransactionLifecycleCoordinator({
+        projects,
+        snapshots,
+        notifications,
+      });
+      await coordinator.onDeliveryApproved({
+        eventId: "evt_approved_only",
+        projectId: "prj_in_progress",
+        occurredAt,
+      });
+      const context = await projects.getProjectNegotiationContext("prj_in_progress");
+      const reviews = notifications
+        .getPublished()
+        .filter((event) => event.type === "REVIEW_REQUESTED");
+      if (
+        projects.getCallCounts().completeProjectTransaction === 0 &&
+        context.transactionStatus === "IN_PROGRESS" &&
+        snapshots.get().deliveryStatus === "APPROVED" &&
+        reviews.length === 0
+      ) {
+        pass("규칙 26: APPROVED만이면 complete 미호출");
+      } else {
+        fail("규칙 26: APPROVED만이면 complete 미호출", {
+          counts: projects.getCallCounts(),
+          context,
+          snapshot: snapshots.get(),
+          reviews,
+        });
+      }
+    }
+
+    {
+      const projects = createProjectTransactionMock();
+      const snapshots = orchSnapshot({
+        projectId: "prj_in_progress",
+        contractStatus: "SIGNED",
+        paymentStatus: "RELEASED",
+        deliveryStatus: "DELIVERY_REQUESTED",
+      });
+      const coordinator = createTransactionLifecycleCoordinator({
+        projects,
+        snapshots,
+        notifications: createNotificationTriggerMock(),
+      });
+      await coordinator.onPaymentReleased({
+        eventId: "evt_released_only",
+        projectId: "prj_in_progress",
+        occurredAt,
+      });
+      const context = await projects.getProjectNegotiationContext("prj_in_progress");
+      if (
+        projects.getCallCounts().completeProjectTransaction === 0 &&
+        context.transactionStatus === "IN_PROGRESS" &&
+        snapshots.get().paymentStatus === "RELEASED"
+      ) {
+        pass("규칙 26: RELEASED만이면 complete 미호출");
+      } else {
+        fail("규칙 26: RELEASED만이면 complete 미호출", {
+          counts: projects.getCallCounts(),
+          context,
+          snapshot: snapshots.get(),
+        });
+      }
+    }
+
+    {
+      const projects = createProjectTransactionMock();
+      const snapshots = orchSnapshot({
+        projectId: "prj_alive",
+        contractStatus: "SIGNED",
+        paymentStatus: "PAID",
+      });
+      const coordinator = createTransactionLifecycleCoordinator({
+        projects,
+        snapshots,
+        notifications: createNotificationTriggerMock(),
+      });
+      const paid = { eventId: "evt_paid_dup", projectId: "prj_alive", occurredAt };
+      const signed = { eventId: "evt_signed_dup", projectId: "prj_alive", occurredAt };
+      await coordinator.onPaymentPaid(paid);
+      await coordinator.onContractSigned(signed);
+      await coordinator.onPaymentPaid(paid);
+      await coordinator.onContractSigned(signed);
+      const context = await projects.getProjectNegotiationContext("prj_alive");
+      if (
+        projects.getCallCounts().startProjectTransaction === 1 &&
+        context.transactionStatus === "IN_PROGRESS"
+      ) {
+        pass("규칙 26: 중복 사건은 start 1회");
+      } else {
+        fail("규칙 26: 중복 사건은 start 1회", { counts: projects.getCallCounts(), context });
+      }
+    }
+
+    {
+      const projects = createProjectTransactionMock();
+      const snapshots = orchSnapshot({
+        projectId: "prj_alive",
+        contractStatus: "DRAFT",
+        paymentStatus: "PAID",
+      });
+      const coordinator = createTransactionLifecycleCoordinator({
+        projects,
+        snapshots,
+        notifications: createNotificationTriggerMock(),
+      });
+      await coordinator.onPaymentPaid({
+        eventId: "evt_paid_rev",
+        projectId: "prj_alive",
+        occurredAt,
+      });
+      snapshots.patch({ contractStatus: "SIGNED" });
+      await coordinator.onContractSigned({
+        eventId: "evt_signed_rev",
+        projectId: "prj_alive",
+        occurredAt,
+      });
+      const context = await projects.getProjectNegotiationContext("prj_alive");
+      if (
+        projects.getCallCounts().startProjectTransaction === 1 &&
+        context.transactionStatus === "IN_PROGRESS"
+      ) {
+        pass("규칙 26: 역순 SIGNED 후에도 start 1회");
+      } else {
+        fail("규칙 26: 역순 SIGNED 후에도 start 1회", {
+          counts: projects.getCallCounts(),
+          context,
+        });
+      }
+    }
+
+    {
+      const projects = createProjectTransactionMock();
+      const snapshots = orchSnapshot({
+        projectId: "prj_in_progress",
+        contractStatus: "SIGNED",
+        paymentStatus: "PAID",
+        deliveryStatus: "APPROVED",
+      });
+      const notifications = createNotificationTriggerMock();
+      const coordinator = createTransactionLifecycleCoordinator({
+        projects,
+        snapshots,
+        notifications,
+      });
+      await coordinator.onDeliveryApproved({
+        eventId: "evt_approved_rev",
+        projectId: "prj_in_progress",
+        occurredAt,
+      });
+      snapshots.patch({ paymentStatus: "RELEASED" });
+      await coordinator.onPaymentReleased({
+        eventId: "evt_released_rev",
+        projectId: "prj_in_progress",
+        occurredAt,
+      });
+      await coordinator.onDeliveryApproved({
+        eventId: "evt_approved_rev",
+        projectId: "prj_in_progress",
+        occurredAt,
+      });
+      const context = await projects.getProjectNegotiationContext("prj_in_progress");
+      const reviews = notifications
+        .getPublished()
+        .filter((event) => event.type === "REVIEW_REQUESTED");
+      if (
+        projects.getCallCounts().completeProjectTransaction === 1 &&
+        context.transactionStatus === "COMPLETED" &&
+        reviews.length === 1
+      ) {
+        pass("규칙 26: 역순·중복 complete 1회");
+      } else {
+        fail("규칙 26: 역순·중복 complete 1회", {
+          counts: projects.getCallCounts(),
+          context,
+          reviews,
+        });
+      }
+    }
+
+    {
+      const projects = createProjectTransactionMock();
+      const snapshots = orchSnapshot({
+        projectId: "prj_alive",
+        contractStatus: "SIGNED",
+        paymentStatus: "PAID",
+      });
+      const coordinator = createTransactionLifecycleCoordinator({
+        projects: failingStartOnce(projects),
+        snapshots,
+        notifications: createNotificationTriggerMock(),
+      });
+      const event = { eventId: "evt_start_retry", projectId: "prj_alive", occurredAt };
+      await coordinator.onPaymentPaid(event);
+      const afterFail = await projects.getProjectNegotiationContext("prj_alive");
+      const paidKept =
+        snapshots.get().paymentStatus === "PAID" &&
+        afterFail.transactionStatus === "CONTRACT_PENDING" &&
+        projects.getCallCounts().startProjectTransaction === 0;
+      await coordinator.onPaymentPaid(event);
+      const afterRetry = await projects.getProjectNegotiationContext("prj_alive");
+      if (
+        paidKept &&
+        afterRetry.transactionStatus === "IN_PROGRESS" &&
+        projects.getCallCounts().startProjectTransaction === 1
+      ) {
+        pass("규칙 26: start 실패 후 PAID 유지·재시도 성공");
+      } else {
+        fail("규칙 26: start 실패 후 PAID 유지·재시도 성공", {
+          paidKept,
+          afterFail,
+          afterRetry,
+          counts: projects.getCallCounts(),
+          snapshot: snapshots.get(),
+        });
+      }
+    }
+
+    {
+      const projects = createProjectTransactionMock();
+      const snapshots = orchSnapshot({
+        projectId: "prj_alive",
+        contractStatus: "SIGNED",
+        paymentStatus: "PAID",
+      });
+      const notifications = createNotificationTriggerMock();
+      const coordinator = createTransactionLifecycleCoordinator({
+        projects,
+        snapshots,
+        notifications,
+      });
+      await coordinator.onContractSigned({
+        eventId: "evt_review_start",
+        projectId: "prj_alive",
+        occurredAt,
+      });
+      const beforeComplete = notifications
+        .getPublished()
+        .filter((event) => event.type === "REVIEW_REQUESTED").length;
+      snapshots.patch({ deliveryStatus: "APPROVED" });
+      await coordinator.onDeliveryApproved({
+        eventId: "evt_review_approved",
+        projectId: "prj_alive",
+        occurredAt,
+      });
+      const stillBefore = notifications
+        .getPublished()
+        .filter((event) => event.type === "REVIEW_REQUESTED").length;
+      snapshots.patch({ paymentStatus: "RELEASED" });
+      await coordinator.onPaymentReleased({
+        eventId: "evt_review_released",
+        projectId: "prj_alive",
+        occurredAt,
+      });
+      const afterComplete = notifications
+        .getPublished()
+        .filter((event) => event.type === "REVIEW_REQUESTED").length;
+      const context = await projects.getProjectNegotiationContext("prj_alive");
+      if (
+        beforeComplete === 0 &&
+        stillBefore === 0 &&
+        afterComplete === 1 &&
+        context.transactionStatus === "COMPLETED"
+      ) {
+        pass("규칙 26: COMPLETED 전에 리뷰 사건 없음, 완료 후 발행");
+      } else {
+        fail("규칙 26: COMPLETED 전에 리뷰 사건 없음, 완료 후 발행", {
+          beforeComplete,
+          stillBefore,
+          afterComplete,
+          context,
+          published: notifications.getPublished(),
+        });
+      }
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    const proposed = await api.proposeNegotiationOffer("prj_alive", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    const accepted = await api.acceptNegotiationOffer(
+      "prj_alive",
+      proposed.offer?.offerId ?? "",
+      MOCK_FREELANCER_USER_ID,
+      { expectedRound: 1 },
+    );
+    const contractId = accepted.contractId ?? "";
+    await api.invalidateAgreementAndContract("prj_alive", {
+      cancellationId: "cnl_f01",
+      actorUserId: MOCK_CLIENT_USER_ID,
+      reason: "PROJECT_CANCELED",
+      projectCanceledAt: MOCK_NOW,
+      requestId: "req_f01",
+      idempotencyKey: "invalidate-cnl_f01",
+      occurredAt: MOCK_NOW,
+    });
+    await expectCode("F01: 취소 커밋 이후 신규 서명 금지", "PROJECT_TRANSITION_CONFLICT", () =>
+      api.signContract(contractId, MOCK_CLIENT_USER_ID),
+    );
+  }
+
+  {
+    const api = createPublicApiMock();
+    const uploaded = await api.prepareDeliveryUpload(
+      MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
+      MOCK_FREELANCER_USER_ID,
+      {
+        fileName: MOCK_DELIVERY_FILE_NAME,
+        contentType: "application/zip",
+        size: 1_048_576,
+        sha256: MOCK_DELIVERY_SHA256,
+      },
+    );
+    await api.requestDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_FREELANCER_USER_ID, {
+      objectKey: uploaded.objectKey,
+      uploadId: uploaded.uploadId,
+      message: MOCK_DELIVERY_MESSAGE,
+      idempotencyKey: "req-f03",
+    });
+    await api.approveDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_CLIENT_USER_ID, {
+      idempotencyKey: "appr-f03",
+    });
+    const locks = api.getApproveLockTrace();
+    if (locks.includes("Delivery") && !locks.includes("Payment")) {
+      pass("F03: 승인 중 Payment 미잠금");
+    } else {
+      fail("F03: 승인 중 Payment 미잠금", locks);
+    }
+    await api.evaluateSettlement(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+    const settleLocks = api.getSettleLockTrace();
+    if (settleLocks[0] === "Payment" && settleLocks[1] === "Settlement") {
+      pass("F03: 정산은 Payment 후 Settlement");
+    } else {
+      fail("F03: 정산은 Payment 후 Settlement", settleLocks);
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    api.setDeliveryPaymentStatus(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, "RELEASED");
+    const evaluated = await api.evaluateSettlement(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+    if (evaluated.blockedReason !== "PAYMENT_NOT_PAID") {
+      pass("F04: RELEASED 유지는 미결제로 막지 않음");
+    } else {
+      fail("F04: RELEASED 유지는 미결제로 막지 않음", evaluated);
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    api.enqueueOutboxEvent({
+      eventId: "evt_lease",
+      eventType: "DELIVERY_APPROVED",
+      aggregateId: "ctr_lease",
+      occurredAt: MOCK_NOW,
+    });
+    api.claimOutbox(MOCK_NOW, 1, "old");
+    const later = new Date(Date.parse(MOCK_NOW) + 2_000).toISOString();
+    api.claimOutbox(later, 1_000, "new");
+    if (!api.completeOutbox("evt_lease", "old", later) && api.completeOutbox("evt_lease", "new", later)) {
+      pass("F09: lease 만료 후 옛 token은 완료 못 함");
+    } else {
+      fail("F09: lease 만료 후 옛 token은 완료 못 함", api.listOutbox());
+    }
+  }
+
+  {
+    if (toApplicationClosureEventId("cnl_f11") === "cnl_f11") {
+      pass("F11: cancellationId → closureEventId adapter");
+    } else {
+      fail("F11: cancellationId → closureEventId adapter", toApplicationClosureEventId("cnl_f11"));
+    }
   }
 
   console.log(`PASS ${passCount} / FAIL ${failCount}`);
