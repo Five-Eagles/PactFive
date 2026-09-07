@@ -43,6 +43,11 @@
    - **대상이 `app/web/`이면** `app/web/AGENTS.md`의 "통합 시 확인" 체크리스트(폴더=기능명·
      파일=도메인명, 라우트 등록, 기능 간 직접 import 금지, `shared/http.ts` 경유 호출,
      `VITE_`에 비밀값 금지 등)도 통과하는지 확인한다.
+   - **시안이 아직 없는 화면·기능을 가리키는 버튼/링크를 포함하면** `href="#"`나 빈 `onClick`
+     으로 죽이지 않는다 — `app/web/AGENTS.md` "시안에는 있지만 아직 없는 화면" 절의 두 갈래
+     (화면 자체가 없으면 `NotYetDialog`, 라우트·기능 폴더는 있는데 화면이 안 붙었으면
+     `ComingSoonOverlay`)로 안내한다. 2026-09-04, 대표 페이지 통합에서 처음 정한 방침
+     (`features/project-management/design/homepage-transplant-plan.md` 6·6-1번 절).
    - **대상이 `app/server/`이면** `app/server/AGENTS.md`의 이중 진입점·port/adapter 규칙을
      따르는지 확인한다.
    - 체크리스트를 통과하지 못하면 반영을 보류하고 `change-requests/`에 조정안을 기록한다
@@ -69,6 +74,8 @@
 - [ ] 대상별 AGENTS.md 체크리스트를 통과했다
 - [ ] (화면을 반영했다면) `npm run check:design`이 통과하고, `SCR-Bxx → app/web 컴포넌트`
       매핑을 통합 기록에 남겼다. 시안에 있는데 만들지 않은 화면은 이유와 함께 적었다
+- [ ] (화면을 반영했다면) 아직 없는 화면을 가리키는 버튼/링크가 `NotYetDialog`/
+      `ComingSoonOverlay`로 안내되는지 확인했다 (죽은 링크로 남아 있지 않다)
 - [ ] 공백을 채웠거나 기능 간 충돌을 조정했다면 `feedback_loop/`에 기록했다 —
       **이 단계는 유일하게 자동화되지 않아 가장 먼저 빠진다.** 통합했는데 피드백 파일이
       없다면 "정말 아무것도 안 채웠는지" 한 번 더 확인한다

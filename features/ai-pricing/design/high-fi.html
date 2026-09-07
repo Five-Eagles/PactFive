@@ -1,0 +1,2250 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PACTFIVE · AI 단가 분석 High-fidelity Prototype</title>
+    <link rel="stylesheet" href="./_tokens.css" />
+    <style>
+      [hidden] {
+        display: none !important;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      .skip-link {
+        position: fixed;
+        z-index: 100;
+        top: var(--space-2);
+        left: var(--space-2);
+        transform: translateY(-160%);
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-control);
+        background: var(--content);
+        color: var(--content-on-action);
+        font-weight: 700;
+      }
+
+      .skip-link:focus {
+        transform: translateY(0);
+      }
+
+      .prototype-tools {
+        width: min(100% - 2rem, var(--page-max));
+        margin: 0 auto var(--space-4);
+        padding: var(--space-4);
+        border: 1px dashed var(--border-interactive);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+
+      .prototype-tools__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--space-4);
+        margin-bottom: var(--space-3);
+      }
+
+      .prototype-tools h2,
+      .prototype-tools p {
+        margin: 0;
+      }
+
+      .prototype-tools h2 {
+        font-size: var(--text-label);
+        line-height: var(--line-label);
+      }
+
+      .prototype-tools p {
+        color: var(--content-muted);
+        font-size: var(--text-caption);
+        line-height: var(--line-caption);
+      }
+
+      .prototype-tools__groups {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-4) var(--space-8);
+      }
+
+      .prototype-tools fieldset {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+
+      .prototype-tools legend {
+        width: 100%;
+        margin-bottom: var(--space-1);
+        color: var(--content-secondary);
+        font-size: var(--text-caption);
+        font-weight: 700;
+        line-height: var(--line-caption);
+      }
+
+      .prototype-toggle {
+        min-height: 2.25rem;
+        padding: var(--space-1) var(--space-3);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--content-secondary);
+        font-size: var(--text-caption);
+        font-weight: 700;
+      }
+
+      .prototype-toggle[aria-pressed="true"] {
+        border-color: var(--action);
+        background: var(--teal-050);
+        color: var(--action);
+      }
+
+      .app-header {
+        border-bottom: 1px solid var(--border-subtle);
+        background: var(--surface);
+      }
+
+      .app-header__inner {
+        display: flex;
+        width: min(100%, var(--page-max));
+        min-height: 4.5rem;
+        margin: 0 auto;
+        padding: 0 var(--space-8);
+        align-items: center;
+        gap: var(--space-8);
+      }
+
+      .brand {
+        flex: 0 0 auto;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--content);
+        font-size: var(--text-title);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        text-decoration: none;
+      }
+
+      .brand__accent {
+        color: var(--action);
+      }
+
+      .global-nav {
+        display: flex;
+        align-self: stretch;
+        align-items: center;
+        gap: var(--space-6);
+      }
+
+      .global-nav .nav-action {
+        display: inline-flex;
+        height: 100%;
+        align-items: center;
+        padding: 0;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: var(--content-secondary);
+        font-size: var(--text-label);
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .global-nav .nav-action[aria-current="page"] {
+        border-color: var(--action);
+        color: var(--content);
+        font-weight: 700;
+      }
+
+      .app-header__account {
+        display: flex;
+        margin-left: auto;
+        align-items: center;
+        gap: var(--space-2);
+        color: var(--content-secondary);
+        font-size: var(--text-label);
+        font-weight: 600;
+      }
+
+      .avatar {
+        display: grid;
+        width: 2.25rem;
+        height: 2.25rem;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--navy-100);
+        color: var(--navy-900);
+        font-size: var(--text-caption);
+        font-weight: 800;
+      }
+
+      .breadcrumb {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        margin: 0 0 var(--space-6);
+        padding: 0;
+        list-style: none;
+        color: var(--content-muted);
+        font-size: var(--text-label);
+        line-height: var(--line-label);
+      }
+
+      .breadcrumb li:not(:last-child)::after {
+        margin-left: var(--space-2);
+        color: var(--neutral-400);
+        content: "/";
+      }
+
+      .breadcrumb .breadcrumb-action {
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--content-secondary);
+        text-decoration: underline;
+        text-underline-offset: 0.18em;
+      }
+
+      .page-intro {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: var(--space-6);
+        margin-bottom: var(--space-8);
+      }
+
+      .page-intro__copy {
+        max-width: 44rem;
+      }
+
+      .eyebrow {
+        margin: 0 0 var(--space-2);
+        color: var(--action);
+        font-size: var(--text-label);
+        font-weight: 800;
+        line-height: var(--line-label);
+      }
+
+      .page-intro h1 {
+        margin: 0;
+        font-size: var(--text-h1);
+        font-weight: 800;
+        line-height: var(--line-h1);
+        letter-spacing: var(--tracking-h1);
+      }
+
+      .page-intro__description {
+        margin: var(--space-3) 0 0;
+        color: var(--content-secondary);
+      }
+
+      .page-intro__back {
+        flex: 0 0 auto;
+      }
+
+      .registration-progress {
+        margin-bottom: var(--space-8);
+        padding: var(--space-5) var(--space-6);
+      }
+
+      .step__line {
+        height: 1px;
+        flex: 1;
+        margin-top: 1rem;
+        background: var(--border);
+      }
+
+      .existing-context {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-4);
+        margin-bottom: var(--space-8);
+        padding: var(--space-4) var(--space-5);
+        border-left: 4px solid var(--action);
+      }
+
+      .existing-context p {
+        margin: 0;
+      }
+
+      .existing-context__label {
+        color: var(--content-muted);
+        font-size: var(--text-caption);
+        font-weight: 700;
+        line-height: var(--line-caption);
+      }
+
+      .existing-context__title {
+        margin-top: var(--space-1) !important;
+        font-weight: 700;
+      }
+
+      .workflow {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 18rem;
+        gap: var(--space-6);
+        align-items: start;
+      }
+
+      .main-card {
+        overflow: hidden;
+      }
+
+      .state-panel {
+        scroll-margin-top: var(--space-6);
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--space-4);
+        padding: var(--space-6);
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .panel-header h2,
+      .panel-header p {
+        margin: 0;
+      }
+
+      .panel-header h2 {
+        font-size: var(--text-h3);
+        line-height: var(--line-h3);
+        letter-spacing: var(--tracking-h3);
+      }
+
+      .panel-header p {
+        margin-top: var(--space-2);
+        color: var(--content-secondary);
+      }
+
+      .panel-body {
+        padding: var(--space-6);
+      }
+
+      .section-heading {
+        margin: 0;
+        font-size: var(--text-title);
+        line-height: var(--line-title);
+        letter-spacing: var(--tracking-title);
+      }
+
+      .section-description {
+        margin: var(--space-2) 0 0;
+        color: var(--content-secondary);
+      }
+
+      .input-origin {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        margin-bottom: var(--space-5);
+        padding-bottom: var(--space-4);
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .input-origin p {
+        margin: 0;
+        color: var(--content-muted);
+        font-size: var(--text-label);
+        line-height: var(--line-label);
+      }
+
+      .field-group {
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+
+      .field-group + .field-group {
+        margin-top: var(--space-5);
+      }
+
+      .field-meta {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--space-3);
+      }
+
+      .character-count {
+        color: var(--content-muted);
+        font-family: var(--font-mono);
+        font-size: var(--text-caption);
+        font-variant-numeric: tabular-nums;
+        line-height: var(--line-caption);
+      }
+
+      .form-notice {
+        margin-top: var(--space-6);
+      }
+
+      .step--complete {
+        color: var(--content);
+      }
+
+      .step--complete .num {
+        border-color: var(--success-border);
+        background: var(--success-surface);
+        color: var(--success);
+      }
+
+      .form-notice p,
+      .error-summary p {
+        margin: 0;
+      }
+
+      .form-notice strong,
+      .error-summary strong {
+        display: block;
+        margin-bottom: var(--space-1);
+        color: var(--content);
+      }
+
+      .error-summary {
+        margin-bottom: var(--space-5);
+      }
+
+      .error-summary ul {
+        margin: var(--space-2) 0 0;
+        padding-left: var(--space-5);
+      }
+
+      .error-summary a {
+        color: var(--danger);
+        font-size: var(--text-label);
+        font-weight: 700;
+      }
+
+      .form-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-4);
+        margin-top: var(--space-8);
+        padding-top: var(--space-5);
+        border-top: 1px solid var(--border-subtle);
+      }
+
+      .form-actions__hint {
+        margin: 0;
+        max-width: 24rem;
+        color: var(--content-muted);
+        font-size: var(--text-caption);
+        line-height: var(--line-caption);
+      }
+
+      .loading-layout {
+        display: grid;
+        justify-items: center;
+        min-height: 32rem;
+        align-content: center;
+        padding: var(--space-12) var(--space-6);
+        text-align: center;
+      }
+
+      .loading-indicator {
+        position: relative;
+        width: 3rem;
+        height: 3rem;
+        margin-bottom: var(--space-5);
+        border: 4px solid var(--teal-100);
+        border-top-color: var(--action);
+        border-radius: 50%;
+        animation: spin 800ms linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .loading-layout h2,
+      .loading-layout p {
+        margin: 0;
+      }
+
+      .loading-layout h2 {
+        font-size: var(--text-h3);
+        line-height: var(--line-h3);
+      }
+
+      .loading-layout p {
+        max-width: 32rem;
+        margin-top: var(--space-2);
+        color: var(--content-secondary);
+      }
+
+      .preservation-note {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        margin-top: var(--space-5) !important;
+        padding: var(--space-2) var(--space-3);
+        border-radius: 999px;
+        background: var(--surface-subtle);
+        color: var(--content-secondary) !important;
+        font-size: var(--text-label);
+        font-weight: 700;
+      }
+
+      .preservation-note::before {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+        background: var(--success);
+        content: "";
+      }
+
+      .pending-policy {
+        width: min(100%, 34rem);
+        margin-top: var(--space-5);
+        text-align: left;
+      }
+
+      .pending-policy strong {
+        display: block;
+        color: var(--content);
+      }
+
+      .pending-policy p {
+        max-width: none;
+        margin-top: var(--space-1);
+        font-size: var(--text-label);
+        line-height: var(--line-label);
+      }
+
+      .result-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--space-5);
+        padding: var(--space-6);
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .result-header h2,
+      .result-header p {
+        margin: 0;
+      }
+
+      .result-header h2 {
+        margin-top: var(--space-3);
+        font-size: var(--text-h3);
+        line-height: var(--line-h3);
+        letter-spacing: var(--tracking-h3);
+      }
+
+      .badge--approved {
+        border-color: var(--success-border);
+        background: var(--success-surface);
+        color: var(--success);
+      }
+
+      .badge--rejected {
+        border-color: var(--danger-border);
+        background: var(--danger-surface);
+        color: var(--danger);
+      }
+
+      .recommended-amount {
+        margin-top: var(--space-2) !important;
+        color: var(--content);
+        font-size: var(--text-h1);
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        line-height: var(--line-h1);
+        letter-spacing: var(--tracking-h1);
+      }
+
+      .result-disclaimer {
+        max-width: 33rem;
+        margin-top: var(--space-3) !important;
+        color: var(--content-secondary);
+      }
+
+      .result-body {
+        display: grid;
+        gap: var(--space-8);
+        padding: var(--space-6);
+      }
+
+      .result-meta {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin: 0;
+        overflow: hidden;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-control);
+        background: var(--surface-subtle);
+      }
+
+      .result-meta div {
+        padding: var(--space-4);
+      }
+
+      .result-meta div + div {
+        border-left: 1px solid var(--border-subtle);
+      }
+
+      .result-meta dt,
+      .result-meta dd {
+        margin: 0;
+      }
+
+      .result-meta dt {
+        color: var(--content-muted);
+        font-size: var(--text-caption);
+        font-weight: 700;
+        line-height: var(--line-caption);
+      }
+
+      .result-meta dd {
+        margin-top: var(--space-1);
+        color: var(--content);
+        font-size: var(--text-label);
+        font-weight: 700;
+        line-height: var(--line-label);
+      }
+
+      .result-section__header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: var(--space-4);
+        margin-bottom: var(--space-4);
+      }
+
+      .result-section__header h3,
+      .result-section__header p {
+        margin: 0;
+      }
+
+      .result-section__header h3 {
+        font-size: var(--text-title);
+        line-height: var(--line-title);
+      }
+
+      .result-section__header p {
+        color: var(--content-muted);
+        font-size: var(--text-caption);
+        line-height: var(--line-caption);
+      }
+
+      .breakdown-list {
+        display: grid;
+        gap: var(--space-3);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .breakdown-item {
+        display: grid;
+        grid-template-columns: minmax(9rem, 1fr) minmax(11rem, 1.35fr) minmax(11rem, 1.35fr) auto;
+        gap: var(--space-4);
+        align-items: start;
+        padding: var(--space-4);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-control);
+      }
+
+      .breakdown-item__label {
+        display: block;
+        margin-bottom: var(--space-1);
+        color: var(--content-muted);
+        font-size: var(--text-caption);
+        font-weight: 700;
+        line-height: var(--line-caption);
+      }
+
+      .breakdown-item h4,
+      .breakdown-item p {
+        margin: 0;
+      }
+
+      .breakdown-item h4 {
+        font-size: var(--text-label);
+        line-height: var(--line-label);
+      }
+
+      .breakdown-item p {
+        color: var(--content-secondary);
+        font-size: var(--text-label);
+        line-height: var(--line-label);
+      }
+
+      .breakdown-item__amount {
+        min-width: 7.5rem;
+        text-align: right;
+      }
+
+      .breakdown-item__amount strong {
+        color: var(--content);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+
+      .breakdown-total {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-4);
+        margin-top: var(--space-3);
+        padding: var(--space-4);
+        border-top: 2px solid var(--content);
+      }
+
+      .breakdown-total span {
+        font-weight: 700;
+      }
+
+      .breakdown-total strong {
+        font-size: var(--text-title);
+        font-variant-numeric: tabular-nums;
+        line-height: var(--line-title);
+      }
+
+      .input-snapshot {
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-control);
+        background: var(--surface-subtle);
+      }
+
+      .input-snapshot summary {
+        min-height: var(--control-min);
+        padding: var(--space-3) var(--space-4);
+        color: var(--content);
+        font-weight: 700;
+        list-style-position: inside;
+      }
+
+      .input-snapshot__body {
+        padding: 0 var(--space-4) var(--space-4);
+      }
+
+      .input-snapshot dl {
+        display: grid;
+        grid-template-columns: 7rem minmax(0, 1fr);
+        gap: var(--space-3) var(--space-4);
+        margin: 0;
+        padding-top: var(--space-4);
+        border-top: 1px solid var(--border-subtle);
+      }
+
+      .input-snapshot dt,
+      .input-snapshot dd {
+        margin: 0;
+      }
+
+      .input-snapshot dt {
+        color: var(--content-muted);
+        font-size: var(--text-label);
+        font-weight: 700;
+      }
+
+      .input-snapshot dd {
+        color: var(--content-secondary);
+      }
+
+      .decision-block {
+        padding-top: var(--space-6);
+        border-top: 1px solid var(--border-subtle);
+      }
+
+      .decision-block h3,
+      .decision-block p {
+        margin: 0;
+      }
+
+      .decision-block h3 {
+        font-size: var(--text-title);
+        line-height: var(--line-title);
+      }
+
+      .decision-block > p {
+        margin-top: var(--space-2);
+        color: var(--content-secondary);
+      }
+
+      .decision-block .btn-row {
+        margin-top: var(--space-5);
+      }
+
+      .budget-comparison {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--space-3);
+        margin-top: var(--space-5);
+      }
+
+      .budget-comparison__item {
+        padding: var(--space-4);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-control);
+        background: var(--surface-subtle);
+      }
+
+      .budget-comparison__item span,
+      .budget-comparison__item strong {
+        display: block;
+      }
+
+      .budget-comparison__item span {
+        color: var(--content-muted);
+        font-size: var(--text-caption);
+        font-weight: 700;
+        line-height: var(--line-caption);
+      }
+
+      .budget-comparison__item strong {
+        margin-top: var(--space-1);
+        font-size: var(--text-title);
+        font-variant-numeric: tabular-nums;
+        line-height: var(--line-title);
+      }
+
+      .outcome-layout {
+        display: grid;
+        justify-items: start;
+        min-height: 31rem;
+        align-content: center;
+        padding: var(--space-10);
+      }
+
+      .outcome-mark {
+        display: grid;
+        width: 3rem;
+        height: 3rem;
+        margin-bottom: var(--space-5);
+        place-items: center;
+        border: 1px solid var(--info-border);
+        border-radius: 50%;
+        background: var(--info-surface);
+        color: var(--info);
+        font-size: var(--text-title);
+        font-weight: 800;
+      }
+
+      .outcome-mark--success {
+        border-color: var(--success-border);
+        background: var(--success-surface);
+        color: var(--success);
+      }
+
+      .outcome-mark--danger {
+        border-color: var(--danger-border);
+        background: var(--danger-surface);
+        color: var(--danger);
+      }
+
+      .outcome-mark--warning {
+        border-color: var(--warning-border);
+        background: var(--warning-surface);
+        color: var(--warning);
+      }
+
+      .outcome-layout h2,
+      .outcome-layout p {
+        margin: 0;
+      }
+
+      .outcome-layout h2 {
+        font-size: var(--text-h3);
+        line-height: var(--line-h3);
+      }
+
+      .outcome-layout > p {
+        max-width: 36rem;
+        margin-top: var(--space-2);
+        color: var(--content-secondary);
+      }
+
+      .failure-context {
+        width: 100%;
+      }
+
+      .failure-context > p {
+        max-width: 36rem;
+        margin-top: var(--space-2);
+        color: var(--content-secondary);
+      }
+
+      .outcome-layout .notice,
+      .outcome-layout .budget-comparison,
+      .outcome-layout .btn-row {
+        width: 100%;
+        margin-top: var(--space-5);
+      }
+
+      .outcome-layout .budget-comparison {
+        max-width: 38rem;
+      }
+
+      .outcome-layout .notice {
+        max-width: 38rem;
+      }
+
+      .outcome-layout .notice p {
+        color: var(--content-secondary);
+      }
+
+      .sidebar {
+        position: sticky;
+        top: var(--space-4);
+        overflow: hidden;
+      }
+
+      .sidebar__header {
+        padding: var(--space-5);
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .sidebar__header h2,
+      .sidebar__header p {
+        margin: 0;
+      }
+
+      .sidebar__header h2 {
+        font-size: var(--text-title);
+        line-height: var(--line-title);
+      }
+
+      .sidebar__header p {
+        margin-top: var(--space-1);
+        color: var(--content-muted);
+        font-size: var(--text-caption);
+        line-height: var(--line-caption);
+      }
+
+      .sidebar__body {
+        padding: var(--space-5);
+      }
+
+      .context-list {
+        display: grid;
+        gap: var(--space-4);
+        margin: 0;
+      }
+
+      .context-list div {
+        padding-bottom: var(--space-4);
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .context-list dt,
+      .context-list dd {
+        margin: 0;
+      }
+
+      .context-list dt {
+        color: var(--content-muted);
+        font-size: var(--text-caption);
+        font-weight: 700;
+        line-height: var(--line-caption);
+      }
+
+      .context-list dd {
+        margin-top: var(--space-1);
+        color: var(--content);
+        font-size: var(--text-label);
+        font-weight: 700;
+        line-height: var(--line-label);
+      }
+
+      .sidebar__protection {
+        margin: var(--space-4) 0 0;
+        color: var(--content-secondary);
+        font-size: var(--text-caption);
+        line-height: var(--line-caption);
+      }
+
+      .sidebar__protection strong {
+        color: var(--success);
+      }
+
+      .sidebar__footer {
+        padding: var(--space-4) var(--space-5);
+        border-top: 1px solid var(--border-subtle);
+        background: var(--surface-subtle);
+        color: var(--content-muted);
+        font-size: var(--text-caption);
+        line-height: var(--line-caption);
+      }
+
+      .requirements {
+        width: min(100% - 2rem, var(--page-max));
+        margin: 0 auto var(--space-20);
+        padding: var(--space-8);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-dialog);
+        background: var(--surface);
+      }
+
+      .requirements > h2,
+      .requirements > p {
+        margin: 0;
+      }
+
+      .requirements > h2 {
+        font-size: var(--text-h2);
+        line-height: var(--line-h2);
+        letter-spacing: var(--tracking-h2);
+      }
+
+      .requirements > p {
+        max-width: 48rem;
+        margin-top: var(--space-2);
+        color: var(--content-secondary);
+      }
+
+      .requirement-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-4);
+        margin-top: var(--space-6);
+      }
+
+      .requirement-card {
+        padding: var(--space-5);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-card);
+        background: var(--surface-subtle);
+      }
+
+      .requirement-card--wide {
+        grid-column: 1 / -1;
+      }
+
+      .requirement-card h3 {
+        margin: 0;
+        font-size: var(--text-title);
+        line-height: var(--line-title);
+      }
+
+      .requirement-card p {
+        margin: var(--space-1) 0 0;
+        color: var(--content-muted);
+        font-size: var(--text-caption);
+        line-height: var(--line-caption);
+      }
+
+      .requirement-card ul {
+        display: grid;
+        gap: var(--space-2);
+        margin: var(--space-4) 0 0;
+        padding-left: var(--space-5);
+      }
+
+      .requirement-card li {
+        color: var(--content-secondary);
+      }
+
+      .requirement-card code {
+        padding: 0.1rem var(--space-1);
+        border-radius: 0.25rem;
+        background: var(--surface);
+        color: var(--content);
+        font-family: var(--font-mono);
+        font-size: 0.86em;
+      }
+
+      .requirements-table-wrap {
+        margin-top: var(--space-6);
+        overflow-x: auto;
+      }
+
+      .requirements-table {
+        width: 100%;
+        min-width: 42rem;
+        border-collapse: collapse;
+        font-size: var(--text-label);
+      }
+
+      .requirements-table th,
+      .requirements-table td {
+        padding: var(--space-3) var(--space-4);
+        border: 1px solid var(--border-subtle);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .requirements-table th {
+        background: var(--surface-subtle);
+        color: var(--content);
+      }
+
+      .requirements-table td {
+        color: var(--content-secondary);
+      }
+
+      .requirements-table code {
+        color: var(--content);
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+      }
+
+      .toast {
+        position: fixed;
+        z-index: 90;
+        right: var(--space-4);
+        bottom: var(--space-4);
+        max-width: min(26rem, calc(100% - 2rem));
+        padding: var(--space-3) var(--space-4);
+        border-radius: var(--radius-control);
+        background: var(--content);
+        color: var(--content-on-action);
+        box-shadow: var(--shadow-overlay);
+        font-size: var(--text-label);
+        font-weight: 700;
+      }
+
+      @media (max-width: 63.99rem) {
+        .workflow {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+        }
+
+        .context-list {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .context-list div {
+          padding: 0 var(--space-3) 0 0;
+          border-right: 1px solid var(--border-subtle);
+          border-bottom: 0;
+        }
+
+        .context-list div:last-child {
+          border-right: 0;
+        }
+
+        .breakdown-item {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .breakdown-item__amount {
+          text-align: left;
+        }
+      }
+
+      @media (max-width: 47.99rem) {
+        .prototype-tools,
+        .requirements {
+          width: calc(100% - 2rem);
+        }
+
+        .prototype-tools__header,
+        .page-intro,
+        .form-actions,
+        .result-header,
+        .existing-context {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .app-header__inner {
+          width: max-content;
+          min-width: 100%;
+          min-height: 4rem;
+          padding: 0 var(--space-4);
+          gap: var(--space-4);
+        }
+
+        .app-header {
+          overflow-x: auto;
+          overscroll-behavior-inline: contain;
+        }
+
+        .global-nav {
+          flex: 0 0 auto;
+          gap: var(--space-4);
+        }
+
+        .app-header__account span:not(.avatar) {
+          display: none;
+        }
+
+        .breadcrumb {
+          margin-bottom: var(--space-5);
+        }
+
+        .page-intro {
+          align-items: flex-start;
+          margin-bottom: var(--space-6);
+        }
+
+        .page-intro h1,
+        .recommended-amount {
+          font-size: var(--text-h2);
+          line-height: var(--line-h2);
+        }
+
+        .page-intro__back {
+          width: 100%;
+        }
+
+        .registration-progress,
+        .panel-header,
+        .panel-body,
+        .result-header,
+        .result-body,
+        .outcome-layout {
+          padding: var(--space-5) var(--space-4);
+        }
+
+        .step__line {
+          display: none;
+        }
+
+        .context-list,
+        .result-meta,
+        .budget-comparison,
+        .requirement-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .context-list div {
+          padding: 0 0 var(--space-3);
+          border-right: 0;
+          border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .result-meta div + div {
+          border-top: 1px solid var(--border-subtle);
+          border-left: 0;
+        }
+
+        .breakdown-item {
+          grid-template-columns: 1fr;
+        }
+
+        .input-snapshot dl {
+          grid-template-columns: 1fr;
+          gap: var(--space-1);
+        }
+
+        .input-snapshot dd + dt {
+          margin-top: var(--space-3);
+        }
+
+        .requirement-card--wide {
+          grid-column: auto;
+        }
+
+        .requirements {
+          padding: var(--space-5) var(--space-4);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">본문으로 바로가기</a>
+
+    <header class="meta">
+      <span class="fi">High-fidelity · interactive</span>
+      <h1>AI 단가 분석 · Step 2 예산 결정 흐름</h1>
+      <p>
+        프로젝트 등록 중 추천 예산을 검토하는 기본 흐름과 기존 프로젝트에 반영하는 흐름을 같은 계약으로 비교합니다.
+      </p>
+    </header>
+
+    <section class="prototype-tools" id="prototype-tools" aria-labelledby="prototype-tools-title">
+      <div class="prototype-tools__header">
+        <div>
+          <h2 id="prototype-tools-title">프로토타입 전환 도구</h2>
+          <p>제품 UI가 아닌 검토용 컨트롤입니다. 맥락과 서버 응답 상태를 바꿔 확인하세요.</p>
+        </div>
+        <span class="badge">정적 HTML 데모</span>
+      </div>
+      <div class="prototype-tools__groups">
+        <fieldset>
+          <legend>진입 맥락</legend>
+          <button class="prototype-toggle" type="button" data-demo-context="registration" aria-pressed="true">
+            프로젝트 등록 Step 2
+          </button>
+          <button class="prototype-toggle" type="button" data-demo-context="existing" aria-pressed="false">
+            기존 프로젝트 적용
+          </button>
+        </fieldset>
+        <fieldset>
+          <legend>상태</legend>
+          <button class="prototype-toggle" type="button" data-demo-state="request" aria-pressed="true">기본</button>
+          <button class="prototype-toggle" type="button" data-demo-state="submitting" aria-pressed="false">제출 중</button>
+          <button class="prototype-toggle" type="button" data-demo-state="result" aria-pressed="false">결과</button>
+          <button class="prototype-toggle" type="button" data-demo-state="rejected" aria-pressed="false">제안 불가</button>
+          <button class="prototype-toggle" type="button" data-demo-state="failure" aria-pressed="false">요청 실패</button>
+          <button class="prototype-toggle" type="button" data-demo-state="conflict" aria-pressed="false">409 반영 충돌</button>
+        </fieldset>
+      </div>
+    </section>
+
+    <div class="screen">
+      <div class="frame" data-product-context="registration">
+        <header class="app-header">
+          <div class="app-header__inner">
+            <button class="brand" type="button" data-handoff="홈 화면으로 이동합니다." aria-label="PACTFIVE 홈">
+              PACT<span class="brand__accent">FIVE</span>
+            </button>
+            <nav class="global-nav" aria-label="주요 메뉴">
+              <button class="nav-action" type="button" data-handoff="대시보드로 이동합니다.">대시보드</button>
+              <button class="nav-action" type="button" data-handoff="프로젝트 목록으로 이동합니다." aria-current="page">
+                프로젝트
+              </button>
+              <button class="nav-action" type="button" data-handoff="내 작업으로 이동합니다.">내 작업</button>
+            </nav>
+            <div class="app-header__account">
+              <span class="avatar" aria-hidden="true">오민</span>
+              <span>오민혁</span>
+            </div>
+          </div>
+        </header>
+
+        <main class="body-pad" id="main-content">
+          <nav aria-label="현재 위치">
+            <ol class="breadcrumb">
+              <li><button class="breadcrumb-action" type="button" data-handoff="프로젝트 목록으로 이동합니다.">프로젝트</button></li>
+              <li data-registration-only>
+                <button class="breadcrumb-action" type="button" data-handoff="새 프로젝트 등록 화면으로 이동합니다.">
+                  새 프로젝트 등록
+                </button>
+              </li>
+              <li data-existing-only hidden>
+                <button class="breadcrumb-action" type="button" data-handoff="프로젝트 상세 화면으로 이동합니다.">
+                  지역 상점 주문 관리 웹앱 구축
+                </button>
+              </li>
+              <li aria-current="page">AI 단가 분석</li>
+            </ol>
+          </nav>
+
+          <div class="page-intro">
+            <div class="page-intro__copy">
+              <p class="eyebrow" data-registration-only>프로젝트 등록 · Step 2 일정 · 예산</p>
+              <p class="eyebrow" data-existing-only hidden>기존 프로젝트 · 예산 검토</p>
+              <h1>AI 단가 분석</h1>
+              <p class="page-intro__description">
+                프로젝트 정보를 확인하고 추천 예산을 요청하세요. 결과를 검토한 뒤 직접 적용 여부를 선택합니다.
+              </p>
+            </div>
+            <button class="btn btn--secondary page-intro__back" type="button" data-handoff="이전 화면으로 돌아갑니다.">
+              <span data-registration-only>일정 · 예산으로 돌아가기</span>
+              <span data-existing-only hidden>프로젝트 상세로 돌아가기</span>
+            </button>
+          </div>
+
+          <section class="card registration-progress" data-registration-only aria-label="프로젝트 등록 진행 단계">
+            <ol class="steps">
+              <li class="step step--complete">
+                <span class="num" aria-hidden="true">✓</span>
+                <span>기본 정보</span>
+              </li>
+              <li class="step__line" aria-hidden="true"></li>
+              <li class="step" aria-current="step">
+                <span class="num">2</span>
+                <span>일정 · 예산</span>
+              </li>
+              <li class="step__line" aria-hidden="true"></li>
+              <li class="step">
+                <span class="num">3</span>
+                <span>확인 · 등록</span>
+              </li>
+            </ol>
+          </section>
+
+          <section class="card existing-context" data-existing-only hidden aria-label="적용 대상 프로젝트">
+            <div>
+              <p class="existing-context__label">적용 대상 프로젝트</p>
+              <p class="existing-context__title">지역 상점 주문 관리 웹앱 구축</p>
+            </div>
+            <span class="badge">현재 예산 3,500,000원</span>
+          </section>
+
+          <div class="workflow">
+            <div class="card main-card" id="state-region" aria-live="polite">
+              <section class="state-panel" data-panel="request" tabindex="-1" aria-labelledby="request-title">
+                <header class="panel-header">
+                  <div>
+                    <h2 id="request-title">분석에 사용할 프로젝트 정보</h2>
+                    <p>요청 전에 내용을 확인하세요. 제출한 값은 결과에 입력 스냅샷으로 남습니다.</p>
+                  </div>
+                  <span class="badge">요청 전</span>
+                </header>
+                <div class="panel-body">
+                  <div class="input-origin">
+                    <p data-registration-only>프로젝트 등록 기본 정보에서 불러왔습니다.</p>
+                    <p data-existing-only hidden>현재 프로젝트 정보에서 불러왔습니다.</p>
+                    <button class="btn btn--quiet" type="button" data-handoff="프로젝트 기본 정보 편집 화면으로 돌아갑니다.">
+                      기본 정보 수정
+                    </button>
+                  </div>
+
+                  <div class="notice notice--danger error-summary" id="error-summary" role="alert" tabindex="-1" hidden>
+                    <strong>입력 내용을 확인하세요.</strong>
+                    <p>수정이 필요한 항목이 있습니다.</p>
+                    <ul id="error-summary-list"></ul>
+                  </div>
+
+                  <form id="analysis-form" novalidate>
+                    <fieldset class="field-group">
+                      <div class="field-meta">
+                        <label class="label" for="project-title">프로젝트 제목 <span class="required">*</span></label>
+                        <span class="character-count" id="title-count">0 / 100</span>
+                      </div>
+                      <input
+                        class="field"
+                        id="project-title"
+                        name="title"
+                        type="text"
+                        minlength="5"
+                        maxlength="100"
+                        value="지역 상점 주문 관리 웹앱 구축"
+                        aria-describedby="title-help title-error title-count"
+                        required
+                      />
+                      <p class="helper" id="title-help">5자 이상 100자 이하로 입력하세요.</p>
+                      <p class="field-error" id="title-error" hidden></p>
+                    </fieldset>
+
+                    <fieldset class="field-group">
+                      <div class="field-meta">
+                        <label class="label" for="project-description">프로젝트 설명 <span class="required">*</span></label>
+                        <span class="character-count" id="description-count">0 / 5,000</span>
+                      </div>
+                      <textarea
+                        class="field"
+                        id="project-description"
+                        name="description"
+                        minlength="20"
+                        maxlength="5000"
+                        aria-describedby="description-help description-error description-count"
+                        required
+                      >지역 상점이 모바일 주문을 접수하고 처리 상태를 관리할 수 있는 반응형 웹앱을 구축합니다. 주문 목록, 상세 확인, 상태 변경, 관리자 로그인을 포함합니다.</textarea>
+                      <p class="helper" id="description-help">필요한 기능과 납품 범위를 20자 이상 5,000자 이하로 작성하세요.</p>
+                      <p class="field-error" id="description-error" hidden></p>
+                    </fieldset>
+
+                    <fieldset class="field-group">
+                      <label class="label" for="project-category">카테고리 <span class="required">*</span></label>
+                      <select
+                        class="field"
+                        id="project-category"
+                        name="category"
+                        aria-describedby="category-help category-error"
+                        required
+                      >
+                        <option value="">카테고리를 선택하세요</option>
+                        <option value="WEB_DEVELOPMENT" selected>웹 개발</option>
+                        <option value="MOBILE_APP">모바일 앱</option>
+                        <option value="DESIGN">디자인</option>
+                        <option value="DATA_AI">데이터·AI</option>
+                        <option value="PLANNING">기획</option>
+                        <option value="MARKETING">마케팅</option>
+                      </select>
+                      <p class="helper" id="category-help">프로젝트 성격과 가장 가까운 카테고리를 선택하세요.</p>
+                      <p class="field-error" id="category-error" hidden></p>
+                    </fieldset>
+
+                    <div class="notice form-notice">
+                      <strong>추천 금액은 확정된 예산이 아닙니다.</strong>
+                      <p>결과에서 산정 내역을 확인하고 직접 선택합니다.</p>
+                    </div>
+
+                    <div class="form-actions">
+                      <p class="form-actions__hint">분석이 완료되어도 사용자가 선택하기 전에는 프로젝트 예산이 바뀌지 않습니다.</p>
+                      <div class="btn-row">
+                        <button class="btn btn--secondary" type="button" data-manual-budget>예산 직접 입력하기</button>
+                        <button class="btn btn--primary" type="submit">분석 요청하기</button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </section>
+
+              <section class="state-panel" data-panel="submitting" tabindex="-1" aria-labelledby="submitting-title" hidden>
+                <div class="loading-layout" aria-busy="true">
+                  <div class="loading-indicator" aria-hidden="true"></div>
+                  <h2 id="submitting-title">분석 요청을 처리하고 있습니다</h2>
+                  <p>제출한 프로젝트 정보를 기준으로 추천 예산과 항목별 산정 내역을 만들고 있습니다.</p>
+                  <p class="preservation-note">이 페이지가 열려 있는 동안 입력 내용은 그대로 보존됩니다.</p>
+                  <div class="notice pending-policy">
+                    <strong>처리가 이어지면 제한된 횟수만 상태를 확인합니다.</strong>
+                    <p>조회 간격을 점차 늘리고 전체 대기 기한을 넘기면 자동으로 중단해 다시 시도 경로를 제공합니다.</p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="state-panel" data-panel="result" tabindex="-1" aria-labelledby="result-title" hidden>
+                <header class="result-header">
+                  <div>
+                    <span class="badge badge--approved">분석 완료</span>
+                    <h2 id="result-title">추천 예산</h2>
+                    <p class="recommended-amount">4,800,000원</p>
+                    <p class="result-disclaimer">이 금액은 추천안입니다. 산정 내역을 확인한 뒤 적용 여부를 선택하세요.</p>
+                  </div>
+                  <button class="btn btn--secondary" type="button" data-demo-state-direct="request">입력 수정 후 다시 분석</button>
+                </header>
+
+                <div class="result-body">
+                  <dl class="result-meta">
+                    <div>
+                      <dt>입력 출처</dt>
+                      <dd>제출한 프로젝트 정보</dd>
+                    </div>
+                    <div>
+                      <dt>분석 완료 시각</dt>
+                      <dd id="completed-at">2026. 9. 4. 오후 2:32</dd>
+                    </div>
+                    <div>
+                      <dt>통화</dt>
+                      <dd>KRW</dd>
+                    </div>
+                  </dl>
+
+                  <section aria-labelledby="breakdown-title">
+                    <div class="result-section__header">
+                      <h3 id="breakdown-title">산정 내역</h3>
+                      <p>4개 항목</p>
+                    </div>
+                    <ol class="breakdown-list">
+                      <li class="breakdown-item">
+                        <div>
+                          <span class="breakdown-item__label">항목명</span>
+                          <h4>요구사항 정리 및 설계</h4>
+                        </div>
+                        <div>
+                          <span class="breakdown-item__label">설명</span>
+                          <p>주문 처리 흐름과 관리자 화면 구조를 정리합니다.</p>
+                        </div>
+                        <div>
+                          <span class="breakdown-item__label">산정 이유</span>
+                          <p>입력한 기능을 구현 단위로 나누기 위한 사전 설계 작업입니다.</p>
+                        </div>
+                        <div class="breakdown-item__amount">
+                          <span class="breakdown-item__label">추천 금액</span>
+                          <strong>600,000원</strong>
+                        </div>
+                      </li>
+                      <li class="breakdown-item">
+                        <div>
+                          <span class="breakdown-item__label">항목명</span>
+                          <h4>핵심 기능 개발</h4>
+                        </div>
+                        <div>
+                          <span class="breakdown-item__label">설명</span>
+                          <p>관리자 로그인과 주문 목록·상세·상태 변경을 구현합니다.</p>
+                        </div>
+                        <div>
+                          <span class="breakdown-item__label">산정 이유</span>
+                          <p>프로젝트 설명에 명시된 핵심 업무 기능을 반영한 항목입니다.</p>
+                        </div>
+                        <div class="breakdown-item__amount">
+                          <span class="breakdown-item__label">추천 금액</span>
+                          <strong>1,800,000원</strong>
+                        </div>
+                      </li>
+                      <li class="breakdown-item">
+                        <div>
+                          <span class="breakdown-item__label">항목명</span>
+                          <h4>화면 구현 및 연동</h4>
+                        </div>
+                        <div>
+                          <span class="breakdown-item__label">설명</span>
+                          <p>모바일·데스크톱 화면과 주문 데이터 흐름을 연결합니다.</p>
+                        </div>
+                        <div>
+                          <span class="breakdown-item__label">산정 이유</span>
+                          <p>반응형 웹앱 제공 조건과 화면 간 연결 작업을 반영했습니다.</p>
+                        </div>
+                        <div class="breakdown-item__amount">
+                          <span class="breakdown-item__label">추천 금액</span>
+                          <strong>1,600,000원</strong>
+                        </div>
+                      </li>
+                      <li class="breakdown-item">
+                        <div>
+                          <span class="breakdown-item__label">항목명</span>
+                          <h4>검수 및 전달</h4>
+                        </div>
+                        <div>
+                          <span class="breakdown-item__label">설명</span>
+                          <p>주요 사용 흐름을 검수하고 결과물을 전달합니다.</p>
+                        </div>
+                        <div>
+                          <span class="breakdown-item__label">산정 이유</span>
+                          <p>구현 결과의 확인과 프로젝트 전달에 필요한 작업입니다.</p>
+                        </div>
+                        <div class="breakdown-item__amount">
+                          <span class="breakdown-item__label">추천 금액</span>
+                          <strong>800,000원</strong>
+                        </div>
+                      </li>
+                    </ol>
+                    <div class="breakdown-total">
+                      <span>항목 합계</span>
+                      <strong>4,800,000원</strong>
+                    </div>
+                  </section>
+
+                  <details class="input-snapshot" open>
+                    <summary>분석에 사용한 입력</summary>
+                    <div class="input-snapshot__body">
+                      <dl>
+                        <dt>프로젝트 제목</dt>
+                        <dd id="snapshot-title">지역 상점 주문 관리 웹앱 구축</dd>
+                        <dt>카테고리</dt>
+                        <dd id="snapshot-category">웹 개발</dd>
+                        <dt>프로젝트 설명</dt>
+                        <dd id="snapshot-description">
+                          지역 상점이 모바일 주문을 접수하고 처리 상태를 관리할 수 있는 반응형 웹앱을 구축합니다. 주문 목록,
+                          상세 확인, 상태 변경, 관리자 로그인을 포함합니다.
+                        </dd>
+                      </dl>
+                    </div>
+                  </details>
+
+                  <section class="decision-block" data-registration-only aria-labelledby="registration-decision-title">
+                    <h3 id="registration-decision-title">프로젝트 등록 예산으로 사용할까요?</h3>
+                    <p>아직 프로젝트 예산에 반영되지 않았습니다. 선택 후 일정 · 예산 단계에서 다시 수정할 수 있습니다.</p>
+                    <div class="btn-row">
+                      <button class="btn btn--primary" type="button" data-use-recommendation>이 추천 예산 사용하기</button>
+                      <button class="btn btn--secondary" type="button" data-manual-budget>직접 예산 입력하기</button>
+                    </div>
+                  </section>
+
+                  <section class="decision-block" data-existing-only hidden aria-labelledby="existing-decision-title">
+                    <h3 id="existing-decision-title">프로젝트 예산 변경 내용을 확인하세요</h3>
+                    <p>반영을 선택하기 전까지 현재 예산은 유지됩니다.</p>
+                    <div class="budget-comparison" aria-label="예산 변경 전후 비교">
+                      <div class="budget-comparison__item">
+                        <span>현재 예산</span>
+                        <strong>3,500,000원</strong>
+                      </div>
+                      <div class="budget-comparison__item">
+                        <span>추천 예산</span>
+                        <strong>4,800,000원</strong>
+                      </div>
+                      <div class="budget-comparison__item">
+                        <span>변경 금액</span>
+                        <strong>+1,300,000원</strong>
+                      </div>
+                    </div>
+                    <div class="btn-row">
+                      <button class="btn btn--primary" type="button" data-apply-existing>프로젝트 예산에 반영</button>
+                      <button class="btn btn--secondary" type="button" data-decline-existing>반영하지 않기</button>
+                    </div>
+                  </section>
+                </div>
+              </section>
+
+              <section class="state-panel" data-panel="outcome" tabindex="-1" hidden>
+                <div class="outcome-layout" data-outcome="registration-used" hidden>
+                  <div class="outcome-mark outcome-mark--success" aria-hidden="true">✓</div>
+                  <h2>추천 예산을 선택했습니다</h2>
+                  <p>4,800,000원을 프로젝트 등록 예산에 입력했습니다. 프로젝트를 등록하기 전까지 다시 수정할 수 있습니다.</p>
+                  <div class="btn-row">
+                    <button class="btn btn--primary" type="button" data-handoff="일정 · 예산 단계로 돌아갑니다.">
+                      일정 · 예산으로 돌아가기
+                    </button>
+                    <button class="btn btn--secondary" type="button" data-demo-state-direct="result">분석 결과 다시 보기</button>
+                  </div>
+                </div>
+
+                <div class="outcome-layout" data-outcome="registration-manual" hidden>
+                  <div class="outcome-mark" aria-hidden="true">←</div>
+                  <h2>직접 예산 입력을 선택했습니다</h2>
+                  <p>추천 예산은 프로젝트에 반영하지 않았습니다. 일정 · 예산 단계에서 원하는 금액을 직접 입력할 수 있습니다.</p>
+                  <div class="btn-row">
+                    <button class="btn btn--primary" type="button" data-handoff="일정 · 예산 단계로 돌아갑니다.">
+                      일정 · 예산으로 돌아가기
+                    </button>
+                    <button class="btn btn--secondary" type="button" data-demo-state-direct="request">분석 입력으로 돌아가기</button>
+                  </div>
+                </div>
+
+                <div class="outcome-layout" data-outcome="applying" hidden aria-busy="true">
+                  <div class="loading-indicator" aria-hidden="true"></div>
+                  <h2>프로젝트 예산에 반영하고 있습니다</h2>
+                  <p>완료될 때까지 반영 버튼을 다시 누르지 않아도 됩니다. 현재 프로젝트 정보는 그대로 유지됩니다.</p>
+                </div>
+
+                <div class="outcome-layout" data-outcome="applied" hidden>
+                  <div class="outcome-mark outcome-mark--success" aria-hidden="true">✓</div>
+                  <h2>프로젝트 예산에 반영했습니다</h2>
+                  <p>프로젝트의 현재 예산이 4,800,000원으로 변경되었습니다.</p>
+                  <div class="budget-comparison" aria-label="반영 완료 전후 비교">
+                    <div class="budget-comparison__item">
+                      <span>변경 전</span>
+                      <strong>3,500,000원</strong>
+                    </div>
+                    <div class="budget-comparison__item">
+                      <span>변경 후</span>
+                      <strong>4,800,000원</strong>
+                    </div>
+                    <div class="budget-comparison__item">
+                      <span>반영 시각</span>
+                      <strong id="applied-at">오후 2:33</strong>
+                    </div>
+                  </div>
+                  <div class="btn-row">
+                    <button class="btn btn--primary" type="button" data-handoff="프로젝트 최신 상태 화면으로 이동합니다.">
+                      프로젝트 최신 상태 보기
+                    </button>
+                    <button class="btn btn--secondary" type="button" data-demo-state-direct="result">분석 결과 다시 보기</button>
+                  </div>
+                </div>
+
+                <div class="outcome-layout" data-outcome="existing-declined" hidden>
+                  <div class="outcome-mark" aria-hidden="true">—</div>
+                  <h2>추천 예산을 반영하지 않았습니다</h2>
+                  <p>현재 프로젝트 예산 3,500,000원을 그대로 유지합니다. 분석 결과는 이 화면에서 다시 확인할 수 있습니다.</p>
+                  <div class="btn-row">
+                    <button class="btn btn--primary" type="button" data-handoff="프로젝트 상세 화면으로 돌아갑니다.">
+                      프로젝트 상세로 돌아가기
+                    </button>
+                    <button class="btn btn--secondary" type="button" data-demo-state-direct="result">분석 결과 다시 보기</button>
+                  </div>
+                </div>
+
+                <div class="outcome-layout" data-outcome="failure" hidden>
+                  <div class="failure-context" data-registration-only>
+                    <div class="outcome-mark outcome-mark--danger" aria-hidden="true">!</div>
+                    <span class="badge badge--rejected">요청 실패</span>
+                    <h2>분석 요청을 완료하지 못했습니다</h2>
+                    <p>잠시 후 다시 시도하거나 예산을 직접 입력하세요. 이 페이지가 열려 있는 동안 입력 내용은 보존됩니다.</p>
+                    <div class="notice notice--danger">
+                      <strong>추천 예산은 생성되지 않았습니다.</strong>
+                      <p>다시 시도해도 사용자가 선택하기 전에는 프로젝트 예산이 변경되지 않습니다.</p>
+                    </div>
+                    <div class="btn-row">
+                      <button class="btn btn--primary" type="button" data-retry-analysis>다시 시도</button>
+                      <button class="btn btn--secondary" type="button" data-manual-budget>직접 예산 입력하기</button>
+                    </div>
+                  </div>
+
+                  <div class="failure-context" data-existing-only hidden>
+                    <div class="outcome-mark outcome-mark--danger" aria-hidden="true">!</div>
+                    <span class="badge badge--rejected">반영 실패</span>
+                    <h2>프로젝트 예산을 반영하지 못했습니다</h2>
+                    <p>이 반영 시도의 결과를 확인하지 못했습니다. 최신 상태를 확인하거나 같은 반영 요청으로 다시 시도하세요.</p>
+                    <div class="notice notice--danger">
+                      <strong>현재 화면의 예산은 최신 값이 아닐 수 있습니다.</strong>
+                      <p>같은 반영 요청의 재시도는 저장된 결과를 재확인하며 중복 변경하지 않습니다.</p>
+                    </div>
+                    <div class="btn-row">
+                      <button class="btn btn--primary" type="button" data-handoff="프로젝트 최신 상태 화면으로 이동합니다.">
+                        프로젝트 최신 상태 보기
+                      </button>
+                      <button class="btn btn--secondary" type="button" data-retry-apply>반영 다시 시도</button>
+                      <button class="btn btn--secondary" type="button" data-demo-state-direct="result">분석 결과로 돌아가기</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="outcome-layout" data-outcome="rejected" hidden>
+                  <div class="outcome-mark outcome-mark--warning" aria-hidden="true">!</div>
+                  <span class="badge badge--rejected">제안 불가</span>
+                  <h2>분석 결과를 안전하게 제공하지 못했습니다</h2>
+                  <p>
+                    일시적인 처리 지연 또는 결과 검증 문제로 추천 예산을 표시할 수 없습니다. 이 페이지가 열려 있는 동안 입력
+                    내용은 그대로 남아 있습니다.
+                  </p>
+                  <div class="notice notice--warning">
+                    <strong>프로젝트 입력이 잘못되었다는 뜻은 아닙니다.</strong>
+                    <p>다시 시도하거나 입력을 확인한 뒤 예산을 직접 입력할 수 있습니다.</p>
+                  </div>
+                  <div class="btn-row">
+                    <button class="btn btn--primary" type="button" data-retry-analysis>다시 시도</button>
+                    <button class="btn btn--secondary" type="button" data-demo-state-direct="request">입력 다시 확인하기</button>
+                    <button class="btn btn--secondary" type="button" data-manual-budget>직접 예산 입력하기</button>
+                  </div>
+                </div>
+
+                <div class="outcome-layout" data-outcome="conflict" hidden>
+                  <div class="outcome-mark outcome-mark--warning" aria-hidden="true">!</div>
+                  <span class="badge">409 · 최신 상태 확인 필요</span>
+                  <h2>프로젝트의 최신 상태를 확인해야 합니다</h2>
+                  <p>이 요청으로 프로젝트 예산을 새로 변경하지 않았습니다. 이전 요청이 이미 처리되었을 가능성도 있습니다.</p>
+                  <div class="notice notice--warning">
+                    <strong>화면에 표시된 예산은 최신 값이 아닐 수 있습니다.</strong>
+                    <p>중복 반영을 피하려면 프로젝트 최신 상태와 반영 이력을 먼저 확인하세요.</p>
+                  </div>
+                  <div class="btn-row">
+                    <button class="btn btn--primary" type="button" data-handoff="프로젝트 최신 상태 화면으로 이동합니다.">
+                      프로젝트 최신 상태 보기
+                    </button>
+                    <button class="btn btn--secondary" type="button" data-demo-state-direct="result">분석 결과로 돌아가기</button>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <aside class="card sidebar" aria-labelledby="context-title">
+              <header class="sidebar__header">
+                <h2 id="context-title">현재 작업</h2>
+                <p>이 화면을 연 이유와 다음 이동 위치</p>
+              </header>
+              <div class="sidebar__body">
+                <dl class="context-list">
+                  <div>
+                    <dt>시작 위치</dt>
+                    <dd id="sidebar-origin">프로젝트 등록 Step 2</dd>
+                  </div>
+                  <div>
+                    <dt>현재 상태</dt>
+                    <dd id="sidebar-state">분석 요청 전</dd>
+                  </div>
+                  <div>
+                    <dt>다음 위치</dt>
+                    <dd id="sidebar-next">일정 · 예산</dd>
+                  </div>
+                </dl>
+                <p class="sidebar__protection">
+                  <strong>입력 보존:</strong> 이 페이지가 열려 있는 동안 분석 중이거나 실패해도 작성한 프로젝트 정보는 메모리에
+                  유지됩니다.
+                </p>
+              </div>
+              <footer class="sidebar__footer">이 흐름은 PACTFIVE 안에서 이어지며 외부 주소로 이동하지 않습니다.</footer>
+            </aside>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <section class="requirements" aria-labelledby="requirements-title">
+      <h2 id="requirements-title">필수 요소 목록</h2>
+      <p>
+        구현과 검수에서 누락되면 안 되는 요소입니다. 아래 따옴표 안의 사용자 문구는 기본 상태와 결과 상태에서 그대로 사용합니다.
+      </p>
+
+      <div class="requirement-grid">
+        <article class="requirement-card">
+          <h3>기본 상태 · 정확한 텍스트</h3>
+          <p>프로젝트 등록 Step 2에서 처음 진입한 상태</p>
+          <ul>
+            <li><code>AI 단가 분석</code></li>
+            <li><code>프로젝트 정보를 확인하고 추천 예산을 요청하세요.</code></li>
+            <li><code>분석에 사용할 프로젝트 정보</code></li>
+            <li><code>프로젝트 제목</code>, <code>프로젝트 설명</code>, <code>카테고리</code></li>
+            <li>
+              카테고리 값: <code>WEB_DEVELOPMENT</code>, <code>MOBILE_APP</code>, <code>DESIGN</code>,
+              <code>DATA_AI</code>, <code>PLANNING</code>, <code>MARKETING</code>
+            </li>
+            <li><code>추천 금액은 확정된 예산이 아닙니다.</code></li>
+            <li><code>결과에서 산정 내역을 확인하고 직접 선택합니다.</code></li>
+            <li><code>예산 직접 입력하기</code>, <code>분석 요청하기</code></li>
+          </ul>
+        </article>
+
+        <article class="requirement-card">
+          <h3>결과 상태 · 정확한 텍스트</h3>
+          <p>동기 분석 요청이 APPROVED 결과로 완료된 상태</p>
+          <ul>
+            <li><code>분석 완료</code>, <code>추천 예산</code></li>
+            <li><code>이 금액은 추천안입니다. 산정 내역을 확인한 뒤 적용 여부를 선택하세요.</code></li>
+            <li><code>입력 출처</code>, <code>분석 완료 시각</code>, <code>통화</code></li>
+            <li><code>산정 내역</code>, <code>항목 합계</code></li>
+            <li><code>분석에 사용한 입력</code></li>
+            <li>항목별 <code>항목명</code>, <code>설명</code>, <code>산정 이유</code>, <code>추천 금액</code></li>
+          </ul>
+        </article>
+
+        <article class="requirement-card">
+          <h3>등록 결과 · 정확한 CTA</h3>
+          <p>프로젝트 등록 Step 2 복귀 맥락</p>
+          <ul>
+            <li><code>이 추천 예산 사용하기</code></li>
+            <li><code>직접 예산 입력하기</code></li>
+            <li><code>아직 프로젝트 예산에 반영되지 않았습니다.</code></li>
+          </ul>
+        </article>
+
+        <article class="requirement-card">
+          <h3>기존 프로젝트 결과 · 정확한 CTA</h3>
+          <p>변경 전후를 확인한 다음에만 반영 가능</p>
+          <ul>
+            <li><code>현재 예산</code>, <code>추천 예산</code>, <code>변경 금액</code></li>
+            <li><code>프로젝트 예산에 반영</code></li>
+            <li><code>반영하지 않기</code></li>
+            <li><code>반영을 선택하기 전까지 현재 예산은 유지됩니다.</code></li>
+          </ul>
+        </article>
+
+        <article class="requirement-card requirement-card--wide">
+          <h3>상태 및 복구 · 정확한 텍스트</h3>
+          <ul>
+            <li>
+              제출 중: <code>분석 요청을 처리하고 있습니다</code>,
+              <code>이 페이지가 열려 있는 동안 입력 내용은 그대로 보존됩니다.</code>
+            </li>
+            <li>
+              등록 분석 실패: <code>분석 요청을 완료하지 못했습니다</code>, <code>다시 시도</code>,
+              <code>직접 예산 입력하기</code>
+            </li>
+            <li>
+              기존 프로젝트 반영 실패: <code>프로젝트 예산을 반영하지 못했습니다</code>,
+              <code>프로젝트 최신 상태 보기</code>, <code>반영 다시 시도</code>
+            </li>
+            <li>
+              제안 불가: <code>분석 결과를 안전하게 제공하지 못했습니다</code>, <code>다시 시도</code>,
+              <code>입력 다시 확인하기</code>
+            </li>
+            <li>
+              409 충돌: <code>프로젝트의 최신 상태를 확인해야 합니다</code>,
+              <code>이 요청으로 프로젝트 예산을 새로 변경하지 않았습니다.</code>,
+              <code>프로젝트 최신 상태 보기</code>, <code>분석 결과로 돌아가기</code>
+            </li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="requirements-table-wrap">
+        <table class="requirements-table">
+          <caption class="sr-only">상태별 데이터와 상호작용 필수 요소</caption>
+          <thead>
+            <tr>
+              <th scope="col">상태</th>
+              <th scope="col">데이터</th>
+              <th scope="col">상호작용 원칙</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">기본</th>
+              <td>
+                <code>title 5–100</code>, <code>description 20–5000</code>, 런타임 6개 UPPER_SNAKE_CASE
+                <code>category</code>
+              </td>
+              <td>필드별 오류와 상단 오류 요약을 함께 제공하고 오류 요약으로 포커스를 이동합니다.</td>
+            </tr>
+            <tr>
+              <th scope="row">제출 중</th>
+              <td>사용자 화면은 submitting, 응답의 <code>reviewStatus</code>는 <code>PENDING</code></td>
+              <td>
+                중복 요청을 막고 페이지 메모리의 입력을 보존합니다. 202이면 분석 단건 GET만 간격을 늘려 제한 재조회하며,
+                최대 횟수 또는 전체 deadline을 넘기면 중단하고 복구 상태로 전환합니다.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">결과</th>
+              <td>
+                <code>currency</code>, 단일 <code>recommendedAmount</code>, <code>breakdown[]</code>, 항목 합계, 입력 출처·완료 시각,
+                입력 스냅샷
+              </td>
+              <td><code>reviewStatus: APPROVED</code>를 사용자에게는 <code>분석 완료</code>로 표시합니다.</td>
+            </tr>
+            <tr>
+              <th scope="row">제안 불가</th>
+              <td><code>reviewStatus: REJECTED</code></td>
+              <td>입력 부족으로 단정하지 않고 다시 시도, 입력 확인, 직접 예산 입력 경로를 제공합니다.</td>
+            </tr>
+            <tr>
+              <th scope="row">반영 충돌</th>
+              <td><code>409</code>와 최신 프로젝트 상태·반영 이력</td>
+              <td>이 요청으로 새로 변경하지 않았음을 알리고, 이전 요청이 이미 반영됐을 가능성과 최신 상태 확인 경로를 표시합니다.</td>
+            </tr>
+            <tr>
+              <th scope="row">반영 500/503</th>
+              <td>같은 적용 요청과 최신 프로젝트 상태</td>
+              <td>변경 여부를 단정하지 않고 최신 상태 확인 또는 같은 반영 요청 재시도를 제공합니다.</td>
+            </tr>
+            <tr>
+              <th scope="row">모든 상태 전환</th>
+              <td>새로 표시된 패널의 제목</td>
+              <td>제목으로 포커스를 옮기며, 모션 감소 설정에서는 즉시 해당 패널을 표시합니다.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <script>
+      (() => {
+        const categoryLabels = {
+          WEB_DEVELOPMENT: "웹 개발",
+          MOBILE_APP: "모바일 앱",
+          DESIGN: "디자인",
+          DATA_AI: "데이터·AI",
+          PLANNING: "기획",
+          MARKETING: "마케팅",
+        };
+        const stateLabels = {
+          request: "분석 요청 전",
+          submitting: "분석 요청 중",
+          result: "분석 결과 확인",
+          "registration-used": "추천 예산 선택 완료",
+          "registration-manual": "직접 예산 입력 선택",
+          applying: "프로젝트 예산 반영 중",
+          applied: "프로젝트 예산 반영 완료",
+          "existing-declined": "추천 예산 미반영",
+          failure: "분석 요청 실패",
+          rejected: "분석 제안 불가",
+          conflict: "최신 상태 확인 필요",
+        };
+
+        const product = document.querySelector("[data-product-context]");
+        const form = document.querySelector("#analysis-form");
+        const titleInput = document.querySelector("#project-title");
+        const descriptionInput = document.querySelector("#project-description");
+        const categoryInput = document.querySelector("#project-category");
+        const titleCount = document.querySelector("#title-count");
+        const descriptionCount = document.querySelector("#description-count");
+        const errorSummary = document.querySelector("#error-summary");
+        const errorSummaryList = document.querySelector("#error-summary-list");
+        const stateRegion = document.querySelector("#state-region");
+        const toast = document.querySelector("#toast");
+        let context = "registration";
+        let responseTimer = null;
+        let toastTimer = null;
+
+        function updateCounts() {
+          titleCount.textContent = `${titleInput.value.length} / 100`;
+          descriptionCount.textContent = `${descriptionInput.value.length.toLocaleString("ko-KR")} / 5,000`;
+        }
+
+        function updateSnapshot() {
+          document.querySelector("#snapshot-title").textContent = titleInput.value.trim();
+          document.querySelector("#snapshot-description").textContent = descriptionInput.value.trim();
+          document.querySelector("#snapshot-category").textContent =
+            categoryLabels[categoryInput.value] || categoryInput.options[categoryInput.selectedIndex]?.text || "";
+          document.querySelector("#completed-at").textContent = new Intl.DateTimeFormat("ko-KR", {
+            year: "numeric",
+            month: "numeric",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          }).format(new Date());
+        }
+
+        function fieldError(input, message) {
+          const error = document.querySelector(`#${input.id.replace("project-", "")}-error`);
+          input.setAttribute("aria-invalid", message ? "true" : "false");
+          error.textContent = message;
+          error.hidden = !message;
+        }
+
+        function validate({ focusSummary = true } = {}) {
+          const errors = [];
+          const titleLength = titleInput.value.trim().length;
+          const descriptionLength = descriptionInput.value.trim().length;
+
+          if (titleLength < 5 || titleLength > 100) {
+            errors.push({ input: titleInput, message: "프로젝트 제목은 5자 이상 100자 이하로 입력하세요." });
+          }
+          if (descriptionLength < 20 || descriptionLength > 5000) {
+            errors.push({ input: descriptionInput, message: "프로젝트 설명은 20자 이상 5,000자 이하로 입력하세요." });
+          }
+          if (!categoryInput.value) {
+            errors.push({ input: categoryInput, message: "카테고리를 선택하세요." });
+          }
+
+          [titleInput, descriptionInput, categoryInput].forEach((input) => fieldError(input, ""));
+          errors.forEach(({ input, message }) => fieldError(input, message));
+
+          errorSummaryList.replaceChildren();
+          errors.forEach(({ input, message }) => {
+            const item = document.createElement("li");
+            const link = document.createElement("a");
+            link.href = `#${input.id}`;
+            link.textContent = message;
+            link.addEventListener("click", (event) => {
+              event.preventDefault();
+              input.focus();
+            });
+            item.append(link);
+            errorSummaryList.append(item);
+          });
+          errorSummary.hidden = errors.length === 0;
+
+          if (errors.length > 0 && focusSummary) {
+            errorSummary.focus();
+          }
+          return errors.length === 0;
+        }
+
+        function showToast(message) {
+          window.clearTimeout(toastTimer);
+          toast.textContent = `프로토타입: ${message}`;
+          toast.hidden = false;
+          toastTimer = window.setTimeout(() => {
+            toast.hidden = true;
+          }, 2600);
+        }
+
+        function stateKey(panelName, outcomeName) {
+          return panelName === "outcome" ? outcomeName : panelName;
+        }
+
+        function setState(panelName, outcomeName = "", { focus = true } = {}) {
+          window.clearTimeout(responseTimer);
+          document.querySelectorAll("[data-panel]").forEach((panel) => {
+            panel.hidden = panel.dataset.panel !== panelName;
+          });
+          document.querySelectorAll("[data-outcome]").forEach((panel) => {
+            panel.hidden = panel.dataset.outcome !== outcomeName;
+          });
+
+          const key = stateKey(panelName, outcomeName);
+          document.querySelector("#sidebar-state").textContent =
+            key === "failure" && context === "existing" ? "예산 반영 실패" : stateLabels[key] || "상태 확인";
+          document.querySelectorAll("[data-demo-state]").forEach((button) => {
+            const mappedState = ["failure", "rejected", "conflict"].includes(key) ? key : panelName;
+            button.setAttribute("aria-pressed", String(button.dataset.demoState === mappedState));
+          });
+
+          const activePanel = document.querySelector(`[data-panel="${panelName}"]`);
+          if (activePanel) {
+            const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+            if (focus) {
+              const visibleHeading = [...activePanel.querySelectorAll("h2")].find(
+                (heading) => heading.getClientRects().length > 0,
+              );
+              const focusTarget = visibleHeading || activePanel;
+              if (!focusTarget.hasAttribute("tabindex")) focusTarget.setAttribute("tabindex", "-1");
+              focusTarget.focus({ preventScroll: true });
+            }
+            activePanel.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "nearest" });
+          }
+          stateRegion.setAttribute("aria-busy", panelName === "submitting" || outcomeName === "applying" ? "true" : "false");
+        }
+
+        function setContext(nextContext, { focus = true } = {}) {
+          context = nextContext;
+          product.dataset.productContext = context;
+          document.querySelectorAll("[data-registration-only]").forEach((element) => {
+            element.hidden = context !== "registration";
+          });
+          document.querySelectorAll("[data-existing-only]").forEach((element) => {
+            element.hidden = context !== "existing";
+          });
+          document.querySelectorAll("[data-demo-context]").forEach((button) => {
+            button.setAttribute("aria-pressed", String(button.dataset.demoContext === context));
+          });
+          document.querySelector("#sidebar-origin").textContent =
+            context === "registration" ? "프로젝트 등록 Step 2" : "기존 프로젝트 상세";
+          document.querySelector("#sidebar-next").textContent =
+            context === "registration" ? "일정 · 예산" : "프로젝트 최신 상태";
+          setState("request", "", { focus });
+        }
+
+        function showOutcome(name) {
+          setState("outcome", name);
+        }
+
+        function submitAnalysis() {
+          updateSnapshot();
+          setState("submitting");
+          responseTimer = window.setTimeout(() => setState("result"), 900);
+        }
+
+        function applyExistingRecommendation() {
+          showOutcome("applying");
+          responseTimer = window.setTimeout(() => {
+            document.querySelector("#applied-at").textContent = new Intl.DateTimeFormat("ko-KR", {
+              hour: "numeric",
+              minute: "2-digit",
+            }).format(new Date());
+            showOutcome("applied");
+          }, 800);
+        }
+
+        function retryAnalysis() {
+          setState("request", "", { focus: false });
+          if (validate()) submitAnalysis();
+        }
+
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          if (validate()) submitAnalysis();
+        });
+
+        [titleInput, descriptionInput, categoryInput].forEach((input) => {
+          input.addEventListener("input", () => {
+            updateCounts();
+            if (input.getAttribute("aria-invalid") === "true") validate({ focusSummary: false });
+          });
+        });
+
+        document.querySelectorAll("[data-demo-context]").forEach((button) => {
+          button.addEventListener("click", () => setContext(button.dataset.demoContext));
+        });
+
+        document.querySelectorAll("[data-demo-state]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const requested = button.dataset.demoState;
+            if (["failure", "rejected", "conflict"].includes(requested)) {
+              if (requested === "conflict" && context !== "existing") setContext("existing", { focus: false });
+              showOutcome(requested);
+            } else {
+              if (requested === "result") updateSnapshot();
+              setState(requested);
+            }
+          });
+        });
+
+        document.querySelectorAll("[data-demo-state-direct]").forEach((button) => {
+          button.addEventListener("click", () => setState(button.dataset.demoStateDirect));
+        });
+
+        document.querySelectorAll("[data-manual-budget]").forEach((button) => {
+          button.addEventListener("click", () => {
+            if (context === "registration") {
+              showOutcome("registration-manual");
+            } else {
+              showToast("기존 프로젝트 예산 편집 화면으로 이동합니다.");
+            }
+          });
+        });
+
+        document.querySelector("[data-use-recommendation]").addEventListener("click", () => {
+          showOutcome("registration-used");
+        });
+
+        document.querySelector("[data-apply-existing]").addEventListener("click", applyExistingRecommendation);
+
+        document.querySelector("[data-decline-existing]").addEventListener("click", () => {
+          showOutcome("existing-declined");
+        });
+
+        document.querySelectorAll("[data-retry-analysis]").forEach((button) => {
+          button.addEventListener("click", retryAnalysis);
+        });
+
+        document.querySelector("[data-retry-apply]").addEventListener("click", applyExistingRecommendation);
+
+        document.querySelectorAll("[data-handoff]").forEach((button) => {
+          button.addEventListener("click", () => showToast(button.dataset.handoff));
+        });
+
+        updateCounts();
+        updateSnapshot();
+        setContext("registration", { focus: false });
+      })();
+    </script>
+  </body>
+</html>

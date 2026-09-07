@@ -1,5 +1,8 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import { config as loadEnvFile } from 'dotenv';
 import cors from 'cors';
 import { createAuthRouter } from './features/user-management/auth.routes';
 import { AuthSessionService } from './features/user-management/auth.service';
@@ -23,13 +26,48 @@ import { createEngagementService } from './features/engagement/bookmark.service'
 import { InMemoryBookmarkRepository } from './features/engagement/in-memory-bookmark.repository';
 import { InMemoryProjectTransactionCallLogRepository } from './features/contracts-payments/in-memory-project-transaction-call-log.repository';
 import { createProjectManagementAdapter } from './features/contracts-payments/project-management.adapter';
+import { InMemoryContractsPaymentsRepository } from './features/contracts-payments/in-memory-contracts-payments.repository';
+import { createPublicApiService } from './features/contracts-payments/public-api.service';
+import { createPublicApiRouter } from './features/contracts-payments/public-api.routes';
+import { hasPgSecretKey, createTossPaymentsAdapter } from './features/contracts-payments/toss-payments.adapter';
+import type { PaymentGateway } from './features/contracts-payments/payment.port';
+import { InMemoryPricingAnalysisRepository } from './features/ai-pricing/in-memory-pricing-analysis.repository';
+import { InMemoryPricingAnalysisRateLimit } from './features/ai-pricing/in-memory-pricing-analysis-rate-limit';
+import { createPricingAnalysisClaimPort } from './features/ai-pricing/pricing-analysis-claim.adapter';
+import { ProjectBudgetApplicationAdapter } from './features/ai-pricing/project-budget-application.adapter';
+import { OpenAIPricingAnalyzer } from './features/ai-pricing/openai.adapter';
+import { createPricingAnalysisRouter } from './features/ai-pricing/pricing-analysis.router';
+import { InMemoryApplicationRepository } from './features/applications/in-memory-application.repository';
+import { InMemoryApplicationNotificationPort } from './features/applications/in-memory-application-notification';
+import { createApplicationsPortAdapter } from './features/applications/applications-port.adapter';
+import { createProjectApplicationContextAdapter } from './features/applications/project-application-context.adapter';
+import { createAcceptProjectApplicationAdapter } from './features/applications/accept-project-application.adapter';
+import { createApplicationRouter } from './features/applications/application.router';
+import { InMemoryReviewRepository } from './features/reviews/in-memory-review.repository';
+import { InMemoryReviewEventPort } from './features/reviews/in-memory-review-event';
+import { createProjectReviewContextAdapter } from './features/reviews/project-review-context.adapter';
+import { createReviewRouter } from './features/reviews/review.router';
 
 /**
  * Express 앱 — 순수 모듈. 여기서 `app.listen()`을 호출하지 않는다.
  * 배포 진입점은 분리한다 (app/server/AGENTS.md "배포 아키텍처 — 이중 진입점"):
- *   - api/index.ts   → Vercel 서버리스
- *   - src/server.ts  → 로컬 독립 서버
+ *   - src/vercel-handler.ts → esbuild로 번들링돼 api/index.js가 됨 (Vercel 서버리스)
+ *   - src/server.ts         → 로컬 독립 서버
  */
+
+// 2026-09-05 버그 수정 — tsx는 .env를 자동으로 읽지 않는다. 그동안 리포 루트 `.env`(Supabase·
+// OpenAI·토스페이먼츠 키 등)를 채워도 아무 코드가 이걸 process.env로 올려주지 않아서, 이
+// 파일이 조용히 모든 값을 "비어 있음"으로 읽고 각 기능의 mock/미설정 기본값으로 빠졌다
+// (예: user-management가 AUTH_PROVIDER_MODE=supabase를 무시하고 계속 MockAuthProvider를 써서,
+// 회원가입 화면은 성공을 보여주지만 실제 확인 메일은 나가지 않았다). 이 한 줄로 두 진입점
+// (src/vercel-handler.ts, src/server.ts) 모두에서 로컬 실행 시 루트 .env가 실제로 반영된다.
+// 이미 설정된 값(Vercel 배포 환경변수 등)은 덮어쓰지 않는다(dotenv 기본 동작 — override: false).
+// 배포 환경처럼 이 경로에 .env가 없으면 조용히 아무 효과가 없다.
+// 참고 — esbuild가 이 코드를 api/index.js로 번들링해도 아래 상대 경로 계산은 여전히 맞다
+// (api/, src/ 둘 다 app/server 바로 아래라 깊이가 같다). 다만 배포 환경에는 애초에 이 경로에
+// .env 파일 자체가 없으므로(Vercel이 실제 환경변수를 직접 주입) 조용히 무효과일 뿐이다.
+loadEnvFile({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../.env') });
+
 const app = express();
 
 // app/web과 app/server는 Vercel 프로젝트가 분리돼 있어 배포 시 오리진이 다르다 (ADR-0007).
@@ -182,6 +220,25 @@ const projectRepository = new InMemoryProjectRepository();
 const projectPorts = createInMemoryExternalPorts();
 const projectNow = () => new Date().toISOString();
 
+// ai-pricing의 저장소는 project-management보다 먼저 만든다 — 아래 CR-0003 회신(연결 포트)이
+// project.service.ts/project-contract.service.ts 구성 전에 준비돼야 하기 때문이다.
+// PricingAnalysisRateLimit 은 무제한(In-memory-first, 실제 창 기반 제한은 Prisma 도입 이후).
+const pricingAnalysisRepository = new InMemoryPricingAnalysisRepository();
+const pricingAnalysisRateLimit = new InMemoryPricingAnalysisRateLimit();
+
+// CR-0003(유동우, 2026-08-26) 회신 — project-management가 등록·예산반영 시점에 부르는
+// PricingAnalysisClaimPort를 여기서 실제로 연결한다. 등록 전에는 fail-closed 스텁이었다
+// (in-memory-external.adapter.ts의 createUnavailablePricingPort).
+projectPorts.pricing = createPricingAnalysisClaimPort(pricingAnalysisRepository);
+
+// applications(최윤석)의 저장소도 project-management보다 먼저 만든다 — 마감·취소 시
+// project-management가 부르는 ApplicationsPort.rejectPendingApplications를 여기서 실제로
+// 연결한다. 등록 전에는 fail-closed 스텁이었다(in-memory-external.adapter.ts의
+// createUnavailableApplicationsPort) — applications가 app/에 붙은 오늘부터 실제로 처리한다.
+const applicationRepository = new InMemoryApplicationRepository();
+const applicationNotifications = new InMemoryApplicationNotificationPort();
+projectPorts.applications = createApplicationsPortAdapter(applicationRepository, applicationNotifications);
+
 const projectService = createProjectService({
   repo: projectRepository,
   ports: projectPorts,
@@ -207,6 +264,77 @@ app.use(
     optionalAuth,
     requireServiceToken,
   }),
+);
+
+// ---------------------------------------------------------------------------
+// ai-pricing — 단가 분석 3종(생성·조회·예산 반영). features/ai-pricing/spec.md Step 2.
+//
+// 예산 반영(POST .../apply)은 project-management가 이미 갖고 있는 계약 함수 7
+// (applyPricingAnalysisBudget, 규칙 40)에 위임한다 — 팀장 결정(2026-09-04). 이 어댑터는
+// project-management를 직접 import하지 않는다(app/web/AGENTS.md "폴더 간 접점") — 여기서는
+// `projectContractService`를 그 모양 그대로 delegate로 끼운다(contracts-payments의
+// project-management.adapter.ts와 같은 패턴).
+//
+// OpenAI 연동은 PG_SECRET_KEY와 같은 원칙이다 — 다만 라우트 자체를 막는 대신
+// OpenAIPricingAnalyzer.configured가 false를 돌려주게 두고, 분석 생성만 서비스 레이어에서
+// 503 PRICING_ANALYZER_UNAVAILABLE로 막는다(pricing-analysis.service.ts). 조회·예산 반영은
+// OpenAI 없이도 동작해야 하므로 라우트 단위로 끊지 않는다.
+// ---------------------------------------------------------------------------
+
+const pricingAnalysisAnalyzer = new OpenAIPricingAnalyzer({
+  apiKey: process.env.OPENAI_API_KEY ?? '',
+  model: process.env.OPENAI_PRICING_MODEL ?? '',
+  schemaCompatibleModels: (process.env.OPENAI_PRICING_SCHEMA_MODELS ?? '')
+    .split(',')
+    .map((model) => model.trim())
+    .filter(Boolean),
+});
+
+const projectBudgetApplication = new ProjectBudgetApplicationAdapter(
+  projectContractService,
+  pricingAnalysisRepository,
+);
+
+app.use(
+  createPricingAnalysisRouter(
+    {
+      repository: pricingAnalysisRepository,
+      analyzer: pricingAnalysisAnalyzer,
+      rateLimit: pricingAnalysisRateLimit,
+      projectBudgetApplication,
+      now: projectNow,
+      nextAnalysisId: () => `pra_${randomId()}`,
+    },
+    { requireAuth },
+  ),
+);
+
+// ---------------------------------------------------------------------------
+// applications — 지원 5종(작성·목록 2종·수락·거절). features/applications/api-contract.md.
+//
+// 프로젝트 읽기(clientId·recruitmentStatus·transactionStatus·acceptedApplicationId)와
+// 수락 처리는 project-management의 `projectContractService`에 위임한다 — 이 폴더는
+// project-management를 직접 import하지 않는다(app/web/AGENTS.md "폴더 간 접점") — 여기서만
+// `projectContractService`를 그 모양 그대로 두 delegate에 끼운다(ai-pricing의
+// project-budget-application.adapter.ts와 같은 패턴). 그래서 이 두 어댑터는
+// projectContractService가 만들어진 **뒤에** 구성한다.
+// ---------------------------------------------------------------------------
+
+const projectApplicationContext = createProjectApplicationContextAdapter(projectContractService);
+const acceptProjectApplicationDelegate = createAcceptProjectApplicationAdapter(projectContractService);
+
+app.use(
+  createApplicationRouter(
+    {
+      repository: applicationRepository,
+      projectContext: projectApplicationContext,
+      notifications: applicationNotifications,
+      projectApplications: acceptProjectApplicationDelegate,
+      now: projectNow,
+      nextRequestId: () => randomId(),
+    },
+    { requireAuth },
+  ),
 );
 
 // ---------------------------------------------------------------------------
@@ -243,6 +371,89 @@ app.use(createEngagementRouter(engagementService, { requireAuth }));
 
 export const projectTransactionPort = createProjectManagementAdapter(projectContractService);
 export const projectTransactionCallLog = new InMemoryProjectTransactionCallLogRepository();
+
+// ---------------------------------------------------------------------------
+// contracts-payments — 공개 API 7종(합의·서명·결제). api-contract.md "공개 API 초안" 절.
+//
+// sync-log.md 2026-09-01 반영에서 여기가 빠져 있었다 — 이번 반영으로 라우팅을 연결한다
+// (CR-0010과 같은 종류의 "다음 통합 대상"이었으나 별도 CR 문서 없이 sync-log 자체에
+// 예고돼 있던 항목이다).
+//
+// 결제 게이트웨이는 `PG_SECRET_KEY`가 없으면 만들지 않는다 — toss-payments.adapter.ts
+// 주석대로, 키 없이 조용히 성공하는 가짜 결제보다 라우트 단계에서 503으로 끊는 쪽이 안전하다
+// (public-api.controller.ts의 requirePgConfigured).
+// ---------------------------------------------------------------------------
+
+const paymentGatewayConfigured = hasPgSecretKey();
+let paymentGateway: PaymentGateway | null = null;
+if (paymentGatewayConfigured) {
+  try {
+    paymentGateway = createTossPaymentsAdapter();
+  } catch (error) {
+    console.warn(
+      '[contracts-payments] PaymentGateway를 준비하지 못해 결제 라우트를 503으로 막습니다:',
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
+
+const contractsPaymentsRepository = new InMemoryContractsPaymentsRepository();
+
+function contractsPaymentsRandomId(prefix: string): string {
+  return `${prefix}_${randomId()}`;
+}
+
+const publicApiService = createPublicApiService({
+  repo: contractsPaymentsRepository,
+  projectPort: projectTransactionPort,
+  paymentGateway,
+  now: projectNow,
+  randomId: contractsPaymentsRandomId,
+});
+
+app.use(
+  createPublicApiRouter(publicApiService, {
+    requireAuth,
+    paymentGatewayConfigured: paymentGateway !== null,
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// reviews — 공개 API 3종(작성·목록·요약). features/reviews/api-contract.md.
+//
+// 이 기능이 필요로 하는 프로젝트 조각은 project-management(clientId·transactionStatus)와
+// contracts-payments(freelancerId·contractId·contractStatus) 양쪽에 걸쳐 있다 —
+// `contractsPaymentsRepository`가 막 만들어진 이 지점에서만 두 delegate를 합칠 수 있어
+// applications·ai-pricing보다 뒤에 온다. "사용자가 존재하는가"는 user-management가 조회
+// 함수를 내놓기 전까지 engagement와 같은 방식으로 `roleByUserId` 캐시를 재사용한다
+// (review.types.ts UserExistsPort 주석).
+//
+// `getPublishedRatingAggregate`(내부 함수, api-contract.md)는 review.service.ts에 그대로
+// 있지만 이번 반영에서는 HTTP 어댑터를 만들지 않는다 — 아직 이 값을 구독하는 다른 기능이
+// app/에 없다(notifications 담당 미정). 필요해지면 그때 라우트를 연다
+// (feedback_loop/2026-09-05/reviews.md).
+// ---------------------------------------------------------------------------
+
+const reviewRepository = new InMemoryReviewRepository();
+const reviewEvents = new InMemoryReviewEventPort();
+const reviewProjectContext = createProjectReviewContextAdapter(projectContractService, contractsPaymentsRepository);
+
+app.use(
+  createReviewRouter(
+    {
+      repository: reviewRepository,
+      projectContext: reviewProjectContext,
+      userExistsPort: {
+        async userExists(userId: string) {
+          return roleByUserId.has(userId);
+        },
+      },
+      events: reviewEvents,
+      now: projectNow,
+    },
+    { requireAuth },
+  ),
+);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ message: 'Not Found' });
