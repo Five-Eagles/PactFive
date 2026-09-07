@@ -505,6 +505,29 @@ rollback된다 — ai-pricing과 project-management가 같은 Postgres DB를 쓰
     — 입력 정규화 규칙이 바뀌어도 과거 해시를 올바로 재검증 (E-37, CR-AP-006)
   - 오민혁의 Step 2 프로토타입이 이미 이 CR들이 요청하는 모양으로 구현·테스트돼 있어, E-27~E-31과
     같은 성격의 "코드가 맞고 ERD가 뒤처진" 정정이다 — CR-AP-003만 새로운 설계 판단이었다
+- **(2026-09-07)** `reviews.tags` 코드 10종(방향별 5종)을 CR-RV-001(조준영) 채택으로 전량 교체
+  (E-19 → **E-38**):
+  - 배경: 「PactFive_상호_리뷰_평균_별점_설계서」v2.0을 reviews Increment 정본으로 채택하기로
+    했는데, 그 설계서의 태그 코드가 기존 ERD E-19(2026-08-20 PM 승인요청서 확정본) 10종과
+    달랐다. `features/reviews/`의 spec·api-contract·prototype이 이미 설계서 코드로 구현·검증돼
+    있어(`origin/feature/reviews` 브랜치, 커밋 `b9ccc92`), ERD가 뒤처진 상태였다 — E-27·E-32~37과
+    같은 성격의 정정
+  - 새 코드: `CLIENT_TO_FREELANCER` — `WORK_QUALITY`·`ON_TIME_DELIVERY`·`GOOD_COMMUNICATION`·
+    `REQUIREMENT_UNDERSTANDING`·`PROFESSIONAL_ATTITUDE`. `FREELANCER_TO_CLIENT` —
+    `CLEAR_REQUIREMENTS`·`FAST_FEEDBACK`·`GOOD_COMMUNICATION`·`SCOPE_STABILITY`·
+    `PROFESSIONAL_ATTITUDE`(상세는 `erd-v1.4.dbml` E-38 주석)
+  - 검증 방식(422 `REVIEW_TAG_INVALID`, DB는 jsonb 배열만 강제하고 방향별 허용 코드는 Review
+    서비스가 담당)은 E-19와 동일 — 코드 목록만 바뀐다
+  - 검토했던 대안: E-19 유지 + 설계서 태그는 표시명만 사용. 설계서 v2.0을 구현 기준으로 쓰기로
+    확정해 기각(CR 원문 참고)
+  - **가정**: 코드별 한글 표시 문구(예: 구 코드의 "책임감이 있어요")는 설계서 v2.0 원문에
+    있을 것으로 보이나, `features/reviews/`의 spec·api-contract·prototype 어디에도 한글 라벨이
+    없어 이 개정에서는 코드만 반영했다. 화면에 노출할 한글 라벨이 필요하면 조준영 확인 필요
+  - **남은 일 (팀장 다음 통합)**: `app/server/src/features/reviews/review.constants.ts`와
+    `app/web`의 리뷰 태그 UI는 아직 구(舊) E-19 코드를 쓰고 있다. `feature/reviews` 브랜치가
+    develop에 머지되기 전까지 ERD(신규 코드)와 app/(구 코드)가 서로 다른 상태로 남는다 —
+    다음 통합 때 함께 반영할 것
+  - CR 원문: `features/reviews/change-requests/0001-review-tag-codes-v2.md`
 
 엔티티 수 고정 원칙 폐기(D-62·D-70)에 따라 앞으로도 새 엔티티는 담당자 명시 + §6.10 검증 범위
 추가만으로 계속 신설될 수 있다. 전체 Decision Log는 원본 §9(Decision Log), PRD 부록 E 참고.
