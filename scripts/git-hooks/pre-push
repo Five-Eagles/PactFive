@@ -1,5 +1,5 @@
 #!/bin/sh
-# main/develop/production 직접 push 차단.
+# main/develop/production 직접 push 차단 + develop 미동기화 브랜치 push 차단.
 #
 # 이 리포는 GitHub CODEOWNERS 필수 리뷰("Require review from Code Owners")를 쓸 수 있는 유료
 # 플랜이 없다 (.github/CODEOWNERS 상단 주석 참고). 그 대신 이 로컬 pre-push 훅으로 세 보호
@@ -7,12 +7,25 @@
 # (run.tsx, npm run preview:dev 등)에서 core.hooksPath를 이 폴더로 자동 설정하므로 사람이든
 # AI든 별도 설치 없이 적용된다.
 #
+# 이 훅은 순수 로컬 git 기능이다 — push 직전에 각자 컴퓨터에서만 실행되고 GitHub 서버로는
+# 아무것도 전송하지 않으므로, 어떤 GitHub 플랜(Free/Team/Enterprise)과도 무관하게 항상
+# 동작한다. "유료 플랜이 없어서" 못 쓰는 기능이 아니다.
+#
 # 우회하려면(예: 팀장이 직접 필요하다고 판단한 경우) `git push --no-verify`를 명시적으로 써야
 # 하며, 그 자체가 기록에 남는다.
 
 protected_refs="refs/heads/main refs/heads/develop refs/heads/production"
+ZERO_SHA="0000000000000000000000000000000000000000"
+
+# develop과 마지막으로 동기화(merge-base 갱신)된 지 이 시간(시간 단위)을 넘기고, 그 사이
+# develop이 실제로 움직였다면 push를 막는다. git config hooks.staleDevelopHours로 팀 합의에
+# 따라 조정할 수 있다(예: git config hooks.staleDevelopHours 48).
+STALE_HOURS="$(git config --get hooks.staleDevelopHours 2>/dev/null || echo 24)"
 
 while read -r local_ref local_sha remote_ref remote_sha; do
+  # ------------------------------------------------------------------
+  # 1) 보호 브랜치 직접 push 차단
+  # ------------------------------------------------------------------
   for ref in $protected_refs; do
     if [ "$remote_ref" = "$ref" ]; then
       echo "[pre-push] 차단: $remote_ref 로 직접 push할 수 없습니다." >&2
@@ -21,6 +34,44 @@ while read -r local_ref local_sha remote_ref remote_sha; do
       exit 1
     fi
   done
+
+  # ------------------------------------------------------------------
+  # 2) develop 미동기화 브랜치 push 차단 (2026-09-07 추가)
+  #
+  # 배경: feature/applications(PR #78)가 9/3 이후 develop을 한 번도 merge하지 않은 채 나흘치
+  # 커밋을 쌓다가 PR에서 34개 파일 충돌이 났다(팀장 조사, 같은 날 병렬로 진행된
+  # feature/contracts-payments(#80)는 하루에도 여러 번 develop을 merge해 문제없이 병합됨 —
+  # 대조 사례). Cursor 세션을 안 닫고 며칠째 이어 쓰면 scripts/daily-session-start.sh가 다시
+  # 실행되지 않아 이 문제를 그냥 지나친다. push 시점에 한 번 더 강제로 확인한다.
+  #
+  # 판단 기준: HEAD와 origin/develop의 merge-base 시각이 STALE_HOURS보다 오래됐고, 그 사이
+  # develop이 실제로 움직였다면 막는다. develop을 주기적으로 merge해온 브랜치는 merge-base가
+  # merge할 때마다 계속 최신으로 갱신되므로 이 조건에 걸리지 않는다.
+  # ------------------------------------------------------------------
+  case "$remote_ref" in
+    refs/heads/*) ;;
+    *) continue ;;  # 태그 등 브랜치가 아닌 ref는 대상 아님
+  esac
+  [ "$local_sha" = "$ZERO_SHA" ] && continue  # 브랜치 삭제 push는 대상 아님
+
+  git fetch origin develop --quiet 2>/dev/null
+  git rev-parse --verify --quiet origin/develop >/dev/null 2>&1 || continue  # 오프라인 등이면 건너뜀(네트워크 문제로 push를 막지 않는다)
+
+  ahead_on_develop="$(git rev-list --count "${local_sha}..origin/develop" 2>/dev/null)" || continue
+  [ "$ahead_on_develop" -eq 0 ] 2>/dev/null && continue  # develop이 안 움직였으면 안전
+
+  merge_base="$(git merge-base "$local_sha" origin/develop 2>/dev/null)" || continue
+  merge_base_time="$(git log -1 --format=%ct "$merge_base" 2>/dev/null)" || continue
+  now="$(date +%s)"
+  age_hours=$(( (now - merge_base_time) / 3600 ))
+
+  if [ "$age_hours" -gt "$STALE_HOURS" ]; then
+    echo "[pre-push] 차단: '${local_ref#refs/heads/}' 브랜치가 develop과 마지막으로 동기화된 지 ${age_hours}시간(기준 ${STALE_HOURS}시간) 지났고, 그 사이 develop에 커밋이 ${ahead_on_develop}개 더 쌓였습니다." >&2
+    echo "[pre-push] 먼저 develop을 merge하세요: git fetch origin develop && git merge origin/develop" >&2
+    echo "[pre-push] (또는 scripts/daily-session-start.sh <기능이름>을 다시 실행하세요.)" >&2
+    echo "[pre-push] 지금 그대로 꼭 push해야 한다면 --no-verify를 명시하세요 — 기록에 남습니다." >&2
+    exit 1
+  fi
 done
 
 exit 0
