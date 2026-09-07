@@ -1,6 +1,6 @@
 ---
 title: "지원 건수 캐시를 생성·DIRECT 거절에서만 갱신한다"
-status: "제안"
+status: "반영중"
 requested_by: "조준영 (reviews · contracts-payments)"
 date: "2026-09-07"
 affected_docs: [features/applications/spec.md, features/project-management/spec.md]
@@ -14,11 +14,10 @@ affected_features: [applications, project-management]
 | 받는 사람 | 조준영 (applications) · 유동우 (project-management) |
 | 보내는 사람 | 조준영 (reviews · contracts-payments) |
 | 날짜 | 2026-09-07 |
-| 상태 | 제안 |
+| 상태 | 반영중 (`feature/applications` Mock) |
 | ID | `CR-AP-001` |
 | 근거 | 유동우 `260907 보완사항.md` 건 1 · `feedback_loop/2026-09-05/applications.md` 항목 2 |
 
-reviews·CP 슬라이스에서 건 2(리뷰 CTA)만 반영했다. 건 1은 applications 소유라 여기로 위임한다.
 `app/`은 팀장만 수정한다.
 
 ## 배경 (왜 필요한가)
@@ -26,7 +25,7 @@ reviews·CP 슬라이스에서 건 2(리뷰 CTA)만 반영했다. 건 1은 appli
 `projects.application_count` · `pending_application_count`는 초기화(0)와 읽기만 있고
 applications가 쓸 포트가 없다. 화면 "지원 N건"이 0이다.
 
-대기 건수는 표시용이 아니다. PM 규칙 15(지원이 있으면 예산·모집일정 잠금) 판정에 쓰이므로
+대기 건수는 표시용이 아니다. PM 규칙 15(지원자가 생기면 예산·모집일정 잠금) 판정에 쓰이므로
 틀리면 동작이 틀린다.
 
 ## 현재 스펙
@@ -60,18 +59,14 @@ applications가 쓸 포트가 없다. 화면 "지원 N건"이 0이다.
 
 유동우가 0으로 놓으므로 여기서 −1 하면 두 번 빠진다.
 
-지금 Mock `acceptApplication`은 `pending − 1 − autoRejectedIds.length`를 한다.
-포트가 열리면 이 감산을 빼고 행 상태·알림만 남긴다. `rejectPendingApplications`의
-`pendingApplicationCount: 0`도 PM 쪽으로 옮긴다.
-
 ## 조준영 (applications) 할 일
 
 원본은 `features/applications/`. `app/`은 팀장 이식.
 
-1. 유동우가 연 쓰기 함수를 `createApplication` 저장 직후 호출한다. 전체 +1 · 대기 +1.
+1. `createApplication` 저장 직후 전체 +1 · 대기 +1.
 2. `rejectApplication`에서 `DIRECT`로 새로 거절한 경우만 대기 −1. 이미 `REJECTED` 멱등 200은 빼지 않는다.
 3. spec 규칙 2·캐시 문단에 위 분담을 적는다. `run.tsx`에 생성 +1/+1 · DIRECT −1 시나리오.
-4. `acceptApplication`·일괄 거절에서 카운트 감산을 제거한다 (Mock이 아직 직접 쓴다).
+4. `acceptApplication`·일괄 거절에서 카운트 감산을 제거한다. C-01 스탠드인이 대기를 0으로 둔다.
 
 ## 유동우 (project-management) 할 일
 
@@ -95,9 +90,6 @@ applications가 쓸 포트가 없다. 화면 "지원 N건"이 0이다.
 | A2 | 수락·마감·취소의 대기 건수는 PM이 0으로 놓는가 | | | |
 | A3 | `AUTO_*` 거절 경로에서 applications는 카운트를 빼지 않는가 | | | |
 | A4 | 조회 시 세기·스키마 되돌리기는 하지 않는가 | | | |
-
-A1~A4가 예이면 이 CR을 승인으로 두고 applications Mock부터 맞춘다.
-`app/` 반영은 팀장, 유동우 포트 PR 이후.
 
 ## 대안으로 검토했던 것
 
