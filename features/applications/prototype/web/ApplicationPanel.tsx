@@ -6,6 +6,7 @@ export type ApplicationView =
   | "manageEmpty"
   | "conflict"
   | "mine"
+  | "mineCompleted"
   | "mineDeleted"
   | "loading"
   | "loadFailed";
@@ -94,6 +95,31 @@ export function ApplicationPanel({ view = "apply" }: ApplicationPanelProps) {
         <p className="status-copy">
           지원 이력은 이 목록에 남습니다. 프로젝트 화면으로는 들어갈 수 없습니다.
         </p>
+      </article>
+    );
+  }
+
+  if (view === "mineCompleted") {
+    return (
+      <article className="panel">
+        <div className="panel-head">
+          <h2 className="title">내 지원 현황</h2>
+          <span className="badge success">완료됨</span>
+        </div>
+        <p className="status-copy">
+          거래가 완료되었습니다. 리뷰를 작성할 수 있습니다.
+        </p>
+        <dl className="facts">
+          <dt>프로젝트</dt>
+          <dd>랜딩 페이지 리뉴얼</dd>
+          <dt>상태</dt>
+          <dd>완료됨</dd>
+        </dl>
+        <div className="btn-row">
+          <a className="btn primary" href="/projects/prj_completed/reviews">
+            리뷰 작성
+          </a>
+        </div>
       </article>
     );
   }

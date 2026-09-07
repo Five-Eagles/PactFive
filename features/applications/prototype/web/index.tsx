@@ -12,6 +12,7 @@ const PREVIEW_VIEWS: { id: ApplicationView; label: string }[] = [
   { id: "manageEmpty", label: "빈 목록" },
   { id: "conflict", label: "이미 수락됨" },
   { id: "mine", label: "내 지원" },
+  { id: "mineCompleted", label: "완료됨" },
   { id: "mineDeleted", label: "삭제된 프로젝트" },
   { id: "loading", label: "불러오는 중" },
   { id: "loadFailed", label: "불러오기 실패" },

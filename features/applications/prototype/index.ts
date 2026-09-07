@@ -12,6 +12,7 @@ export type {
   AcceptApplicationResponse,
   AcceptedApplicationHandoff,
   CreateApplicationInput,
+  MyApplicationItem,
   RejectPendingApplicationsInput,
   RejectPendingApplicationsResult,
 } from "./server/application.types";

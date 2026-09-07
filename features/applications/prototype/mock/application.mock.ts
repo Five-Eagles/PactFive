@@ -98,6 +98,39 @@ function createMemoryStore(): ApplicationStore {
     decidedAt: null,
     createdAt: MOCK_NOW,
   });
+  addProject({
+    projectId: "prj_completed",
+    clientId: MOCK_CLIENT_USER_ID,
+    recruitmentStatus: "CLOSED",
+    transactionStatus: "COMPLETED",
+    acceptedApplicationId: "app_completed",
+    applicationCount: 1,
+    pendingApplicationCount: 0,
+  });
+  applications.push({
+    applicationId: "app_completed",
+    projectId: "prj_completed",
+    freelancerId: MOCK_FREELANCER_USER_ID,
+    coverLetter: "완료된 거래",
+    expectedAmount: 100000,
+    expectedDurationDays: 10,
+    status: "ACCEPTED",
+    rejectionType: null,
+    decidedAt: MOCK_NOW,
+    createdAt: MOCK_NOW,
+  });
+  applications.push({
+    applicationId: "app_deleted",
+    projectId: "prj_deleted",
+    freelancerId: MOCK_FREELANCER_USER_ID,
+    coverLetter: "삭제된 프로젝트",
+    expectedAmount: 100000,
+    expectedDurationDays: 10,
+    status: "PENDING",
+    rejectionType: null,
+    decidedAt: null,
+    createdAt: MOCK_NOW,
+  });
 
   return {
     getProject(projectId) {
@@ -188,12 +221,13 @@ function createStandInProjectApplications(store: ApplicationStore): AcceptProjec
           "다른 지원자가 먼저 수락되었습니다",
         );
       }
-      // 모집 마감·계약 대기만 심고, 잔여 거절은 호출자가 한다.
+      // 모집 마감·계약 대기. 대기 건수는 PM이 0으로 둔다.
       store.saveProject({
         ...project,
         recruitmentStatus: "CLOSED",
         transactionStatus: "CONTRACT_PENDING",
         acceptedApplicationId: applicationId,
+        pendingApplicationCount: 0,
       });
       const result: AcceptProjectApplicationResult = {
         projectId,

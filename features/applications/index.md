@@ -9,14 +9,16 @@
 - api-contract.md: `POST/GET .../applications`, accept·reject,
   내부 `rejectPendingApplications`. PATCH 없음.
 - prototype/: 공개 API Mock(`createApplicationApiMock`) + `run.tsx`.
-  `npx tsx prototype/run.tsx` → PASS 35.
+  `npx tsx prototype/run.tsx` → PASS 43.
   C-01 실패 시 잔여 거절·알림을 하지 않는다.
 - design/: high-fi (`design/high-fi.html`). 패널만. 앱 셸 없음.
-  수락 확인 · 빈 목록 · 삭제된 프로젝트 포함.
+  수락 확인 · 빈 목록 · 삭제된 프로젝트 · 완료됨 리뷰 링크 포함.
 - review/: 팀장 통합 요청 `review/teamlead-public-api-panels-2026-09-03.md`.
+- change-requests/: 지원 건수 캐시 `0001-application-count-write-port.md` (반영중).
 
 ## 교차 담당
 - 유동우: `acceptProjectApplication`. 모집 상태 읽기. `rejectPendingApplications` 호출자.
+  수락·마감·취소 때 `pendingApplicationCount: 0` (CR-AP-001).
 - 알림 발송: notifications (팀장, 조건부). 조준영은 포트 발행만.
 - 합의 진입: contracts-payments가 손잡이 있을 때만 `proposeNegotiationOffer`.
 
@@ -31,3 +33,5 @@
 | 2026-09-03 | C-01 실패 시 잔여 거절·알림 금지 Mock. PASS 31 |
 | 2026-09-03 | test-report Known Issues에 통합 요청 파일명. run.tsx 재실측 PASS 31 |
 | 2026-09-03 | 시안·패널에 수락 확인·빈 목록·삭제된 프로젝트·preview 전환. PASS 35 |
+| 2026-09-07 | CR-AP-001 반영중. 생성 +1/+1 · DIRECT −1. 수락 대기는 C-01 스탠드인 0 |
+| 2026-09-07 | listMyApplications `transactionStatus`. 「완료됨」→ `/projects/:id/reviews` |

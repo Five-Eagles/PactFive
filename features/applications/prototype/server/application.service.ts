@@ -124,6 +124,7 @@ export async function createApplication(
     createdAt: nowIso,
   };
   deps.store.insertApplication(row);
+  // 누적·대기는 성공 INSERT에서만 올린다.
   deps.store.saveProject({
     ...project,
     applicationCount: project.applicationCount + 1,
@@ -161,13 +162,17 @@ export async function listMyApplications(
 ): Promise<ListMyApplicationsResponse> {
   const actor = requireActor(actorUserId);
   return {
-    items: deps.store.getByFreelancer(actor).map((row) => ({
-      applicationId: row.applicationId,
-      projectId: row.projectId,
-      status: row.status,
-      rejectionType: row.rejectionType,
-      createdAt: row.createdAt,
-    })),
+    items: deps.store.getByFreelancer(actor).map((row) => {
+      const project = deps.store.getProject(row.projectId);
+      return {
+        applicationId: row.applicationId,
+        projectId: row.projectId,
+        status: row.status,
+        rejectionType: row.rejectionType,
+        createdAt: row.createdAt,
+        transactionStatus: project?.transactionStatus ?? null,
+      };
+    }),
   };
 }
 
@@ -245,14 +250,6 @@ export async function acceptApplication(
     });
     autoRejectedIds.push(other.applicationId);
   }
-  const projectAfter = requireProject(deps.store, row.projectId);
-  deps.store.saveProject({
-    ...projectAfter,
-    pendingApplicationCount: Math.max(
-      projectAfter.pendingApplicationCount - 1 - autoRejectedIds.length,
-      0,
-    ),
-  });
   deps.store.setIdempotency(acceptKey, applicationId, applicationId);
   // ③ 잔여 거절이 끝난 뒤에만 알림을 발행한다.
   for (const rejectedId of autoRejectedIds) {
@@ -308,6 +305,7 @@ export async function rejectApplication(
     rejectionType: "DIRECT",
     decidedAt: nowIso,
   });
+  // DIRECT 신규 거절만 대기를 내린다.
   deps.store.saveProject({
     ...project,
     pendingApplicationCount: Math.max(project.pendingApplicationCount - 1, 0),
@@ -333,7 +331,7 @@ export async function rejectPendingApplications(
   }
   const cached = deps.store.getClosure(input.closureEventId);
   if (cached) return { ...cached, alreadyProcessed: true };
-  const project = requireProject(deps.store, projectId);
+  requireProject(deps.store, projectId);
   const pending = deps.store.getByProject(projectId).filter((row) => row.status === "PENDING");
   if (pending.length === 0) {
     const none: RejectPendingApplicationsResult = {
@@ -359,10 +357,7 @@ export async function rejectPendingApplications(
       occurredAt: input.occurredAt,
     });
   }
-  deps.store.saveProject({
-    ...project,
-    pendingApplicationCount: 0,
-  });
+  // 대기 건수 0은 PM 호출자가 둔다.
   const done: RejectPendingApplicationsResult = {
     rejectedCount: pending.length,
     alreadyProcessed: false,

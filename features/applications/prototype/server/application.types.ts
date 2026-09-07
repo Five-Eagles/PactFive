@@ -42,8 +42,17 @@ export type ListProjectApplicationsResponse = {
   items: ApplicationItem[];
 };
 
+export type MyApplicationItem = {
+  applicationId: string;
+  projectId: string;
+  status: ApplicationStatus;
+  rejectionType: ApplicationRejectionType | null;
+  createdAt: string;
+  transactionStatus: ProjectTransactionStatus | null;
+};
+
 export type ListMyApplicationsResponse = {
-  items: ApplicationItem[];
+  items: MyApplicationItem[];
 };
 
 export type AcceptedApplicationHandoff = {

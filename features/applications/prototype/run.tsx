@@ -98,6 +98,25 @@ async function main() {
     );
   }
 
+  // 규칙 2 — 생성 +1/+1, 멱등 200은 안 올림
+  {
+    const api = createApplicationApiMock();
+    await api.createApplication("prj_open", MOCK_FREELANCER_USER_ID, APPLY_BODY, "idem-count");
+    const afterInsert = api.getProject("prj_open");
+    if (afterInsert?.applicationCount === 1 && afterInsert.pendingApplicationCount === 1) {
+      pass("규칙 2: 생성 후 전체 1·대기 1");
+    } else {
+      fail("규칙 2: 생성 후 전체 1·대기 1", afterInsert);
+    }
+    await api.createApplication("prj_open", MOCK_FREELANCER_USER_ID, APPLY_BODY, "idem-count");
+    const afterIdempotent = api.getProject("prj_open");
+    if (afterIdempotent?.applicationCount === 1 && afterIdempotent.pendingApplicationCount === 1) {
+      pass("규칙 2: 멱등 200은 카운트 유지");
+    } else {
+      fail("규칙 2: 멱등 200은 카운트 유지", afterIdempotent);
+    }
+  }
+
   // 규칙 3 — 수락 후 잔여 거절
   {
     const api = createApplicationApiMock();
@@ -217,6 +236,19 @@ async function main() {
     } else {
       fail("규칙 7: 개별 거절 DIRECT", rejected);
     }
+    const afterReject = api.getProject("prj_open");
+    if (afterReject?.applicationCount === 1 && afterReject.pendingApplicationCount === 0) {
+      pass("규칙 7: DIRECT 후 대기 0·전체 유지");
+    } else {
+      fail("규칙 7: DIRECT 후 대기 0·전체 유지", afterReject);
+    }
+    await api.rejectApplication(created.body.applicationId, MOCK_CLIENT_USER_ID);
+    const afterIdempotentReject = api.getProject("prj_open");
+    if (afterIdempotentReject?.pendingApplicationCount === 0) {
+      pass("규칙 7: 멱등 거절은 대기 재차감 없음");
+    } else {
+      fail("규칙 7: 멱등 거절은 대기 재차감 없음", afterIdempotentReject);
+    }
   }
 
   // 규칙 8 — 일괄 거절 멱등
@@ -264,6 +296,24 @@ async function main() {
     );
   }
 
+  // 규칙 10 — 내 지원 transactionStatus
+  {
+    const api = createApplicationApiMock();
+    const mine = await api.listMyApplications(MOCK_FREELANCER_USER_ID);
+    const completed = mine.items.find((item) => item.applicationId === "app_completed");
+    const deleted = mine.items.find((item) => item.applicationId === "app_deleted");
+    if (completed?.status === "ACCEPTED" && completed.transactionStatus === "COMPLETED") {
+      pass("규칙 10: listMy COMPLETED");
+    } else {
+      fail("규칙 10: listMy COMPLETED", completed);
+    }
+    if (deleted?.transactionStatus === null) {
+      pass("규칙 10: 삭제된 프로젝트 transactionStatus null");
+    } else {
+      fail("규칙 10: 삭제된 프로젝트 transactionStatus null", deleted);
+    }
+  }
+
   // 규칙 10 — UX 필수 요소
   {
     const React = await import("react");
@@ -288,6 +338,8 @@ async function main() {
     hasText("규칙 10: 수락", manage, "수락");
     hasText("규칙 10: 거절", manage, "거절");
     hasText("규칙 10: 내 지원 현황", htmlOf("mine"), "내 지원 현황");
+    hasText("규칙 10: 완료됨", htmlOf("mineCompleted"), "완료됨");
+    hasText("규칙 10: 리뷰 경로", htmlOf("mineCompleted"), "/projects/prj_completed/reviews");
     hasText("규칙 10: 로딩", htmlOf("loading"), "불러오는 중");
     hasText("규칙 10: LOAD_FAILED", htmlOf("loadFailed"), "불러오지 못했습니다");
     hasText("규칙 10: 다시 시도", htmlOf("loadFailed"), "다시 시도");
@@ -296,7 +348,7 @@ async function main() {
     hasText("규칙 10: 취소", manage, "취소");
     hasText("규칙 10: 빈 목록", htmlOf("manageEmpty"), "아직 지원자가 없습니다");
     hasText("규칙 10: 삭제된 프로젝트", htmlOf("mineDeleted"), "의뢰인이 삭제한 프로젝트입니다.");
-    const allHtml = [apply, manage, htmlOf("loading"), htmlOf("manageEmpty"), htmlOf("mineDeleted")].join("\n");
+    const allHtml = [apply, manage, htmlOf("loading"), htmlOf("manageEmpty"), htmlOf("mineDeleted"), htmlOf("mineCompleted")].join("\n");
     if (!/#[0-9A-Fa-f]{6}/.test(allHtml)) {
       pass("규칙 10: 화면에 원시 색상값 없음");
     } else {

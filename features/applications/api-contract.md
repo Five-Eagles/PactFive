@@ -73,8 +73,9 @@ Mock: `prototype/mock/application.mock.ts` (`createApplicationApiMock`).
 ## GET /api/v1/applications/me — `listMyApplications`
 
 규칙 9·10. 로그인한 프리랜서의 지원. 삭제된 프로젝트 행은 지우지 않는다.
+공개 목록이 아니다. 항목에 `transactionStatus`를 넣는다. 없으면 `null`.
 
-응답 200: `{ "items": [ { "applicationId", "projectId", "status", "rejectionType", "createdAt" } ] }`.
+응답 200: `{ "items": [ { "applicationId", "projectId", "status", "rejectionType", "createdAt", "transactionStatus" } ] }`.
 빈 목록 `items: []`. 에러: 401.
 
 ---
@@ -149,6 +150,12 @@ type ApplicationRejectionType =
   | "AUTO_OTHER_ACCEPTED"
   | "AUTO_RECRUITMENT_CLOSED"
   | "AGREEMENT_DECLINED";
+type ProjectTransactionStatus =
+  | "NONE"
+  | "CONTRACT_PENDING"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELED";
 
 type CreateApplicationInput = {
   coverLetter: string;
@@ -165,6 +172,14 @@ type ApplicationItem = {
   status: ApplicationStatus;
   rejectionType: ApplicationRejectionType | null;
   createdAt: string;
+};
+type MyApplicationItem = {
+  applicationId: string;
+  projectId: string;
+  status: ApplicationStatus;
+  rejectionType: ApplicationRejectionType | null;
+  createdAt: string;
+  transactionStatus: ProjectTransactionStatus | null;
 };
 type AcceptApplicationResponse = {
   applicationId: string;
