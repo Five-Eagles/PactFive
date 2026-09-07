@@ -9,9 +9,11 @@ import { AuthSessionService } from './features/user-management/auth.service';
 import { createSupabaseAuthAdapter } from './features/user-management/supabase-auth.adapter';
 import { MockAuthProvider } from './features/user-management/mock-auth.adapter';
 import { InMemoryAuthRepository } from './features/user-management/in-memory-auth.repository';
+import { PrismaAuthRepository } from './features/user-management/prisma-auth.repository';
 import { authenticateMockAuthorization } from './features/user-management/auth.mock';
 import type { AuthProvider } from './features/user-management/auth.port';
 import type { AuthRepositories } from './features/user-management/auth.repository';
+import { getPrismaClient, isPrismaConfigured } from './shared/prisma-client';
 import { createRequireAuth } from './shared/require-auth';
 import { createOptionalAuth } from './shared/optional-auth';
 import { createRequireServiceToken } from './shared/require-service-token';
@@ -139,9 +141,14 @@ try {
         process.env.AUTH_EMAIL_CONFIRMATION_REDIRECT_URL ?? `${allowedOrigins[0] ?? ''}/auth/confirm`,
     });
   }
-  // app/server/prisma/schema.prisma가 비어 있는 동안은(팀장 전담 영역) 두 모드 모두 인메모리
-  // 저장소를 쓴다. 스키마가 채워지면 Prisma 기반 구현으로 교체한다.
-  authRepositories = new InMemoryAuthRepository();
+  // 2026-09-07: DATABASE_URL이 있으면 실제 Postgres(Supabase)로, 없으면 인메모리로 —
+  // 다른 벤더 키(PG_SECRET_KEY 등)와 동일한 Boolean(process.env.X) fail-soft 패턴이다.
+  // 값이 없어도 서버는 그대로 동작한다(.env.example 공통 규칙 1) — 로컬/아직 마이그레이션
+  // 안 한 배포 환경은 지금처럼 인메모리로 계속 굴러간다. auth만 우선 전환한다 — 다른
+  // 기능(project-management 등)의 인메모리 저장소는 이 트랙 범위 밖이다.
+  authRepositories = isPrismaConfigured()
+    ? new PrismaAuthRepository(getPrismaClient())
+    : new InMemoryAuthRepository();
 } catch (error) {
   authWiringError = error;
   console.warn(

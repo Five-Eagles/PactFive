@@ -73,6 +73,30 @@
 //   Prisma $transaction으로 충분하다고 판단해 단순화했다(팀장 판단) — 적용 멱등 결과만
 //   이 신설 테이블에 원자적으로 함께 저장한다.
 //
+// [PRISMA-GAP-7] auth_sessions.provider_session_id 컬럼 신설 — 2026-09-07, ERD 아직 미반영
+//   물리 마이그레이션 준비 중(인메모리→Prisma 어댑터 교체, 팀장 작업) 발견. AuthSessionRecord
+//   (auth.types.ts)와 InMemoryAuthRepository는 Supabase 쪽 세션 식별자(providerSessionId)로
+//   "현재 활성 세션 충돌 검사"(createSession)와 "OAuth 콜백 완료 후 세션 조회"
+//   (findActiveByProviderSessionId)를 수행하는데, 이 컬럼이 ERD·기존 schema.prisma
+//   어디에도 없었다 — refresh_token_hash만으로는 이 두 조회를 대체할 수 없다(리프레시
+//   전 발급 직후 시점엔 아직 없음). PRISMA-GAP-1~4와 같은 성격의 "코드가 맞고 정본이
+//   뒤처진" 사례. 전역 UNIQUE가 아니라 **활성 세션 한정 부분 유니크**가 맞다 — 같은
+//   providerSessionId가 로그아웃(revoked) 이후 재로그인으로 재사용될 수 있기 때문
+//   (InMemoryAuthRepository.createSession의 activeConflict 조건이 `revokedAt === null`
+//   범위로만 검사하는 것과 동일). 부분 유니크 인덱스는 파일 맨 끝 부록에 추가했다.
+//   ERD(dbml/html) 반영은 다음 정본 동기화 때 처리 — app/server/prisma/schema.prisma가
+//   이번에도 코드 우선으로 앞서 나간 상태다.
+//
+// [PRISMA-GAP-8] oauth_nonces 테이블 신설 — 2026-09-07, ERD 아직 미반영
+//   AuthRepositories.consumeOAuthNonce(auth.repository.ts)는 OAuth 콜백 완료
+//   (completeOAuthCallback)·취소 흐름에서 같은 OAuth intent가 두 번 소비되는 걸 막는
+//   재사용 방지 저장소다(auth.service.ts:625, 1095) — 로그인 콜백 경로의 보안 통제라
+//   PRISMA-GAP-3(registration_intents)처럼 임시로 인메모리에 남겨두면 서버리스 인스턴스가
+//   갈릴 때 재사용 방지가 간헐적으로 무력화될 위험이 있어(팀장 판단으로) 이번에 같이
+//   테이블화했다. registration_intents와 같은 성격 — 거래 이력이 아니므로 물리 삭제
+//   가능, 만료된 행은 주기적으로 청소해도 무방하다(현재는 자동 청소 없음 — TTL 기반
+//   배치/크론은 미구현, 필요해지면 별도 작업).
+//
 // ─────────────────────────────────────────────────────────────────────
 // 2026-09-04 확인 완료 — ADR-0008 근거로 해결됨 (재확인 필요 목록에서 이동)
 // ─────────────────────────────────────────────────────────────────────
@@ -123,13 +147,29 @@
 // "부록 — 마이그레이션에 수동으로 추가해야 하는 제약" 참고.
 // =====================================================================
 
+// 2026-09-07: "prisma-client-js"(구, node_modules 생성 + 네이티브 쿼리 엔진 바이너리)
+// 대신 신형 "prisma-client" 제너레이터를 쓴다. Vercel 서버리스에서 배포 OS별
+// binaryTargets를 맞춰야 하는 문제 자체가 없다 — @prisma/adapter-pg(순수 JS pg 드라이버)
+// 위에서 동작해서 네이티브 바이너리가 필요 없다. importFileExtension="ts"는 로컬
+// `npm run dev`(tsx watch)가 생성 코드의 .js import를 못 찾는 문제를 피하기 위함
+// (Prisma 공식 문서 권고).
 generator client {
-  provider = "prisma-client-js"
+  provider             = "prisma-client"
+  output               = "../src/generated/prisma"
+  moduleFormat         = "esm"
+  importFileExtension  = "ts"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // 런타임(서버리스 함수)에서 쓰는 pooled 연결 — Supabase Connection Pooling(포트 6543,
+  // pgbouncer transaction 모드). Vercel 서버리스는 함수 인스턴스마다 새 커넥션을 열 수
+  // 있어 direct 연결을 그대로 쓰면 Postgres 커넥션이 금방 고갈된다.
+  url       = env("DATABASE_URL")
+  // `prisma migrate`(스키마 변경) 전용 direct 연결(포트 5432). pgbouncer transaction
+  // 모드는 마이그레이션에 필요한 prepared statement/스키마 변경을 지원하지 않는다 —
+  // Prisma+Supabase 공식 권장 패턴(둘 다 같은 Supabase 프로젝트를 가리키되 포트만 다름).
+  directUrl = env("DIRECT_URL")
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -353,6 +393,9 @@ model RegistrationIntent {
 model AuthSession {
   id                  String    @id @db.VarChar(30)
   userId              String    @map("user_id") @db.VarChar(30)
+  /// [PRISMA-GAP-7] Supabase 쪽 세션 식별자. 전역 UNIQUE 아님 — 활성 세션(revoked_at IS
+  /// NULL) 한정 부분 유니크를 마이그레이션 SQL에 수동 추가한다(파일 맨 끝 부록 참고).
+  providerSessionId  String    @map("provider_session_id") @db.VarChar(64)
   refreshTokenHash    String    @unique @map("refresh_token_hash") @db.VarChar(255)
   previousTokenHash   String?   @map("previous_token_hash") @db.VarChar(255)
   deviceLabel         String?   @map("device_label") @db.VarChar(100)
@@ -366,8 +409,20 @@ model AuthSession {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId, revokedAt], name: "ix_auth_sessions_user")
+  @@index([providerSessionId], name: "ix_auth_sessions_provider_session")
   @@index([expiresAt])
   @@map("auth_sessions")
+}
+
+/// [PRISMA-GAP-8] ERD 19종에 없던 신설 테이블 — 위 설명 참고. 거래 이력이 아니므로
+/// 물리 삭제를 허용한다(consumeOAuthNonce가 성공 소비 시 굳이 지우진 않지만, 만료
+/// 행 정리는 나중에 배치로 추가할 수 있다).
+model OAuthNonce {
+  nonce     String   @id @db.VarChar(100)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("oauth_nonces")
 }
 
 model ClientProfile {
@@ -828,7 +883,9 @@ model PricingApplicationReceipt {
 //
 //  projects        : I-04, I-08, I-28, budget_amount>0, title/description 길이,
 //                     pending_application_count>=0, project_version>=1
-//  auth_sessions    : expires_at>issued_at, revoked_at/revoked_reason 페어링
+//  auth_sessions    : expires_at>issued_at, revoked_at/revoked_reason 페어링,
+//                     uq_auth_sessions_active_provider_session(부분 유니크,
+//                     provider_session_id WHERE revoked_at IS NULL — PRISMA-GAP-7)
 //  negotiation_offer: offered_amount>0, round>=1
 //  applications     : uq_applications_one_accepted(부분 유니크, I-10),
 //                     expected_amount>0, expected_duration_days>0
