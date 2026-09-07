@@ -10,6 +10,7 @@ import type { NotYetScreenKey } from './shared/notYetScreens';
 import { Button, EmptyState } from './shared/ui/primitives';
 import { authRoutes, AUTH_ROUTES } from './features/user-management/auth.routes';
 import { useAuth } from './features/user-management/useAuth';
+import { DevAuthToggle } from './features/user-management/DevAuthToggle';
 import { captureInitialEmailConfirmation } from './features/user-management/auth.bootstrap';
 import { projectRoutes, PROJECT_ROUTES } from './features/project-management/project.routes';
 import { engagementRoutes, ENGAGEMENT_ROUTES } from './features/engagement/bookmark.routes';
@@ -79,7 +80,7 @@ function NotFoundPage() {
 function AppRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, restore, logout } = useAuth();
+  const { state, restore, logout, devLoginAsMock, devLogoutMock } = useAuth();
 
   // 새로고침 후에도 로그인 상태를 이어간다 — Refresh Token은 HttpOnly 쿠키에 있고
   // Access Token은 메모리에만 있으므로, 앱이 뜰 때 한 번 복원해야 한다.
@@ -187,12 +188,25 @@ function AppRoutes() {
   // 대표 페이지(Option C)는 AppShell을 쓰지 않는다 — 시안 자신의 헤더를 그린다
   // (features/project-management/design/homepage-transplant-plan.md 4번 절 2026-09-04 결정).
   // 다른 모든 화면은 그대로 AppShell로 감싼다.
-  if (location.pathname === APP_ROUTES.home) return routes;
+  const page =
+    location.pathname === APP_ROUTES.home ? (
+      routes
+    ) : (
+      <AppShell items={navItems} homeHref={APP_ROUTES.home}>
+        {routes}
+      </AppShell>
+    );
 
+  // 로컬 개발 전용 mock 로그인 토글 (2026-09-07) — DevAuthToggle.tsx 상단 주석 참고.
+  // `import.meta.env.DEV`는 Vite가 빌드 시점에 상수로 치환하므로 프로덕션 번들에서는
+  // 이 블록 전체가 죽은 코드로 빠진다.
   return (
-    <AppShell items={navItems} homeHref={APP_ROUTES.home}>
-      {routes}
-    </AppShell>
+    <>
+      {page}
+      {import.meta.env.DEV && (
+        <DevAuthToggle viewer={viewer} onSelectRole={devLoginAsMock} onClear={devLogoutMock} />
+      )}
+    </>
   );
 }
 

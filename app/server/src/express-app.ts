@@ -29,8 +29,13 @@ import { InMemoryBookmarkRepository } from './features/engagement/in-memory-book
 import { InMemoryProjectTransactionCallLogRepository } from './features/contracts-payments/in-memory-project-transaction-call-log.repository';
 import { createProjectManagementAdapter } from './features/contracts-payments/project-management.adapter';
 import { InMemoryContractsPaymentsRepository } from './features/contracts-payments/in-memory-contracts-payments.repository';
-import { createPublicApiService } from './features/contracts-payments/public-api.service';
+import {
+  createContractsPaymentsSnapshotReader,
+  createPublicApiService,
+} from './features/contracts-payments/public-api.service';
 import { createPublicApiRouter } from './features/contracts-payments/public-api.routes';
+import { InMemoryNotificationTriggerAdapter } from './features/contracts-payments/in-memory-notification.adapter';
+import { createTransactionLifecycleCoordinator } from './features/contracts-payments/transaction-lifecycle.coordinator';
 import { hasPgSecretKey, createTossPaymentsAdapter } from './features/contracts-payments/toss-payments.adapter';
 import type { PaymentGateway } from './features/contracts-payments/payment.port';
 import { InMemoryPricingAnalysisRepository } from './features/ai-pricing/in-memory-pricing-analysis.repository';
@@ -419,10 +424,24 @@ function contractsPaymentsRandomId(prefix: string): string {
   return `${prefix}_${randomId()}`;
 }
 
+// 2026-09-07 팀장 반영 — sync-log.md 2026-09-03(67207c8) 이후 develop에 쌓인 #53·#66·#58·#80
+// 4개 PR 분량(재제안 AGR-02/03·납품 DLV-01·정산 조회 SET-01 v2·취소 조회 CAN-01 v2·교차
+// 생명주기 Coordinator)을 여기서 처음 배선한다. 알림 발행은 notifications가 아직 app/에
+// 실제 인바운드를 붙이지 않아(위 reviews 섹션 주석과 같은 이유) 인메모리로 로그만 남긴다.
+const contractsPaymentsNotifications = new InMemoryNotificationTriggerAdapter();
+
+const transactionLifecycleCoordinator = createTransactionLifecycleCoordinator({
+  projects: projectTransactionPort,
+  snapshots: createContractsPaymentsSnapshotReader(contractsPaymentsRepository),
+  notifications: contractsPaymentsNotifications,
+});
+
 const publicApiService = createPublicApiService({
   repo: contractsPaymentsRepository,
   projectPort: projectTransactionPort,
   paymentGateway,
+  notifications: contractsPaymentsNotifications,
+  coordinator: transactionLifecycleCoordinator,
   now: projectNow,
   randomId: contractsPaymentsRandomId,
 });
@@ -430,6 +449,7 @@ const publicApiService = createPublicApiService({
 app.use(
   createPublicApiRouter(publicApiService, {
     requireAuth,
+    requireServiceToken,
     paymentGatewayConfigured: paymentGateway !== null,
   }),
 );
