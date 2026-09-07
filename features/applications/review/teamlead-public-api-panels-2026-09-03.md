@@ -82,6 +82,19 @@ PATCH/PUT/DELETE `/applications` 없음. 공개 라우트로 다시 만들지 �
 
 ---
 
+## 후기 — 2026-09-07 설계서 v2.0
+
+설계서 경로를 쓰지 않는다. 이미 이식된 `GET /api/v1/applications/me`,
+`POST /api/v1/applications/:id/accept|reject`, 웹 `/applications/me`,
+`/projects/:id/applicants`를 유지한다.
+
+원본 갱신만: 입력 범위(100~3,000자 · 1만~10억 · 1~365) · 제출 확인 모달 ·
+거절 4종 한국어 · 상태 카피 `검토 중`/`선정됨`/`미선정`. `COMPLETED` 배지·리뷰 경로는
+유지. eligibility·단건 GET·페이지·202/outbox·프로필 게이트는
+`features/applications` Mock에 반영중(CR-0002). 공개 경로 유지. `app/`은 팀장.
+
+---
+
 ## 손잡이 · 알림
 
 수락 후 손잡이는 `AcceptedApplicationHandoff`
