@@ -232,26 +232,34 @@ Enum review_direction {
   FREELANCER_TO_CLIENT
 }
 
-// [C] E-19: PM 승인요청서(2026-08-20) 01. 리뷰 태그 코드 방향별 5종 확정.
+// [C] E-19→E-38 개정: 리뷰 태그 코드 방향별 5종.
+// 최초 확정은 PM 승인요청서(2026-08-20) 01 (E-19). 2026-09-07 CR-RV-001(조준영, reviews)로
+// 「PactFive_상호_리뷰_평균_별점_설계서」v2.0 §10 코드로 교체 (E-38) — 상세 근거는 아래
+// "최근 확정 사항" E-38 항목, CR 원문은 features/reviews/change-requests/0001-review-tag-codes-v2.md.
 // DBML은 jsonb 배열 원소의 enum 제약을 표현할 수 없으므로 여기 표로 남긴다.
 // reviews.tags 에 저장되는 값은 반드시 아래 10종 중 방향에 맞는 5종이어야 하며,
 // 검증은 DB가 아니라 Review 서비스(API 계층)가 담당한다 — [A] 부록 "애플리케이션이 책임지는 것" 참조.
 //
 //   CLIENT_TO_FREELANCER (의뢰인 → 프리랜서)
-//     RESPONSIBILITY        책임감이 있어요
-//     COMMUNICATION         소통이 원활해요
-//     TECHNICAL_SKILL       기술력이 뛰어나요
-//     SCHEDULE_COMPLIANCE   일정을 잘 지켜요
-//     DELIVERABLE_QUALITY   결과물 품질이 좋아요
+//     WORK_QUALITY
+//     ON_TIME_DELIVERY
+//     GOOD_COMMUNICATION
+//     REQUIREMENT_UNDERSTANDING
+//     PROFESSIONAL_ATTITUDE
 //
 //   FREELANCER_TO_CLIENT (프리랜서 → 의뢰인)
-//     REQUIREMENT_CLARITY   요구사항이 명확해요
-//     COMMUNICATION         소통이 원활해요
-//     FEEDBACK_SPEED        피드백이 빨라요
-//     SCOPE_STABILITY       업무 범위가 안정적이에요
-//     PAYMENT_RELIABILITY   결제 과정이 신뢰할 만해요
+//     CLEAR_REQUIREMENTS
+//     FAST_FEEDBACK
+//     GOOD_COMMUNICATION
+//     SCOPE_STABILITY            (v1.4 코드와 우연히 동일)
+//     PROFESSIONAL_ATTITUDE
 //
-//   저장 예시: ["RESPONSIBILITY", "COMMUNICATION", "DELIVERABLE_QUALITY"]
+//   저장 예시: ["WORK_QUALITY", "GOOD_COMMUNICATION", "PROFESSIONAL_ATTITUDE"]
+//   (Fact) v1.4의 구 코드 10종(RESPONSIBILITY·COMMUNICATION·TECHNICAL_SKILL·SCHEDULE_COMPLIANCE·
+//   DELIVERABLE_QUALITY·REQUIREMENT_CLARITY·FEEDBACK_SPEED·PAYMENT_RELIABILITY, SCOPE_STABILITY 제외)는
+//   전량 폐기됐다. 옛 코드 ↔ 새 코드 1:1 대응 관계는 CR 원문에도 없어 여기서 임의로 추정하지 않는다.
+//   (Assumption) 코드별 한글 표시 문구는 설계서 v2.0 원문 확인 필요 — features/reviews/
+//   spec.md·api-contract.md·prototype 어디에도 한글 라벨이 없어 이 표에는 넣지 않았다.
 
 
 // ═════════════════════════════════════════════════════════════════════
@@ -946,7 +954,7 @@ Table reviews {
   direction   review_direction [not null]
   rating      smallint         [not null, note: '1~5 (RFP §3.7.1)']
   comment     text             [null, note: '텍스트 리뷰']
-  tags        jsonb            [not null, default: `'[]'`, note: '[C] E-19 태그 코드 배열 확정. 예: ["RESPONSIBILITY","COMMUNICATION","DELIVERABLE_QUALITY"]. 코드 10종은 review_direction enum 위 주석 참조']
+  tags        jsonb            [not null, default: `'[]'`, note: '[C] E-19→E-38 개정. 예: ["WORK_QUALITY","GOOD_COMMUNICATION","PROFESSIONAL_ATTITUDE"]. 코드 10종은 review_direction enum 위 주석 참조']
   created_at  timestamptz      [not null, default: `now()`]
 
   indexes {
@@ -967,11 +975,19 @@ Table reviews {
   [F] §6.6 삭제하지 않음 (평판 데이터) — 이 역시 deleted_at 부재만으로는 강제되지 않으므로
       DELETE 권한 REVOKE 로 함께 보강한다(부록, E-16과 동일 원칙)
 
-  [C] E-19 tags 코드 확정 (PM 승인요청서 2026-08-20, 01·2.1·A4)
+  [C] E-19 tags 코드 최초 확정 (PM 승인요청서 2026-08-20, 01·2.1·A4)
       방향별 5종, 총 10종 코드로 확정(review_direction enum 위 주석에 전체 표 있음).
       DB는 jsonb 배열 형식만 강제하고, 방향별 허용 코드·문자열 요소·중복 금지 검증은
       Review 서비스(API 계층)가 담당한다 — 잘못된 방향/코드/중복 태그는 422로 거부(A4).
       태그별 집계 쿼리가 정규화 테이블보다 불리하다는 트레이드오프는 기존 판단 그대로 유지.
+
+  [C] E-38 tags 코드 v2 개정 (2026-09-07, CR-RV-001, 조준영)
+      「PactFive_상호_리뷰_평균_별점_설계서」v2.0 §10을 reviews Increment 정본으로 채택하며
+      E-19의 구 코드 10종을 새 코드 10종으로 전량 교체(review_direction enum 위 주석 참고).
+      검증 방식(422 REVIEW_TAG_INVALID)·jsonb 스키마리스 저장 방식은 E-19와 동일하게 유지 —
+      코드 목록만 바뀐다. features/reviews/(spec·api-contract·prototype)는 이 CR과 같은
+      feature/reviews 브랜치(origin, 커밋 b9ccc92)에서 이미 새 코드로 구현·검증됐다.
+      app/server·app/web 이식본은 아직 구 코드(v1.4)를 쓰고 있어 반영 필요 — 팀장 다음 통합.
   '''
 }
 
