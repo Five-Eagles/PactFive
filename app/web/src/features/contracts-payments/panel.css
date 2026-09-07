@@ -1,0 +1,143 @@
+/*
+ * 합의·서명·결제 패널 전용 스타일. 앱 셸(헤더·nav)은 여기 없다 — AppShell이 두른다.
+ *
+ * 원본: features/contracts-payments/design/_tokens.css · panel.css (67207c8)
+ *
+ * 두 원본 파일 중 시안 단독 미리보기용 규칙(`body`·`.meta`·`.screen`·`.frame`·`.required`·
+ * `.steps`·`.card`·`.grid`·`.chip`·`.empty`)은 빼고, 패널 컴포넌트(AgreementPanel·
+ * ContractSignPanel·PaymentPanel·ui.tsx)가 실제로 쓰는 클래스만 옮겼다. `box-sizing`·
+ * `body`·기본 폰트는 `shared/ui/tokens.css`가 이미 앱 전체에 적용한다 — 여기서 다시
+ * 선언하지 않는다. CSS 변수(--surface 등) 값도 `shared/ui/tokens.css`의 :root와 이미
+ * 같은 값이라 다시 선언하지 않는다(design-system/design-tokens.md가 두 사본의 정본).
+ *
+ * ui.tsx의 클래스 표기(`btn primary` 공백 구분)를 그대로 따른다 — BEM(`btn--primary`)이
+ * 아니다. 이 불일치는 feedback_loop/2026-09-03/contracts-payments.md에 기록했다.
+ */
+
+/* 타이포 조각 (design/_tokens.css) */
+.title { font-size: 20px; line-height: 28px; font-weight: 700; letter-spacing: -.2px; margin: 0 0 8px; }
+.label { font-size: 14px; line-height: 20px; font-weight: 600; display: block; margin-bottom: 6px; }
+.helper { font-size: 14px; line-height: 20px; color: var(--content-tertiary); margin: 6px 0 0; }
+.helper.error { color: var(--danger); }
+.helper.success { color: var(--success); }
+
+/* 입력 (design/_tokens.css) */
+.field { height: var(--field-h); width: 100%; padding: 0 var(--field-pad);
+  border: 1px solid var(--border); border-radius: var(--field-radius);
+  background: var(--surface); color: var(--content); font: inherit; }
+.field::placeholder { color: var(--content-tertiary); }
+.field:focus { outline: 2px solid var(--border-focus); outline-offset: -1px; }
+.field[disabled] { background: var(--surface-subtle); color: var(--content-disabled); }
+.field.error { border-color: var(--danger); }
+.field.success { border-color: var(--success); }
+.field-row { margin-bottom: 20px; }
+
+/* 버튼 — 마이크로 100ms (design-tokens.md §13). 클래스 이름은 시안을 유지한다. */
+.btn { height: var(--btn-h); padding: 0 var(--btn-pad); border-radius: var(--btn-radius);
+  border: 1px solid transparent; font: inherit; font-weight: 600; cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-standard),
+              border-color var(--dur-fast) var(--ease-standard),
+              color var(--dur-fast) var(--ease-standard); }
+.btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.btn.primary { background: var(--action); color: var(--action-text); }
+.btn.primary:hover:not(:disabled) { background: var(--action-hover); }
+.btn.primary:active:not(:disabled) { background: var(--action-pressed); }
+.btn.secondary { background: var(--surface); color: var(--action-secondary-text); border-color: var(--action); }
+.btn.secondary:hover:not(:disabled) { background: var(--surface-selected); }
+.btn.quiet { background: transparent; color: var(--content-secondary); }
+.btn.quiet:hover:not(:disabled) { background: var(--surface-subtle); }
+.btn.danger { background: var(--surface); color: var(--danger); border-color: var(--danger); }
+.btn.danger:hover:not(:disabled) { background: var(--danger-surface); }
+.btn[disabled],
+.btn[aria-busy="true"] { background: var(--action-disabled); color: var(--action-disabled-text);
+  border-color: transparent; cursor: not-allowed; pointer-events: none; }
+.btn-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+/* 배지 (design/_tokens.css 톤 — 상태 배지가 아니라 합의·서명·결제 진행 배지) */
+.badge { display: inline-flex; align-items: center; height: var(--chip-h);
+  padding: 0 var(--chip-pad); border-radius: var(--chip-radius);
+  font-size: 12px; font-weight: 600; }
+.badge.success { background: var(--success-surface); color: var(--success); }
+.badge.warning { background: var(--warning-surface); color: var(--warning); }
+.badge.info { background: var(--info-surface); color: var(--info); }
+.badge.danger { background: var(--danger-surface); color: var(--danger); }
+.badge.neutral { background: var(--surface-subtle); color: var(--content-tertiary); }
+
+/* 안내 배너 */
+.notice { border-radius: var(--btn-radius); padding: 12px 16px; font-size: 14px; line-height: 20px; margin: 0 0 16px; }
+.notice.info { background: var(--info-surface); color: var(--info); }
+.notice.warning { background: var(--warning-surface); color: var(--warning); }
+.notice.danger { background: var(--danger-surface); color: var(--danger); }
+
+/* 패널 (design/panel.css) */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: var(--card-pad);
+  max-width: 560px;
+}
+.panel .title { margin-top: 0; }
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.facts {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  background: var(--surface-subtle);
+  border-radius: var(--btn-radius);
+}
+.facts dt {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--content-tertiary);
+  margin: 0 0 4px;
+}
+.facts dd {
+  margin: 0 0 12px;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--content);
+}
+.facts dd:last-child { margin-bottom: 0; }
+.money {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+.status-copy {
+  margin: 0 0 16px;
+  color: var(--content-secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+.status-copy strong {
+  color: var(--content);
+  font-weight: 600;
+}
+.panel .notice { margin: 0 0 16px; }
+.panel .btn-row { margin-top: 4px; }
+.panel .helper { margin-top: 0; margin-bottom: 16px; }
+
+.skeleton {
+  height: 12px;
+  border-radius: 4px;
+  background: var(--surface-subtle);
+  margin-bottom: 8px;
+}
+
+/* 오버레이(거절 확인 다이얼로그)는 `shared/ui/tokens.css`의 `.overlay-backdrop`·`.dialog`를
+ * 그대로 쓴다 — ReopenRecruitmentDialog(project-management)가 이미 쓰고 있는 것과 같은 규칙이고
+ * (딤+본체 동시 240ms, reduced-motion 대응, pointer-events 방어) 값도 design-tokens.md §13로
+ * 동일하다. 여기서 다시 선언하지 않는다.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition-duration: 0ms !important;
+  }
+}

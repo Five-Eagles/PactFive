@@ -4,10 +4,21 @@
 |---|---|
 | 제기 | 유동우 (engagement) · 2026-08-27 |
 | 대상 | 유동우 (project-management) — **같은 담당자** |
-| 상태 | 제안 — Mock 어댑터로 진행, project-management 구현 후 교체 |
+| 상태 | **완료 (2026-09-03).** Mock 이 아니라 실제 구현으로 붙었다 — 아래 참고 |
 | 관련 | `features/engagement/spec.md` 규칙 6·12·18·25 · PRD §4.5 |
 
 ## 요약
+
+> **닫음 (2026-09-03).** `app/server/src/features/project-management/project-read.service.ts`
+> 에 세 함수가 다 있다. Mock 어댑터가 아니라 실제 저장소를 읽는 구현이다.
+> engagement 쪽은 `bookmark.port.ts` 로 받아 쓴다 — 방향(engagement 는 읽기만 한다)도 지켜졌다.
+>
+> 제안과 달라진 것 하나: `findRecommendationCandidates` 가 모집 상태를 **저장값이 아니라
+> 조회 시점으로** 판정한다 (규칙 14). 제안서에는 그 말이 없었는데, 넣는 편이 맞다 —
+> 마감 시각이 지났는데 배치가 안 돈 프로젝트가 추천에 남지 않는다.
+>
+> 아래는 제기 당시 기록이다.
+
 
 engagement 는 프로젝트를 **읽기만 한다** (PRD §4.0). 그런데 지금 project-management 가
 가진 공개 API 9종으로는 필요한 세 가지를 채울 수 없다.

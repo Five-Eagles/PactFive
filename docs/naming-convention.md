@@ -337,10 +337,17 @@ enum NotificationType {
 
 ## 12. 환경 변수
 
-UPPER_SNAKE_CASE, 목적이 분명해야 함: `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`,
-`OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `LLM_API_KEY`, `PG_CLIENT_KEY`, `PG_SECRET_KEY`,
-`STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`. 실제 값은 커밋하지 않는다. `.env.example`에는 키
-이름과 설명만. `API_KEY`, `SECRET`처럼 대상 없는 이름 금지.
+UPPER_SNAKE_CASE, 목적이 분명해야 함: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `LLM_API_KEY`,
+`PG_CLIENT_KEY`, `PG_SECRET_KEY`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`. 실제 값은
+커밋하지 않는다. `.env.example`에는 키 이름과 설명만. `API_KEY`, `SECRET`처럼 대상 없는
+이름 금지.
+
+**(2026-09-04 정정)** 이전엔 예시로 `JWT_ACCESS_SECRET`·`JWT_REFRESH_SECRET`을 들었으나,
+ADR-0008(2026-08-24, 확정)이 자체 JWT 대신 Supabase Auth를 채택하면서 이 변수들은 실제로
+쓰이지 않는다 — 실제 인증 관련 환경변수는 `SUPABASE_*` 3종이다(`app/server/src/app.ts` 조립
+지점 참고). 결정 내용을 바꾸는 게 아니라 이미 확정된 ADR-0008을 문서에 뒤늦게 반영하는
+것이다.
 
 ## 13. Git 네이밍
 

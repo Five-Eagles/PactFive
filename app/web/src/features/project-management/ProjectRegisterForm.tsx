@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
 import { Button, Field, Notice } from '../../shared/ui/primitives';
 import { ApiError } from '../../shared/http';
@@ -28,6 +28,15 @@ import { useDraft } from './useDraft';
  * 탭 단위)가 매 입력마다 저장하고 첫 렌더에서 되살린다. 규칙 1 이 금지한 것은 **서버** 임시
  * 저장이라 브라우저 보존은 대상이 아니다(`useDraft.ts` 주석 참고). 등록에 성공하면
  * `clear()`로 지운다.
+ *
+ * ## AI 추천 예산 연결 (2026-09-05 반영)
+ *
+ * Step 2의 "AI 추천 예산 받기" 버튼은 `pricingAnalysisHref`(ai-pricing 소유, App.tsx가 끼워준다)로
+ * 현재까지 입력한 title/description/category를 쿼리 파라미터로 실어 이동한다. ai-pricing 쪽에서
+ * "이 추천 예산 사용하기"를 고르면 `recommendedBudget`·`pricingAnalysisId` 쿼리 파라미터를 들고
+ * 이 화면으로 돌아온다 — 마운트 시 그 값을 읽어 예산 칸을 채우고 Step 2로 이동한 뒤 쿼리를
+ * 지운다(새로고침 시 재적용 방지). 두 기능 폴더는 서로 import하지 않는다
+ * (app/web/AGENTS.md "폴더 간 접점").
  */
 
 type Step = 1 | 2 | 3;
@@ -85,8 +94,14 @@ function StepIndicator({ current }: { current: Step }) {
 /** 필드 구성이 바뀌면 올린다. 옛 초안은 되살리지 않는다 */
 const DRAFT_VERSION = 1;
 
-export function ProjectRegisterForm() {
+export type ProjectRegisterFormProps = {
+  /** ai-pricing 소유 — AI 추천 예산 화면 경로를 만드는 함수. 폴더 간 접점은 App.tsx에서만 잇는다. */
+  pricingAnalysisHref?: (query: { title: string; description: string; category: string }) => string;
+};
+
+export function ProjectRegisterForm({ pricingAnalysisHref }: ProjectRegisterFormProps) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [step, setStep] = useState<Step>(1);
   const {
     value: draft,
@@ -102,6 +117,31 @@ export function ProjectRegisterForm() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [appliedPricingAnalysisId, setAppliedPricingAnalysisId] = useState<string | null>(null);
+
+  // AI 추천 예산 화면(ai-pricing)에서 "이 추천 예산 사용하기"로 돌아온 경우 — 예산 칸을 채우고
+  // Step 2로 이동한 뒤 쿼리를 지운다(새로고침 시 중복 적용 방지).
+  useEffect(() => {
+    const recommendedBudget = searchParams.get('recommendedBudget');
+    const pricingAnalysisId = searchParams.get('pricingAnalysisId');
+    if (!recommendedBudget || !pricingAnalysisId) return;
+    setDraft((current) => ({ ...current, budgetAmount: recommendedBudget }));
+    setAppliedPricingAnalysisId(pricingAnalysisId);
+    setStep(2);
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  function goToPricingAnalysis() {
+    if (!pricingAnalysisHref) return;
+    navigate(
+      pricingAnalysisHref({
+        title: draft.title,
+        description: draft.description,
+        category: draft.category,
+      }),
+    );
+  }
 
   function set<K extends keyof RegisterDraft>(key: K, value: RegisterDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -143,6 +183,12 @@ export function ProjectRegisterForm() {
   return (
     <PageBody narrow>
       <StepIndicator current={step} />
+
+      {appliedPricingAnalysisId && (
+        <Notice tone="info">
+          AI 추천 예산을 반영했습니다 · 분석 ID <code>{appliedPricingAnalysisId}</code>
+        </Notice>
+      )}
 
       {/* 몰래 되살리지 않는다 — 무엇이 복원됐는지 알리고 버릴 길을 준다 (§6 상태 이해·선택권) */}
       {restored && (
@@ -267,6 +313,15 @@ export function ProjectRegisterForm() {
               onChange={(event) => set('budgetAmount', event.target.value)}
             />
           </Field>
+
+          {pricingAnalysisHref && (
+            <p className="helper">
+              적정 예산이 궁금하다면{' '}
+              <Button variant="quiet" size="sm" onClick={goToPricingAnalysis}>
+                AI 추천 예산 받기
+              </Button>
+            </p>
+          )}
 
           <div className="btn-row">
             <Button variant="quiet" onClick={() => setStep(1)}>

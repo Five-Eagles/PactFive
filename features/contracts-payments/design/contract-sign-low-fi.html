@@ -6,29 +6,32 @@
 <title>contracts-payments — 계약 서명 (low-fi)</title>
 <style>
   body{ font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; background:#f1f1f1; margin:0; padding:2rem; color:#333; }
-  .meta{ max-width:420px; margin:0 auto 1rem; font-size:12px; color:#888; }
-  .frame{ max-width:420px; margin:0 auto; background:#fff; border:2px dashed #999; padding:2rem; }
+  .meta{ max-width:720px; margin:0 auto 1rem; font-size:12px; color:#888; }
+  .frame{ max-width:720px; margin:0 auto; background:#fff; border:2px dashed #999; padding:1.5rem; }
+  .grid{ display:grid; grid-template-columns:2fr 1fr; gap:1rem; }
   .label{ font-size:11px; color:#999; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.25rem; }
-  .box{ background:#e5e5e5; border:1px solid #aaa; border-radius:2px; padding:.75rem; margin-bottom:1rem; color:#777; font-size:14px; }
+  .box{ background:#e5e5e5; border:1px solid #aaa; border-radius:2px; padding:.75rem; margin-bottom:.75rem; color:#777; font-size:14px; }
   .box.button{ background:#ccc; border-color:#888; text-align:center; font-weight:bold; color:#555; }
   .note{ font-size:11px; color:#999; margin-top:.25rem; }
+  @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
-<div class="meta">contracts-payments · CTR-01 서명 · low-fi · design-system 미확정</div>
+<div class="meta">contracts-payments · CTR-01 서명 · low-fi · 앱 셸 없음</div>
 <div class="frame">
-  <div class="label">[TEXT] 계약 조건</div>
-  <div class="box">계약 조건</div>
-  <div class="label">[BUTTON] 서명</div>
-  <div class="box button">서명하기</div>
-  <div class="note">취소된 프로젝트에서는 서명하기를 숨기고 "프로젝트가 취소되었습니다"만 보여 준다.</div>
-</div>
-<div class="frame" style="margin-top:1rem; border-style:solid;">
-  <p class="label" style="margin-bottom:.5rem;">필수 요소 목록 (기본 렌더링 시, 조건부 요소 제외)</p>
-  <ul style="font-size:13px; color:#555; padding-left:1.2rem; margin:0;">
-    <li>제목 텍스트 "계약 조건"</li>
-    <li>버튼 텍스트 "서명하기"</li>
-  </ul>
+  <div class="label">[TEXT] 계약 서명</div>
+  <div class="grid">
+    <div>
+      <div class="box">상태 안내 · 프로젝트 제목 · 합의 금액 · 작업 기간 · 전자 동의 안내</div>
+      <div class="label">[BUTTON] 서명</div>
+      <div class="box button">서명하기</div>
+    </div>
+    <div>
+      <div class="box">서명 현황</div>
+      <div class="box">프로젝트 / 상대방 / 유의사항</div>
+    </div>
+  </div>
+  <p class="note">취소된 프로젝트에서는 서명하기를 숨기고 "프로젝트가 취소되었습니다"만 보여 준다. SIGNED만으로 작업 시작을 표시하지 않는다.</p>
 </div>
 </body>
 </html>

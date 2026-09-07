@@ -1,18 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
-import type { AuthenticatedSessionResponse, OAuthProvider } from "../server/auth.types";
+import type {
+  AuthenticatedSessionResponse,
+  CompleteRegistrationInput,
+  OAuthProvider,
+  RegisterInput,
+  UserRole,
+} from "../server/auth.types";
 import {
   AuthApiError,
+  completeRegistration as completeRegistrationRequest,
+  confirmEmail as confirmEmailRequest,
   createProtectedApiCaller,
   createAuthSession,
   createOAuthAuthorization,
   deleteCurrentAuthSession,
   getCurrentAuthContext,
   refreshAuthSession,
+  registerAccount,
   requestEmailConfirmation,
 } from "./api/auth";
 
 export type AuthViewState =
-  | { status: "anonymous"; message: string | null; action: null | "RESEND" | "COMPLETE_REGISTRATION" }
+  | { status: "anonymous"; message: string | null; action: null | "RESEND" | "COMPLETE_REGISTRATION" | "LOGOUT" }
   | { status: "restoring"; message: null; action: null }
   | { status: "submitting"; message: null; action: null }
   | { status: "authenticated"; message: null; action: null; session: AuthenticatedSessionResponse }
@@ -80,13 +89,26 @@ export function reduceAuthFailure(error: unknown): AuthViewState {
     if (error.code === "REGISTRATION_COMPLETION_REQUIRED") {
       return { status: "anonymous", message: error.message, action: "COMPLETE_REGISTRATION" };
     }
-    if (error.status === 503) {
+    if (error.code === "AUTH_CONTEXT_CONFLICT") {
+      return { status: "anonymous", message: error.message, action: "LOGOUT" };
+    }
+    if (error.status >= 500 && error.status <= 599) {
       return { status: "retryable", message: error.message, action: "RETRY" };
     }
     if (error.status === 401) clearAccessTokenInMemory();
     return { status: "anonymous", message: error.message, action: null };
   }
   return { status: "retryable", message: "잠시 후 다시 시도해 주세요.", action: "RETRY" };
+}
+
+export function reduceLogoutFailure(error: unknown): AuthViewState {
+  return {
+    status: "anonymous",
+    message: error instanceof AuthApiError
+      ? error.message
+      : "현재 로그인 세션을 종료하지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요.",
+    action: "LOGOUT",
+  };
 }
 
 export function createSingleFlightRestorer<T>(refresh: () => Promise<T>): () => Promise<T> {
@@ -127,24 +149,68 @@ export function createReturnNavigator(navigate: (path: string) => void): (path: 
   };
 }
 
-export function useAuth() {
+export function useAuth(options: { restoreOnMount?: boolean } = {}) {
+  const restoreOnMount = options.restoreOnMount ?? true;
   const [state, setState] = useState<AuthViewState>({ status: "anonymous", message: null, action: null });
+
+  const publishSession = useCallback((capturedEpoch: number, session: AuthenticatedSessionResponse) => {
+    if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
+    accessTokenInMemory = session.accessToken;
+    setState({ status: "authenticated", message: null, action: null, session });
+    return session;
+  }, []);
 
   const login = useCallback(async (input: { email: string; password: string; returnTo: string }) => {
     const capturedEpoch = authEpoch.advance();
     setState({ status: "submitting", message: null, action: null });
     try {
       const session = await createAuthSession(input);
+      return publishSession(capturedEpoch, session);
+    } catch (error) {
+      if (!authEpoch.isCurrent(capturedEpoch)) throw error;
+      setState(reduceAuthFailure(error));
+      throw error;
+    }
+  }, [publishSession]);
+
+  const register = useCallback(async (input: RegisterInput) => {
+    const capturedEpoch = authEpoch.advance();
+    setState({ status: "submitting", message: null, action: null });
+    try {
+      const response = await registerAccount(input);
       if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
-      accessTokenInMemory = session.accessToken;
-      setState({ status: "authenticated", message: null, action: null, session });
-      return session;
+      setState({ status: "anonymous", message: response.message, action: null });
+      return response;
     } catch (error) {
       if (!authEpoch.isCurrent(capturedEpoch)) throw error;
       setState(reduceAuthFailure(error));
       throw error;
     }
   }, []);
+
+  const completeRegistration = useCallback(async (input: CompleteRegistrationInput) => {
+    const capturedEpoch = authEpoch.advance();
+    setState({ status: "submitting", message: null, action: null });
+    try {
+      return publishSession(capturedEpoch, await completeRegistrationRequest(input));
+    } catch (error) {
+      if (!authEpoch.isCurrent(capturedEpoch)) throw error;
+      setState(reduceAuthFailure(error));
+      throw error;
+    }
+  }, [publishSession]);
+
+  const confirmEmail = useCallback(async (tokenHash: string) => {
+    const capturedEpoch = authEpoch.advance();
+    setState({ status: "submitting", message: null, action: null });
+    try {
+      return publishSession(capturedEpoch, await confirmEmailRequest(tokenHash));
+    } catch (error) {
+      if (!authEpoch.isCurrent(capturedEpoch)) throw error;
+      setState(reduceAuthFailure(error));
+      throw error;
+    }
+  }, [publishSession]);
 
   const restore = useCallback(async () => {
     const capturedEpoch = authEpoch.capture();
@@ -173,11 +239,11 @@ export function useAuth() {
     }
   }, []);
 
-  const startOAuth = useCallback(async (oauthProvider: OAuthProvider, returnTo: string) => {
+  const startOAuth = useCallback(async (oauthProvider: OAuthProvider, returnTo: string, role?: UserRole) => {
     const capturedEpoch = authEpoch.advance();
     setState({ status: "submitting", message: null, action: null });
     try {
-      const result = await createOAuthAuthorization({ oauthProvider, returnTo });
+      const result = await createOAuthAuthorization({ oauthProvider, returnTo, role });
       if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
       window.location.assign(result.authorizationUrl);
     } catch (error) {
@@ -208,15 +274,28 @@ export function useAuth() {
     setState({ status: "anonymous", message: null, action: null });
     try {
       await deleteCurrentAuthSession(accessToken);
+      setState({ status: "anonymous", message: null, action: null });
+    } catch (error) {
+      setState(reduceLogoutFailure(error));
+      throw error;
     } finally {
       clearAccessTokenInMemory();
-      setState({ status: "anonymous", message: null, action: null });
     }
   }, []);
 
   useEffect(() => {
-    void restore().catch(() => undefined);
-  }, [restore]);
+    if (restoreOnMount) void restore().catch(() => undefined);
+  }, [restore, restoreOnMount]);
 
-  return { state, login, restore, startOAuth, resendConfirmation, logout };
+  return {
+    state,
+    login,
+    register,
+    completeRegistration,
+    confirmEmail,
+    restore,
+    startOAuth,
+    resendConfirmation,
+    logout,
+  };
 }

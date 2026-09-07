@@ -1,16 +1,9 @@
 import { useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
-import {
-  Button,
-  Chip,
-  DeadlineIndicator,
-  EmptyState,
-  Money,
-  RecruitmentBadge,
-} from '../../shared/ui/primitives';
+import { Button, EmptyState } from '../../shared/ui/primitives';
 import { useProjectSearch } from './useProject';
-import { PROJECT_ROUTES } from './project.routes';
+import { ProjectCard } from './ProjectCard';
 import type { ProjectListQuery } from './project.types';
 
 /**
@@ -44,14 +37,23 @@ export type ProjectBrowsePageProps = {
 };
 
 export function ProjectBrowsePage({ renderBookmark }: ProjectBrowsePageProps) {
-  const [keyword, setKeyword] = useState('');
+  // 대표 페이지 히어로 검색·인기 검색어가 `?keyword=`로 넘어온다(features/project-management/
+  // home/Hero.tsx). 최초 진입 값만 읽는다 — 이후 사용자가 이 화면 안에서 검색하면 URL은
+  // 갱신하지 않는다(2026-08-28 원안 그대로, 뒤로가기 히스토리를 늘리지 않기 위해서다).
+  const [initialParams] = useSearchParams();
+  const initialKeyword = initialParams.get('keyword') ?? '';
+  // 대표 페이지 카테고리 10종(home/CategoryGrid.tsx)이 `?category=`로 넘어온다. 필터 UI 자체는
+  // 아직 없어(2026-08-28 feedback_loop 항목 6, 이번 통합 범위 밖) 최초 진입 값만 그대로 건다.
+  const initialCategory = initialParams.get('category') ?? undefined;
+  const [keyword, setKeyword] = useState(initialKeyword);
   const [sortBy, setSortBy] = useState<NonNullable<ProjectListQuery['sortBy']>>('latest');
   // 입력할 때마다 서버를 부르지 않는다. 제출한 값만 조회 조건이 된다.
-  const [submitted, setSubmitted] = useState('');
+  const [submitted, setSubmitted] = useState(initialKeyword);
   const [page, setPage] = useState(1);
 
   const { data, loading, error } = useProjectSearch({
     keyword: submitted || undefined,
+    category: initialCategory,
     sortBy,
     page,
     pageSize: PAGE_SIZE,
@@ -146,38 +148,7 @@ export function ProjectBrowsePage({ renderBookmark }: ProjectBrowsePageProps) {
         <>
           <ul className="grid grid--cols3">
             {data.items.map((project) => (
-              <li key={project.projectId} className="pcard">
-                <div className="pcard__top">
-                  <h3>
-                    <Link to={PROJECT_ROUTES.detail(project.projectId)}>{project.title}</Link>
-                  </h3>
-                  {renderBookmark?.(project.projectId) ?? (
-                    <RecruitmentBadge status={project.recruitmentStatus} />
-                  )}
-                </div>
-
-                {/* 북마크를 그리는 경우 배지가 밀려나므로 카테고리 줄 옆에 둔다 */}
-                <p className="caption" style={{ margin: 0 }}>
-                  {project.category.displayName}
-                  {renderBookmark ? ' ' : null}
-                  {renderBookmark ? <RecruitmentBadge status={project.recruitmentStatus} /> : null}
-                </p>
-
-                <p className="pcard__budget">
-                  <Money amount={project.budgetAmount} />
-                </p>
-
-                <p className="pcard__skills">
-                  {project.skills.map((skill) => (
-                    <Chip key={skill.skillId} label={skill.displayName} />
-                  ))}
-                </p>
-
-                <div className="pcard__foot">
-                  <span>지원 {project.applicationCount}건</span>
-                  <DeadlineIndicator deadlineAt={project.recruitmentDeadlineAt} compact />
-                </div>
-              </li>
+              <ProjectCard key={project.projectId} project={project} renderBookmark={renderBookmark} />
             ))}
           </ul>
 

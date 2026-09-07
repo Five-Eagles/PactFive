@@ -102,6 +102,16 @@ sync-log.md 기록: 있음 — mark-synced.sh 실행 후
   계약은 동일 출처 `/api/v1`과 `SameSite=Strict` Refresh 쿠키를 전제로 한다. 같은 Origin rewrite/BFF
   또는 same-site 커스텀 도메인 중 하나와 API base의 `/api` 포함 규칙을 팀장이 확정해야 하므로,
   라이브 인증 E2E 전 배포 차단 안건으로 함께 재이슈한다.
+- **2026-09-03 팀장**: Origin rewrite/BFF 쪽으로 확정했다 — 커스텀 도메인은 구매하지 않고
+  `*.vercel.app` 그대로 쓰기로 했고, `app/web/vercel.json`에 `/api/*` → `app/server` 프록시
+  rewrite를 둬서 브라우저 관점에서는 계속 동일 출처로 본다. `SameSite=Strict`를 `None`으로
+  낮출 필요가 없다 — same-origin 요청은 `Strict`로도 그대로 통과한다. 근거·기각한 대안(커스텀
+  도메인, HttpOnly 쿠키 포기)은 `docs/decisions/0013-web-origin-same-origin-rewrite.md` 참고.
+  API base에 `/api` 포함 규칙은 지금 코드(`app/web/vite.config.ts`의 `/api` 프록시, 신규
+  `vercel.json`의 `source: "/api/:path*"`)와 그대로 맞다 — 바꿀 것 없다. 다만
+  `app/web/vercel.json`의 실제 `destination`은 Vercel 프로젝트를 만들어 `app/server`의 실제
+  배포 URL을 확인해야 채울 수 있어 아직 자리표시자다 — 첫 배포 때 마무리한다. 이견 있으면
+  알려 달라, 없으면 이 항목은 반영완료로 닫아도 된다.
 
 ---
 
