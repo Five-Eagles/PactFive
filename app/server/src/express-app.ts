@@ -50,22 +50,31 @@ import { createReviewRouter } from './features/reviews/review.router';
 
 /**
  * Express 앱 — 순수 모듈. 여기서 `app.listen()`을 호출하지 않는다.
- * 배포 진입점은 분리한다 (app/server/AGENTS.md "배포 아키텍처 — 이중 진입점"):
- *   - src/vercel-handler.ts → esbuild로 번들링돼 api/index.js가 됨 (Vercel 서버리스)
- *   - src/server.ts         → 로컬 독립 서버
+ * 배포 진입점은 분리한다 (app/server/AGENTS.md "배포 아키텍처"):
+ *   - app/server/index.js (빌드 산출물, git에 없음) → esbuild가 이 파일을 번들링해서 만든다.
+ *     Vercel의 "Express on Vercel" zero-config가 Root Directory 바로 밑 `index.js`를
+ *     자동 감지해 배포한다.
+ *   - src/dev-server.ts → 로컬 독립 서버
+ *
+ * 2026-09-06 — 이 파일 이름을 `app.ts`에서 `express-app.ts`로 바꿨다. Vercel의 Express
+ * zero-config 자동 감지 대상 경로 중 하나가 정확히 `src/app.{js,ts,...}`라서, 이 이름 그대로
+ * 두면 Vercel이 번들링 안 된 이 파일을 직접 배포 대상으로 잡아버렸다 — 그게 진짜 배포 크래시
+ * 원인이었다. 아래 "빌드 산출물" 문단 참고.
  */
 
 // 2026-09-05 버그 수정 — tsx는 .env를 자동으로 읽지 않는다. 그동안 리포 루트 `.env`(Supabase·
 // OpenAI·토스페이먼츠 키 등)를 채워도 아무 코드가 이걸 process.env로 올려주지 않아서, 이
 // 파일이 조용히 모든 값을 "비어 있음"으로 읽고 각 기능의 mock/미설정 기본값으로 빠졌다
 // (예: user-management가 AUTH_PROVIDER_MODE=supabase를 무시하고 계속 MockAuthProvider를 써서,
-// 회원가입 화면은 성공을 보여주지만 실제 확인 메일은 나가지 않았다). 이 한 줄로 두 진입점
-// (src/vercel-handler.ts, src/server.ts) 모두에서 로컬 실행 시 루트 .env가 실제로 반영된다.
+// 회원가입 화면은 성공을 보여주지만 실제 확인 메일은 나가지 않았다). 이 한 줄로 로컬 실행 시
+// (src/dev-server.ts 경유) 루트 .env가 실제로 반영된다.
 // 이미 설정된 값(Vercel 배포 환경변수 등)은 덮어쓰지 않는다(dotenv 기본 동작 — override: false).
 // 배포 환경처럼 이 경로에 .env가 없으면 조용히 아무 효과가 없다.
-// 참고 — esbuild가 이 코드를 api/index.js로 번들링해도 아래 상대 경로 계산은 여전히 맞다
-// (api/, src/ 둘 다 app/server 바로 아래라 깊이가 같다). 다만 배포 환경에는 애초에 이 경로에
-// .env 파일 자체가 없으므로(Vercel이 실제 환경변수를 직접 주입) 조용히 무효과일 뿐이다.
+// 참고 — 아래 상대 경로(3단계 위)는 이 파일이 원본 그대로 실행될 때(app/server/src/ 기준)
+// 기준으로 계산했다. esbuild로 번들링된 app/server/index.js로 실행되면 실제 파일 위치가 한
+// 단계 얕아져서(app/server/ 기준) 이 경로가 repo 루트보다 한 단계 위를 가리키게 되지만,
+// 배포 환경에는 애초에 그 경로에 .env 파일이 없으므로(Vercel이 실제 환경변수를 직접 주입)
+// 조용히 무효과일 뿐이다 — 로컬 개발 경로만 정확하면 된다.
 loadEnvFile({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../.env') });
 
 const app = express();
