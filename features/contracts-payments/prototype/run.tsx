@@ -18,6 +18,7 @@ import {
   MOCK_OUTSIDER_USER_ID,
   MOCK_PAYMENT_ID,
   toAcceptedApplicationHandoff,
+  toApplicationClosureEventId,
   type DomainContractErrorCode,
   type GetDeliveryResponse,
   type TransactionLifecycleSnapshot,
@@ -2134,8 +2135,14 @@ async function main() {
     );
     const contractId = accepted.contractId ?? "";
     const first = await api.signContract(contractId, MOCK_CLIENT_USER_ID);
-    if (first.status === "SIGNING" && first.clientSignedAt === MOCK_NOW && first.alreadyProcessed === false) {
+    if (
+      first.status === "SIGNING" &&
+      first.signedAt === null &&
+      first.clientSignedAt === MOCK_NOW &&
+      first.alreadyProcessed === false
+    ) {
       pass("규칙 12: 첫 서명 SIGNING");
+      pass("F02: 첫 서명 signedAt=null");
     } else {
       fail("규칙 12: 첫 서명 SIGNING", first);
     }
@@ -3266,6 +3273,7 @@ async function main() {
       await api.approveDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_CLIENT_USER_ID, {
         idempotencyKey: `appr-${key}`,
       });
+      await api.evaluateSettlement(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
     }
 
     {
@@ -4420,6 +4428,106 @@ async function main() {
           published: notifications.getPublished(),
         });
       }
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    const proposed = await api.proposeNegotiationOffer("prj_alive", MOCK_CLIENT_USER_ID, {
+      amount: MOCK_OFFER_AMOUNT,
+      currency: "KRW",
+    });
+    const accepted = await api.acceptNegotiationOffer(
+      "prj_alive",
+      proposed.offer?.offerId ?? "",
+      MOCK_FREELANCER_USER_ID,
+      { expectedRound: 1 },
+    );
+    const contractId = accepted.contractId ?? "";
+    await api.invalidateAgreementAndContract("prj_alive", {
+      cancellationId: "cnl_f01",
+      actorUserId: MOCK_CLIENT_USER_ID,
+      reason: "PROJECT_CANCELED",
+      projectCanceledAt: MOCK_NOW,
+      requestId: "req_f01",
+      idempotencyKey: "invalidate-cnl_f01",
+      occurredAt: MOCK_NOW,
+    });
+    await expectCode("F01: 취소 커밋 이후 신규 서명 금지", "PROJECT_TRANSITION_CONFLICT", () =>
+      api.signContract(contractId, MOCK_CLIENT_USER_ID),
+    );
+  }
+
+  {
+    const api = createPublicApiMock();
+    const uploaded = await api.prepareDeliveryUpload(
+      MOCK_DELIVERY_CONTRACT_IN_PROGRESS,
+      MOCK_FREELANCER_USER_ID,
+      {
+        fileName: MOCK_DELIVERY_FILE_NAME,
+        contentType: "application/zip",
+        size: 1_048_576,
+        sha256: MOCK_DELIVERY_SHA256,
+      },
+    );
+    await api.requestDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_FREELANCER_USER_ID, {
+      objectKey: uploaded.objectKey,
+      uploadId: uploaded.uploadId,
+      message: MOCK_DELIVERY_MESSAGE,
+      idempotencyKey: "req-f03",
+    });
+    await api.approveDelivery(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, MOCK_CLIENT_USER_ID, {
+      idempotencyKey: "appr-f03",
+    });
+    const locks = api.getApproveLockTrace();
+    if (locks.includes("Delivery") && !locks.includes("Payment")) {
+      pass("F03: 승인 중 Payment 미잠금");
+    } else {
+      fail("F03: 승인 중 Payment 미잠금", locks);
+    }
+    await api.evaluateSettlement(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+    const settleLocks = api.getSettleLockTrace();
+    if (settleLocks[0] === "Payment" && settleLocks[1] === "Settlement") {
+      pass("F03: 정산은 Payment 후 Settlement");
+    } else {
+      fail("F03: 정산은 Payment 후 Settlement", settleLocks);
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    api.setDeliveryPaymentStatus(MOCK_DELIVERY_CONTRACT_IN_PROGRESS, "RELEASED");
+    const evaluated = await api.evaluateSettlement(MOCK_DELIVERY_CONTRACT_IN_PROGRESS);
+    if (evaluated.blockedReason !== "PAYMENT_NOT_PAID") {
+      pass("F04: RELEASED 유지는 미결제로 막지 않음");
+    } else {
+      fail("F04: RELEASED 유지는 미결제로 막지 않음", evaluated);
+    }
+  }
+
+  {
+    const api = createPublicApiMock();
+    api.enqueueOutboxEvent({
+      eventId: "evt_lease",
+      eventType: "DELIVERY_APPROVED",
+      aggregateId: "ctr_lease",
+      occurredAt: MOCK_NOW,
+    });
+    api.claimOutbox(MOCK_NOW, 1, "old");
+    const later = new Date(Date.parse(MOCK_NOW) + 2_000).toISOString();
+    api.claimOutbox(later, 1_000, "new");
+    if (!api.completeOutbox("evt_lease", "old", later) && api.completeOutbox("evt_lease", "new", later)) {
+      pass("F09: lease 만료 후 옛 token은 완료 못 함");
+    } else {
+      fail("F09: lease 만료 후 옛 token은 완료 못 함", api.listOutbox());
+    }
+  }
+
+  {
+    if (toApplicationClosureEventId("cnl_f11") === "cnl_f11") {
+      pass("F11: cancellationId → closureEventId adapter");
+    } else {
+      fail("F11: cancellationId → closureEventId adapter", toApplicationClosureEventId("cnl_f11"));
     }
   }
 

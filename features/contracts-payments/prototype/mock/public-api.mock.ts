@@ -19,6 +19,9 @@ import {
 } from "../server/project-transaction.service";
 import { createPaymentGatewayMock } from "./payment.mock";
 import { ignoreNotificationFailure, type NotificationTriggerPort } from "../server/notification.port";
+import { withActiveProjectGuard } from "../server/project-guard";
+import { toApplicationClosureEventId } from "../server/closure-adapter";
+import { createMemoryOutbox } from "../server/outbox-lease";
 import {
   DEFAULT_FEE_POLICY_VERSION,
   DEFAULT_PLATFORM_FEE_RATE_BPS,
@@ -220,6 +223,9 @@ export function createPublicApiMock(
   options: PublicApiMockOptions = {},
 ) {
   const projects = createProjectTransactionMock(nowIso);
+  const outbox = createMemoryOutbox();
+  let approveLockTrace: string[] = [];
+  let settleLockTrace: string[] = [];
   const gateway = createPaymentGatewayMock();
   const payments = createPaymentRecordMock(gateway, { notifications: options.notifications });
   const paymentProjectIds = new Map<string, string>();
@@ -569,6 +575,10 @@ export function createPublicApiMock(
       row.blockedReason = "PROJECT_NOT_IN_PROGRESS";
       return toExecutionView(row);
     }
+    // F04: RELEASED는 완료 유지 조건이지 미결제 장애가 아니다.
+    if (seed.paymentStatus === "RELEASED") {
+      return toExecutionView(row);
+    }
     if (seed.paymentStatus !== "PAID") {
       row.status = "BLOCKED";
       row.blockedReason = "PAYMENT_NOT_PAID";
@@ -835,6 +845,7 @@ export function createPublicApiMock(
       actorUserId: string,
       input: AcceptNegotiationOfferInput,
     ): Promise<CurrentNegotiationOfferResponse> {
+      return withActiveProjectGuard(projectId, async () => {
       const ctx = await requireParty(projectId, actorUserId);
       const idemKey = `negotiation-accept-${offerId}`;
       const cached = acceptIdempotency.get(idemKey);
@@ -895,6 +906,7 @@ export function createPublicApiMock(
       const current = toCurrent(projectId, ctx);
       acceptIdempotency.set(idemKey, current);
       return current;
+      });
     },
 
     async rejectNegotiationOffer(
@@ -1150,6 +1162,11 @@ export function createPublicApiMock(
     },
 
     async signContract(contractId: string, actorUserId: string): Promise<SignContractResponse> {
+      const existing = contracts.get(contractId);
+      if (!existing) {
+        throw new DomainContractError("PROJECT_NOT_FOUND", "계약을 찾을 수 없습니다.");
+      }
+      return withActiveProjectGuard(existing.projectId, async () => {
       const row = contracts.get(contractId);
       if (!row) {
         throw new DomainContractError("PROJECT_NOT_FOUND", "계약을 찾을 수 없습니다.");
@@ -1179,21 +1196,32 @@ export function createPublicApiMock(
         row.freelancerSignedAt = nowIso;
       }
       audits.push({ contractId, signerId: actorUserId, signedAt: nowIso });
+      const firstFullySigned = Boolean(row.clientSignedAt && row.freelancerSignedAt && row.status !== "SIGNED");
       if (row.clientSignedAt && row.freelancerSignedAt) {
         row.status = "SIGNED";
         row.signedAt = nowIso;
+        if (firstFullySigned) {
+          outbox.enqueue({
+            eventId: `contract-signed-${contractId}`,
+            eventType: "CONTRACT_SIGNED",
+            aggregateId: contractId,
+            occurredAt: nowIso,
+          });
+        }
       } else {
         row.status = "SIGNING";
       }
       const response = toSignResponse(row, false);
       signIdempotency.set(idemKey, response);
       return response;
+      });
     },
 
     async invalidateAgreementAndContract(
       projectId: string,
       input: InvalidateAgreementInput,
     ): Promise<InvalidateAgreementResponse> {
+      return withActiveProjectGuard(projectId, async () => {
       const resolved = resolveInvalidateCommand(input);
       const missing: Array<{ field: string; reason: string }> = [];
       if (!resolved.cancellationId) missing.push({ field: "cancellationId", reason: "required" });
@@ -1274,7 +1302,7 @@ export function createPublicApiMock(
       if (contract) {
         contract.status = "CANCELED";
         contract.canceledAt = resolved.projectCanceledAt;
-        contract.cancellationEventId = resolved.cancellationId;
+        contract.cancellationEventId = toApplicationClosureEventId(resolved.cancellationId);
       }
       const failInvalidate = failNextInvalidateFlag;
       const failNotification = failNextNotificationFlag;
@@ -1283,6 +1311,7 @@ export function createPublicApiMock(
       const result: PostActionResult = failInvalidate ? "FAILED" : "DONE";
       const notification: PostActionResult = failNotification ? "FAILED" : "NOT_NEEDED";
       return remember(toResponse(false, result, result === "DONE"), notification);
+      });
     },
 
     // SET-01 simulate FAILURE와 같이 내부 전용. 상태는 바꾼 뒤 FAILED를 낸다.
@@ -1501,11 +1530,17 @@ export function createPublicApiMock(
       }
       const firstApproval = row.status !== "APPROVED";
       if (firstApproval) {
+        approveLockTrace = ["Delivery"];
         row.status = "APPROVED";
         row.approvedAt = nowIso;
         row.version += 1;
         settlementRequested.add(`delivery:${row.deliveryId}:settlement-requested`);
-        await evaluateSettlementForContract(contractId);
+        outbox.enqueue({
+          eventId: `delivery-approved-${row.deliveryId}`,
+          eventType: "DELIVERY_APPROVED",
+          aggregateId: contractId,
+          occurredAt: nowIso,
+        });
       }
       await tryCompleteProject(seed);
       const latest = await projects.getProjectNegotiationContext(seed.projectId);
@@ -1539,6 +1574,7 @@ export function createPublicApiMock(
     },
 
     evaluateSettlement(contractId: string): Promise<SettlementExecutionView> {
+      settleLockTrace = ["Payment", "Settlement"];
       return evaluateSettlementForContract(contractId);
     },
 
@@ -1556,6 +1592,30 @@ export function createPublicApiMock(
 
     getPayoutAdapterCallCount(): number {
       return payoutAdapterCalls;
+    },
+
+    getApproveLockTrace(): string[] {
+      return [...approveLockTrace];
+    },
+
+    getSettleLockTrace(): string[] {
+      return [...settleLockTrace];
+    },
+
+    enqueueOutboxEvent(input: Parameters<typeof outbox.enqueue>[0]) {
+      return outbox.enqueue(input);
+    },
+
+    claimOutbox(now: string, leaseMs: number, token: string) {
+      return outbox.claim(now, leaseMs, token);
+    },
+
+    completeOutbox(eventId: string, token: string, now: string) {
+      return outbox.complete(eventId, token, now);
+    },
+
+    listOutbox() {
+      return outbox.list();
     },
 
     setDeliveryPaymentStatus(contractId: string, status: DeliveryPaymentStatus): void {

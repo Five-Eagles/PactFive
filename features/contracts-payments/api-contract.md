@@ -206,6 +206,8 @@
 `cancellationEventId`는 `cancellationId` 별칭, `occurredAt`은 `projectCanceledAt` 별칭.
 같은 키·같은 본문(`reason`·취소 시각)은 최초 응답. 같은 키·다른 본문은 409.
 `paymentPendingAt`이 있으면 `409 PROJECT_CANCEL_AFTER_PAYMENT` (원장 변경 없음).
+F11: 공개 필드는 `cancellationId`/`result`. applications `closureEventId`는
+`toApplicationClosureEventId(cancellationId)` 변환만. 새 HTTP 없음.
 `IN_PROGRESS`/`COMPLETED`는 `409 PROJECT_TRANSITION_CONFLICT`.
 이미 무효화면 `alreadyProcessed: true`. 공개 POST 취소는 유동우(경로 `/cancel` vs
 `/cancellations`는 그쪽). 설계서 §12 신설 코드는 쓰지 않는다.
@@ -356,7 +358,8 @@ CTR-01 우측 컬럼 가설: `projectId`, `workStartDate`, `workEndDate`, `trans
 ### POST /api/v1/contracts/:contractId/deliveries/approve — `approveDelivery`
 
 의뢰인. `DELIVERY_REQUESTED`만. 새 `Idempotency-Key`. 본문 `{ "expectedVersion"? }`.
-성공 `APPROVED` 후 `publishDeliveryApproved`와 내부 정산 evaluate 1회. 결제 `RELEASED`이거나
+성공 `APPROVED` 후 `publishDeliveryApproved`. F03: 이 호출은 Payment를 잠그지 않는다.
+정산 `evaluateSettlement`는 승인 커밋 후 별 호출. 결제 `RELEASED`이거나
 이후 Mock `simulateSettlementResult(SUCCESS)`가 `RELEASED`로 바꾸면 규칙 4 complete.
 `PAID`만이면 프로젝트는 `IN_PROGRESS` 유지. 이미 `APPROVED`면 최초 `approvedAt` 유지.
 `simulateSettlementReleased`는 I-30 순서 헬퍼이며 실행 원장 가드를 건너뛴다.

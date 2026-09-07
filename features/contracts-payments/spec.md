@@ -142,6 +142,7 @@
      `409 PROJECT_VERSION_CONFLICT`. `422 VALIDATION_ERROR`.
    - **중복 호출:** 이미 `paymentPendingAt`이 있으면 **200 성공**, **시각은 최초값 유지** (P4).
      재호출로 시각을 갱신하면 취소 차단 경계가 뒤로 밀린다. `CANCELED`면 **409**.
+     F08: `paymentPendingAt` 자동 해제는 PRD 추가 전 미구현.
 
 7. **호출 순서 (해피패스).** 최윤석 `acceptProjectApplication` 성공 → 나머지 PENDING 거절 →
    알림 → 조준영 금액합의·서명 → `markPaymentPending` → PG → `SIGNED`∧`PAID` →
@@ -179,18 +180,22 @@
     `AcceptedApplicationHandoff` (`CONTRACT_PENDING` + 수락 지원 1건, 규칙 7).
 
 11. **수락은 합의 확정과 계약 `DRAFT` 생성을 한 트랜잭션에서 한다.** `acceptNegotiationOffer`.
-    최신 round의 수신자만. 성공 후 `agreements.status = ACCEPTED`, `contracts.status = DRAFT`.
+    F05: `AGREEMENT_ACCEPTED` 소비자가 계약을 비동기 생성하지 않는다. F01: Mock
+    `withActiveProjectGuard` 잠금 후 재조회. 최신 round의 수신자만. 성공 후
+    `agreements.status = ACCEPTED`, `contracts.status = DRAFT`.
     프론트 `CREATED`/`READY`는 `DRAFT`의 화면 별칭이며 API에 쓰지 않는다. 최종 거절은
     `agreements`·최신 offer를 `REJECTED`로 바꾼 뒤 규칙 5 `restorePreContractProject`만.
     필드 복사는 규칙 20. applications가 수락 지원 `userId`를 주기 전에는 의뢰인이 아닌 첫
     `accept` 호출자를 프리랜서로 둔다. 제3자가 먼저 호출하면 선점된다.
 
 12. **계약 상태.** `DRAFT` → 첫 서명 성공 시 `SIGNING` → 양쪽 서명 시 `SIGNED`.
+    F02: 첫 서명은 `SIGNING`·`signedAt=null`. `CONTRACT_SIGNED`는 최초 `SIGNED` 전이 한 번.
     `signed_at`은 양쪽이 채워진 순간에만 찍는다. 서명 순서는 자유다 (CTR-02). 무효화·프로젝트
     취소 경로는 `CANCELED`. 취소 후 서명은 409 `PROJECT_TRANSITION_CONFLICT`. 전이표는 규칙 19.
 
 13. **`signContract`.** 계약 당사자만. 멱등 키 `contract-sign-{contractId}-{signerId}`.
-    같은 계약·같은 서명자 감사는 1건 (I-19). 재호출은 200, `client_signed_at` /
+    F01: 취소 커밋 이후 신규 서명 거부. 가드는 잠금 후 재조회. 같은 계약·같은 서명자 감사는
+    1건 (I-19). 재호출은 200, `client_signed_at` /
     `freelancer_signed_at`은 **최초값 유지**. `canceledAt`이 있으면 거부 (D-04, PM-45).
     취소 후에도 `contract_signature_audits`는 삭제하지 않는다 (D-11). IP·user-agent는 ERD 컬럼.
     서명 대상은 규칙 20, 순서는 규칙 19.
@@ -282,14 +287,18 @@
     `IN_PROGRESS` 진입 시 `ensureDeliveryForContract`(초기 `IN_PROGRESS`, 업로드·요청 시 멱등 보정).
     GET은 행을 돌려준다(요청 전 `status: IN_PROGRESS`, `file`/`message` null). 화면은
     `APPROVED`∧`PAID`를 완료로 보지 않는다. 승인·정산 `RELEASED`(Mock 헬퍼, 지급 버튼 없음)
-    양쪽에서 규칙 4를 재평가한다. 한쪽만이면 complete 미호출. `Idempotency-Key` 필수(같은 키·다른
+    양쪽에서 규칙 4를 재평가한다. 한쪽만이면 complete 미호출. F03: 승인은 Delivery+outbox만.
+    Payment를 같은 흐름에서 잠그지 않는다. 정산 evaluate는 승인 커밋 후 별 호출.
+    `Idempotency-Key` 필수(같은 키·다른
     본문 409). `upload-prepare` 본문 `{ fileName, contentType, size, sha256 }`, 요청
     `{ objectKey, uploadId, message }`. 검사 미완 422. 오류는 규칙 8 5종(+공개 401·403).
     설계서 `DELIVERY_*` 코드는 쓰지 않는다. 납품 경로에서만 납품 publish. 실저장소·실AV는 스텁.
     ERD 제안: `fileObjectKey`·`fileSha256`·`version`·`requestedBy`(팀장 반영).
 
 24. **정산 실행 (SET-01 v2).** 수수료 `floor(paymentAmount × 1000 / 10000)`, 결제 생성 시
-    스냅샷. PG 비용은 정산액에서 빼지 않는다. `APPROVED` 전 `RELEASED` 불가. Payment당 실행
+    스냅샷. F04: 정산 시작 진입은 `PAID`∧`APPROVED`∧`IN_PROGRESS`. 유지는
+    `IN_PROGRESS`+(`PAID`|`RELEASED`). `RELEASED`를 `PAYMENT_NOT_PAID`로 막지 않는다.
+    PG 비용은 정산액에서 빼지 않는다. `APPROVED` 전 `RELEASED` 불가. Payment당 실행
     원장 1건. 성공과 `RELEASED`는 같이 기록. 사용자 API는 GET only. 승인 후 evaluate만.
     Sandbox 결과는 Mock `simulateSettlementResult`. 실패는 `PAID` 유지. UNKNOWN은
     PROCESSING, 새 지급 없음. 같은 멱등 키·같은 본문 재사용, 다른 본문 409. C-03은
@@ -307,7 +316,9 @@
     `DONE`/`NOT_NEEDED`/`FAILED`. `notification`은 발송 없이 `NOT_NEEDED`(실패 시드만
     `FAILED`). `FAILED`는 프로젝트 취소 실패가 아니다. GET은 202 후처리 화면.
     화면 「프로젝트가 취소되었습니다」. 공개 POST 취소(A-07, `/cancel` vs `/cancellations`)는
-    유동우. 법적 무효·환불 버튼·삭제·`INVALIDATED`/`TERMINATED`·§12 신설 코드는 제외.
+    유동우. F01: 무효화도 `withActiveProjectGuard`. F11: 공개 필드 `cancellationId`/`result`
+    유지. applications `closureEventId`는 `toApplicationClosureEventId`로만 변환.
+    법적 무효·환불 버튼·삭제·`INVALIDATED`/`TERMINATED`·§12 신설 코드는 제외.
 
 26. **교차 생명주기 Coordinator.** 공개 HTTP·`ORCH_*` 코드가 아니다. 사건(`SIGNED`/`PAID`/
     `APPROVED`/`RELEASED`)마다 계약·결제·납품·프로젝트를 **다시 읽고** AND가 맞을 때만 규칙 3·4를
@@ -316,6 +327,12 @@
     한쪽만이면 호출하지 않고 원장(`PAID`/`RELEASED`/`APPROVED`)을 유지한다. 역순·중복도 재조회로
     전이 1회. start 실패 시 PG/`PAID`를 되돌리지 않고 재시도한다. 기존 가드(I-30·수락 지원 대조)를
     쓰고 도메인 테이블을 직접 UPDATE하지 않는다.
+    오케스트레이션 리뷰 교차: OR-I11 — `COMPLETED` 전 리뷰 없음. `REVIEW_REQUESTED` 발행 실패가
+    `COMPLETED`를 되돌리지 않는다. 알림 발송은 팀장. 리뷰 원장·평균은 reviews.
+    조회 계약 이름은 `getUserRatingSummary`이며 reviews `getUserRating` /
+    `getPublishedRatingAggregate`와 같다. 새 HTTP·`ORCH_*` 없음.
+    F04 유지: `IN_PROGRESS`는 `PAID`|`RELEASED`, 완료 유지는 `APPROVED`∧`RELEASED`∧`COMPLETED`.
+    F09: 메모리 outbox는 leaseToken 일치 때만 완료. 발송은 팀장.
 
 ## 크기 기준
 

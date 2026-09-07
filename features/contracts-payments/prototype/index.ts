@@ -24,6 +24,8 @@ export type { NotificationTriggerMock } from "./mock/notification.mock";
 export { MOCK_INTERNAL_SERVICE_TOKEN } from "./server/project-transaction.constants";
 export type { ProjectTransactionPort } from "./server/project-transaction.port";
 export { DomainContractError, isDomainContractError } from "./server/project-transaction.types";
+export { withActiveProjectGuard } from "./server/project-guard";
+export { toApplicationClosureEventId } from "./server/closure-adapter";
 export type {
   DeliveryApprovedEvent,
   DeliveryRequestedEvent,
