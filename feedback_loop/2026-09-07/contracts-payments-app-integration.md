@@ -1,7 +1,8 @@
-# contracts-payments 피드백 — 2026-09-07 통합 (app/server, 서버 단계)
+# contracts-payments 피드백 — 2026-09-07 통합 (app/server + app/web, 서버·웹 단계 전체)
 
 반영 커밋(prototype 기준): 28471d6 (PR #80. sync-log.md 이전 기록은 67207c8, 9/3)
-sync-log.md 기록: 없음 — 서버 단계만 끝났고 웹 반영이 남아 있어 통합 전체가 끝난 뒤 한 번에 기록한다.
+sync-log.md 기록: 이 통합의 서버·웹 커밋을 모두 만든 뒤 한 번에 기록한다(마지막 커밋 메시지에
+정확한 해시 반영).
 
 > 상태 값 규칙·담당자 작업 흐름은 `feedback_loop/README.md` 참고.
 
@@ -79,5 +80,83 @@ sync-log.md 기록: 없음 — 서버 단계만 끝났고 웹 반영이 남아 �
 **담당자 메모**
 - project-management의 A-07(공개 취소) 통합 시점에 이 엔드포인트를 그대로 호출하도록
   연결 필요.
+
+---
+
+## 항목 4 — 납품·정산·취소 3개 신규 화면은 시안(design/*.html)이 없다
+
+상태: 미확인
+
+**Fact**
+- `features/contracts-payments/design/` 아래에는 합의·서명·결제 3개 시안만 있고, 이번에
+  새로 반영한 납품(DLV-01)·정산 조회(SET-01 v2)·취소 조회(CAN-01 v2)는 시안 HTML이 없다.
+
+**어떻게 채웠는지**
+- `prototype/web/DeliveryPanel.tsx`(및 대응 정산·취소 프로토타입 컴포넌트가 있다면 그쪽)의
+  마크업 구조를 보조 근거로 삼되, 클래스 표기는 이 기능이 이미 쓰고 있는
+  `panel.css`(`.panel`·`.panel-head`·`.facts`·`.badge` 등)를 그대로 재사용해 새로 짰다.
+  `panel.css`에는 재제안 이력·납품 파일·정산 내역이 공유하는 `.offer-history`·
+  `.delivery-file`·`.settlement-breakdown`·`.history-*` 조각만 새로 추가했고, 전부 기존
+  CSS 변수(design-tokens.md)만 참조한다 — 새 색상·레이아웃 단위를 만들지 않았다.
+
+**왜 그렇게 채웠는지 (근거)**
+- integration-workflow.md "시안이 상호작용 방식까지 정해 주지 않을 수 있다" 절 — 시안이
+  없을 때는 기존 화면의 패턴을 최대한 재사용하고 새 판단은 여기 기록해 두라고 명시한다.
+
+**담당자 메모**
+- 조준영님이 이 3개 화면의 실제 시안을 나중에 만들면 지금 짠 마크업/클래스와 비교해
+  차이가 있는지 확인 필요.
+
+---
+
+## 항목 5 — 정산 조회 화면이 paymentId를 URL 없이 `preparePayment` 재사용으로 얻는다
+
+상태: 미확인
+
+**Fact**
+- 공개 GET 경로는 `/v1/payments/:paymentId/settlement`라 paymentId가 필요한데, 결제·서명
+  화면과 같은 컨벤션(contract.routes.tsx)대로 URL에는 contractId만 쓰기로 했다.
+- `preparePayment`는 결제가 이미 READY 또는 PAID 상태면 결제 게이트웨이를 다시 호출하지
+  않고 기존 레코드의 `paymentId`를 그대로 돌려준다(public-api.service.ts 513행대,
+  부작용 없음 — 서버 코드 변경 없이 기존 동작 그대로 확인했다).
+
+**어떻게 채웠는지**
+- `SettlementPage.tsx`가 `preparePayment(contractId)`로 paymentId를 얻은 뒤
+  `fetchSettlement(paymentId)`를 호출한다. 결제 전(READY 아님)이거나 PENDING 상태면
+  409로 실패해 loadFailed로 떨어지는데, 이 화면은 결제 완료 이후에만 링크될 예정이라
+  실사용 경로에서는 발생하지 않는다고 판단했다.
+
+**왜 그렇게 채웠는지 (근거)**
+- 새 GET 경로(`/v1/contracts/:contractId/settlement`)를 신설하는 대신 이미 있는 idempotent
+  엔드포인트를 재사용하는 쪽이 서버 계약을 넓히지 않는다 — 다만 이름이 "prepare"인 함수를
+  조회 목적으로 쓰는 것이 어색하다는 판단은 남아 있다.
+
+**담당자 메모**
+- 이 방식이 어색하다고 판단되면, 다음 Increment에서 contractId 기반 정산 조회 GET을
+  서버에 신설하는 편이 더 명확할 수 있다 — 조준영님 검토 필요.
+
+---
+
+## 항목 6 — check:design이 이미 알려진 `.success` 클래스 드리프트를 계속 보고한다 (범위 밖)
+
+상태: 확인됨 (조치 불필요 — 사전에 알려진 이슈)
+
+**Fact**
+- `node scripts/check-design-drift.js` 실행 결과, `applications`·`contracts-payments`·
+  `reviews` 3개 기능의 시안이 `shared/ui/tokens.css`에 없는 `.success` 클래스를 쓴다는
+  경고가 이번 반영 이전부터 이미 존재했다(이번 웹 반영에서 새로 만든 파일이 원인이 아니다
+  — 시안 원본 `design/*.html`에 있는 클래스라 이 반영 범위 밖이다).
+
+**어떻게 채웠는지**
+- 손대지 않았다. 새로 만든 `SettlementPanel.tsx`·`DeliveryPanel.tsx`·`CancellationPanel.tsx`는
+  `.helper.success`(기존 `panel.css` 규칙)만 쓰고 독립된 `.success` 클래스를 새로 쓰지 않는다.
+
+**왜 그렇게 채웠는지 (근거)**
+- 이 드리프트는 여러 기능에 걸친 공용 디자인 시스템 결정 사항이라 이번 contracts-payments
+  단일 기능 통합 범위에서 임의로 고치지 않는다.
+
+**담당자 메모**
+- 팀 전체 디자인 시스템 정리 작업(향후 별도 CR)에서 `.success` 토큰 추가 여부를 결정할 때
+  같이 처리.
 
 ---
