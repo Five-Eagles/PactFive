@@ -1,28 +1,19 @@
 # reviews — API 계약
 
-형식은 `docs/naming-convention.md` §7(REST API), §6(DTO 패턴)을 따른다.
-브라우저. `Authorization: Bearer <accessToken>`. 상태 변경 POST는 `Idempotency-Key` 필수.
-Mock: `prototype/mock/review.mock.ts` (`createReviewApiMock`).
-
-브라우저 화면 경로는 `/projects/:projectId/reviews`다. 설계서 `/contracts/:contractId/review`·
-`/reviews/me`·`GET /users/:id/reviews`는 쓰지 않는다. 설계서 신설 `REVIEW_*` 코드·`SUBMITTED`
-컬럼은 만들지 않는다. 본문 필드는 `comment`이며 `content`가 아니다.
+형식은 `docs/naming-convention.md` §7·§6. Bearer 필수. POST는 `Idempotency-Key` 필수.
+Mock: `prototype/mock/review.mock.ts`. 화면 `/projects/:projectId/reviews`.
+`SUBMITTED` 컬럼·숨김 API·`/contracts/:id/review`는 없다. 본문은 `content`.
+`GET .../review-summary`는 폐기하고 `GET .../rating`을 쓴다.
 
 ## POST /api/v1/projects/:projectId/reviews — `createReview`
 
-규칙 1~4·8·10. 당사자. `COMPLETED`만. 본문에 `direction`·`contractId` 없음.
-
-요청:
+규칙 1~4·8·10. 본문에 `direction`·`contractId` 없음.
 
 ```json
-{
-  "rating": 5,
-  "comment": "일정과 품질이 좋았습니다.",
-  "tags": ["RESPONSIBILITY", "DELIVERABLE_QUALITY"]
-}
+{ "rating": 5, "content": "요구사항을 명확히 전달해 주셨습니다.", "tags": ["CLEAR_REQUIREMENTS"] }
 ```
 
-응답 201:
+201:
 
 ```json
 {
@@ -33,26 +24,23 @@ Mock: `prototype/mock/review.mock.ts` (`createReviewApiMock`).
   "revieweeId": "usr_freelancer_b",
   "direction": "CLIENT_TO_FREELANCER",
   "rating": 5,
-  "comment": "일정과 품질이 좋았습니다.",
-  "tags": ["RESPONSIBILITY", "DELIVERABLE_QUALITY"],
-  "isPublic": false,
-  "createdAt": "2026-08-28T04:00:00Z"
+  "content": "요구사항을 명확히 전달해 주셨습니다.",
+  "tags": ["WORK_QUALITY"],
+  "visibility": "BLINDED",
+  "submittedAt": "2026-09-04T08:00:00Z",
+  "editable": false
 }
 ```
 
-같은 `Idempotency-Key` + 같은 본문 재호출은 200, 기존 행. 다른 본문은 409.
-이미 같은 방향이 있으면 409.
+같은 키·같은 본문 200. 같은 키·다른 본문 409 `IDEMPOTENCY_KEY_REUSED`.
+같은 방향 409 `REVIEW_ALREADY_SUBMITTED`. 기한 후 409 `REVIEW_PERIOD_CLOSED`.
 
-에러: 401. 403 비당사자. 404. 409 `REVIEW_ALREADY_EXISTS` · `TRANSACTION_NOT_COMPLETED` ·
-`PROJECT_TRANSITION_CONFLICT`(취소). 422 `rating`·`tags`.
-
----
+에러: 400 `INVALID_REVIEW_RATING`. 401. 403 `REVIEW_FORBIDDEN`. 404 `PROJECT_NOT_FOUND`.
+409 `PROJECT_NOT_COMPLETED`. 422 `REVIEW_CONTENT_INVALID` · `REVIEW_TAG_INVALID`.
 
 ## GET /api/v1/projects/:projectId/reviews — `listProjectReviews`
 
-규칙 5·6·9. 당사자는 본인 미공개 + 공개된 양쪽. 비당사자는 `isPublic: true`만.
-
-응답 200:
+당사자는 본인 `BLINDED` + `PUBLISHED`. 비당사자는 `PUBLISHED`만. 상대 `BLINDED`는 넣지 않는다.
 
 ```json
 {
@@ -62,111 +50,95 @@ Mock: `prototype/mock/review.mock.ts` (`createReviewApiMock`).
       "reviewId": "rvw_123",
       "direction": "CLIENT_TO_FREELANCER",
       "rating": 5,
-      "comment": "일정과 품질이 좋았습니다.",
-      "tags": ["RESPONSIBILITY", "DELIVERABLE_QUALITY"],
-      "isPublic": true,
-      "createdAt": "2026-08-28T04:00:00Z"
+      "content": "요구사항을 명확히 전달해 주셨습니다.",
+      "tags": ["WORK_QUALITY"],
+      "visibility": "PUBLISHED",
+      "submittedAt": "2026-09-04T08:00:00Z"
     }
   ]
 }
 ```
 
-상대 미공개 행은 `items`에 넣지 않는다. 빈 목록은 `items: []`.
-
 에러: 401. 404.
 
----
+## GET /api/v1/projects/:projectId/reviews/me — `getMyProjectReview`
 
-## GET /api/v1/users/:userId/review-summary — `getReviewSummary`
-
-규칙 7. 공개된 리뷰만. 인증 필요. 프로젝트 목록은 값을 가공하지 않는다.
-
-응답 200:
+규칙 9·11. 작성 가능 상태. 상대가 공개 전이면 존재·별점·본문을 반환하지 않는다.
 
 ```json
 {
-  "userId": "usr_freelancer_b",
-  "averageRating": 4.5,
-  "reviewCount": 2
+  "canReview": true,
+  "reason": null,
+  "reviewDeadlineAt": "2026-09-18T08:00:00Z",
+  "myReview": null,
+  "counterpartyReviewVisibility": "NOT_AVAILABLE"
 }
 ```
 
-공개 리뷰가 없으면 `averageRating: null`, `reviewCount: 0`.
+`reason`은 `PROJECT_NOT_COMPLETED` · `REVIEW_FORBIDDEN` · `REVIEW_ALREADY_SUBMITTED` ·
+`REVIEW_PERIOD_CLOSED` 또는 null. 에러: 401. 404.
+
+## GET /api/v1/users/:userId/rating — `getUserRating`
+
+규칙 7. 공개분만. 프로젝트 목록은 값을 가공하지 않는다.
+
+```json
+{ "userId": "usr_freelancer_b", "averageRating": 4.5, "reviewCount": 2 }
+```
+
+없으면 `averageRating: null`, `reviewCount: 0`. 에러: 401. 404.
+
+## GET /api/v1/users/:userId/reviews — `listUserReviews`
+
+`PUBLISHED`만. `publishedAt DESC, reviewId DESC`. `page` 1~1000, `pageSize` 1~50(기본 20).
+
+```json
+{ "items": [], "page": 1, "pageSize": 20, "totalCount": 0, "totalPages": 0 }
+```
 
 에러: 401. 404.
 
----
-
 ## 내부 조회 — `getPublishedRatingAggregate`
 
-규칙 7. 브라우저 `/api/v1`이 아니다. 오민혁이 `REVIEW_CREATED` 수신 후 호출한다.
-정본은 함수명이다 (D-48). HTTP 어댑터는 팀장 통합. 타입: `prototype/server/published-rating.port.ts`.
+브라우저 API가 아니다. 오민혁이 `REVIEW_CREATED` 후 호출. HTTP는 팀장.
 
 ```ts
-getPublishedRatingAggregate(revieweeId: string): Promise<{
-  ratingSum: number;
-  reviewCount: number;
-}>
+getPublishedRatingAggregate(revieweeId: string): Promise<{ ratingSum: number; reviewCount: number }>
 ```
 
-공개 리뷰만. 0건이면 `{ ratingSum: 0, reviewCount: 0 }`. 반올림 없음.
-`getReviewSummary`는 브라우저용 평균을 유지한다. 이 포트의 합계가 정본이다.
+공개분만. 0건이면 `{ ratingSum: 0, reviewCount: 0 }`. 반올림 없음. `/rating` 평균의 정본.
 
----
-
-PATCH/PUT/DELETE `/reviews` 없음 (규칙 4). 호출하면 405 `METHOD_NOT_ALLOWED`.
-
----
+PATCH/PUT/DELETE 없음 → 405 `METHOD_NOT_ALLOWED`.
 
 ## DTO
 
 ```ts
 type ReviewDirection = 'CLIENT_TO_FREELANCER' | 'FREELANCER_TO_CLIENT';
+type ReviewVisibility = 'BLINDED' | 'PUBLISHED';
 type ClientToFreelancerTag =
-  | 'RESPONSIBILITY'
-  | 'COMMUNICATION'
-  | 'TECHNICAL_SKILL'
-  | 'SCHEDULE_COMPLIANCE'
-  | 'DELIVERABLE_QUALITY';
+  | 'WORK_QUALITY' | 'ON_TIME_DELIVERY' | 'GOOD_COMMUNICATION'
+  | 'REQUIREMENT_UNDERSTANDING' | 'PROFESSIONAL_ATTITUDE';
 type FreelancerToClientTag =
-  | 'REQUIREMENT_CLARITY'
-  | 'COMMUNICATION'
-  | 'FEEDBACK_SPEED'
-  | 'SCOPE_STABILITY'
-  | 'PAYMENT_RELIABILITY';
+  | 'CLEAR_REQUIREMENTS' | 'FAST_FEEDBACK' | 'GOOD_COMMUNICATION'
+  | 'SCOPE_STABILITY' | 'PROFESSIONAL_ATTITUDE';
 type ReviewTag = ClientToFreelancerTag | FreelancerToClientTag;
-
-type CreateReviewInput = {
-  rating: 1 | 2 | 3 | 4 | 5;
-  comment?: string;
-  tags: ReviewTag[];
-};
+type CreateReviewInput = { rating: 1|2|3|4|5; content?: string; tags: ReviewTag[] };
 type ReviewItem = {
-  reviewId: string;
-  direction: ReviewDirection;
-  rating: number;
-  comment: string | null;
-  tags: ReviewTag[];
-  isPublic: boolean;
-  createdAt: string;
+  reviewId: string; direction: ReviewDirection; rating: number;
+  content: string | null; tags: ReviewTag[]; visibility: ReviewVisibility; submittedAt: string;
 };
 type CreateReviewResponse = ReviewItem & {
-  projectId: string;
-  contractId: string;
-  reviewerId: string;
-  revieweeId: string;
+  projectId: string; contractId: string; reviewerId: string; revieweeId: string; editable: false;
 };
-type ListProjectReviewsResponse = {
-  projectId: string;
-  items: ReviewItem[];
+type GetMyProjectReviewResponse = {
+  canReview: boolean;
+  reason: 'PROJECT_NOT_COMPLETED'|'REVIEW_FORBIDDEN'|'REVIEW_ALREADY_SUBMITTED'|'REVIEW_PERIOD_CLOSED'|null;
+  reviewDeadlineAt: string | null;
+  myReview: CreateReviewResponse | null;
+  counterpartyReviewVisibility: 'NOT_AVAILABLE' | 'PUBLISHED';
 };
-type GetReviewSummaryResponse = {
-  userId: string;
-  averageRating: number | null;
-  reviewCount: number;
-};
-type PublishedRatingAggregate = {
-  ratingSum: number;
-  reviewCount: number;
+type GetUserRatingResponse = { userId: string; averageRating: number | null; reviewCount: number };
+type ListUserReviewsResponse = {
+  items: ReviewItem[]; page: number; pageSize: number; totalCount: number; totalPages: number;
 };
 ```

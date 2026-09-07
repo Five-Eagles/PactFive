@@ -6,12 +6,16 @@ import {
   type CreateReviewInput,
   type CreateReviewResponse,
   type CreateReviewResult,
-  type GetReviewSummaryResponse,
+  type GetMyProjectReviewResponse,
+  type GetUserRatingResponse,
   type ListProjectReviewsResponse,
+  type ListUserReviewsResponse,
+  type MyProjectReviewReason,
   type ReviewDirection,
   type ReviewItem,
   type ReviewRow,
   type ReviewStore,
+  type ReviewVisibility,
 } from "./review.types";
 
 export type { ReviewStore };
@@ -29,30 +33,27 @@ function requireActor(actorUserId: string | undefined): string {
   return actorUserId;
 }
 
-function bodyHash(input: CreateReviewInput): string {
+function bodyHash(input: CreateReviewInput, content: string | null): string {
   return JSON.stringify({
     rating: input.rating,
-    comment: input.comment ?? null,
+    content,
     tags: [...input.tags].sort(),
   });
 }
 
-function isAllowedRating(rating: number): boolean {
-  return Number.isInteger(rating) && rating >= 1 && rating <= 5;
+function normalizeContent(raw: string | undefined): string | null {
+  if (raw === undefined) return null;
+  const trimmed = raw.trim();
+  if (trimmed.length < 1 || trimmed.length > 1000) {
+    throw new ReviewApiError("REVIEW_CONTENT_INVALID", "리뷰 내용이 올바르지 않습니다.", [
+      { field: "content", reason: "invalid" },
+    ]);
+  }
+  return trimmed;
 }
 
-function assertTags(direction: ReviewDirection, tags: string[]): void {
-  if (!Array.isArray(tags)) {
-    throw new ReviewApiError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
-      { field: "tags", reason: "invalid" },
-    ]);
-  }
-  const allowed = new Set(tagsForDirection(direction));
-  if (tags.some((tag) => !allowed.has(tag))) {
-    throw new ReviewApiError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
-      { field: "tags", reason: "invalid" },
-    ]);
-  }
+function visibilityOf(isPublic: boolean): ReviewVisibility {
+  return isPublic ? "PUBLISHED" : "BLINDED";
 }
 
 export function isReviewPublic(row: ReviewRow, siblings: ReviewRow[], nowIso: string): boolean {
@@ -64,15 +65,34 @@ export function isReviewPublic(row: ReviewRow, siblings: ReviewRow[], nowIso: st
   return Date.parse(nowIso) - Date.parse(row.createdAt) >= SOLO_PUBLIC_AFTER_DAYS * DAY_MS;
 }
 
+function earliestSubmittedAt(siblings: ReviewRow[]): string | null {
+  if (siblings.length === 0) return null;
+  return siblings.reduce(
+    (min, row) => (Date.parse(row.createdAt) < Date.parse(min) ? row.createdAt : min),
+    siblings[0].createdAt,
+  );
+}
+
+function reviewDeadlineAt(siblings: ReviewRow[]): string | null {
+  const first = earliestSubmittedAt(siblings);
+  if (!first) return null;
+  return new Date(Date.parse(first) + SOLO_PUBLIC_AFTER_DAYS * DAY_MS).toISOString();
+}
+
+function isPeriodClosed(siblings: ReviewRow[], nowIso: string): boolean {
+  const deadline = reviewDeadlineAt(siblings);
+  return deadline !== null && Date.parse(nowIso) >= Date.parse(deadline);
+}
+
 function toItem(row: ReviewRow, isPublic: boolean): ReviewItem {
   return {
     reviewId: row.reviewId,
     direction: row.direction,
     rating: row.rating,
-    comment: row.comment,
+    content: row.content,
     tags: row.tags,
-    isPublic,
-    createdAt: row.createdAt,
+    visibility: visibilityOf(isPublic),
+    submittedAt: row.createdAt,
   };
 }
 
@@ -83,6 +103,7 @@ function toCreateBody(row: ReviewRow, isPublic: boolean): CreateReviewResponse {
     contractId: row.contractId,
     reviewerId: row.reviewerId,
     revieweeId: row.revieweeId,
+    editable: false,
   };
 }
 
@@ -129,34 +150,43 @@ export async function createReview(
     throw new ReviewApiError("PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다.");
   }
   if (actor !== project.clientId && actor !== project.freelancerId) {
-    throw new ReviewApiError("PROJECT_FORBIDDEN", "이 프로젝트에 대한 권한이 없습니다.");
+    throw new ReviewApiError("REVIEW_FORBIDDEN", "이 프로젝트에 대한 권한이 없습니다.");
   }
-  // 취소는 전이 충돌, 그 외 미완료는 TRANSACTION_NOT_COMPLETED다.
-  if (project.transactionStatus === "CANCELED" || project.contractStatus === "CANCELED") {
-    throw new ReviewApiError("PROJECT_TRANSITION_CONFLICT", "취소된 거래는 리뷰할 수 없습니다.");
-  }
-  if (project.transactionStatus !== "COMPLETED") {
-    throw new ReviewApiError("TRANSACTION_NOT_COMPLETED", "거래가 완료되지 않았습니다.");
+  if (
+    project.transactionStatus !== "COMPLETED" ||
+    project.contractStatus === "CANCELED"
+  ) {
+    throw new ReviewApiError("PROJECT_NOT_COMPLETED", "거래가 완료되지 않았습니다.");
   }
 
   const direction: ReviewDirection =
     actor === project.clientId ? "CLIENT_TO_FREELANCER" : "FREELANCER_TO_CLIENT";
-  if (!isAllowedRating(input.rating)) {
-    throw new ReviewApiError("VALIDATION_ERROR", "요청 값이 올바르지 않습니다.", [
+  if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) {
+    throw new ReviewApiError("INVALID_REVIEW_RATING", "별점은 1부터 5까지의 정수입니다.", [
       { field: "rating", reason: "invalid" },
     ]);
   }
-  assertTags(direction, input.tags);
+  if (!Array.isArray(input.tags)) {
+    throw new ReviewApiError("REVIEW_TAG_INVALID", "태그가 올바르지 않습니다.", [
+      { field: "tags", reason: "invalid" },
+    ]);
+  }
+  const allowed = new Set(tagsForDirection(direction));
+  if (input.tags.some((tag) => !allowed.has(tag))) {
+    throw new ReviewApiError("REVIEW_TAG_INVALID", "태그가 올바르지 않습니다.", [
+      { field: "tags", reason: "invalid" },
+    ]);
+  }
+  const content = normalizeContent(input.content);
 
-  // 같은 키·본문은 기존 행을 그대로 돌려주고, 다른 본문·같은 방향은 409다.
-  const hash = bodyHash(input);
-  const idemKey = `${projectId}:${actor}:${idempotencyKey}`;
-  const cached = deps.store.getIdempotency(idemKey);
   const siblings = deps.store.getReviewsByProject(projectId);
   const nowIso = deps.now();
+  const hash = bodyHash(input, content);
+  const idemKey = `${projectId}:${actor}:${idempotencyKey}`;
+  const cached = deps.store.getIdempotency(idemKey);
   if (cached) {
     if (cached.bodyHash !== hash) {
-      throw new ReviewApiError("REVIEW_ALREADY_EXISTS", "이미 작성한 리뷰입니다.");
+      throw new ReviewApiError("IDEMPOTENCY_KEY_REUSED", "같은 요청 키로 다른 내용을 보낼 수 없습니다.");
     }
     const row = deps.store.getReview(cached.reviewId);
     if (!row) {
@@ -169,7 +199,10 @@ export async function createReview(
   }
 
   if (siblings.some((row) => row.direction === direction)) {
-    throw new ReviewApiError("REVIEW_ALREADY_EXISTS", "이미 작성한 리뷰입니다.");
+    throw new ReviewApiError("REVIEW_ALREADY_SUBMITTED", "이미 작성한 리뷰입니다.");
+  }
+  if (isPeriodClosed(siblings, nowIso)) {
+    throw new ReviewApiError("REVIEW_PERIOD_CLOSED", "리뷰 작성 기간이 끝났습니다.");
   }
 
   const row: ReviewRow = {
@@ -180,14 +213,13 @@ export async function createReview(
     revieweeId: actor === project.clientId ? project.freelancerId : project.clientId,
     direction,
     rating: input.rating,
-    comment: input.comment ?? null,
+    content,
     tags: input.tags,
     createdAt: nowIso,
     reviewCreatedPublishedAt: null,
   };
   deps.store.insertReview(row);
   deps.store.setIdempotency(idemKey, hash, row.reviewId);
-  // 공개가 된 행에만 REVIEW_CREATED를 보낸다. users는 갱신하지 않는다.
   await publishNewlyPublic(deps, projectId);
   const after = deps.store.getReviewsByProject(projectId);
   const stored = deps.store.getReview(row.reviewId) ?? row;
@@ -207,7 +239,6 @@ export async function listProjectReviews(
   if (!project) {
     throw new ReviewApiError("PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다.");
   }
-  // 비당사자는 공개분만, 당사자는 본인 미공개 행도 본다.
   const siblings = deps.store.getReviewsByProject(projectId);
   const nowIso = deps.now();
   const isParty = actor === project.clientId || actor === project.freelancerId;
@@ -221,11 +252,52 @@ export async function listProjectReviews(
   return { projectId, items };
 }
 
+export async function getMyProjectReview(
+  deps: ReviewServiceDeps,
+  projectId: string,
+  actorUserId: string | undefined,
+): Promise<GetMyProjectReviewResponse> {
+  const actor = requireActor(actorUserId);
+  const project = deps.store.getProject(projectId);
+  if (!project) {
+    throw new ReviewApiError("PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다.");
+  }
+  const siblings = deps.store.getReviewsByProject(projectId);
+  const nowIso = deps.now();
+  const isParty = actor === project.clientId || actor === project.freelancerId;
+  const direction: ReviewDirection | null = !isParty
+    ? null
+    : actor === project.clientId
+      ? "CLIENT_TO_FREELANCER"
+      : "FREELANCER_TO_CLIENT";
+  const mine = direction ? siblings.find((row) => row.direction === direction) : undefined;
+  const counterpart = direction
+    ? siblings.find((row) => row.direction !== direction)
+    : undefined;
+  const counterpartPublic = counterpart
+    ? isReviewPublic(counterpart, siblings, nowIso)
+    : false;
+
+  let reason: MyProjectReviewReason | null = null;
+  if (!isParty) reason = "REVIEW_FORBIDDEN";
+  else if (project.transactionStatus !== "COMPLETED" || project.contractStatus === "CANCELED") {
+    reason = "PROJECT_NOT_COMPLETED";
+  } else if (mine) reason = "REVIEW_ALREADY_SUBMITTED";
+  else if (isPeriodClosed(siblings, nowIso)) reason = "REVIEW_PERIOD_CLOSED";
+
+  return {
+    canReview: reason === null,
+    reason,
+    reviewDeadlineAt: reviewDeadlineAt(siblings),
+    myReview: mine ? toCreateBody(mine, isReviewPublic(mine, siblings, nowIso)) : null,
+    counterpartyReviewVisibility: counterpartPublic ? "PUBLISHED" : "NOT_AVAILABLE",
+  };
+}
+
 export async function getPublishedRatingAggregate(
   deps: ReviewServiceDeps,
   revieweeId: string,
 ): Promise<PublishedRatingAggregate> {
-  // 공개 리뷰만 합산하고 반올림하지 않는다.
   const nowIso = deps.now();
   let ratingSum = 0;
   let reviewCount = 0;
@@ -239,16 +311,15 @@ export async function getPublishedRatingAggregate(
   return { ratingSum, reviewCount };
 }
 
-export async function getReviewSummary(
+export async function getUserRating(
   deps: ReviewServiceDeps,
   userId: string,
   actorUserId: string | undefined,
-): Promise<GetReviewSummaryResponse> {
+): Promise<GetUserRatingResponse> {
   requireActor(actorUserId);
   if (!deps.store.userExists(userId)) {
     throw new ReviewApiError("USER_NOT_FOUND", "사용자를 찾을 수 없습니다.");
   }
-  // 평균은 공개분 합계에서 나누고 users 캐시는 읽지 않는다.
   const { ratingSum, reviewCount } = await getPublishedRatingAggregate(deps, userId);
   if (reviewCount === 0) {
     return { userId, averageRating: null, reviewCount: 0 };
@@ -256,8 +327,41 @@ export async function getReviewSummary(
   return { userId, averageRating: ratingSum / reviewCount, reviewCount };
 }
 
+export async function listUserReviews(
+  deps: ReviewServiceDeps,
+  userId: string,
+  actorUserId: string | undefined,
+  page = 1,
+  pageSize = 20,
+): Promise<ListUserReviewsResponse> {
+  requireActor(actorUserId);
+  if (!deps.store.userExists(userId)) {
+    throw new ReviewApiError("USER_NOT_FOUND", "사용자를 찾을 수 없습니다.");
+  }
+  const safePage = Math.min(1000, Math.max(1, Math.floor(page) || 1));
+  const safeSize = Math.min(50, Math.max(1, Math.floor(pageSize) || 20));
+  const nowIso = deps.now();
+  const published = deps.store
+    .getAllReviews()
+    .filter((row) => {
+      if (row.revieweeId !== userId) return false;
+      const siblings = deps.store.getReviewsByProject(row.projectId);
+      return isReviewPublic(row, siblings, nowIso);
+    })
+    .sort((a, b) => {
+      const publishedA = a.reviewCreatedPublishedAt ?? a.createdAt;
+      const publishedB = b.reviewCreatedPublishedAt ?? b.createdAt;
+      const byTime = Date.parse(publishedB) - Date.parse(publishedA);
+      return byTime !== 0 ? byTime : b.reviewId.localeCompare(a.reviewId);
+    });
+  const totalCount = published.length;
+  const totalPages = totalCount === 0 ? 0 : Math.ceil(totalCount / safeSize);
+  const start = (safePage - 1) * safeSize;
+  const items = published.slice(start, start + safeSize).map((row) => toItem(row, true));
+  return { items, page: safePage, pageSize: safeSize, totalCount, totalPages };
+}
+
 export async function publishDueSoloReviews(deps: ReviewServiceDeps): Promise<void> {
-  // 14일이 지난 단독 리뷰를 찾아 공개 이벤트를 보낸다.
   const seen = new Set<string>();
   for (const row of deps.store.getAllReviews()) {
     if (seen.has(row.projectId)) continue;

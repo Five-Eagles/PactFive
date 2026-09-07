@@ -11,9 +11,12 @@ export { ReviewApiError, isReviewApiError } from "./server/review.types";
 export type {
   CreateReviewInput,
   CreateReviewResponse,
-  GetReviewSummaryResponse,
+  GetMyProjectReviewResponse,
+  GetUserRatingResponse,
   ListProjectReviewsResponse,
+  ListUserReviewsResponse,
   ReviewDirection,
+  ReviewVisibility,
 } from "./server/review.types";
 export type {
   PublishedRatingAggregate,

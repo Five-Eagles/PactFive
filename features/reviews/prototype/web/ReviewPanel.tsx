@@ -72,10 +72,10 @@ function fixtureVm(overrides: Partial<ReviewPanelProps>): ReviewFormViewModel {
               reviewId: "rvw_preview",
               direction: viewerRole === "FREELANCER" ? "FREELANCER_TO_CLIENT" : "CLIENT_TO_FREELANCER",
               rating: 5,
-              comment: "일정과 품질이 좋았습니다.",
-              tags: viewerRole === "FREELANCER" ? ["REQUIREMENT_CLARITY"] : ["DELIVERABLE_QUALITY"],
-              isPublic: myPublic,
-              createdAt: "2026-09-04T00:00:00Z",
+              content: "일정과 품질이 좋았습니다.",
+              tags: viewerRole === "FREELANCER" ? ["CLEAR_REQUIREMENTS"] : ["WORK_QUALITY"],
+              visibility: myPublic ? "PUBLISHED" : "BLINDED",
+              submittedAt: "2026-09-04T00:00:00Z",
             },
           ]
         : [],
@@ -105,7 +105,7 @@ function ConfirmDialog({
           {vm.revieweeDisplayName} · {ratingLabel}
         </p>
         {tagLabels.length > 0 ? <p className="helper">{tagLabels.join(" · ")}</p> : null}
-        {vm.comment.trim() ? <p className="helper">{vm.comment}</p> : null}
+        {vm.content.trim() ? <p className="helper">{vm.content}</p> : null}
         <p className="helper">제출하면 내용을 바꿀 수 없습니다. 공개 조건이 충족되면 함께 공개됩니다.</p>
         <div className="btn-row">
           <button type="button" className="btn primary">
@@ -212,14 +212,14 @@ export function ReviewPanel(props: ReviewPanelProps) {
   const resolved = props.vm ?? fixtureVm(props);
   const [rating, setRating] = useState<1 | 2 | 3 | 4 | 5 | null>(resolved.rating);
   const [selectedTags, setSelectedTags] = useState<string[]>(resolved.selectedTags);
-  const [comment, setComment] = useState(resolved.comment);
+  const [content, setContent] = useState(resolved.content);
   const [confirmOpen, setConfirmOpen] = useState(props.initialModal === "confirm");
 
   const vm: ReviewFormViewModel = {
     ...resolved,
     rating,
     selectedTags,
-    comment,
+    content,
     canSubmit: resolved.canReview && rating !== null && selectedTags.length <= 5,
   };
 
@@ -391,15 +391,15 @@ export function ReviewPanel(props: ReviewPanelProps) {
             <textarea
               className="field"
               id="review-comment"
-              name="comment"
+              name="content"
               maxLength={1000}
               rows={5}
-              value={vm.comment}
-              onChange={(event) => setComment(event.target.value)}
+              value={vm.content}
+              onChange={(event) => setContent(event.target.value)}
               placeholder="선택 · 1~1,000자"
             />
             <p className="helper" id="review-comment-count">
-              {vm.comment.length} / 1000 · 이메일·전화번호·계좌번호는 적지 마세요.
+              {vm.content.length} / 1000 · 이메일·전화번호·계좌번호는 적지 마세요.
             </p>
           </div>
         </form>

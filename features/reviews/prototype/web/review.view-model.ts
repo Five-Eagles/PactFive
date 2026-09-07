@@ -7,6 +7,7 @@ import type {
   ProjectTransactionStatus,
   ReviewDirection,
   ReviewItem,
+  ReviewVisibility,
 } from "../server/review.types";
 
 export type ReviewViewerRole = "CLIENT" | "FREELANCER" | "OUTSIDER";
@@ -38,13 +39,13 @@ export type ReviewFormViewModel = {
   revieweeRoleLabel: string;
   rating: 1 | 2 | 3 | 4 | 5 | null;
   selectedTags: string[];
-  comment: string;
+  content: string;
   allowedTags: ReviewTagOption[];
   canReview: boolean;
   canSubmit: boolean;
   primaryAction: ReviewPrimaryAction;
   myRating: number | null;
-  myComment: string | null;
+  myContent: string | null;
   myTags: string[];
   ratingSummaryLabel: string;
 };
@@ -58,19 +59,19 @@ export const RATING_HELPER: Record<1 | 2 | 3 | 4 | 5, string> = {
 };
 
 const CLIENT_TAG_LABEL: Record<(typeof CLIENT_TO_FREELANCER_TAGS)[number], string> = {
-  RESPONSIBILITY: "업무 태도가 전문적이에요",
-  COMMUNICATION: "소통이 원활해요",
-  TECHNICAL_SKILL: "기술 역량이 좋아요",
-  SCHEDULE_COMPLIANCE: "납기를 잘 지켜요",
-  DELIVERABLE_QUALITY: "결과물 품질이 좋아요",
+  WORK_QUALITY: "결과물 품질이 좋아요",
+  ON_TIME_DELIVERY: "납기를 잘 지켜요",
+  GOOD_COMMUNICATION: "소통이 원활해요",
+  REQUIREMENT_UNDERSTANDING: "요구사항 이해가 정확해요",
+  PROFESSIONAL_ATTITUDE: "업무 태도가 전문적이에요",
 };
 
 const FREELANCER_TAG_LABEL: Record<(typeof FREELANCER_TO_CLIENT_TAGS)[number], string> = {
-  REQUIREMENT_CLARITY: "요구사항이 명확해요",
-  COMMUNICATION: "소통이 원활해요",
-  FEEDBACK_SPEED: "피드백이 빨라요",
+  CLEAR_REQUIREMENTS: "요구사항이 명확해요",
+  FAST_FEEDBACK: "피드백이 빨라요",
+  GOOD_COMMUNICATION: "소통이 원활해요",
   SCOPE_STABILITY: "업무 범위가 안정적이에요",
-  PAYMENT_RELIABILITY: "결제가 믿을 수 있어요",
+  PROFESSIONAL_ATTITUDE: "협업 태도가 전문적이에요",
 };
 
 export type DeriveReviewUiStateInput = {
@@ -79,10 +80,10 @@ export type DeriveReviewUiStateInput = {
   transactionStatus: ProjectTransactionStatus;
   contractStatus: ContractStatus;
   viewerRole: ReviewViewerRole;
-  myReview: { isPublic: boolean } | null;
+  myReview: { visibility: ReviewVisibility } | null;
 };
 
-/** 역할별 E-19 태그에 설계서 표시명만 붙인다. */
+/** 역할별 설계서 §10 태그에 표시명만 붙인다. */
 export function allowedTagsForRole(role: ReviewViewerRole): ReviewTagOption[] {
   if (role === "CLIENT") {
     return CLIENT_TO_FREELANCER_TAGS.map((code) => ({ code, label: CLIENT_TAG_LABEL[code] }));
@@ -93,7 +94,6 @@ export function allowedTagsForRole(role: ReviewViewerRole): ReviewTagOption[] {
   return [];
 }
 
-/** 서버 평균을 소수 첫째 자리로만 보여 주고 목록으로 다시 나누지 않는다. */
 export function formatRatingSummary(
   averageRating: number | null,
   reviewCount: number,
@@ -109,7 +109,6 @@ export function ownDirection(role: ReviewViewerRole): ReviewDirection | null {
   return null;
 }
 
-/** 본인 방향 행만 고른다. 상대 제출 여부는 필드로 두지 않는다. */
 export function findMyReview(
   items: readonly ReviewItem[],
   role: ReviewViewerRole,
@@ -123,8 +122,7 @@ export function deriveReviewUiState(input: DeriveReviewUiStateInput): ReviewUiSt
   if (input.loadError) return input.loadError;
   if (input.overlay === "ALREADY_SUBMITTED") return "ALREADY_SUBMITTED";
   if (input.overlay === "SUBMITTING") return "SUBMITTING";
-  // 본인 행이 있으면 거래 상태와 무관하게 작성 폼을 닫는다.
-  if (input.myReview?.isPublic) return "PUBLISHED";
+  if (input.myReview?.visibility === "PUBLISHED") return "PUBLISHED";
   if (input.myReview) return "SUBMITTED_BLIND";
   if (input.transactionStatus === "CANCELED" || input.contractStatus === "CANCELED") {
     return "CANCELED";
@@ -156,10 +154,10 @@ export type ToReviewViewModelInput = {
   reviewCount?: number;
   rating?: 1 | 2 | 3 | 4 | 5 | null;
   selectedTags?: string[];
-  comment?: string;
+  content?: string;
 };
 
-/** listProjectReviews + review-summary를 화면 필드로 조립한다. */
+/** GET .../reviews/me + /rating 을 화면 필드로 조립한다. */
 export function toReviewViewModel(input: ToReviewViewModelInput): ReviewFormViewModel {
   const myReview = findMyReview(input.items, input.viewerRole);
   const uiState = deriveReviewUiState({
@@ -168,7 +166,7 @@ export function toReviewViewModel(input: ToReviewViewModelInput): ReviewFormView
     transactionStatus: input.transactionStatus,
     contractStatus: input.contractStatus,
     viewerRole: input.viewerRole,
-    myReview: myReview ? { isPublic: myReview.isPublic } : null,
+    myReview: myReview ? { visibility: myReview.visibility } : null,
   });
   const hideSensitive =
     uiState === "FORBIDDEN" || uiState === "NOT_FOUND" || uiState === "LOAD_FAILED";
@@ -184,13 +182,13 @@ export function toReviewViewModel(input: ToReviewViewModelInput): ReviewFormView
     revieweeRoleLabel: hideSensitive ? "" : revieweeRoleLabel(input.viewerRole),
     rating,
     selectedTags,
-    comment: input.comment ?? "",
+    content: input.content ?? "",
     allowedTags: hideSensitive ? [] : allowedTagsForRole(input.viewerRole),
     canReview,
     canSubmit: canReview && rating !== null && selectedTags.length <= 5,
     primaryAction: primaryAction(uiState),
     myRating: hideSensitive ? null : (myReview?.rating ?? null),
-    myComment: hideSensitive ? null : (myReview?.comment ?? null),
+    myContent: hideSensitive ? null : (myReview?.content ?? null),
     myTags: hideSensitive ? [] : (myReview?.tags ?? []),
     ratingSummaryLabel: formatRatingSummary(
       input.averageRating ?? null,

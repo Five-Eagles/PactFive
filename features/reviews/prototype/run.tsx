@@ -58,14 +58,14 @@ async function expectCode(
 
 const CLIENT_BODY = {
   rating: 5 as const,
-  comment: "일정과 품질이 좋았습니다.",
-  tags: ["RESPONSIBILITY", "DELIVERABLE_QUALITY"],
+  content: "일정과 품질이 좋았습니다.",
+  tags: ["WORK_QUALITY", "PROFESSIONAL_ATTITUDE"],
 };
 
 const FREELANCER_BODY = {
   rating: 4 as const,
-  comment: "요구가 명확했습니다.",
-  tags: ["REQUIREMENT_CLARITY", "PAYMENT_RELIABILITY"],
+  content: "요구가 명확했습니다.",
+  tags: ["CLEAR_REQUIREMENTS", "FAST_FEEDBACK"],
 };
 
 async function main() {
@@ -80,13 +80,13 @@ async function main() {
       created.httpStatus === 201 &&
       created.body.direction === "CLIENT_TO_FREELANCER" &&
       created.body.reviewId.startsWith("rvw_") &&
-      created.body.isPublic === false
+      created.body.visibility === "BLINDED"
     ) {
       pass("규칙 1: COMPLETED 작성");
     } else {
       fail("규칙 1: COMPLETED 작성", created);
     }
-    await expectCode("규칙 1: 미완료 거부", "TRANSACTION_NOT_COMPLETED", () =>
+    await expectCode("규칙 1: 미완료 거부", "PROJECT_NOT_COMPLETED", () =>
       api.createReview("prj_in_progress", MOCK_CLIENT_USER_ID, CLIENT_BODY, "idem-in-progress"),
     );
   }
@@ -105,7 +105,7 @@ async function main() {
     } else {
       fail("규칙 2: 프리랜서 방향 추론", asFreelancer);
     }
-    await expectCode("규칙 2: 비당사자 POST 403", "PROJECT_FORBIDDEN", () =>
+    await expectCode("규칙 2: 비당사자 POST 403", "REVIEW_FORBIDDEN", () =>
       api.createReview("prj_completed", MOCK_OUTSIDER_USER_ID, CLIENT_BODY, "idem-out"),
     );
   }
@@ -120,7 +120,10 @@ async function main() {
     } else {
       fail("규칙 3: 같은 키·본문 멱등 200", again);
     }
-    await expectCode("규칙 3: 방향당 1회 409", "REVIEW_ALREADY_EXISTS", () =>
+    await expectCode("규칙 3: 같은 키·다른 본문 409", "IDEMPOTENCY_KEY_REUSED", () =>
+      api.createReview("prj_completed", MOCK_CLIENT_USER_ID, { ...CLIENT_BODY, rating: 4 }, "idem-dup"),
+    );
+    await expectCode("규칙 3: 방향당 1회 409", "REVIEW_ALREADY_SUBMITTED", () =>
       api.createReview("prj_completed", MOCK_CLIENT_USER_ID, { ...CLIENT_BODY, rating: 4 }, "idem-dup-2"),
     );
   }
@@ -151,7 +154,7 @@ async function main() {
     await api.createReview("prj_completed", MOCK_CLIENT_USER_ID, CLIENT_BODY, "idem-both-c");
     const second = await api.createReview("prj_completed", MOCK_FREELANCER_USER_ID, FREELANCER_BODY, "idem-both-f");
     const listed = await api.listProjectReviews("prj_completed", MOCK_CLIENT_USER_ID);
-    if (second.body.isPublic === true && listed.items.length === 2 && listed.items.every((item) => item.isPublic)) {
+    if (second.body.visibility === "PUBLISHED" && listed.items.length === 2 && listed.items.every((item) => item.visibility === "PUBLISHED")) {
       pass("규칙 5: 양쪽 즉시 공개");
     } else {
       fail("규칙 5: 양쪽 즉시 공개", { second, listed });
@@ -168,11 +171,14 @@ async function main() {
       fail("규칙 6: 미공개 INSERT에 REVIEW_CREATED 없음", api.getPublishedEvents());
     }
     const due = await api.listProjectReviews("prj_solo_due", MOCK_OUTSIDER_USER_ID);
-    if (due.items.length === 1 && due.items[0].isPublic === true) {
+    if (due.items.length === 1 && due.items[0].visibility === "PUBLISHED") {
       pass("규칙 6: 14일 단독 공개");
     } else {
       fail("규칙 6: 14일 단독 공개", due);
     }
+    await expectCode("규칙 6: 기한 후 신규 제출 409", "REVIEW_PERIOD_CLOSED", () =>
+      api.createReview("prj_solo_due", MOCK_FREELANCER_USER_ID, FREELANCER_BODY, "idem-closed"),
+    );
     await api.publishDueSoloReviews();
     const events = api.getPublishedEvents();
     if (events.some((event) => event.reviewId === "rvw_solo_due")) {
@@ -185,13 +191,13 @@ async function main() {
   // 규칙 7 — 공개분만 평균, users 미갱신
   {
     const api = createReviewApiMock();
-    const empty = await api.getReviewSummary(MOCK_UNREVIEWED_USER_ID, MOCK_CLIENT_USER_ID);
+    const empty = await api.getUserRating(MOCK_UNREVIEWED_USER_ID, MOCK_CLIENT_USER_ID);
     if (empty.averageRating === null && empty.reviewCount === 0) {
       pass("규칙 7: 공개 리뷰 없으면 null");
     } else {
       fail("규칙 7: 공개 리뷰 없으면 null", empty);
     }
-    const summary = await api.getReviewSummary(MOCK_FREELANCER_USER_ID, MOCK_CLIENT_USER_ID);
+    const summary = await api.getUserRating(MOCK_FREELANCER_USER_ID, MOCK_CLIENT_USER_ID);
     if (summary.averageRating === 4.5 && summary.reviewCount === 4) {
       pass("규칙 7: 공개분만 평균");
     } else {
@@ -220,10 +226,10 @@ async function main() {
   // 규칙 8 — CANCELED 거부
   {
     const api = createReviewApiMock();
-    await expectCode("규칙 8: 거래 취소 409", "PROJECT_TRANSITION_CONFLICT", () =>
+    await expectCode("규칙 8: 거래 취소 409", "PROJECT_NOT_COMPLETED", () =>
       api.createReview("prj_canceled", MOCK_CLIENT_USER_ID, CLIENT_BODY, "idem-cancel"),
     );
-    await expectCode("규칙 8: 계약 취소 409", "PROJECT_TRANSITION_CONFLICT", () =>
+    await expectCode("규칙 8: 계약 취소 409", "PROJECT_NOT_COMPLETED", () =>
       api.createReview("prj_contract_canceled", MOCK_CLIENT_USER_ID, CLIENT_BODY, "idem-ctr-cancel"),
     );
   }
@@ -241,7 +247,7 @@ async function main() {
     const freelancerFresh = await api.listProjectReviews("prj_solo_fresh", MOCK_FREELANCER_USER_ID);
     if (
       clientFresh.items.length === 1 &&
-      clientFresh.items[0].isPublic === false &&
+      clientFresh.items[0].visibility === "BLINDED" &&
       freelancerFresh.items.length === 0
     ) {
       pass("규칙 9: 당사자 본인 미공개·상대 숨김");
@@ -251,21 +257,45 @@ async function main() {
     await expectCode("규칙 9: 무인증 401", "AUTH_REQUIRED", () =>
       api.listProjectReviews("prj_both", undefined),
     );
+    const meBlind = await api.getMyProjectReview("prj_solo_fresh", MOCK_FREELANCER_USER_ID);
+    if (
+      meBlind.canReview === true &&
+      meBlind.myReview === null &&
+      meBlind.counterpartyReviewVisibility === "NOT_AVAILABLE"
+    ) {
+      pass("규칙 9: /me 상대 블라인드 숨김");
+    } else {
+      fail("규칙 9: /me 상대 블라인드 숨김", meBlind);
+    }
+    const meMine = await api.getMyProjectReview("prj_solo_fresh", MOCK_CLIENT_USER_ID);
+    if (meMine.canReview === false && meMine.myReview?.visibility === "BLINDED") {
+      pass("규칙 9: /me 본인 미공개");
+    } else {
+      fail("규칙 9: /me 본인 미공개", meMine);
+    }
   }
 
   // 규칙 10 — 잘못된 태그 422, 서버가 식별자를 채움, contractId 무시
   {
     const api = createReviewApiMock();
-    await expectCode("규칙 10: 잘못된 태그 422", "VALIDATION_ERROR", () =>
+    await expectCode("규칙 10: 잘못된 태그 422", "REVIEW_TAG_INVALID", () =>
       api.createReview(
         "prj_completed",
         MOCK_CLIENT_USER_ID,
-        { rating: 5, tags: ["REQUIREMENT_CLARITY"] },
+        { rating: 5, tags: ["CLEAR_REQUIREMENTS"] },
         "idem-bad-tag",
       ),
     );
-    await expectCode("규칙 10: 별점 범위 422", "VALIDATION_ERROR", () =>
+    await expectCode("규칙 10: 별점 범위 400", "INVALID_REVIEW_RATING", () =>
       api.createReview("prj_completed", MOCK_CLIENT_USER_ID, { rating: 6, tags: [] }, "idem-bad-rating"),
+    );
+    await expectCode("규칙 10: 공백 본문 422", "REVIEW_CONTENT_INVALID", () =>
+      api.createReview(
+        "prj_completed",
+        MOCK_CLIENT_USER_ID,
+        { rating: 5, content: "   ", tags: [] },
+        "idem-blank-content",
+      ),
     );
     const created = await api.createReview(
       "prj_completed",
@@ -298,6 +328,19 @@ async function main() {
     await expectCode("규칙 13: 없는 프로젝트 404", "PROJECT_NOT_FOUND", () =>
       api.listProjectReviews("prj_missing", MOCK_CLIENT_USER_ID),
     );
+    const listedUsers = await api.listUserReviews(MOCK_UNREVIEWED_USER_ID, MOCK_CLIENT_USER_ID);
+    if (listedUsers.totalCount === 0 && listedUsers.items.length === 0) {
+      pass("규칙 13: 사용자 공개 목록 빈 페이지");
+    } else {
+      fail("규칙 13: 사용자 공개 목록 빈 페이지", listedUsers);
+    }
+    const hasMeRoute = REVIEW_ROUTES.some((route) => route.path.endsWith("/reviews/me"));
+    const hasRatingRoute = REVIEW_ROUTES.some((route) => route.path.endsWith("/rating"));
+    if (hasMeRoute && hasRatingRoute) {
+      pass("규칙 13: /me·/rating 라우트");
+    } else {
+      fail("규칙 13: /me·/rating 라우트", REVIEW_ROUTES);
+    }
   }
 
   // 규칙 11 — UX 필수 요소·로딩·빈·LOAD_FAILED·409·수정 없음
@@ -331,15 +374,15 @@ async function main() {
     } else {
       fail("규칙 11: COMPLETED+미작성은 AVAILABLE", deriveReviewUiState({ ...completed, myReview: null }));
     }
-    if (deriveReviewUiState({ ...completed, myReview: { isPublic: false } }) === "SUBMITTED_BLIND") {
+    if (deriveReviewUiState({ ...completed, myReview: { visibility: "BLINDED" } }) === "SUBMITTED_BLIND") {
       pass("규칙 11: 본인 미공개는 SUBMITTED_BLIND");
     } else {
       fail("규칙 11: 본인 미공개는 SUBMITTED_BLIND", "not blind");
     }
-    if (deriveReviewUiState({ ...completed, myReview: { isPublic: true } }) === "PUBLISHED") {
-      pass("규칙 11: isPublic은 PUBLISHED");
+    if (deriveReviewUiState({ ...completed, myReview: { visibility: "PUBLISHED" } }) === "PUBLISHED") {
+      pass("규칙 11: PUBLISHED visibility");
     } else {
-      fail("규칙 11: isPublic은 PUBLISHED", "not published");
+      fail("규칙 11: PUBLISHED visibility", "not published");
     }
     if (
       deriveReviewUiState({
@@ -379,10 +422,10 @@ async function main() {
     }
 
     const clientCodes = allowedTagsForRole("CLIENT").map((tag) => tag.code);
-    if (clientCodes.includes("DELIVERABLE_QUALITY") && !clientCodes.includes("WORK_QUALITY")) {
-      pass("규칙 11: 의뢰인 태그는 E-19");
+    if (clientCodes.includes("WORK_QUALITY") && !clientCodes.includes("DELIVERABLE_QUALITY")) {
+      pass("규칙 11: 의뢰인 태그는 설계서 §10");
     } else {
-      fail("규칙 11: 의뢰인 태그는 E-19", clientCodes);
+      fail("규칙 11: 의뢰인 태그는 설계서 §10", clientCodes);
     }
 
     const empty = htmlOf();
