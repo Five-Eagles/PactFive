@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "email-confirmation-bootstrap.test.ts",
+    "../app/web/tests/project-registration-draft.test.ts",
+    "../app/server/tests/project-pricing-registration.test.ts",
+    "../app/server/src/shared/require-auth.ts"
+  ]
+}

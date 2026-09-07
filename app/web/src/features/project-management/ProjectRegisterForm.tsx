@@ -3,11 +3,17 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
 import { Button, Field, Notice } from '../../shared/ui/primitives';
 import { ApiError } from '../../shared/http';
-import { toIsoOrEmpty } from '../../shared/date';
 import { registerProject } from './api/project';
 import { PROJECT_ROUTES } from './project.routes';
 import { CATEGORY_OPTIONS, SKILL_OPTIONS } from './project.types';
 import { useDraft } from './useDraft';
+import {
+  applyPricingRecommendation,
+  buildProjectRegistrationRequest,
+  EMPTY_REGISTER_DRAFT,
+  updateRegistrationBudget,
+  type RegisterDraft,
+} from './project-registration-draft';
 
 /**
  * SCR-B03 · B04 · B05 — 프로젝트 등록 3단계
@@ -47,31 +53,6 @@ const STEP_LABELS: { step: Step; label: string }[] = [
   { step: 3, label: '필요 기술' },
 ];
 
-type RegisterDraft = {
-  title: string;
-  description: string;
-  category: string;
-  recruitmentStartAt: string;
-  recruitmentDeadlineAt: string;
-  budgetAmount: string;
-  skillIds: string[];
-};
-
-const EMPTY_DRAFT: RegisterDraft = {
-  title: '',
-  description: '',
-  category: '',
-  recruitmentStartAt: '',
-  recruitmentDeadlineAt: '',
-  budgetAmount: '',
-  skillIds: [],
-};
-
-/** "5,000,000" 처럼 쉼표를 넣어도 받는다. 숫자가 아니면 NaN 이 되고 서버가 422 로 끊는다 */
-function toAmount(raw: string): number {
-  return Number(raw.replace(/,/g, '').trim());
-}
-
 /** 단계 표시 — 시안의 `.steps` */
 function StepIndicator({ current }: { current: Step }) {
   return (
@@ -91,7 +72,7 @@ function StepIndicator({ current }: { current: Step }) {
   );
 }
 
-/** 필드 구성이 바뀌면 올린다. 옛 초안은 되살리지 않는다 */
+/** 분석 ID는 optional 추가이므로 기존 v1 초안(제목·설명·일정 등)을 그대로 보존한다. */
 const DRAFT_VERSION = 1;
 
 export type ProjectRegisterFormProps = {
@@ -113,24 +94,25 @@ export function ProjectRegisterForm({ pricingAnalysisHref }: ProjectRegisterForm
   } = useDraft<RegisterDraft>({
     name: 'project-register',
     version: DRAFT_VERSION,
-    initial: EMPTY_DRAFT,
+    initial: EMPTY_REGISTER_DRAFT,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [appliedPricingAnalysisId, setAppliedPricingAnalysisId] = useState<string | null>(null);
 
   // AI 추천 예산 화면(ai-pricing)에서 "이 추천 예산 사용하기"로 돌아온 경우 — 예산 칸을 채우고
   // Step 2로 이동한 뒤 쿼리를 지운다(새로고침 시 중복 적용 방지).
   useEffect(() => {
-    const recommendedBudget = searchParams.get('recommendedBudget');
-    const pricingAnalysisId = searchParams.get('pricingAnalysisId');
-    if (!recommendedBudget || !pricingAnalysisId) return;
-    setDraft((current) => ({ ...current, budgetAmount: recommendedBudget }));
-    setAppliedPricingAnalysisId(pricingAnalysisId);
-    setStep(2);
-    setSearchParams({}, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+    if (!searchParams.has('recommendedBudget') && !searchParams.has('pricingAnalysisId')) return;
+    const recommendation = applyPricingRecommendation(EMPTY_REGISTER_DRAFT, searchParams);
+    if (recommendation.pricingAnalysisId) {
+      setDraft((current) => applyPricingRecommendation(current, searchParams));
+      setStep(2);
+    }
+    const remainingParams = new URLSearchParams(searchParams);
+    remainingParams.delete('recommendedBudget');
+    remainingParams.delete('pricingAnalysisId');
+    setSearchParams(remainingParams, { replace: true });
+  }, [searchParams, setSearchParams, setDraft]);
 
   function goToPricingAnalysis() {
     if (!pricingAnalysisHref) return;
@@ -161,15 +143,7 @@ export function ProjectRegisterForm({ pricingAnalysisHref }: ProjectRegisterForm
     setSubmitting(true);
     setError(null);
     try {
-      const created = await registerProject({
-        title: draft.title,
-        description: draft.description,
-        category: draft.category,
-        recruitmentStartAt: toIsoOrEmpty(draft.recruitmentStartAt) || null,
-        recruitmentDeadlineAt: toIsoOrEmpty(draft.recruitmentDeadlineAt),
-        budgetAmount: toAmount(draft.budgetAmount),
-        skillIds: draft.skillIds,
-      });
+      const created = await registerProject(buildProjectRegistrationRequest(draft));
       // 등록에 성공했으면 초안은 역할이 끝났다.
       clear();
       navigate(PROJECT_ROUTES.detail(created.projectId));
@@ -184,9 +158,9 @@ export function ProjectRegisterForm({ pricingAnalysisHref }: ProjectRegisterForm
     <PageBody narrow>
       <StepIndicator current={step} />
 
-      {appliedPricingAnalysisId && (
+      {draft.pricingAnalysisId && (
         <Notice tone="info">
-          AI 추천 예산을 반영했습니다 · 분석 ID <code>{appliedPricingAnalysisId}</code>
+          AI 추천 예산을 반영했습니다 · 분석 ID <code>{draft.pricingAnalysisId}</code>
         </Notice>
       )}
 
@@ -310,7 +284,10 @@ export function ProjectRegisterForm({ pricingAnalysisHref }: ProjectRegisterForm
               inputMode="numeric"
               value={draft.budgetAmount}
               placeholder="예) 5,000,000"
-              onChange={(event) => set('budgetAmount', event.target.value)}
+              onChange={(event) => {
+                const amount = event.target.value;
+                setDraft((current) => updateRegistrationBudget(current, amount));
+              }}
             />
           </Field>
 

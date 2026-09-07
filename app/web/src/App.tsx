@@ -10,6 +10,7 @@ import type { NotYetScreenKey } from './shared/notYetScreens';
 import { Button, EmptyState } from './shared/ui/primitives';
 import { authRoutes, AUTH_ROUTES } from './features/user-management/auth.routes';
 import { useAuth } from './features/user-management/useAuth';
+import { captureInitialEmailConfirmation } from './features/user-management/auth.bootstrap';
 import { projectRoutes, PROJECT_ROUTES } from './features/project-management/project.routes';
 import { engagementRoutes, ENGAGEMENT_ROUTES } from './features/engagement/bookmark.routes';
 import { contractRoutes } from './features/contracts-payments/contract.routes';
@@ -19,6 +20,10 @@ import { reviewRoutes } from './features/reviews/review.routes';
 import { BookmarkButton } from './features/engagement/BookmarkButton';
 import { RecommendationSection } from './features/engagement/RecommendationSection';
 import { useBookmarkedIds } from './features/engagement/useBookmark';
+
+// Clean the confirmation URL before BrowserRouter captures its initial location.
+// auth.routes only reads the captured value when its page renders, after this call.
+captureInitialEmailConfirmation();
 
 // 401을 받으면 로그인 화면으로 보낸다.
 // shared/http.ts가 라우터를 직접 import하지 않도록 여기서 주입한다.
