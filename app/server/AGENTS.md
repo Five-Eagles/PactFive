@@ -4,38 +4,90 @@
 지침(권한·통합 절차)은 `app/AGENTS.md` 참고. 아키텍처 결정 근거는
 `docs/decisions/0007-backend-serverless-architecture.md`.
 
-## 배포 아키텍처 — 이중 진입점
+## 배포 아키텍처 (2026-09-06 개정 — 표준 `/api` 서버리스 함수 방식)
 
 Express `app`은 순수 모듈로 작성한다 (`app.listen()`을 이 파일 안에서 호출하지 않는다).
 배포 진입점을 분리한다:
 
-- `app/server/src/app.ts` — Express `app` 생성·라우트 등록·미들웨어. `export default app;`만
-  한다. `app.listen()` 없음.
-- `app/server/src/vercel-handler.ts` (Vercel 서버리스 진입점의 소스) — `app.ts`의 `app`을
-  import해 그대로 `export default app`. Vercel Node 런타임이 Express `app`을 `(req, res)`
-  핸들러로 인식하므로 별도 어댑터가 필요 없다.
-- `app/server/src/server.ts` (독립 서버 진입점) — `app.ts`의 `app`을 import해
+- `app/server/src/express-app.ts` — Express `app` 생성·라우트 등록·미들웨어. `export default
+  app;`만 한다. `app.listen()` 없음.
+- `app/server/api/index.js` (빌드 산출물, git에 없음) — `npm run build`/`postinstall`이
+  esbuild로 `express-app.ts`를 번들링해 만든다. Vercel의 표준 Node.js 서버리스 함수 컨벤션이
+  `/api` 폴더 안의 파일을 그대로 함수로 배포한다 — `export default app`으로 내보낸 Express
+  `app`은 Vercel Node 런타임이 `(req, res)` 핸들러로 그대로 인식하므로 별도 어댑터가 필요
+  없다.
+- `app/server/src/dev-server.ts` (독립 서버 진입점) — `express-app.ts`의 `app`을 import해
   `app.listen(PORT)` 한 줄만 추가한다. 비즈니스 로직 재작성 없음 — 이 파일 하나 추가/삭제로
   서버리스 ↔ 독립 서버 전환이 끝난다.
 
 컨트롤러/서비스/레포지토리 계층 구조와 파일명 규칙은 이 결정으로 바뀌지 않는다 —
 `docs/naming-convention.md` §6, `features/sample-login/prototype/server/` 그대로 따른다.
 
-### 빌드 산출물 — `api/index.js` (2026-09-05 추가)
+**Vercel Dashboard 필수 설정 — 이 프로젝트(app/server)의 Framework Preset은 반드시 "Other"로
+둔다.** "Express"로 두면 안 되는 이유는 바로 아래 "결정 기록" 참고 — 요약하면 "Express"
+프리셋은 우리 esbuild 번들을 무시하고 원본 소스를 직접 배포해버린다.
 
-`app/server/api/`에는 소스(.ts)를 두지 않는다. `npm run build`가 `tsc --noEmit`(타입 검사)
-뒤에 esbuild로 `src/vercel-handler.ts`를 번들링해 `app/server/api/index.js`를 만든다 — Vercel이
-배포 시 이 폴더에서 찾는 서버리스 함수 파일이다. 이 파일은 git에 커밋하지 않는다
-(`.gitignore`), 매 배포마다 새로 생성된다.
+### 결정 기록 — Framework Preset을 "Express"에서 "Other"로 바꾼 이유 (2026-09-06)
 
-번들링하는 이유 — `tsconfig.json`이 `moduleResolution: "bundler"`라 상대경로 import에
-확장자가 없어도 되는데(`from './features/.../auth.routes'`), Vercel의 기본 처리가 이
-프로젝트에서 파일별 개별 트랜스파일만 하고 번들링은 하지 않아서 배포하면 Node의 실제 ESM
-로더가 확장자 없는 import를 못 찾고 `ERR_MODULE_NOT_FOUND`로 죽는다(`"type": "module"`이라
-CommonJS처럼 자동으로 확장자를 붙여주지 않는다). 로컬 `tsx`는 이 문제를 안 겪어서 로컬에서만
-잘 되는 것처럼 보인다 — **새 상대경로 import를 추가해도 로컬에서는 항상 통과하니, 배포
-전에는 반드시 `npm run build`를 로컬에서 한 번 돌려 `node api/index.js`를 직접 import해보고
-죽지 않는지 확인한다.**
+**문제**: 배포된 백엔드가 모든 요청에서 `ERR_MODULE_NOT_FOUND: Cannot find module
+'.../auth.routes'`로 크래시했다. 빌드 로그는 매번 성공(`esbuild` 성공 로그까지 찍힘)했는데
+실제 요청은 매번 죽어서, "빌드는 되는데 배포된 산출물이 실행이 안 되는" 것처럼 보였다.
+
+**원인(Fact, 공식 문서로 확인함 — https://vercel.com/docs/frameworks/backend/express)**:
+Vercel의 "Express" Framework Preset은 zero-config 기능으로, Root Directory 기준
+`app.*`/`index.*`/`server.*`/`src/app.*`/`src/index.*`/`src/server.*` 중 존재하는 파일을
+**자동으로 찾아 그 파일 자체를 서버리스 함수로 배포한다** — `/api` 폴더나 `vercel.json`
+없이도 동작하게 만든 기능이다. 그리고 이 프리셋은 **애플리케이션 번들링(Webpack/Rollup
+등)을 하지 않는다** — 불필요한 파일만 걷어낼 뿐 상대경로 import 구조를 그대로 둔 채
+개별 트랜스파일만 한다.
+
+우리 `tsconfig.json`은 `moduleResolution: "bundler"`라 상대경로 import에 확장자가 없어도
+타입체크는 통과하지만(`from './features/.../auth.routes'`), 실제 Node ESM
+런타임(`"type": "module"`)은 확장자 없는 상대경로를 못 찾는다. `/api`에 esbuild로 번들링한
+결과물을 만들어 뒀었지만, **Vercel은 애초에 `/api`를 보지도 않고 (당시 이름이었던)
+`src/app.ts`를 zero-config로 직접 찾아 배포하고 있었다** — 번들은 항상 성공적으로
+만들어졌지만 한 번도 실제로 실행되지 않았다.
+
+**검토한 대안**:
+1. 실제 소스 파일 이름을 Vercel의 zero-config 감지 목록에서 벗어나게 바꾸고(`app.ts` →
+   `express-app.ts`, `server.ts` → `dev-server.ts`), 번들 산출물을 감지 목록 중 하나인
+   `app/server/index.js`로 내서 "Express" 프리셋을 그대로 유지 — 1차로 이렇게 고쳐서 동작은
+   확인했다.
+2. (**채택**) Framework Preset을 "Other"로 바꿔 zero-config 자동 감지 자체를 끄고, Vercel의
+   가장 표준적인 `/api` 폴더 컨벤션으로 되돌린다.
+
+**대안 1을 기각한 이유(Opinion)**: 동작은 하지만, 파일 이름 금기 규칙("`app.ts`/`index.ts`/
+`server.ts`류를 쓰면 안 된다")을 팀 전원이 앞으로도 계속 기억해야 하는 유지보수 부담이
+남는다. 이건 Vercel 고유의 잘 알려지지 않은 동작에 의존하는 방식이라, 5인·부트캠프 규모
+팀에서 각자 이해하고 지키기엔 과하다(`sdd-framework/constitution.md` 원칙 6). `/api` 방식은
+Vercel에서 가장 표준적이고 문서가 많은 배포 모델이라 동작이 파일 위치만 봐도 명시적이고,
+이 사고 같은 재발 위험이 사실상 없다.
+
+**결정**: `/api` 방식(대안 2)으로 확정. 파일 이름은 `express-app.ts`/`dev-server.ts`를 그대로
+유지한다 — 표준 방식으로 옮긴 뒤에는 이름 자체는 문제되지 않지만, 이미 바꾼 이름이 "이 파일이
+`app.listen()`을 하는지 아닌지"를 이름만 보고 구분하기 더 쉬워서 유지하기로 했다.
+
+**향후 조건**: 만약 나중에 Vercel Dashboard에서 이 프로젝트의 Framework Preset이 다시
+"Express"로 바뀌는 일이 생기면(실수로든, Vercel 쪽 기본값 변경으로든) 이 사고가 그대로
+재발한다 — 배포 후 이상 동작이 보이면 제일 먼저 이 설정부터 확인한다.
+
+**적용 방법**: esbuild가 `express-app.ts`를 `app/server/api/index.js`로 번들링한다(모든
+상대경로 import가 한 파일로 합쳐지므로 확장자 문제 자체가 없다 — npm 패키지는
+`--packages=external`로 번들에 안 넣고 node_modules를 그대로 쓴다). `app/server/api/index.js`
+는 git에 커밋하지 않는다(`.gitignore`), 매 설치/빌드마다(`postinstall`/`build`) 새로
+생성된다. `app/server/api/`에는 소스(`.ts`)를 두지 않는다 — 이 폴더에는 항상 번들 산출물만
+있어야 한다. 배포 전에는 반드시 로컬에서 `npm run build`를 돌려 `node api/index.js`를 직접
+import해보고 안 죽는지 확인한다.
+
+**추가로 겪은 문제 — "Other" 프리셋이 요구하는 Output Directory (2026-09-07)**: Framework
+Preset을 "Other"로 바꾸고 처음 배포했을 때 `Error: No Output Directory named "public" found
+after the Build completed.`로 빌드가 실패했다. 원인(Fact) — Vercel의 "Other" 프리셋은
+"정적 파일을 CDN으로 서빙할 디렉터리"가 기본값으로 `public/`이라고 가정하는데, 이 프로젝트는
+정적 프론트엔드가 없는 순수 API 백엔드라 그런 폴더가 존재한 적이 없다. `/api` 서버리스
+함수는 Output Directory 설정과 무관하게 항상 인식되지만, Output Directory 자체가 없으면
+빌드 전체가 실패로 처리된다. **고친 방법**: `app/server/public/index.html`에 최소한의
+플레이스홀더 페이지를 커밋해뒀다 — 이 폴더가 실제로 존재하기만 하면 되므로, 이 파일을
+지우거나 이름을 바꾸지 않는다(누가 실수로 지우면 이 에러가 재발한다).
 
 ## 외부 벤더 연동 (Supabase Auth·토스페이먼츠·OpenAI)
 

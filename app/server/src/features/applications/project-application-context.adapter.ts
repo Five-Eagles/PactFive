@@ -9,7 +9,7 @@ import type { ProjectApplicationContext, ProjectApplicationContextPort } from '.
  * `getProjectNegotiationContext`가 이미 그대로 반환한다 — 여기서는 그 모양을 구조적으로만
  * 기대하는 로컬 delegate 타입(`ProjectContractServiceDelegate`)을 선언해 project-management
  * 폴더를 직접 import하지 않는다 (app/web/AGENTS.md "폴더 간 접점", contracts-payments/
- * project-management.adapter.ts와 같은 패턴). 실제 구현은 app.ts에서 `projectContractService`를
+ * project-management.adapter.ts와 같은 패턴). 실제 구현은 express-app.ts에서 `projectContractService`를
  * 그대로 끼운다.
  *
  * 프로젝트를 찾지 못하면(404) `null`을 돌려준다 — applications 쪽 서비스가

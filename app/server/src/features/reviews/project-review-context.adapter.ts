@@ -9,7 +9,7 @@ import type { ProjectReviewContext, ProjectReviewContextPort } from './review.ty
  * `freelancerId`·`contractId`·`contractStatus`는 contracts-payments
  * (`findContractByProjectId`)가 정본이다. 이 폴더는 두 폴더를 직접 import하지 않는다
  * (app/web/AGENTS.md "폴더 간 접점") — 여기서는 그 모양만 구조적으로 기대하는 로컬 delegate
- * 타입을 선언하고, 실제 구현은 app.ts에서 `projectContractService`·
+ * 타입을 선언하고, 실제 구현은 express-app.ts에서 `projectContractService`·
  * `contractsPaymentsRepository`를 그대로 끼운다.
  *
  * 계약이 아직 없으면(`findContractByProjectId`가 undefined) `null`을 돌려준다 — 리뷰가

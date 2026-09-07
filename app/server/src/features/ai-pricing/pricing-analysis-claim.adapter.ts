@@ -8,7 +8,7 @@ import type { PricingAnalysisRepository } from './pricing-analysis.repository';
  * 제안된 모양 그대로 확정한다.
  *
  * project-management 타입을 여기서 import하지 않는다(app/web/AGENTS.md "폴더 간 접점") —
- * 구조적으로 같은 모양만 선언해 두고 app.ts가 `ExternalPorts.pricing` 자리에 끼운다.
+ * 구조적으로 같은 모양만 선언해 두고 express-app.ts가 `ExternalPorts.pricing` 자리에 끼운다.
  */
 
 type TransactionContext = { readonly id: string };
