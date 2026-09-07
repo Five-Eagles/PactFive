@@ -1,11 +1,11 @@
 # contracts-payments 테스트 결과
 
 담당자: 조준영            테스트 날짜: 2026-09-07
-테스트한 커밋: 커밋 전 (`run.tsx` AGR-01·AGR-02·AGR-03·CTR-01·CTR-02·DLV-01·PAY-01·PAY-02·SET-01 v2.0·CAN-01 설계서 v2.0 별칭 검증 포함)
+테스트한 커밋: 커밋 전 (`run.tsx` AGR-01·AGR-02·AGR-03·CTR-01·CTR-02·DLV-01·PAY-01·PAY-02·SET-01 v2.0·CAN-01 설계서 v2.0 별칭·규칙 26 Coordinator 검증 포함)
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 329, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 340, FAIL 개수: 0)
 
 규칙 9 sandbox는 잘못된 paymentKey 승인 실패·retrieve 실패 프로브. 시크릿은 문서에 적지 않는다.
 
@@ -19,6 +19,8 @@
 서명은 slug `ctr-wait`. 순서 자유·취소 후 409 `PROJECT_TRANSITION_CONFLICT`. `CONTRACT_*` 코드 없음. SIGNED만으로 `IN_PROGRESS`가 되지 않는다.
 
 결제는 slug `pay-confirming`·`pay-syncing`·`pay-unsigned`. SIGNED 의뢰인만 prepare, 직전 `markPaymentPending`. timeout은 `PENDING` 후 조회 복구. 웹훅 Mock 중복 1회·역순 비회귀. 회로 Open은 409. `PAYMENT_FORBIDDEN` 없음.
+
+교차 Coordinator는 내부 Mock. SIGNED∧PAID만 start, APPROVED∧RELEASED만 complete. 역순·중복은 전이 1회. start 실패 시 PAID 유지 후 재시도. HTTP·`ORCH_*` 없음.
 
 ## spec.md 규칙별 확인
 
@@ -43,6 +45,7 @@
 | 23 납품 Increment | GET IN_PROGRESS 행 · 멱등 1회 · 승인/정산 양쪽 complete · `DELIVERY_*` 없음 | 통과 |
 | 24 정산 실행 | 수수료 버림·스냅샷 불변·ELIGIBLE 1건·멱등·SUCCESS/FAILURE/UNKNOWN·C-03 409 재판정 | 통과 |
 | 25 합의·계약 무효화 | DONE/NOT_NEEDED/멱등·별칭·CA-03 DRAFT·CA-05 SIGNED 미결제·CA-15 prepare 409·CA-23 restore 409·paymentPendingAt 409·감사 보존·FAILED 후처리 | 통과 |
+| 26 교차 Coordinator | SIGNED+PAID start 1회 · 한쪽만 미호출 · APPROVED+RELEASED complete+REVIEW_REQUESTED · 역순·중복 1회 · start 실패 PAID 유지·재시도 · COMPLETED 전 리뷰 없음 | 통과 |
 | UI(design/web) | AGR·CTR-02·PAY-02 확인 중·DLV·PAY·SET·CAN-01. 1280 2열 / 모바일 스택 | 통과 |
 
 규칙 4 I-30: APPROVED∧RELEASED 전에 complete 포트를 부르지 않는다.
@@ -62,6 +65,7 @@
 ## 아직 안 되는 것 (Known Issues)
 
 - `prototype/`은 스탠드인 Mock이다. A-07 실호출·알림 발송·환불은 Increment 밖이다.
+- Coordinator는 교차 AND Mock이다. Outbox 공용 테이블·일 대사 cron·복구 워커는 Increment 밖이다.
 - 웹 패널은 app 미반영.
 
 ## 팀장에게 물어봐야 하는 것

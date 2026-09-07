@@ -28,7 +28,8 @@
   GET `/api/v1/payments/:paymentId/settlement` (`getSettlement`)는 결제 행+납품+프로젝트를 조립한다.
   GET `/api/v1/projects/:projectId/cancellation` (`getCancellation`)는 프로젝트+합의·계약+무효화 결과를 조립한다.
   브라우저 `POST /cancel`은 이 폴더가 부르지 않는다.
-  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~25 Mock을 확인한다.
+  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~26 Mock을 확인한다.
+  교차 생명주기 Coordinator는 내부 Mock이다. 공개 HTTP·`ORCH_*` 코드 없음.
   합의 화면은 하이브리드 AGR-01·AGR-02·AGR-03(페이지 본문, ViewModel). `/agreements` 5종 폐기 유지.
   재제안은 `POST .../negotiation-offers/:offerId/counter`. 설계서 `AGREEMENT_*` 코드는 쓰지 않는다.
   서명 화면은 하이브리드 CTR-01·CTR-02(페이지 본문, ViewModel). 설계서 신설 `CONTRACT_*` 코드는 쓰지 않는다.
@@ -123,3 +124,4 @@
 | 2026-09-04 | 금주 wrap (`review/week-wrap-2026-09-04.md`). PASS 323. `app/`·A-07·실토스·환불은 다음 |
 | 2026-09-07 | feedback_loop 9/3·9/5 반영완료. 규칙 17을 app 경로에 맞춤. 키 없음 prototype Mock / app 503 구분 |
 | 2026-09-07 | 설계서 v2.0 하이브리드. invalidate 별칭·state/signaturesPreserved. 공개 POST는 유동우 |
+| 2026-09-07 | 교차 생명주기 Coordinator Mock. SIGNED∧PAID start, APPROVED∧RELEASED complete. HTTP·`ORCH_*` 없음 |

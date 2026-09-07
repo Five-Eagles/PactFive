@@ -12,7 +12,8 @@
 ## 범위
 
 - 포함: 4함수 호출 계약, `PaymentGateway.confirmPayment`·`retrievePayment`, 금액 합의·계약 서명·
-  샌드박스 결제 Mock, 납품 Increment, 정산 실행 Mock(규칙 24), 합의·계약 무효화 Mock(규칙 25).
+  샌드박스 결제 Mock, 납품 Increment, 정산 실행 Mock(규칙 24), 합의·계약 무효화 Mock(규칙 25),
+  교차 생명주기 Coordinator Mock(규칙 26).
 - 제외: 위젯 구현, 에스크로·지급대행 실연동, PG 환불, 리뷰, `acceptProjectApplication` 구현,
   `projects` 테이블 직접 UPDATE. 제안 철회는 Increment 1 제외. 납품 반려·재납품은 MVP 제외.
 
@@ -307,6 +308,14 @@
     `FAILED`). `FAILED`는 프로젝트 취소 실패가 아니다. GET은 202 후처리 화면.
     화면 「프로젝트가 취소되었습니다」. 공개 POST 취소(A-07, `/cancel` vs `/cancellations`)는
     유동우. 법적 무효·환불 버튼·삭제·`INVALIDATED`/`TERMINATED`·§12 신설 코드는 제외.
+
+26. **교차 생명주기 Coordinator.** 공개 HTTP·`ORCH_*` 코드가 아니다. 사건(`SIGNED`/`PAID`/
+    `APPROVED`/`RELEASED`)마다 계약·결제·납품·프로젝트를 **다시 읽고** AND가 맞을 때만 규칙 3·4를
+    호출한다. `SIGNED`∧`PAID`∧`CONTRACT_PENDING` → `startProjectTransactionIfAccepted`.
+    `APPROVED`∧`RELEASED`∧`IN_PROGRESS` → `completeProjectTransactionIfSettled`(+ `REVIEW_REQUESTED`).
+    한쪽만이면 호출하지 않고 원장(`PAID`/`RELEASED`/`APPROVED`)을 유지한다. 역순·중복도 재조회로
+    전이 1회. start 실패 시 PG/`PAID`를 되돌리지 않고 재시도한다. 기존 가드(I-30·수락 지원 대조)를
+    쓰고 도메인 테이블을 직접 UPDATE하지 않는다.
 
 ## 크기 기준
 

@@ -56,3 +56,15 @@ export type {
   StartProjectTransactionInput,
   StartProjectTransactionResponse,
 } from "./server/project-transaction.types";
+export {
+  createMemoryLifecycleSnapshot,
+  createTransactionLifecycleCoordinator,
+} from "./server/transaction-lifecycle.coordinator";
+export type {
+  CoordinatorHandleResult,
+  MemoryLifecycleSnapshot,
+  TransactionLifecycleCoordinator,
+  TransactionLifecycleEvent,
+  TransactionLifecycleSnapshot,
+  TransactionLifecycleSnapshotReader,
+} from "./server/transaction-lifecycle.coordinator";
