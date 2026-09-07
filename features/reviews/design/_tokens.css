@@ -13,6 +13,7 @@
   --navy-600:#55627A; --navy-950:#0B132B;
   --teal-50:#E7F5F4; --teal-500:#008A8D; --teal-700:#006D70; --teal-800:#00585C; --teal-900:#073F43;
   --rust-50:#FDEEEA; --rust-700:#B93824;
+  --gold-400:#F4A300;
   --white:#FFFFFF;
   --canvas-paper:#FBFAF7;
 
@@ -40,6 +41,7 @@
   --warning:#7A4B00; --warning-surface:#FFF3C4;
   --danger:var(--rust-700); --danger-surface:var(--rust-50);
   --info:#1C5F9C; --info-surface:#EDF5FC;
+  --rating-star: var(--gold-400);
 
   /* ── componentTokens ─────────────────────────────── */
   --btn-h:44px; --btn-pad:16px; --btn-radius:8px;

@@ -1,16 +1,17 @@
 export type ReviewDirection = "CLIENT_TO_FREELANCER" | "FREELANCER_TO_CLIENT";
+export type ReviewVisibility = "BLINDED" | "PUBLISHED";
 export type ClientToFreelancerTag =
-  | "RESPONSIBILITY"
-  | "COMMUNICATION"
-  | "TECHNICAL_SKILL"
-  | "SCHEDULE_COMPLIANCE"
-  | "DELIVERABLE_QUALITY";
+  | "WORK_QUALITY"
+  | "ON_TIME_DELIVERY"
+  | "GOOD_COMMUNICATION"
+  | "REQUIREMENT_UNDERSTANDING"
+  | "PROFESSIONAL_ATTITUDE";
 export type FreelancerToClientTag =
-  | "REQUIREMENT_CLARITY"
-  | "COMMUNICATION"
-  | "FEEDBACK_SPEED"
+  | "CLEAR_REQUIREMENTS"
+  | "FAST_FEEDBACK"
+  | "GOOD_COMMUNICATION"
   | "SCOPE_STABILITY"
-  | "PAYMENT_RELIABILITY";
+  | "PROFESSIONAL_ATTITUDE";
 export type ReviewTag = ClientToFreelancerTag | FreelancerToClientTag;
 
 export type ContractStatus = "DRAFT" | "SIGNING" | "SIGNED" | "CANCELED";
@@ -23,7 +24,7 @@ export type ProjectTransactionStatus =
 
 export type CreateReviewInput = {
   rating: number;
-  comment?: string;
+  content?: string;
   tags: string[];
   contractId?: unknown;
   direction?: unknown;
@@ -33,10 +34,10 @@ export type ReviewItem = {
   reviewId: string;
   direction: ReviewDirection;
   rating: number;
-  comment: string | null;
+  content: string | null;
   tags: string[];
-  isPublic: boolean;
-  createdAt: string;
+  visibility: ReviewVisibility;
+  submittedAt: string;
 };
 
 export type CreateReviewResponse = ReviewItem & {
@@ -44,6 +45,7 @@ export type CreateReviewResponse = ReviewItem & {
   contractId: string;
   reviewerId: string;
   revieweeId: string;
+  editable: false;
 };
 
 export type CreateReviewResult = {
@@ -56,10 +58,32 @@ export type ListProjectReviewsResponse = {
   items: ReviewItem[];
 };
 
-export type GetReviewSummaryResponse = {
+export type MyProjectReviewReason =
+  | "PROJECT_NOT_COMPLETED"
+  | "REVIEW_FORBIDDEN"
+  | "REVIEW_ALREADY_SUBMITTED"
+  | "REVIEW_PERIOD_CLOSED";
+
+export type GetMyProjectReviewResponse = {
+  canReview: boolean;
+  reason: MyProjectReviewReason | null;
+  reviewDeadlineAt: string | null;
+  myReview: CreateReviewResponse | null;
+  counterpartyReviewVisibility: "NOT_AVAILABLE" | "PUBLISHED";
+};
+
+export type GetUserRatingResponse = {
   userId: string;
   averageRating: number | null;
   reviewCount: number;
+};
+
+export type ListUserReviewsResponse = {
+  items: ReviewItem[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
 };
 
 export type ReviewRow = {
@@ -70,7 +94,7 @@ export type ReviewRow = {
   revieweeId: string;
   direction: ReviewDirection;
   rating: number;
-  comment: string | null;
+  content: string | null;
   tags: string[];
   createdAt: string;
   reviewCreatedPublishedAt: string | null;
@@ -83,6 +107,21 @@ export type ProjectReviewContext = {
   transactionStatus: ProjectTransactionStatus;
   contractStatus: ContractStatus;
   contractId: string;
+  completedAt: string | null;
+};
+
+export type ReviewWindow = {
+  projectId: string;
+  openedAt: string;
+  deadlineAt: string;
+  policyVersion: 1;
+};
+
+export type UserRatingProjection = {
+  userId: string;
+  ratingSum: number;
+  reviewCount: number;
+  calculatedAt: string;
 };
 
 export type UserRatingCache = {
@@ -93,12 +132,16 @@ export type UserRatingCache = {
 
 export type ReviewApiErrorCode =
   | "AUTH_REQUIRED"
-  | "PROJECT_FORBIDDEN"
+  | "REVIEW_FORBIDDEN"
   | "PROJECT_NOT_FOUND"
   | "USER_NOT_FOUND"
-  | "REVIEW_ALREADY_EXISTS"
-  | "TRANSACTION_NOT_COMPLETED"
-  | "PROJECT_TRANSITION_CONFLICT"
+  | "REVIEW_ALREADY_SUBMITTED"
+  | "IDEMPOTENCY_KEY_REUSED"
+  | "PROJECT_NOT_COMPLETED"
+  | "REVIEW_PERIOD_CLOSED"
+  | "INVALID_REVIEW_RATING"
+  | "REVIEW_CONTENT_INVALID"
+  | "REVIEW_TAG_INVALID"
   | "VALIDATION_ERROR"
   | "METHOD_NOT_ALLOWED";
 
@@ -110,21 +153,25 @@ export type ReviewApiErrorBody = {
   };
 };
 
-const HTTP_BY_CODE: Record<ReviewApiErrorCode, 401 | 403 | 404 | 405 | 409 | 422> = {
+const HTTP_BY_CODE: Record<ReviewApiErrorCode, 400 | 401 | 403 | 404 | 405 | 409 | 422> = {
+  INVALID_REVIEW_RATING: 400,
   AUTH_REQUIRED: 401,
-  PROJECT_FORBIDDEN: 403,
+  REVIEW_FORBIDDEN: 403,
   PROJECT_NOT_FOUND: 404,
   USER_NOT_FOUND: 404,
   METHOD_NOT_ALLOWED: 405,
-  REVIEW_ALREADY_EXISTS: 409,
-  TRANSACTION_NOT_COMPLETED: 409,
-  PROJECT_TRANSITION_CONFLICT: 409,
+  REVIEW_ALREADY_SUBMITTED: 409,
+  IDEMPOTENCY_KEY_REUSED: 409,
+  PROJECT_NOT_COMPLETED: 409,
+  REVIEW_PERIOD_CLOSED: 409,
+  REVIEW_CONTENT_INVALID: 422,
+  REVIEW_TAG_INVALID: 422,
   VALIDATION_ERROR: 422,
 };
 
 /** 공개 리뷰 API 4xx. users 캐시는 이 오류로 갱신하지 않는다. */
 export class ReviewApiError extends Error {
-  readonly httpStatus: 401 | 403 | 404 | 405 | 409 | 422;
+  readonly httpStatus: 400 | 401 | 403 | 404 | 405 | 409 | 422;
   readonly body: ReviewApiErrorBody;
 
   constructor(
@@ -155,4 +202,10 @@ export type ReviewStore = {
   getIdempotency(key: string): { bodyHash: string; reviewId: string } | undefined;
   setIdempotency(key: string, bodyHash: string, reviewId: string): void;
   nextReviewId(): string;
+  ensureWindow(project: ProjectReviewContext): ReviewWindow;
+  getWindow(projectId: string): ReviewWindow | undefined;
+  getProjection(userId: string): UserRatingProjection | undefined;
+  setProjection(row: UserRatingProjection): void;
+  enqueueOutbox(eventId: string, payload: unknown): void;
+  listOutbox(): Array<{ eventId: string; payload: unknown }>;
 };

@@ -14,6 +14,7 @@
 - design/: high-fi (`design/high-fi.html`). 패널만. 앱 셸 없음.
   수락 확인 · 빈 목록 · 삭제된 프로젝트 포함.
 - review/: 팀장 통합 요청 `review/teamlead-public-api-panels-2026-09-03.md`.
+- change-requests/: 지원 건수 캐시 `0001-application-count-write-port.md` (제안).
 
 ## 교차 담당
 - 유동우: `acceptProjectApplication`. 모집 상태 읽기. `rejectPendingApplications` 호출자.
@@ -31,3 +32,4 @@
 | 2026-09-03 | C-01 실패 시 잔여 거절·알림 금지 Mock. PASS 31 |
 | 2026-09-03 | test-report Known Issues에 통합 요청 파일명. run.tsx 재실측 PASS 31 |
 | 2026-09-03 | 시안·패널에 수락 확인·빈 목록·삭제된 프로젝트·preview 전환. PASS 35 |
+| 2026-09-07 | CR-AP-001 제안. 생성 +1/+1 · DIRECT −1. 수락·마감 0은 유동우 |
