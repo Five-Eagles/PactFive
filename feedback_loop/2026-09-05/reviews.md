@@ -12,7 +12,7 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
 
 ## 항목 1 — reviews를 app/server·app/web에 이식했다 (확인만 필요)
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — 무엇을 했는지**
 - 서버: `app/server/src/features/reviews/`에 8개 파일 신설
@@ -45,9 +45,12 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
 - 검증: `npx tsx features/reviews/prototype/run.tsx` → **PASS 40 / FAIL 0** (재해석 전후 로직
   변화 없음 확인). `app/server`·`app/web` 양쪽 `tsc --noEmit`·`vite build` 통과.
 
-**담당자 메모 (조준영 확인 요청 — 재작업이 아니라 확인만 해주면 됨)**
-- 위 재해석(프로젝트 조각 2-delegate 합성, userExists 임시 캐시)이 규칙 7·9와 어긋나지 않는지만
-  봐주시면 됩니다. 이상 없으면 상태를 `반영완료`로 바꿔주세요.
+**담당자 메모 (조준영 · 2026-09-07)**
+확인했습니다. 2-delegate(PM `clientId`·`transactionStatus` / CP `freelancerId`·`contractId`·`contractStatus`)는 규칙 9 당사자·규칙 1·8 상태 읽기와 맞습니다. 폴더 직접 import 없이 배선한 것도 맞습니다.
+
+`userExists` 임시 캐시는 규칙 7 요약의 `USER_NOT_FOUND`용입니다. 재시작 후 미요청 사용자를 못 찾는 한계는 오민혁 조회가 나올 때까지 둡니다. 공개분만 평균하는 로직은 그대로입니다.
+
+이상 없어서 항목 1은 `반영완료`로 바꿉니다.
 
 ---
 
