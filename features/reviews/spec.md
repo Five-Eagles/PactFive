@@ -13,7 +13,7 @@
 
 - 포함: 작성 조건, 방향·1회 제한, 블라인드·14일 공개, 평균, `/reviews/me`·`/rating`·사용자 공개 목록,
   Mock, high-fi 1화면, `REVIEW_CREATED` 발행.
-- 제외: 수정·삭제, 운영 숨김·복원, Outbox Projection, `users` 직접 UPDATE, 알림 발송.
+- 제외: 수정·삭제, 운영 숨김·복원, `users` 직접 UPDATE, 알림 발송, `app/`.
 
 ## 관련 엔티티 (근거: `docs/domain/erd.md`)
 
@@ -49,13 +49,18 @@
 4. **수정 불가.** PATCH·PUT·DELETE 없음. 호출하면 405.
 
 5. **양측 공개.** 두 방향이 있으면 둘 다 `PUBLISHED`. `visibility`는 계산값이다.
+   F06: 없는 상대 행만 잠가서 동시 첫 제출을 막지 않는다. window를 먼저 잠근 뒤 재조회한다.
 
-6. **단독 공개 (ASSUMPTION).** 첫 리뷰 `submittedAt` 후 14일이면 그 1건만 공개.
-   기한 후 반대 방향 신규 제출은 409 `REVIEW_PERIOD_CLOSED`.
+6. **단독 공개 (ASSUMPTION).** F06·§7.2: `reviewOpenedAt` = 프로젝트 최초 `completedAt`.
+   `deadline = openedAt+14일`. 제출은 `openedAt <= now < deadline`, 기한 공개는 `now >= deadline`.
+   완료 이벤트 지연으로 창을 연장하지 않는다. 기한 후 반대 방향은 409 `REVIEW_PERIOD_CLOSED`.
    `REVIEW_CREATED`는 공개 이후 5필드만. 미공개 INSERT에는 안 보낸다.
 
-7. **평균은 공개분만.** 내부 `getPublishedRatingAggregate`. 브라우저는
-   `GET /api/v1/users/:userId/rating`. 없으면 `averageRating: null`, `reviewCount: 0`.
+7. **평균은 공개분만.** Project/User가 부르는 이름은 `getUserRatingSummary`이다.
+   구현은 브라우저 `getUserRating`(`GET .../users/:userId/rating`)과 내부
+   `getPublishedRatingAggregate`(합계 정본). F12: Mock `user_rating_projections`.
+   F07: userId 잠금 후 새 집계. `displayAverageRating`은 합계/건수에서 직접 한 자리
+   (489/110=4.4). 새 HTTP 없음. 없으면 `averageRating: null`, `reviewCount: 0`.
    `.../review-summary`는 폐기.
 
 8. **취소·무효 차단.** `CANCELED`는 규칙 1과 같은 409 `PROJECT_NOT_COMPLETED`.
@@ -73,14 +78,18 @@
 
 11. **UX.** 라우트 `/projects/:projectId/reviews` (REV-01). 작성 GET은 `/me`+`/rating`.
     상대 제출 여부를 말하지 않는다. 제출 후 수정 없음.
+    프리랜서 진입은 공개 프로젝트 상세가 아니다. applications `listMyApplications`에서
+    `ACCEPTED` ∧ `transactionStatus = COMPLETED`일 때 「완료됨」→ 위 라우트.
+    PM 규칙 9를 깨지 않는다. 의뢰인 상세의 `transactionStatus`만으로 프리랜서 CTA를 열지 않는다.
 
 12. **알림 발행은 CP / 발송은 팀장.** 이 기능은 `REVIEW_REQUESTED`를 발송하지 않는다.
 
 13. **Increment 완료 기준** (`prototype/run.tsx`).
     COMPLETED 작성 / 미완료·취소 409 / 방향당 1회 / 멱등 / PATCH 없음 /
     양쪽 즉시 공개 / 14일 단독 공개 / 기한 후 409 / 공개분 평균·`/rating` /
-    `/me` 블라인드 숨김 / 잘못된 태그·본문 / 로딩·빈·`LOAD_FAILED`.
-    제외: 숨김·Outbox·알림 발송·app 재이식.
+    `/me` 블라인드 숨김 / 잘못된 태그·본문 / 로딩·빈·`LOAD_FAILED` /
+    F06 동시 첫 제출 공개 / F07 지연 집계 / F12 4.4 반례.
+    제외: 숨김·알림 발송·app 재이식.
 
 ## 크기 기준
 

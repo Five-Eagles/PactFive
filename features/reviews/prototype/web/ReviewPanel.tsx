@@ -30,7 +30,7 @@ export type ReviewPanelProps = {
 };
 
 const DEFAULT_TITLE = "쇼핑몰 웹사이트 구축";
-const SOLO_PUBLIC_COPY = "상대가 없으면 첫 리뷰 후 14일이 지나면 이 리뷰가 공개됩니다.";
+const SOLO_PUBLIC_COPY = "상대가 없으면 거래 완료 후 14일이 지나면 이 리뷰가 공개됩니다.";
 
 function uiStateFromView(view: ReviewView): ReviewUiState {
   switch (view) {

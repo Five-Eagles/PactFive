@@ -2,6 +2,8 @@
 
 형식은 `docs/naming-convention.md` §7·§6. Bearer 필수. POST는 `Idempotency-Key` 필수.
 Mock: `prototype/mock/review.mock.ts`. 화면 `/projects/:projectId/reviews`.
+프리랜서 CTA 소유는 applications `GET /api/v1/applications/me`의 `transactionStatus`.
+reviews는 작성 API·화면만. 공개 프로젝트 상세에 거래 상태를 넣지 않는다 (PM 규칙 9).
 `SUBMITTED` 컬럼·숨김 API·`/contracts/:id/review`는 없다. 본문은 `content`.
 `GET .../review-summary`는 폐기하고 `GET .../rating`을 쓴다.
 
@@ -81,6 +83,7 @@ Mock: `prototype/mock/review.mock.ts`. 화면 `/projects/:projectId/reviews`.
 ## GET /api/v1/users/:userId/rating — `getUserRating`
 
 규칙 7. 공개분만. 프로젝트 목록은 값을 가공하지 않는다.
+오케스트레이션 조회 이름은 `getUserRatingSummary`이며 이 핸들러와 같다. 새 HTTP 없음.
 
 ```json
 { "userId": "usr_freelancer_b", "averageRating": 4.5, "reviewCount": 2 }
@@ -107,6 +110,9 @@ getPublishedRatingAggregate(revieweeId: string): Promise<{ ratingSum: number; re
 ```
 
 공개분만. 0건이면 `{ ratingSum: 0, reviewCount: 0 }`. 반올림 없음. `/rating` 평균의 정본.
+오케스트레이션 `getUserRatingSummary`는 브라우저 `getUserRating`과 이 합계의 별칭이다.
+F06: `review_windows`를 잠근 뒤 재조회. F07·F12: `user_rating_projections`와
+`displayAverageRating(sum, count)` (489/110=4.4). 새 HTTP 없음.
 
 PATCH/PUT/DELETE 없음 → 405 `METHOD_NOT_ALLOWED`.
 

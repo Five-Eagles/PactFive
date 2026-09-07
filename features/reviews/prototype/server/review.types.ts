@@ -107,6 +107,21 @@ export type ProjectReviewContext = {
   transactionStatus: ProjectTransactionStatus;
   contractStatus: ContractStatus;
   contractId: string;
+  completedAt: string | null;
+};
+
+export type ReviewWindow = {
+  projectId: string;
+  openedAt: string;
+  deadlineAt: string;
+  policyVersion: 1;
+};
+
+export type UserRatingProjection = {
+  userId: string;
+  ratingSum: number;
+  reviewCount: number;
+  calculatedAt: string;
 };
 
 export type UserRatingCache = {
@@ -187,4 +202,10 @@ export type ReviewStore = {
   getIdempotency(key: string): { bodyHash: string; reviewId: string } | undefined;
   setIdempotency(key: string, bodyHash: string, reviewId: string): void;
   nextReviewId(): string;
+  ensureWindow(project: ProjectReviewContext): ReviewWindow;
+  getWindow(projectId: string): ReviewWindow | undefined;
+  getProjection(userId: string): UserRatingProjection | undefined;
+  setProjection(row: UserRatingProjection): void;
+  enqueueOutbox(eventId: string, payload: unknown): void;
+  listOutbox(): Array<{ eventId: string; payload: unknown }>;
 };

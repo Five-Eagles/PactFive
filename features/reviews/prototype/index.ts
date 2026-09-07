@@ -22,5 +22,6 @@ export type {
   PublishedRatingAggregate,
   PublishedRatingAggregateReader,
 } from "./server/published-rating.port";
-export { assertReviewWriteMethod } from "./server/review.service";
+export { assertReviewWriteMethod, getUserRatingSummary } from "./server/review.service";
+export { displayAverageRating } from "./server/display-average";
 export { isReviewMethodAllowed } from "./server/review.routes";

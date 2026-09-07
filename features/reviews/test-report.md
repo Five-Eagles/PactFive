@@ -1,11 +1,11 @@
 # reviews 테스트 결과
 
 담당자: 조준영            테스트 날짜: 2026-09-07
-테스트한 커밋: 커밋 전 (설계서 v2.0 `/me`·`/rating`·`content` 검증 포함)
+테스트한 커밋: 커밋 전 (F06 window · F07 Projection · F12 반올림 · getUserRatingSummary 별칭)
 
 ## 자동 검증
 
-- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 65, FAIL 개수: 0)
+- [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 69, FAIL 개수: 0)
 
 키 없는 환경. 규칙 12 알림 발송은 해당 없음.
 
@@ -21,14 +21,14 @@
 | 3 방향당 1건 UNIQUE | 같은 키 200 · 다른 본문 `IDEMPOTENCY_KEY_REUSED` · 방향당 1회 409 | 통과 |
 | 4 수정 불가 | PATCH 405 · PATCH 라우트 없음 | 통과 |
 | 5 양측 즉시 공개 | 두 방향 작성 후 `visibility: PUBLISHED` 2건 | 통과 |
-| 6 14일 단독 공개 | 미공개 INSERT에 이벤트 없음 · 14일 공개 · 기한 후 `REVIEW_PERIOD_CLOSED` | 통과 |
-| 7 공개분 평균 | `/rating` null·0 · 공개분만 4.5 · users 캐시 미갱신 | 통과 |
+| 6 14일 단독 공개 | 미공개 INSERT에 이벤트 없음 · window 기한 공개 · 기한 후 `REVIEW_PERIOD_CLOSED` | 통과 |
+| 7 공개분 평균 | `/rating` null·0 · 공개분만 4.5 · users 캐시 미갱신 · `getUserRatingSummary` 별칭 | 통과 |
 | 8 CANCELED 차단 | 거래·계약 취소 `PROJECT_NOT_COMPLETED` | 통과 |
 | 9 API·권한 | 비당사자 공개만 · `/me` 블라인드 숨김 · 무인증 401 | 통과 |
 | 10 작성 필드·태그 | 태그 422 · 별점 400 · 공백 본문 422 · 서버가 식별자 채움 | 통과 |
 | 11 UX | AVAILABLE·블라인드·평균 4.3. 설계서 §10 표시명. 403 제목 숨김 | 통과 |
 | 12 알림 발송 | 발송은 팀장. 이 `run.tsx` 해당 없음 | 해당 없음 |
-| 13 Increment | 이벤트 2건 · 404 · 사용자 공개 목록 빈 페이지 · `/me`·`/rating` 라우트 | 통과 |
+| 13 Increment | 이벤트 2건 · 404 · F06 동시 공개 · F07 집계 · F12 4.4 · `/me`·`/rating` 라우트 | 통과 |
 | UI(design/web) | REV-01 페이지 본문. 1280 2열 / 모바일 스택 | 통과 |
 
 ## ux-philosophy.md §6 자체 점검 (리뷰)

@@ -10,7 +10,8 @@ import {
 } from "./server/review.constants";
 import { createReviewApiMock } from "./mock/review.mock";
 import { ReviewApiError, isReviewApiError, type ReviewApiErrorCode } from "./server/review.types";
-import { assertReviewWriteMethod } from "./server/review.service";
+import { assertReviewWriteMethod, getUserRating, getUserRatingSummary } from "./server/review.service";
+import { displayAverageRating } from "./server/display-average";
 import { isReviewMethodAllowed, REVIEW_ROUTES } from "./server/review.routes";
 
 function ensurePackagesInstalled(): void {
@@ -220,6 +221,14 @@ async function main() {
       pass("규칙 7: 공개분만 ratingSum");
     } else {
       fail("규칙 7: 공개분만 ratingSum", agg);
+    }
+    if (getUserRatingSummary === getUserRating && typeof api.getUserRatingSummary === "function") {
+      pass("규칙 7: getUserRatingSummary 별칭");
+    } else {
+      fail("규칙 7: getUserRatingSummary 별칭", {
+        sameRef: getUserRatingSummary === getUserRating,
+        mock: typeof api.getUserRatingSummary,
+      });
     }
   }
 
@@ -485,6 +494,44 @@ async function main() {
       pass("규칙 11: 화면에 원시 색상값 없음");
     } else {
       fail("규칙 11: 화면에 원시 색상값 없음", allHtml);
+    }
+  }
+
+  {
+    const api = createReviewApiMock();
+    const [client, freelancer] = await Promise.all([
+      api.createReview("prj_completed", MOCK_CLIENT_USER_ID, CLIENT_BODY, "idem-f06-c"),
+      api.createReview("prj_completed", MOCK_FREELANCER_USER_ID, FREELANCER_BODY, "idem-f06-f"),
+    ]);
+    const listed = await api.listProjectReviews("prj_completed", MOCK_CLIENT_USER_ID);
+    if (
+      listed.items.length === 2 &&
+      listed.items.every((item) => item.visibility === "PUBLISHED")
+    ) {
+      pass("F06: 동시 첫 제출 후 둘 다 PUBLISHED");
+    } else {
+      fail("F06: 동시 첫 제출 후 둘 다 PUBLISHED", { client, freelancer, listed });
+    }
+  }
+
+  {
+    const api = createReviewApiMock();
+    api.seedStaleProjection(MOCK_FREELANCER_USER_ID, 1, 1);
+    await api.refreshUserRatingProjection(MOCK_FREELANCER_USER_ID);
+    const rating = await api.getUserRating(MOCK_FREELANCER_USER_ID, MOCK_CLIENT_USER_ID);
+    const proj = api.getProjection(MOCK_FREELANCER_USER_ID);
+    if (rating.averageRating === 4.5 && proj && proj.ratingSum === 18 && proj.reviewCount === 4) {
+      pass("F07: 잠금 후 새 집계가 옛 스냅샷을 덮음");
+    } else {
+      fail("F07: 잠금 후 새 집계가 옛 스냅샷을 덮음", { rating, proj });
+    }
+  }
+
+  {
+    if (displayAverageRating(489, 110) === 4.4 && displayAverageRating(0, 0) === null) {
+      pass("F12: 489/110 직접 반올림은 4.4");
+    } else {
+      fail("F12: 489/110 직접 반올림은 4.4", displayAverageRating(489, 110));
     }
   }
 

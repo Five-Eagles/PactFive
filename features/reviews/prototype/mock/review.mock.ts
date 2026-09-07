@@ -1,4 +1,4 @@
-import { addDaysIso, MOCK_CLIENT_USER_ID, MOCK_FREELANCER_USER_ID, MOCK_NOW, MOCK_OUTSIDER_USER_ID, MOCK_UNREVIEWED_USER_ID } from "../server/review.constants";
+import { addDaysIso, MOCK_CLIENT_USER_ID, MOCK_FREELANCER_USER_ID, MOCK_NOW, MOCK_OUTSIDER_USER_ID, MOCK_UNREVIEWED_USER_ID, SOLO_PUBLIC_AFTER_DAYS } from "../server/review.constants";
 import type { ReviewCreatedEvent, ReviewEventPort } from "../server/review-event.port";
 import {
   createReview,
@@ -8,6 +8,7 @@ import {
   listProjectReviews,
   listUserReviews,
   publishDueSoloReviews,
+  refreshUserRatingProjection,
   type ReviewServiceDeps,
 } from "../server/review.service";
 import type {
@@ -15,7 +16,9 @@ import type {
   ProjectReviewContext,
   ReviewRow,
   ReviewStore,
+  ReviewWindow,
   UserRatingCache,
+  UserRatingProjection,
 } from "../server/review.types";
 
 function seedCreatedAt(nowIso: string, daysAgo: number): string {
@@ -26,6 +29,9 @@ function createMemoryStore(nowIso: string): ReviewStore {
   const projects = new Map<string, ProjectReviewContext>();
   const users = new Map<string, UserRatingCache>();
   const reviews: ReviewRow[] = [];
+  const windows = new Map<string, ReviewWindow>();
+  const projections = new Map<string, UserRatingProjection>();
+  const outbox: Array<{ eventId: string; payload: unknown }> = [];
   const idempotency = new Map<string, { bodyHash: string; reviewId: string }>();
   let seq = 200;
 
@@ -46,6 +52,7 @@ function createMemoryStore(nowIso: string): ReviewStore {
     projectId: string,
     transactionStatus: ProjectReviewContext["transactionStatus"],
     contractStatus: ProjectReviewContext["contractStatus"] = "SIGNED",
+    completedAt: string | null = transactionStatus === "COMPLETED" ? nowIso : null,
   ): ProjectReviewContext => ({
     projectId,
     clientId: MOCK_CLIENT_USER_ID,
@@ -53,6 +60,7 @@ function createMemoryStore(nowIso: string): ReviewStore {
     transactionStatus,
     contractStatus,
     contractId: `ctr_${projectId}`,
+    completedAt,
   });
 
   addProject(signed("prj_completed", "COMPLETED"));
@@ -61,9 +69,19 @@ function createMemoryStore(nowIso: string): ReviewStore {
   addProject(signed("prj_contract_canceled", "COMPLETED", "CANCELED"));
   addProject(signed("prj_both", "COMPLETED"));
   addProject(signed("prj_solo_fresh", "COMPLETED"));
-  addProject(signed("prj_solo_due", "COMPLETED"));
+  addProject(signed("prj_solo_due", "COMPLETED", "SIGNED", seedCreatedAt(nowIso, 14)));
   addProject(signed("prj_avg_a", "COMPLETED"));
   addProject(signed("prj_avg_b", "COMPLETED"));
+  for (const project of projects.values()) {
+    if (project.transactionStatus === "COMPLETED" && project.completedAt) {
+      windows.set(project.projectId, {
+        projectId: project.projectId,
+        openedAt: project.completedAt,
+        deadlineAt: addDaysIso(project.completedAt, SOLO_PUBLIC_AFTER_DAYS),
+        policyVersion: 1,
+      });
+    }
+  }
 
   function seedReview(
     row: Omit<ReviewRow, "reviewCreatedPublishedAt"> & { reviewCreatedPublishedAt?: string | null },
@@ -207,6 +225,39 @@ function createMemoryStore(nowIso: string): ReviewStore {
       seq += 1;
       return `rvw_${seq}`;
     },
+    ensureWindow(project) {
+      const existing = windows.get(project.projectId);
+      if (existing) return existing;
+      const openedAt = project.completedAt;
+      if (!openedAt) {
+        throw new Error(`review window needs completedAt for ${project.projectId}`);
+      }
+      const row: ReviewWindow = {
+        projectId: project.projectId,
+        openedAt,
+        deadlineAt: addDaysIso(openedAt, SOLO_PUBLIC_AFTER_DAYS),
+        policyVersion: 1,
+      };
+      windows.set(project.projectId, row);
+      return row;
+    },
+    getWindow(projectId) {
+      return windows.get(projectId);
+    },
+    getProjection(userId) {
+      const row = projections.get(userId);
+      return row ? { ...row } : undefined;
+    },
+    setProjection(row) {
+      projections.set(row.userId, { ...row });
+    },
+    enqueueOutbox(eventId, payload) {
+      if (outbox.some((item) => item.eventId === eventId)) return;
+      outbox.push({ eventId, payload });
+    },
+    listOutbox() {
+      return outbox.map((item) => ({ ...item }));
+    },
   };
 }
 
@@ -256,6 +307,9 @@ export function createReviewApiMock(nowIso: string = MOCK_NOW) {
     async getUserRating(userId: string, actorUserId: string | undefined) {
       return getUserRating(deps, userId, actorUserId);
     },
+    getUserRatingSummary(userId: string, actorUserId: string | undefined) {
+      return getUserRating(deps, userId, actorUserId);
+    },
     async listUserReviews(userId: string, actorUserId: string | undefined, page?: number, pageSize?: number) {
       return listUserReviews(deps, userId, actorUserId, page, pageSize);
     },
@@ -264,6 +318,18 @@ export function createReviewApiMock(nowIso: string = MOCK_NOW) {
     },
     async publishDueSoloReviews() {
       return publishDueSoloReviews(deps);
+    },
+    async refreshUserRatingProjection(userId: string) {
+      return refreshUserRatingProjection(deps, userId);
+    },
+    seedStaleProjection(userId: string, ratingSum: number, reviewCount: number) {
+      store.setProjection({ userId, ratingSum, reviewCount, calculatedAt: "2000-01-01T00:00:00Z" });
+    },
+    getProjection(userId: string) {
+      return store.getProjection(userId);
+    },
+    listOutbox() {
+      return store.listOutbox();
     },
   };
 }

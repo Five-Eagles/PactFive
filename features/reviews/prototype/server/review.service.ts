@@ -1,4 +1,6 @@
-import { REVIEW_COLLECTION_METHODS, SOLO_PUBLIC_AFTER_DAYS, DAY_MS, tagsForDirection } from "./review.constants";
+import { REVIEW_COLLECTION_METHODS, tagsForDirection } from "./review.constants";
+import { displayAverageRating } from "./display-average";
+import { withKeyedLock } from "./keyed-lock";
 import type { ReviewEventPort } from "./review-event.port";
 import type { PublishedRatingAggregate } from "./published-rating.port";
 import {
@@ -16,6 +18,7 @@ import {
   type ReviewRow,
   type ReviewStore,
   type ReviewVisibility,
+  type ReviewWindow,
 } from "./review.types";
 
 export type { ReviewStore };
@@ -56,32 +59,28 @@ function visibilityOf(isPublic: boolean): ReviewVisibility {
   return isPublic ? "PUBLISHED" : "BLINDED";
 }
 
-export function isReviewPublic(row: ReviewRow, siblings: ReviewRow[], nowIso: string): boolean {
-  // 양쪽이 있으면 즉시 공개하고, 아니면 14일이 지난 단독 건만 공개한다.
+export function isReviewPublic(
+  _row: ReviewRow,
+  siblings: ReviewRow[],
+  nowIso: string,
+  window: ReviewWindow | undefined,
+): boolean {
+  // 양쪽이 있으면 즉시 공개하고, 아니면 window 기한 이후 단독 공개한다.
   const directions = new Set(siblings.map((item) => item.direction));
   if (directions.has("CLIENT_TO_FREELANCER") && directions.has("FREELANCER_TO_CLIENT")) {
     return true;
   }
-  return Date.parse(nowIso) - Date.parse(row.createdAt) >= SOLO_PUBLIC_AFTER_DAYS * DAY_MS;
+  if (!window) return false;
+  return Date.parse(nowIso) >= Date.parse(window.deadlineAt);
 }
 
-function earliestSubmittedAt(siblings: ReviewRow[]): string | null {
-  if (siblings.length === 0) return null;
-  return siblings.reduce(
-    (min, row) => (Date.parse(row.createdAt) < Date.parse(min) ? row.createdAt : min),
-    siblings[0].createdAt,
-  );
+function reviewDeadlineAt(window: ReviewWindow | undefined): string | null {
+  return window?.deadlineAt ?? null;
 }
 
-function reviewDeadlineAt(siblings: ReviewRow[]): string | null {
-  const first = earliestSubmittedAt(siblings);
-  if (!first) return null;
-  return new Date(Date.parse(first) + SOLO_PUBLIC_AFTER_DAYS * DAY_MS).toISOString();
-}
-
-function isPeriodClosed(siblings: ReviewRow[], nowIso: string): boolean {
-  const deadline = reviewDeadlineAt(siblings);
-  return deadline !== null && Date.parse(nowIso) >= Date.parse(deadline);
+function isPeriodClosed(window: ReviewWindow | undefined, nowIso: string): boolean {
+  if (!window) return true;
+  return Date.parse(nowIso) >= Date.parse(window.deadlineAt);
 }
 
 function toItem(row: ReviewRow, isPublic: boolean): ReviewItem {
@@ -110,17 +109,26 @@ function toCreateBody(row: ReviewRow, isPublic: boolean): CreateReviewResponse {
 async function publishNewlyPublic(deps: ReviewServiceDeps, projectId: string): Promise<void> {
   const siblings = deps.store.getReviewsByProject(projectId);
   const nowIso = deps.now();
+  const window = deps.store.getWindow(projectId);
+  const publishedIds: string[] = [];
   for (const row of siblings) {
     // 이미 보낸 행은 건너뛰어 공개 시점 1회만 지킨다.
-    if (!isReviewPublic(row, siblings, nowIso) || row.reviewCreatedPublishedAt) continue;
-    await deps.events.publishReviewCreated({
+    if (!isReviewPublic(row, siblings, nowIso, window) || row.reviewCreatedPublishedAt) continue;
+    const event = {
       reviewId: row.reviewId,
       projectId: row.projectId,
       revieweeId: row.revieweeId,
       rating: row.rating,
       publishedAt: nowIso,
-    });
+    };
+    await deps.events.publishReviewCreated(event);
     deps.store.markReviewCreatedPublished(row.reviewId, nowIso);
+    deps.store.enqueueOutbox(`review-created-${row.reviewId}`, event);
+    publishedIds.push(row.revieweeId);
+  }
+  const unique = [...new Set(publishedIds)].sort();
+  for (const userId of unique) {
+    await refreshUserRatingProjection(deps, userId);
   }
 }
 
@@ -178,11 +186,17 @@ export async function createReview(
     ]);
   }
   const content = normalizeContent(input.content);
-
-  const siblings = deps.store.getReviewsByProject(projectId);
-  const nowIso = deps.now();
   const hash = bodyHash(input, content);
   const idemKey = `${projectId}:${actor}:${idempotencyKey}`;
+
+  return withKeyedLock(`review-window:${projectId}`, async () => {
+  const fresh = deps.store.getProject(projectId);
+  if (!fresh) {
+    throw new ReviewApiError("PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다.");
+  }
+  const window = deps.store.ensureWindow(fresh);
+  const siblings = deps.store.getReviewsByProject(projectId);
+  const nowIso = deps.now();
   const cached = deps.store.getIdempotency(idemKey);
   if (cached) {
     if (cached.bodyHash !== hash) {
@@ -193,24 +207,25 @@ export async function createReview(
       throw new ReviewApiError("PROJECT_NOT_FOUND", "리뷰를 찾을 수 없습니다.");
     }
     return {
-      httpStatus: 200,
-      body: toCreateBody(row, isReviewPublic(row, siblings, nowIso)),
+      httpStatus: 200 as const,
+      body: toCreateBody(row, isReviewPublic(row, siblings, nowIso, window)),
     };
   }
 
   if (siblings.some((row) => row.direction === direction)) {
     throw new ReviewApiError("REVIEW_ALREADY_SUBMITTED", "이미 작성한 리뷰입니다.");
   }
-  if (isPeriodClosed(siblings, nowIso)) {
+  const nowMs = Date.parse(nowIso);
+  if (nowMs < Date.parse(window.openedAt) || isPeriodClosed(window, nowIso)) {
     throw new ReviewApiError("REVIEW_PERIOD_CLOSED", "리뷰 작성 기간이 끝났습니다.");
   }
 
   const row: ReviewRow = {
     reviewId: deps.store.nextReviewId(),
     projectId,
-    contractId: project.contractId,
+    contractId: fresh.contractId,
     reviewerId: actor,
-    revieweeId: actor === project.clientId ? project.freelancerId : project.clientId,
+    revieweeId: actor === fresh.clientId ? fresh.freelancerId : fresh.clientId,
     direction,
     rating: input.rating,
     content,
@@ -224,9 +239,10 @@ export async function createReview(
   const after = deps.store.getReviewsByProject(projectId);
   const stored = deps.store.getReview(row.reviewId) ?? row;
   return {
-    httpStatus: 201,
-    body: toCreateBody(stored, isReviewPublic(stored, after, deps.now())),
+    httpStatus: 201 as const,
+    body: toCreateBody(stored, isReviewPublic(stored, after, deps.now(), deps.store.getWindow(projectId))),
   };
+  });
 }
 
 export async function listProjectReviews(
@@ -241,10 +257,11 @@ export async function listProjectReviews(
   }
   const siblings = deps.store.getReviewsByProject(projectId);
   const nowIso = deps.now();
+  const window = deps.store.getWindow(projectId) ?? (project.transactionStatus === "COMPLETED" ? deps.store.ensureWindow(project) : undefined);
   const isParty = actor === project.clientId || actor === project.freelancerId;
   const items = siblings
     .map((row) => {
-      const isPublic = isReviewPublic(row, siblings, nowIso);
+      const isPublic = isReviewPublic(row, siblings, nowIso, window);
       return { row, isPublic };
     })
     .filter(({ row, isPublic }) => isPublic || (isParty && row.reviewerId === actor))
@@ -264,6 +281,9 @@ export async function getMyProjectReview(
   }
   const siblings = deps.store.getReviewsByProject(projectId);
   const nowIso = deps.now();
+  const window =
+    deps.store.getWindow(projectId) ??
+    (project.transactionStatus === "COMPLETED" ? deps.store.ensureWindow(project) : undefined);
   const isParty = actor === project.clientId || actor === project.freelancerId;
   const direction: ReviewDirection | null = !isParty
     ? null
@@ -275,7 +295,7 @@ export async function getMyProjectReview(
     ? siblings.find((row) => row.direction !== direction)
     : undefined;
   const counterpartPublic = counterpart
-    ? isReviewPublic(counterpart, siblings, nowIso)
+    ? isReviewPublic(counterpart, siblings, nowIso, window)
     : false;
 
   let reason: MyProjectReviewReason | null = null;
@@ -283,13 +303,13 @@ export async function getMyProjectReview(
   else if (project.transactionStatus !== "COMPLETED" || project.contractStatus === "CANCELED") {
     reason = "PROJECT_NOT_COMPLETED";
   } else if (mine) reason = "REVIEW_ALREADY_SUBMITTED";
-  else if (isPeriodClosed(siblings, nowIso)) reason = "REVIEW_PERIOD_CLOSED";
+  else if (isPeriodClosed(window, nowIso)) reason = "REVIEW_PERIOD_CLOSED";
 
   return {
     canReview: reason === null,
     reason,
-    reviewDeadlineAt: reviewDeadlineAt(siblings),
-    myReview: mine ? toCreateBody(mine, isReviewPublic(mine, siblings, nowIso)) : null,
+    reviewDeadlineAt: reviewDeadlineAt(window),
+    myReview: mine ? toCreateBody(mine, isReviewPublic(mine, siblings, nowIso, window)) : null,
     counterpartyReviewVisibility: counterpartPublic ? "PUBLISHED" : "NOT_AVAILABLE",
   };
 }
@@ -304,7 +324,8 @@ export async function getPublishedRatingAggregate(
   for (const row of deps.store.getAllReviews()) {
     if (row.revieweeId !== revieweeId) continue;
     const siblings = deps.store.getReviewsByProject(row.projectId);
-    if (!isReviewPublic(row, siblings, nowIso)) continue;
+    const window = deps.store.getWindow(row.projectId);
+    if (!isReviewPublic(row, siblings, nowIso, window)) continue;
     ratingSum += row.rating;
     reviewCount += 1;
   }
@@ -321,11 +342,17 @@ export async function getUserRating(
     throw new ReviewApiError("USER_NOT_FOUND", "사용자를 찾을 수 없습니다.");
   }
   const { ratingSum, reviewCount } = await getPublishedRatingAggregate(deps, userId);
-  if (reviewCount === 0) {
+  const projected = deps.store.getProjection(userId);
+  const sum = projected?.ratingSum ?? ratingSum;
+  const count = projected?.reviewCount ?? reviewCount;
+  if (count === 0) {
     return { userId, averageRating: null, reviewCount: 0 };
   }
-  return { userId, averageRating: ratingSum / reviewCount, reviewCount };
+  return { userId, averageRating: displayAverageRating(sum, count), reviewCount: count };
 }
+
+// 오케스트레이션 조회 이름. HTTP는 getUserRating과 같다.
+export const getUserRatingSummary = getUserRating;
 
 export async function listUserReviews(
   deps: ReviewServiceDeps,
@@ -346,7 +373,8 @@ export async function listUserReviews(
     .filter((row) => {
       if (row.revieweeId !== userId) return false;
       const siblings = deps.store.getReviewsByProject(row.projectId);
-      return isReviewPublic(row, siblings, nowIso);
+      const window = deps.store.getWindow(row.projectId);
+      return isReviewPublic(row, siblings, nowIso, window);
     })
     .sort((a, b) => {
       const publishedA = a.reviewCreatedPublishedAt ?? a.createdAt;
@@ -359,6 +387,21 @@ export async function listUserReviews(
   const start = (safePage - 1) * safeSize;
   const items = published.slice(start, start + safeSize).map((row) => toItem(row, true));
   return { items, page: safePage, pageSize: safeSize, totalCount, totalPages };
+}
+
+export async function refreshUserRatingProjection(
+  deps: ReviewServiceDeps,
+  userId: string,
+): Promise<void> {
+  await withKeyedLock(`rating-proj:${userId}`, async () => {
+    const agg = await getPublishedRatingAggregate(deps, userId);
+    deps.store.setProjection({
+      userId,
+      ratingSum: agg.ratingSum,
+      reviewCount: agg.reviewCount,
+      calculatedAt: deps.now(),
+    });
+  });
 }
 
 export async function publishDueSoloReviews(deps: ReviewServiceDeps): Promise<void> {

@@ -53,7 +53,7 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
 
 ## 항목 2 — [CR] 이번 반영에서 일부러 하지 않은 것 3가지
 
-상태: 미확인
+상태: 검토중
 
 **Fact**
 1. **`publishDueSoloReviews`(14일 경과 단독 리뷰를 스캔해 뒤늦게 공개 이벤트를 보내는 배치
@@ -82,7 +82,8 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
 
 **담당자 메모**
 - 1번·2번은 급하지 않으면 그대로 두고 다음 스프린트에서 notifications 담당이 정해질 때 같이
-  풀어도 됩니다. 3번(프리랜서에게 거래 완료 여부를 어떻게 알려줄지)은 project-management
-  담당자와 먼저 합의가 필요합니다 — 정해지면 팀장이 진입점을 연결합니다.
+  풀어도 됩니다. 3번(프리랜서 진입점)은 2026-09-07 유동우 합의: PM 규칙 9 유지. CTA는
+  공개 상세가 아니라 내 지원 현황(`listMyApplications`)의 ACCEPTED∧COMPLETED 「완료됨」배지
+  → `/projects/:projectId/reviews`. spec 규칙 11에 고정. 팀장 `app/` 이식은 아직이라 검토중.
 
 ---
