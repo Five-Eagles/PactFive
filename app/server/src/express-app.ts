@@ -151,7 +151,10 @@ try {
   // 값이 없어도 서버는 그대로 동작한다(.env.example 공통 규칙 1) — 로컬/아직 마이그레이션
   // 안 한 배포 환경은 지금처럼 인메모리로 계속 굴러간다. auth만 우선 전환한다 — 다른
   // 기능(project-management 등)의 인메모리 저장소는 이 트랙 범위 밖이다.
-  authRepositories = isPrismaConfigured()
+  // 2026-09-08: authProviderMode도 같이 본다 — mock 인증 상태에서는 DATABASE_URL이 있어도
+  // 강제로 InMemory로 묶는다(shared/prisma-client.ts의 isPrismaConfigured 주석 참고 —
+  // mock 인증의 가짜 userId가 실제 users 테이블에 없어 FK가 깨지는 걸 막는 정합성 요구사항).
+  authRepositories = isPrismaConfigured(authProviderMode)
     ? new PrismaAuthRepository(getPrismaClient())
     : new InMemoryAuthRepository();
 } catch (error) {
