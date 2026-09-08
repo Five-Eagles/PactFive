@@ -2378,6 +2378,9 @@ async function main() {
     assert(!/passwordHash|password_hash|jwt\.sign|jsonwebtoken/.test(prototypeSources), "금지된 앱 인증 정본 의존성 발견");
   });
 
+  const { runProfileCompletionTests } = await import("./tests/profile-completion.test");
+  await runProfileCompletionTests(test);
+
   const passed = results.filter((result) => result.ok).length;
   const failed = results.length - passed;
   console.log(`=== 결과: PASS ${passed}, FAIL ${failed}, TOTAL ${results.length} ===`);

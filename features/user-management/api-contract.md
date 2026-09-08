@@ -1,5 +1,47 @@
 # user-management — API 계약
 
+## 내부 프로필 완성도 조회 포트 (2026-09-08 추가)
+
+서버 내부 계약이며 신규 공개 HTTP API가 아니다. 인증된 호출자가 서버에서 확인한 사용자 ID만
+전달한다. 다른 feature의 DB 직접 조회를 대체하되, 해당 업무의 역할·리소스 권한 검사는 유지한다.
+ID는 불투명 문자열로 취급한다. 빈값·공백·제어문자는 거부하되 기존 인증 생성기의 36자 ID를
+조회 계층에서 임의로 자르거나 거부하지 않는다. DB의 varchar(30)과 생성기 길이 차이는 별도 통합 점검 대상이다.
+
+```ts
+type ProfileCompletion = {
+  status: "COMPLETE" | "INCOMPLETE" | "UNAVAILABLE";
+  completedAt: string | null;
+  missingFields: string[];
+};
+type ProfileCompletionPort = {
+  getProfileCompletion(userId: string): Promise<ProfileCompletion>;
+};
+```
+
+- 구현 진입점: `prototype/server/profile-completion.service.ts`의
+  `createProfileCompletionPort(repository)`. 구현은 외부 feature나 Prisma 생성물을 import하지 않는다.
+- 저장소: `ProfileCompletionRepository.findProfileCompletionSnapshot(userId)`는 사용자와 역할에 맞는
+  본인 프로필, **연결된** 기술의 ID·활성 여부, 서버가 저장한 UTC 완성 시각을 일관된 snapshot으로
+  반환한다. 사용자 없음은 null, 활성 사용자에게 프로필만 없으면 `profile: null`이다.
+  운영 adapter는 join 또는 일관된 DB transaction으로 읽고 Date를 ISO UTC 문자열로 변환해야 한다.
+- COMPLETE: `completedAt`은 저장된 시각, `missingFields: []`.
+- INCOMPLETE: `completedAt: null`, 아래 필드 코드 중 하나 이상. 프로필 행 자체가 없으면 역할별
+  기본 필수 코드 전체(CLIENT 2개/FREELANCER 3개)를 반환한다.
+- UNAVAILABLE: `completedAt: null`, `missingFields: []`. 저장소 장애·사용자 없음/탈퇴·소유자 불일치·
+  비정상 역할/응답과 필드-완성시각 불일치를 구분해 외부로 노출하지 않는다. COMPLETE fallback 금지.
+- 반환 코드(순서 고정): `CLIENT_COMPANY_NAME`, `CLIENT_BUSINESS_FIELD`,
+  `CLIENT_BUSINESS_FIELD_ETC`; 또는 `FREELANCER_PRIMARY_CATEGORY`,
+  `FREELANCER_CAREER_YEARS`, `FREELANCER_SKILLS`. 누락뿐 아니라 필수 조건을 만족하지 않는 필드도
+  포함한다. 현 enum에는 ETC가 없으므로 CLIENT_BUSINESS_FIELD_ETC는 비NULL 잔존값에만 사용한다.
+- 필수 필드·완성 시각 기준은 spec PC-01~PC-08. 조회는 재계산 결과를 **저장하지 않는다**.
+  필드가 완성됐는데 시각이 없다면 조회 시간으로 꾸미지 않고 UNAVAILABLE를 반환한다.
+- applications의 기존 포트에 구조적으로 주입할 수 있다. COMPLETE만 지원 허용,
+  INCOMPLETE는 PROFILE_INCOMPLETE, UNAVAILABLE는 DEPENDENCY_UNAVAILABLE(503)로 처리한다.
+  project-management의 현 2상태 포트에는 실패 매핑 계약 합의 없이 직접 주입하지 않는다.
+
+Mock은 인메모리 snapshot이며 DB 구현/프로필 저장 API/프로필 편집 UI/app 게이트 연결은 미포함이다.
+통합 요청: `change-requests/0001-profile-completion-integration.md`.
+
 > 상태: **작업 가설**. 구현 후 팀장 통합 단계에서 확정한다. 단, 동일 이메일 연결, OAuth intent,
 > 세션 동기화 책임, 서버/BFF 쿠키 방식은 2026-08-25 user-management **DECISION**으로 잠갔다.
 > 2026-08-26에는 8월 27일 구현 범위에 맞춰 가입 intent 저장 책임과 실제 Supabase SDK가 표현 가능한
