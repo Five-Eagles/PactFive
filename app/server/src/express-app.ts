@@ -2,6 +2,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
 import { config as loadEnvFile } from 'dotenv';
 import cors from 'cors';
 import { createAuthRouter } from './features/user-management/auth.routes';
@@ -478,6 +479,59 @@ app.use(
     paymentGatewayConfigured: paymentGateway !== null,
   }),
 );
+
+// ---------------------------------------------------------------------------
+// 로컬 개발 전용 — DevAuthToggle(app/web)의 "기능별 시드 계정 피커" 지원용 2종.
+// `!isProduction` 밖에서는 이 블록 자체가 실행되지 않는다 — 라우트가 아예 등록되지 않으므로
+// 배포 환경에는 존재하지 않는다(이중 방어 없이 단순 조건 분기). `/api/` 접두사를 붙인 건
+// (다른 `/internal/v1/...`와 달리) app/web의 vite proxy가 `/api`만 넘겨주기 때문이다
+// (app/web/vite.config.ts) — 브라우저에서 직접 부를 수 있어야 하는 이 두 엔드포인트만 예외다.
+if (!isProduction) {
+  // scripts/seed-dev-accounts.js가 리포 루트에 쓰는 파일 — 이메일/비밀번호를 그대로 담고
+  // 있지만 전부 @example.com 가짜 계정이고, 이 파일 자체가 .gitignore에 있어 커밋되지 않는다.
+  const devAccountsFilePath = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../.dev-accounts.local.json',
+  );
+
+  app.get('/api/internal/dev/test-accounts', (_req: Request, res: Response) => {
+    if (!existsSync(devAccountsFilePath)) {
+      res.status(200).json({ accounts: [] });
+      return;
+    }
+    try {
+      res.status(200).json(JSON.parse(readFileSync(devAccountsFilePath, 'utf8')));
+    } catch {
+      // 파일이 깨져 있어도(수동 편집 중이었다든가) 위젯은 "계정 없음"으로만 보이면 된다 —
+      // 로컬 개발 편의 기능이 500으로 화면을 막을 이유가 없다.
+      res.status(200).json({ accounts: [] });
+    }
+  });
+
+  // 정산 RELEASED 전이는 실제 지급 버튼이 없어(public-api.service.ts의
+  // simulateSettlementResult 주석 — "Sandbox 정산 실행은 지급 버튼이 없어, 이 함수를
+  // 직접 호출해야만") 사용자 API로는 절대 도달할 수 없다. scripts/seed-dev-accounts.js의
+  // "결제 완료" 시나리오가 실제 토스 결제(브라우저, 이건 대신할 수 없다)까지 마친 뒤 이
+  // 엔드포인트로 그 다음 단계만 이어 부른다 — 같은 publicApiService 인스턴스를 그대로
+  // 호출할 뿐, 별도 로직이나 DB 우회가 없다.
+  app.post('/api/internal/dev/simulate-settlement', async (req: Request, res: Response) => {
+    const paymentId = String((req.body as Record<string, unknown> | undefined)?.paymentId ?? '');
+    if (!paymentId) {
+      res.status(422).json({
+        error: { code: 'VALIDATION_ERROR', message: 'paymentId가 필요합니다.', details: null },
+      });
+      return;
+    }
+    try {
+      await publicApiService.simulateSettlementResult(paymentId, 'SUCCESS');
+      res.status(200).json({ ok: true });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ error: { code: 'INTERNAL_ERROR', message: String(error), details: null } });
+    }
+  });
+}
 
 // ---------------------------------------------------------------------------
 // reviews — 공개 API 3종(작성·목록·요약). features/reviews/api-contract.md.
