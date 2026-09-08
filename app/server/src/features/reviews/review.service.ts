@@ -105,7 +105,7 @@ async function requireProject(deps: ReviewServiceDeps, projectId: string) {
 }
 
 async function publishNewlyPublic(deps: ReviewServiceDeps, projectId: string): Promise<void> {
-  const siblings = deps.repository.getReviewsByProject(projectId);
+  const siblings = await deps.repository.getReviewsByProject(projectId);
   const nowIso = deps.now();
   for (const row of siblings) {
     // 이미 보낸 행은 건너뛰어 공개 시점 1회만 지킨다.
@@ -117,7 +117,7 @@ async function publishNewlyPublic(deps: ReviewServiceDeps, projectId: string): P
       rating: row.rating,
       publishedAt: nowIso,
     });
-    deps.repository.markReviewCreatedPublished(row.reviewId, nowIso);
+    await deps.repository.markReviewCreatedPublished(row.reviewId, nowIso);
   }
 }
 
@@ -159,14 +159,14 @@ export async function createReview(
   // 같은 키·본문은 기존 행을 그대로 돌려주고, 다른 본문·같은 방향은 409다.
   const hash = bodyHash(input);
   const idemKey = `${projectId}:${actor}:${idempotencyKey}`;
-  const cached = deps.repository.getIdempotency(idemKey);
-  const siblings = deps.repository.getReviewsByProject(projectId);
+  const cached = await deps.repository.getIdempotency(idemKey);
+  const siblings = await deps.repository.getReviewsByProject(projectId);
   const nowIso = deps.now();
   if (cached) {
     if (cached.bodyHash !== hash) {
       throw new ReviewApiError('REVIEW_ALREADY_EXISTS', '이미 작성한 리뷰입니다.');
     }
-    const row = deps.repository.getReview(cached.reviewId);
+    const row = await deps.repository.getReview(cached.reviewId);
     if (!row) {
       throw new ReviewApiError('PROJECT_NOT_FOUND', '리뷰를 찾을 수 없습니다.');
     }
@@ -181,7 +181,7 @@ export async function createReview(
   }
 
   const row: ReviewRow = {
-    reviewId: deps.repository.nextReviewId(),
+    reviewId: await deps.repository.nextReviewId(),
     projectId,
     contractId: project.contractId,
     reviewerId: actor,
@@ -193,12 +193,12 @@ export async function createReview(
     createdAt: nowIso,
     reviewCreatedPublishedAt: null,
   };
-  deps.repository.insertReview(row);
-  deps.repository.setIdempotency(idemKey, hash, row.reviewId);
+  await deps.repository.insertReview(row);
+  await deps.repository.setIdempotency(idemKey, hash, row.reviewId);
   // 공개가 된 행에만 REVIEW_CREATED를 보낸다. users는 갱신하지 않는다.
   await publishNewlyPublic(deps, projectId);
-  const after = deps.repository.getReviewsByProject(projectId);
-  const stored = deps.repository.getReview(row.reviewId) ?? row;
+  const after = await deps.repository.getReviewsByProject(projectId);
+  const stored = (await deps.repository.getReview(row.reviewId)) ?? row;
   return {
     httpStatus: 201,
     body: toCreateBody(stored, isReviewPublic(stored, after, deps.now())),
@@ -213,7 +213,7 @@ export async function listProjectReviews(
   const actor = requireActor(actorUserId);
   const project = await requireProject(deps, projectId);
   // 비당사자는 공개분만, 당사자는 본인 미공개 행도 본다.
-  const siblings = deps.repository.getReviewsByProject(projectId);
+  const siblings = await deps.repository.getReviewsByProject(projectId);
   const nowIso = deps.now();
   const isParty = actor === project.clientId || actor === project.freelancerId;
   const items = siblings
@@ -234,9 +234,9 @@ export async function getPublishedRatingAggregate(
   const nowIso = deps.now();
   let ratingSum = 0;
   let reviewCount = 0;
-  for (const row of deps.repository.getAllReviews()) {
+  for (const row of await deps.repository.getAllReviews()) {
     if (row.revieweeId !== revieweeId) continue;
-    const siblings = deps.repository.getReviewsByProject(row.projectId);
+    const siblings = await deps.repository.getReviewsByProject(row.projectId);
     if (!isReviewPublic(row, siblings, nowIso)) continue;
     ratingSum += row.rating;
     reviewCount += 1;

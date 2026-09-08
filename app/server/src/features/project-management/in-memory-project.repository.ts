@@ -11,6 +11,9 @@ import type { ProjectRecord } from './project.types';
  *
  * 서버리스에서는 인스턴스마다 이 Map 이 따로 존재한다 (app/server/AGENTS.md
  * "서버리스 제약"). 실제 데이터는 Prisma 구현으로 교체되기 전까지 신뢰할 수 없다.
+ *
+ * 2026-09-08 팀장 반영: ProjectRepository가 Promise 반환으로 바뀌면서, 이미 동기로 계산한
+ * 값을 Promise.resolve로 감싸기만 했다 — 내부 로직·자료구조는 그대로다.
  */
 export class InMemoryProjectRepository implements ProjectRepository {
   private readonly rows = new Map<string, ProjectRecord>();
@@ -23,25 +26,25 @@ export class InMemoryProjectRepository implements ProjectRepository {
     for (const seed of seeds) this.rows.set(seed.projectId, { ...seed });
   }
 
-  findByIdIncludingDeleted(projectId: string): ProjectRecord | null {
+  async findByIdIncludingDeleted(projectId: string): Promise<ProjectRecord | null> {
     return this.rows.get(projectId) ?? null;
   }
 
-  findById(projectId: string): ProjectRecord | null {
+  async findById(projectId: string): Promise<ProjectRecord | null> {
     const row = this.rows.get(projectId);
     if (!row || row.deletedAt !== null) return null;
     return row;
   }
 
-  findAll(): ProjectRecord[] {
+  async findAll(): Promise<ProjectRecord[]> {
     return [...this.rows.values()].filter((p) => p.deletedAt === null);
   }
 
-  findByClientId(clientId: string): ProjectRecord[] {
+  async findByClientId(clientId: string): Promise<ProjectRecord[]> {
     return [...this.rows.values()].filter((p) => p.deletedAt === null && p.clientId === clientId);
   }
 
-  insert(record: ProjectRecord): ProjectRecord {
+  async insert(record: ProjectRecord): Promise<ProjectRecord> {
     if (this.rows.has(record.projectId)) {
       throw new Error(`projectId 중복 — ${record.projectId}`);
     }
@@ -49,7 +52,7 @@ export class InMemoryProjectRepository implements ProjectRepository {
     return record;
   }
 
-  update(projectId: string, patch: Partial<ProjectRecord>): ProjectRecord {
+  async update(projectId: string, patch: Partial<ProjectRecord>): Promise<ProjectRecord> {
     const row = this.rows.get(projectId);
     if (!row) throw new Error(`없는 projectId — ${projectId}`);
     const next: ProjectRecord = { ...row, ...patch, updatedAt: this.now() };
@@ -57,11 +60,11 @@ export class InMemoryProjectRepository implements ProjectRepository {
     return next;
   }
 
-  findProcessed(idempotencyKey: string): ProcessedRecord | null {
+  async findProcessed(idempotencyKey: string): Promise<ProcessedRecord | null> {
     return this.processed.get(idempotencyKey) ?? null;
   }
 
-  markProcessed(idempotencyKey: string, result: unknown, projectVersion: number): ProcessedRecord {
+  async markProcessed(idempotencyKey: string, result: unknown, projectVersion: number): Promise<ProcessedRecord> {
     const record: ProcessedRecord = {
       idempotencyKey,
       processedAt: this.now(),

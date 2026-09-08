@@ -30,24 +30,25 @@ export function createApplicationsPortAdapter(
       projectId: string,
       input: { closureEventId: string; reason: ClosureReason; occurredAt: string },
     ): Promise<RejectPendingApplicationsResult> {
-      const cached = repository.getClosure(input.closureEventId);
+      const cached = await repository.getClosure(input.closureEventId);
       if (cached) return { ...cached, alreadyProcessed: true };
 
-      const pending = repository.getByProject(projectId).filter((row) => row.status === 'PENDING');
+      const byProject = await repository.getByProject(projectId);
+      const pending = byProject.filter((row) => row.status === 'PENDING');
       if (pending.length === 0) {
         const none: RejectPendingApplicationsResult = {
           rejectedCount: 0,
           alreadyProcessed: false,
           result: 'NOT_NEEDED',
         };
-        repository.setClosure(input.closureEventId, none);
+        await repository.setClosure(input.closureEventId, none);
         return none;
       }
 
       // GAP-01 — 취소는 rejectionType: null, 마감만 AUTO_RECRUITMENT_CLOSED (위 헤더 주석).
       const rejectionType = input.reason === 'PROJECT_CANCELED' ? null : ('AUTO_RECRUITMENT_CLOSED' as const);
       for (const row of pending) {
-        repository.saveApplication({
+        await repository.saveApplication({
           ...row,
           status: 'REJECTED',
           rejectionType,
@@ -70,7 +71,7 @@ export function createApplicationsPortAdapter(
         alreadyProcessed: false,
         result: 'DONE',
       };
-      repository.setClosure(input.closureEventId, done);
+      await repository.setClosure(input.closureEventId, done);
       return done;
     },
   };
