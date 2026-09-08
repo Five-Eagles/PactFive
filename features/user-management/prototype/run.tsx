@@ -2380,6 +2380,10 @@ async function main() {
 
   const { runProfileCompletionTests } = await import("./tests/profile-completion.test");
   await runProfileCompletionTests(test);
+  const { runUserRatingTests } = await import("./tests/user-rating.test");
+  await runUserRatingTests(test);
+  const { runAuthRecordIdTests } = await import("./tests/auth-record-id.test");
+  await runAuthRecordIdTests(test);
 
   const passed = results.filter((result) => result.ok).length;
   const failed = results.length - passed;

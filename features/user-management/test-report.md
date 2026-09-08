@@ -2,6 +2,33 @@
 
 담당자: 오민혁
 
+## 2026-09-08 사용자 평점 캐시·인증 식별자 후속
+
+검증 범위는 `features/user-management/**`다. 기존 77개에 평점 소비 18개와 ID 생성 6개를
+추가했다. app·DB·worker·공급자 실연동은 검증하지 않았고 피드백 상태도 임의 종결하지 않았다.
+
+- [x] `npx tsx features/user-management/prototype/run.tsx` — **101 PASS / 0 FAIL**
+- [x] `npx tsc -p features/user-management/prototype/tsconfig.json` — strict PASS
+- [x] `npm run preview:build` — PASS (102 modules, 기존 화면 회귀 빌드)
+- [x] `git diff --check` — PASS
+
+| 규칙 | 확인 방법 | 결과 |
+|---|---|---|
+| UR-01 | 이벤트 불량 ID/별점/날짜 차단, 윤년 UTC, 기존 긴 ID, reader에 대상 전달 | PASS |
+| UR-02 | 공개 합계 대체, 0건 초기화, 2자리 정확 반올림과 count 상한 | PASS |
+| UR-03 | 중복·역순 재집계, 소비자 2개 동시/지연 집계, 다른 사용자 병렬 실행 | PASS |
+| UR-04 | unknown/탈퇴/owner mismatch 차단, 같은 잠금의 탈퇴 후 재수신 거부 | PASS |
+| UR-05 | 비정상 sum/count, reader·잠금·commit 실패, rollback/재전달 성공, 내부 오류 비노출 | PASS |
+| UR-06 | 입력·조회 복제, transaction 재사용 금지, callback 실패 rollback, 전달 객체 변경 격리 | PASS |
+| ID-01 | prefix/30자/alphabet, 48bit 시각·80bit 난수 왕복, 경계 오류, 동일 밀리초 2048건 중복 없음 | PASS |
+| ID-02 | 기본 생성기로 가입 확인·세션 발급, 기존 36자 사용자 ID 보존 | PASS |
+
+신규 테스트: `prototype/tests/user-rating.test.ts`, `prototype/tests/auth-record-id.test.ts`.
+ULID 중복 표본 검사는 무충돌의 수학적/운영 보장이 아니며 DB PK 제약은 유지한다. Mock 직렬화는
+공유 인스턴스 내부 보장뿐이다. 실제 DB row lock/최신 snapshot, reviews 공개 후 durable 전달,
+worker retry/dead-letter, app 생성기 변경/기존 데이터 영향은 통합 후 검증해야 한다.
+새 UI가 없어 신규 디자인/브라우저 QA는 해당 없음이며 기존 SSR 계약은 회귀 검사에 포함했다.
+
 ## 2026-09-08 프로필 완성도 포트 증분
 
 기준: `origin/develop ec1c01f`를 동기화한 `feature/user-management` 작업 트리.

@@ -3,7 +3,8 @@
 - 담당자: 오민혁
 - 현재 단계: Step 4 — high-fi·구현 초안·자동 검증
 - 포함: 이메일/OAuth 가입·로그인, 이메일 확인, 고립 계정 가입 복구, 세션·안전한 `returnTo`,
-  회원 탈퇴의 PROVISIONAL spec/API 계약과 비활성 UI prototype, 서버 내부 프로필 완성도 조회 포트
+  회원 탈퇴의 PROVISIONAL spec/API 계약과 비활성 UI prototype, 서버 내부 프로필 완성도 조회 포트,
+  REVIEW_CREATED 사용자 평점 캐시 소비와 신규 인증 ULID 식별자 생성
 - 제외: 프로필 상세, 비밀번호 재설정, 회원 탈퇴 API client·서버·DB·worker 구현, `app/` 통합과 배포 설정
 
 ## 작업 원본
@@ -12,6 +13,8 @@
 - `api-contract.md` — BFF 인증 API 계약, 검토용 탈퇴 계약, 내부 프로필 완성도 조회 계약
 - `prototype/server/profile-completion.service.ts` — `createProfileCompletionPort(repository)` 진입점
 - `change-requests/0001-profile-completion-integration.md` — applications/DB/PM 통합 요청 및 정본 차이
+- `prototype/server/user-rating.service.ts` — 공개 집계 재조회·원자적 캐시 갱신 소비 진입점
+- `change-requests/0002-user-rating-and-auth-id-integration.md` — 평점/ULID30 app·DB·전달 통합 요청
 - `design/high-fi.html` — 로그인 high-fi
 - `design/high-fi-sign-up.html` — 회원가입·가입 복구 high-fi
 - `design/high-fi-email-confirmation.html` — 이메일 확인 high-fi
@@ -19,7 +22,16 @@
 - `prototype/` — 서버·웹·Mock 구현 초안과 `run.tsx` 검증
 - `test-report.md` — 검증 결과, UX 자체 점검, 미해결 통합 조건
 
-## 2026-09-08 프로필 포트 증분
+## 2026-09-08 담당 후속 증분
+
+공개 REVIEW_CREATED 소비와 users 평점 캐시 갱신을 포트·Mock·테스트로 구현했다. 사용자별 잠금
+획득 후 합계를 새로 읽고 두 캐시 필드를 한 번에 교체한다. 중복·역순 이벤트, 실패/rollback,
+사용자 격리·탈퇴와 기존 ID 호환을 검증했다. 신규 사용자·세션 ID만 ERD의 prefixed ULID30으로
+맞췄으며 기존 ID/공급자 UUID는 변경하지 않는다. 전체 자동 검증 **101 PASS**
+(기존 프로필 증분 77 + 평점 18 + ID 6), strict/preview build PASS. 운영 DB/worker/app 통합과 배포는 미완료다.
+새 화면은 없으며 기존 인증 피드백은 담당자 결정 없이 종결하지 않았다.
+
+## 2026-09-08 프로필 포트 증분 (앞선 기록)
 
 `getProfileCompletion(userId)`의 역할별 필수 조건과 COMPLETE/INCOMPLETE/UNAVAILABLE를 구현했다.
 현재 6종 enum을 사용하고 저장 시각을 임의로 만들지 않는다. 읽기 snapshot과 인메모리 Mock을

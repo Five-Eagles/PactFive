@@ -2,7 +2,7 @@
 
 ## 문서 상태
 
-- 작성 기준일: 2026-09-08 (프로필 완성도 포트 추가; 기존 인증·탈퇴 범위 유지)
+- 작성 기준일: 2026-09-08 (프로필 포트 이후 사용자 평점 캐시 소비·인증 식별자 정합성 증분)
 - 작업 단계: Step 4 — 인증 high-fi·회원 탈퇴 비활성 UI 및 프로필 완성도 조회 포트 prototype 검증
 - 상태 표기:
   - **FACT**: 저장소 정본이나 확인 작업으로 검증된 내용
@@ -23,6 +23,9 @@ PactFive 사용자가 이메일 또는 Google/Kakao 계정으로 가입·로그�
 
 ### 포함
 
+- **FACT (ERD E-12·reviews 담당 경계)**: 공개 REVIEW_CREATED 소비, 공개 합계 재조회,
+  사용자 평점 캐시 원자적 교체 포트·Mock·테스트(UR-01~UR-06), 기존 prefixed ULID 규격에 맞춘
+  사용자·세션 신규 ID 생성기(ID-01~ID-02). 이벤트 전달/DB adapter는 팀장 통합 후속이다.
 - **FACT (2026-09-08 회의·담당자 착수 요청)**: 서버 내부 프로필 완성도 조회 포트,
   역할별 필수 항목 판정, 저장소 인터페이스와 Mock 검증(아래 PC-01~PC-08).
 - **FACT (상위 요구사항)**: 이메일+비밀번호 회원가입과 로그인
@@ -47,6 +50,27 @@ PactFive 사용자가 이메일 또는 Google/Kakao 계정으로 가입·로그�
 - 관리자 기능과 역할 변경 기능
 - `app/` 통합 코드, 실제 Supabase/Google/Kakao 대시보드 설정, 배포 환경 변수 주입
 - user-management 이외 기능(특히 ai-pricing)의 설계와 구현
+
+## 사용자 평점 캐시·인증 식별자 규칙 (2026-09-08 후속)
+
+근거: ERD 원본 `users` E-12, `users.id` prefixed ULID 및 `auth_sessions.id` varchar(30),
+reviews의 `review-event.port.ts`·`published-rating.port.ts`. 기존 책임을 구현하며 새 HTTP,
+공유 테이블, 알림 enum, reviews 직접 import, UI/인증 정책 변경은 추가하지 않는다.
+
+| 규칙 | 판정 및 경계 |
+|---|---|
+| UR-01 | `createReviewCreatedConsumer(repository, ratings).publishReviewCreated(event)`는 신뢰된 reviews 공개 이벤트의 기존 5필드를 받는다. ID는 공백·제어문자 없는 불투명 문자열, rating은 1~5 정수, publishedAt은 실제 UTC ISO 시각이다. 잘못된 이벤트는 저장소 접근 전에 INVALID_REVIEW_EVENT로 reject한다. 이벤트 값은 외부 인증/공개 여부 증거가 아니므로 공개 HTTP에 연결하지 않는다. |
+| UR-02 | 사용자의 직렬화 잠금을 획득한 뒤 `getPublishedRatingAggregate(revieweeId)`의 공개 합계/건수를 새로 읽어 rating_average와 review_count를 같은 transaction으로 교체한다. 0건은 NULL/0, 양수는 numeric(3,2)에 맞는 소수 둘째 자리 half-up이다. 표시 한 자리 평균은 reviews가 합계/건수에서 직접 계산하며 캐시를 다시 반올림하지 않는다. |
+| UR-03 | 중복·지연·역순 이벤트도 당시 공개 합계를 재조회한다. event.rating 누적이나 publishedAt 순서로 최신 집계를 생략하지 않는다. 동일 사용자에 대한 여러 consumer는 같은 저장소 잠금을 공유하고 집계 조회~commit 전체가 직렬화된다. 다른 사용자는 독립적으로 실행된다. |
+| UR-04 | 잠금 안에서 PactFive 사용자 존재·소유 ID 일치·deleted_at=NULL을 확인한다. 없거나 탈퇴/불일치면 USER_UNAVAILABLE로 reject하고 사용자 생성·부활·집계 조회·캐시 쓰기를 하지 않는다. 탈퇴 mutation도 같은 DB 사용자 잠금을 사용해야 한다. |
+| UR-05 | 공개 집계는 안전한 정수이며 review_count 0~2147483647, count <= sum <= 5*count여야 한다. 불량 집계는 INVALID_RATING_AGGREGATE, 저장소/집계/commit 예외는 DEPENDENCY_UNAVAILABLE로 reject하며 retryable=true다. 모든 실패는 두 필드 rollback; commit 결과 불명은 재집계 재시도로 수렴한다. 이벤트 오류·사용자 불가는 retryable=false로 운영자가 격리/조사하며 성공으로 ACK하지 않는다. |
+| UR-06 | Mock은 명시된 사용자만 보관하고 입력·반환·예약 쓰기를 복제한다. transaction은 callback 밖에서 재사용 불가, callback 실패도 rollback한다. 실제 DB row/advisory lock·동일 snapshot/primary 읽기·공개 이후 durable 전달·재시도/격리는 팀장이 adapter/worker에서 구현해야 한다. 인메모리 잠금을 다중 프로세스 보장으로 간주하지 않는다. |
+| ID-01 | 신규 사용자/세션 기본 ID는 usr_/ses_ + ULID 26자(총 30자)다. 48비트 밀리초 시각과 node:crypto 80비트 보안 난수를 Crockford Base32로 인코딩한다. 범위 밖 입력은 실패하며 UUID를 잘라 쓰지 않는다. 같은 밀리초 내 단조 증가 순서는 보장하지 않으며 ID는 정렬/비밀 토큰 계약이 아니다. |
+| ID-02 | 실제 기본 생성기를 가입 확인·세션 생성에서 사용한다. 기존 IDs, Supabase authUserId, nonce, Refresh/Access Token은 변환하지 않는다. 기존 주입형 nextUserId/nextSessionId도 유지한다. 운영 app 생성기 반영과 기존 36자 데이터 영향 점검은 별도 통합이며 기존 ID를 일괄 축약/재키잉하지 않는다. |
+
+이번 소비기는 사용자 캐시만 소유한다. reviews의 공개 정책/14일, 리뷰 projection 스키마,
+producer outbox·전달 완료 기록은 변경하지 않는다. 운영 준비 조건은
+`change-requests/0002-user-rating-and-auth-id-integration.md`를 따른다.
 
 ## 프로필 완성도 조회 규칙 (2026-09-08)
 

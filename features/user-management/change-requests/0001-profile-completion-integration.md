@@ -9,6 +9,10 @@ affected_features: [user-management, applications, project-management]
 
 # 스펙 변경 신청
 
+> 2026-09-08 후속: 아래 6번의 **feature 기본 생성기**는
+> `0002-user-rating-and-auth-id-integration.md`에서 ULID30으로 보정했다. 이 문서는 최초
+> 프로필 증분의 근거 기록을 유지한다. app 생성기 반영·기존 36자 자료 조사는 여전히 후속이다.
+
 ## 배경 (왜 필요한가)
 
 2026-09-08 회의 및 담당자 요청으로 user-management 내부 조회 포트를 착수했다.
