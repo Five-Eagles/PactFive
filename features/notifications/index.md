@@ -30,6 +30,7 @@ npm run preview:dev
 
 공통 프리뷰의 notifications를 선택하거나 `/?feature=notifications`로 접근한다.
 가상 사용자·실패 상태 전환은 feature preview에만 있고 실제 인증을 대신하지 않는다.
+현재 담당 회귀 87 PASS, 기존 인증/AI 등록 연결 회귀 28 PASS. 9/8 로컬 브라우저 QA 결과는 test-report 참조.
 화면 전체 폭으로 보려면 같은 Vite 서버의 `/@fs/<저장소 절대경로>/features/notifications/prototype/preview.html`
 을 연다. 새 기능 entry가 목록에 보이지 않으면 Vite를 재시작한다(최초 glob 탐색 갱신).
 
@@ -64,3 +65,4 @@ npm run preview:dev
 |---|---|
 | 2026-09-07 | 빈 notifications 틀에서 필수 MVP 담당 구현 및 통합 요청 작성 |
 | 2026-09-08 | 최신 develop 기준 서버 조립·공용 HTTP 접점·loopback 연동 QA·통합 handoff 보완 |
+| 2026-09-08 | 전체 읽음 응답의 미읽음0 검증 보완·회귀3개 추가·로컬 브라우저 QA 재실행 |

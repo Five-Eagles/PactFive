@@ -112,7 +112,9 @@ export function createNotificationApi(options: { request: NotificationJsonReques
     },
     async markAllNotificationsRead() {
       const dto = record(await request("/read-all", "POST"));
-      return { updatedCount: count(dto.updatedCount), unreadCount: count(dto.unreadCount) };
+      const unreadCount = count(dto.unreadCount);
+      if (unreadCount !== 0) return invalidResponse();
+      return { updatedCount: count(dto.updatedCount), unreadCount };
     },
   };
 }

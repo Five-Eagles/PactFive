@@ -155,6 +155,64 @@ export async function runNotificationTransportTests(check: Check) {
     assert.equal(calls, 0);
   });
 
+  await check("통합 전송: 전체 읽음 성공 응답은 같은 실행 시점의 미읽음 수 0만 허용한다", async () => {
+    for (const unreadCount of [1, 100, Number.MAX_SAFE_INTEGER]) {
+      const response = { updatedCount: 0, unreadCount };
+      const apis = [
+        createNotificationApi({ request: async () => response }),
+        createNotificationHttpApi({ getAccessToken: () => "synthetic:token", fetch: async () => json(response) }),
+      ];
+      for (const api of apis) {
+        await assert.rejects(api.markAllNotificationsRead(), isSafeApiError(502, "INVALID_RESPONSE"));
+      }
+    }
+    for (const updatedCount of [0, 1, 147]) {
+      const response = { updatedCount, unreadCount: 0 };
+      assert.deepEqual(await createNotificationApi({ request: async () => response }).markAllNotificationsRead(), response);
+    }
+  });
+
+  await check("통합 전송: 잘못된 전체 읽음 응답은 목록·배지를 보존하고 후속 조회나 읽음 확정을 하지 않는다", async () => {
+    const calls: string[] = [];
+    const api = createNotificationApi({ request: async (path) => {
+      calls.push(path);
+      return { updatedCount: 0, unreadCount: 1 };
+    } });
+    const store = createNotificationStore(api, "session:transport", initialList());
+    await store.markAllRead();
+    const snapshot = store.getSnapshot();
+    assert.deepEqual(calls, ["/api/v1/notifications/read-all"]);
+    assert.deepEqual(snapshot.items, initialList().items);
+    assert.equal(snapshot.unreadCount, 1);
+    assert.deepEqual(snapshot.confirmedReadIds, []);
+    assert.equal(snapshot.message, "");
+    assert.equal(snapshot.errorMessage, "알림 응답을 확인할 수 없습니다. 다시 시도해 주세요.");
+    assert.equal(snapshot.status, "ready");
+    assert.equal(snapshot.hasLoaded, true);
+    assert.equal(snapshot.isMarkingAllRead, false);
+  });
+
+  await check("통합 전송: 정상 전체 읽음 뒤 새로 도착한 미읽음은 후속 목록에서 그대로 표시한다", async () => {
+    const calls: string[] = [];
+    const freshList: NotificationListResponse = {
+      items: [{ ...notification, id: "ntf_arrived" }, { ...notification, readAt }], unreadCount: 1, limit: 100,
+    };
+    const api = createNotificationApi({ request: async (path) => {
+      calls.push(path);
+      return path.endsWith("/read-all") ? { updatedCount: 1, unreadCount: 0 } : freshList;
+    } });
+    const store = createNotificationStore(api, "session:transport", initialList());
+    await store.markAllRead();
+    const snapshot = store.getSnapshot();
+    assert.deepEqual(calls, ["/api/v1/notifications/read-all", "/api/v1/notifications"]);
+    assert.deepEqual(snapshot.items, freshList.items);
+    assert.equal(snapshot.unreadCount, 1);
+    assert.deepEqual(snapshot.confirmedReadIds, []);
+    assert.equal(snapshot.errorMessage, null);
+    assert.equal(snapshot.message, "1개의 알림을 읽음 처리했습니다.");
+    assert.equal(snapshot.isMarkingAllRead, false);
+  });
+
   await check("통합 전송: 독립 HTTP 어댑터의 사용자 지정 경로·최신 토큰·쿠키 설정을 유지한다", async () => {
     const requests: { url: string; token: string | null; method?: string; cache?: RequestCache; credentials?: RequestCredentials }[] = [];
     let token: string | null = "synthetic:first";

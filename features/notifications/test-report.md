@@ -7,9 +7,10 @@
 
 | 검증 | 결과 | 실제 범위 |
 |---|---|---|
-| `npx tsx features/notifications/prototype/run.tsx` | **84 PASS / 0 FAIL** | 기존67 + 새 조립/loopback HTTP6 + 공용 request 주입11 |
+| `npx tsx features/notifications/prototype/run.tsx` | **87 PASS / 0 FAIL** | 기존67 + 조립/loopback HTTP6 + 공용 request 주입14 |
 | `npx tsc -p features/notifications/prototype/tsconfig.json` | PASS | 담당 구현·테스트 strict typecheck |
 | `npm run preview:build` | PASS | 공용 Vite preview, 102 modules |
+| `npm run test:integration` | **28 PASS / 0 FAIL** | 기존 이메일 인증 bootstrap·AI 분석 ID 등록 왕복 회귀, 테스트 전용 데이터 |
 | `npm run check:design` | FAIL, 기존 상태 재확인 | applications/contracts-payments/reviews의 `.success`가 공유 tokens.css에 없음; 해당 파일 미수정 |
 
 ### 추가 규칙과 연동 범위
@@ -19,16 +20,32 @@
 | 19 | 필수 인증 resolver, 한 저장소의 전달 port→Express→API4→실제 NotificationHttpApi, 구조분해 호출 | 통과 |
 | 20 | 외부 공용 오류 클래스의 401을 조회/개별/전체 읽음에서 정규화, 목록·배지 제거 | 통과 |
 | 20 | 400/404/5xx/네트워크 오류 안전 문구, 확인 데이터 보존, 잘못된 DTO 거부, 정확한 경로 | 통과 |
+| 4·20 | 전체 읽음 응답은 `unreadCount: 0`만 성공; 양수 응답에 목록·배지 보존/후속 GET 없음; 성공 뒤 새 알림은 표시 | 통과; 추가 테스트로 수정 전 85 PASS / 2 FAIL 재현, 수정 후 87 PASS / 0 FAIL |
 | 1–4 | 동일 HTTP 경로에서 본인 격리·타인404·반복 읽음·전체 읽음·인증 전 malformed JSON·비공개 생성 | 통과 |
 | 5–14 | 정규화한 필수6종 생성→재전달→본인 목록/개수, 필드 부족한 축약 이벤트 거부 | 통과 |
 | 13·18 | 부분 저장 실패 retry_required→같은 closure 재전달 delivered·중복 없음 | 통과; 실제 원천 operation ACK/영속 worker/10분 SLA는 미검증 |
-| 15–17 | 기존 SSR·필수 요소·스타일·store 회귀67 중 관련 항목 | 통과; 이번에는 화면 표현 변경/브라우저 QA를 새로 실행하지 않음 |
+| 15–17 | 기존 SSR·필수 요소·스타일·store 회귀67 중 관련 항목 | 통과; 화면 표현은 유지하고 아래 로컬 브라우저 QA 재실행 |
 
 서버 연동은 `notification-integration.test.ts`에서 **127.0.0.1 임시 포트**와 테스트 전용 인증
 resolver·in-memory repository를 사용한다. 실제 Supabase 계정·운영 DB·프로젝트 상태 변경·
 외부 알림 발송은 없다. 공용 request 검증은 `notification-transport.test.ts`의 주입 함수/
 별도 오류 클래스로 수행하며 app의 `shared/http.ts` 자체를 실행한 것은 아니다. 전역 header와
 페이지가 같은 snapshot을 실제 React 앱에서 소비하는지는 아래 통합 후 QA로 확인한다.
+
+### 9/8 로컬 브라우저 QA (실행 완료)
+
+대상은 Vite `127.0.0.1:5174`의 담당 feature 독립 React preview다. 실제 계정·DB는 연결하지 않았다.
+
+- 개별 읽음 3→2, 읽음 기록 유지·프로젝트 링크로 포커스 이동 확인.
+- Enter로 안 읽음 필터 → 2건, 모두 읽음 → 0/빈 안내, 전체 복귀 → 원본 기록 3건 유지.
+- 프리랜서로 전환 → 5종/미읽음4, 이전 의뢰인 목록 없음. 세션 만료 → 목록 숨김·로그인 복귀 링크.
+- 빈 목록 → 0/빈 안내, 로딩 → 읽음 동작 비활성, 실패 → 안전 문구·재시도 확인.
+  재시도 중 로딩 후 지속 실패하고 새로고침 버튼으로 포커스 복원.
+- 320px: document scrollWidth305≤viewport320, 표시된 button/link/select 중 높이44px 미만0개.
+  1280px: scrollWidth1265≤viewport1280. 임시 viewport는 검증 후 원복했다.
+- 브라우저 warning/error 로그0건. DOM·화면 확인이며 실제 OS 스크린리더/200% 확대/운영 앱 E2E는 미실행.
+- 잘못된 read-all 응답과 후속 도착 알림의 경쟁 상황은 위 자동 테스트로 검증했다. 브라우저 Mock
+  시연은 정상 응답 흐름이므로 잘못된 응답의 브라우저 주입 재현이라고 표시하지 않는다.
 
 ### 팀장 통합 후 QA 체크리스트 (아직 실행하지 않음)
 
