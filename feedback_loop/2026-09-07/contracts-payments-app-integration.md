@@ -10,7 +10,7 @@ sync-log.md 기록: 이 통합의 서버·웹 커밋을 모두 만든 뒤 한 �
 
 ## 항목 1 — 정산 RELEASED 전이를 발생시키는 실제 트리거가 app/에 없다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec.md 규칙 24가 명시한 공백**
 - "Sandbox 결과는 Mock `simulateSettlementResult`... 지급 버튼 없음"이라고 spec.md 자체가
@@ -33,11 +33,16 @@ sync-log.md 기록: 이 통합의 서버·웹 커밋을 모두 만든 뒤 한 �
   확인 필요. 지금은 QA 때 이 함수를 직접 호출(스크립트/콘솔)해야 "완료" 상태까지 재현할 수
   있다.
 
+**담당자 확인 (조준영, 2026-09-08)**
+- 규칙 24 공백이 맞다. 공개 HTTP·지급 버튼·운영 화면은 이 Increment 밖.
+  팀장이 라우트를 안 연 것이 정본이다. QA는 서비스 함수 직접 호출.
+  다음은 웹훅·배치. 관리자 버튼은 쓰지 않는다.
+
 ---
 
 ## 항목 2 — projectTitle이 계속 빈 문자열이다 (기존 알려진 제한, 범위 넓어짐)
 
-상태: 미확인
+상태: 반영완료
 
 **Fact**
 - 2026-09-03 기존 코드 주석에 이미 남아 있던 제한이다: `getProjectNegotiationContext`
@@ -57,11 +62,15 @@ sync-log.md 기록: 이 통합의 서버·웹 커밋을 모두 만든 뒤 한 �
 - 화면(SET-01·CAN-01·PAY-01) 반영 때 빈 제목이 어떻게 보이는지 확인 필요 — 다음 웹 반영
   단계에서 빈 문자열을 안전하게 다루는지(플레이스홀더 문구 등) 점검한다.
 
+**담당자 확인 (조준영, 2026-09-08)**
+- PM 포트를 이 기능에서 바꾸지 않는다. 빈 `''` + 화면 「프로젝트」가 맞다.
+  팀장 app/도 `|| '프로젝트'`로 가렸다. 실제 제목은 `CR-CP-001`(유동우).
+
 ---
 
 ## 항목 3 — invalidateAgreement 인바운드를 실제로 부르는 호출자가 아직 없다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact**
 - `POST /internal/v1/projects/:projectId/invalidate-agreement`는 spec.md 규칙 15·25가
@@ -81,11 +90,16 @@ sync-log.md 기록: 이 통합의 서버·웹 커밋을 모두 만든 뒤 한 �
 - project-management의 A-07(공개 취소) 통합 시점에 이 엔드포인트를 그대로 호출하도록
   연결 필요.
 
+**담당자 확인 (조준영, 2026-09-08)**
+- inbound만 이 폴더 일이다. `POST /cancel`은 열지 않는다.
+  A-07은 app/에 이미 있다. 다만 `ContractsPort`가 아직 FAILED 스텁이라 무효화까지는
+  안 간다. 연결은 팀장 `express-app.ts` (applications 포트와 같은 방식).
+
 ---
 
 ## 항목 4 — 납품·정산·취소 3개 신규 화면은 시안(design/*.html)이 없다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact**
 - `features/contracts-payments/design/` 아래에는 합의·서명·결제 3개 시안만 있고, 이번에
@@ -107,11 +121,16 @@ sync-log.md 기록: 이 통합의 서버·웹 커밋을 모두 만든 뒤 한 �
 - 조준영님이 이 3개 화면의 실제 시안을 나중에 만들면 지금 짠 마크업/클래스와 비교해
   차이가 있는지 확인 필요.
 
+**담당자 확인 (조준영, 2026-09-08)**
+- 시안은 이미 있다. `design/delivery.html` · `settlement.html` · `cancellation.html`
+  (+ low-fi). 필수 요소는 `prototype/run.tsx`가 확인한다. 통합 기록은 그 전 스냅샷이다.
+  app 3페이지도 붙어 있다. 클래스 드리프트는 항목 6.
+
 ---
 
 ## 항목 5 — 정산 조회 화면이 paymentId를 URL 없이 `preparePayment` 재사용으로 얻는다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact**
 - 공개 GET 경로는 `/v1/payments/:paymentId/settlement`라 paymentId가 필요한데, 결제·서명
@@ -134,6 +153,12 @@ sync-log.md 기록: 이 통합의 서버·웹 커밋을 모두 만든 뒤 한 �
 **담당자 메모**
 - 이 방식이 어색하다고 판단되면, 다음 Increment에서 contractId 기반 정산 조회 GET을
   서버에 신설하는 편이 더 명확할 수 있다 — 조준영님 검토 필요.
+
+**담당자 확인 (조준영, 2026-09-08)**
+- 화면 URL에 paymentId를 안 넣는 것은 결제와 같다 (규칙 17). GET은 기존
+  `/payments/:paymentId/settlement` 유지. READY|PAID에서 `preparePayment` 재사용은
+  부작용 없다. 이 Increment에서 새 GET은 열지 않는다. 다음 Increment에서
+  `GET /contracts/:id/settlement`는 선택.
 
 ---
 

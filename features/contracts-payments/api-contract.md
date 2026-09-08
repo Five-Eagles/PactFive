@@ -210,7 +210,8 @@ F11: 공개 필드는 `cancellationId`/`result`. applications `closureEventId`�
 `toApplicationClosureEventId(cancellationId)` 변환만. 새 HTTP 없음.
 `IN_PROGRESS`/`COMPLETED`는 `409 PROJECT_TRANSITION_CONFLICT`.
 이미 무효화면 `alreadyProcessed: true`. 공개 POST 취소는 유동우(경로 `/cancel` vs
-`/cancellations`는 그쪽). 설계서 §12 신설 코드는 쓰지 않는다.
+`/cancellations`는 그쪽). A-07은 `ContractsPort.invalidateAgreementAndContract`로
+이 경로의 함수를 부른다. 포트가 스텁이면 `FAILED`. 설계서 §12 신설 코드는 쓰지 않는다.
 
 요청:
 
@@ -260,7 +261,8 @@ F11: 공개 필드는 `cancellationId`/`result`. applications `closureEventId`�
 합의가 없으면 200이고 `offer`·`agreementId`·`contractId`는 `null`(빈 생성).
 `offers`는 라운드 이력(오름차순). `includeHistory` 쿼리·`/agreements/{id}` 5종은 쓰지 않는다.
 AGR-01 우측 컬럼·거절 분기: `projectTitle`, `recruitmentStatus`, `transactionStatus`,
-`canceledAt`, `applicationId`. `reopened`/`notReopenedReason`은 합의 `REJECTED`일 때만
+`canceledAt`, `applicationId`. 포트에 title이 없으면 `projectTitle`은 `''`이고 화면은
+「프로젝트」 (`CR-CP-001`). `reopened`/`notReopenedReason`은 합의 `REJECTED`일 때만
 채우고, 그 외는 `null`.
 
 ### POST /api/v1/projects/:projectId/negotiation-offers/:offerId/counter — `counterNegotiationOffer`
@@ -311,6 +313,9 @@ CTR-01 우측 컬럼 가설: `projectId`, `workStartDate`, `workEndDate`, `trans
 응답 금액 3종은 서버 스냅샷이며 화면이 10%를 다시 나누지 않는다. `releasedAt`은
 `RELEASED`일 때만. 내부 Mock `evaluateSettlement`·`simulateSettlementResult`·
 `recoverStuckSettlements`는 브라우저 경로가 아니다 (규칙 24).
+화면 URL은 `/contracts/:contractId/settlement`. paymentId는 `preparePayment`의
+READY|PAID 멱등 응답으로 얻는다. `GET /contracts/:id/settlement`는 이 Increment에서
+안 연다.
 
 ### GET /api/v1/projects/:projectId/cancellation
 
