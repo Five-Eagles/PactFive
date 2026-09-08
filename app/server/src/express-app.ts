@@ -331,7 +331,8 @@ app.use(
 );
 
 // ---------------------------------------------------------------------------
-// applications — 지원 5종(작성·목록 2종·수락·거절). features/applications/api-contract.md.
+// applications — 지원 8종(eligibility·작성·목록 2종·단건 조회·수락·거절·operation 조회,
+// PR #83로 5종에서 늘었다). features/applications/api-contract.md.
 //
 // 프로젝트 읽기(clientId·recruitmentStatus·transactionStatus·acceptedApplicationId)와
 // 수락 처리는 project-management의 `projectContractService`에 위임한다 — 이 폴더는
