@@ -169,10 +169,10 @@
 // `npm run dev`(tsx watch)가 생성 코드의 .js import를 못 찾는 문제를 피하기 위함
 // (Prisma 공식 문서 권고).
 generator client {
-  provider             = "prisma-client"
-  output               = "../src/generated/prisma"
-  moduleFormat         = "esm"
-  importFileExtension  = "ts"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
 }
 
 // 2026-09-07 정정: Prisma 7부터 datasource의 url/directUrl을 schema.prisma에 못 쓴다
@@ -337,52 +337,52 @@ enum SessionRevokedReason {
 // ═════════════════════════════════════════════════════════════════════
 
 model User {
-  id               String    @id @db.VarChar(30)
+  id              String   @id @db.VarChar(30)
   /// [PRISMA-GAP-2] Supabase Auth UUID. ERD에 없던 컬럼 — 위 설명 참고.
-  authUserId       String    @unique @map("auth_user_id") @db.VarChar(64)
-  email            String    @db.VarChar(255)
+  authUserId      String   @unique @map("auth_user_id") @db.VarChar(64)
+  email           String   @db.VarChar(255)
   /// [PRISMA-CHECK-1] 실사용 여부 불확실 — 위 설명 참고.
-  passwordHash     String?   @map("password_hash") @db.VarChar(255)
-  name             String    @db.VarChar(50)
-  role             UserRole
-  profileImageUrl  String?   @map("profile_image_url")
-  bio              String?
+  passwordHash    String?  @map("password_hash") @db.VarChar(255)
+  name            String   @db.VarChar(50)
+  role            UserRole
+  profileImageUrl String?  @map("profile_image_url")
+  bio             String?
 
-  oauthProvider    OAuthProvider? @map("oauth_provider")
-  oauthSubject     String?        @map("oauth_subject") @db.VarChar(255)
+  oauthProvider OAuthProvider? @map("oauth_provider")
+  oauthSubject  String?        @map("oauth_subject") @db.VarChar(255)
 
-  ratingAverage    Decimal?  @map("rating_average") @db.Decimal(3, 2)
-  reviewCount      Int       @default(0) @map("review_count")
+  ratingAverage Decimal? @map("rating_average") @db.Decimal(3, 2)
+  reviewCount   Int      @default(0) @map("review_count")
 
-  lastLoginAt      DateTime? @map("last_login_at")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
-  deletedAt        DateTime? @map("deleted_at")
+  lastLoginAt DateTime? @map("last_login_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
 
-  clientProfile       ClientProfile?
-  freelancerProfile    FreelancerProfile?
-  authSessions         AuthSession[]
-  customSkills         Skill[]              @relation("SkillCreatedBy")
-  projectsAsClient     Project[]            @relation("ProjectClient")
-  bookmarks            Bookmark[]
-  applications         Application[]
-  notifications        Notification[]
-  agreementsProposed    Agreement[]          @relation("AgreementProposedBy")
-  negotiationOffersMade NegotiationOffer[]   @relation("NegotiationOfferProposedBy")
-  contractsAsClient     Contract[]           @relation("ContractClient")
-  contractsAsFreelancer Contract[]           @relation("ContractFreelancer")
-  signatureAudits       ContractSignatureAudit[]
-  paymentsAsClient      Payment[]            @relation("PaymentClient")
-  paymentsAsFreelancer  Payment[]            @relation("PaymentFreelancer")
-  reviewsGiven          Review[]             @relation("ReviewReviewer")
-  reviewsReceived       Review[]             @relation("ReviewReviewee")
-  pricingAnalyses        PricingAnalysis[]
-  pricingApplicationReceipts PricingApplicationReceipt[]
+  clientProfile                 ClientProfile?
+  freelancerProfile             FreelancerProfile?
+  authSessions                  AuthSession[]
+  customSkills                  Skill[]                     @relation("SkillCreatedBy")
+  projectsAsClient              Project[]                   @relation("ProjectClient")
+  bookmarks                     Bookmark[]
+  applications                  Application[]
+  notifications                 Notification[]
+  agreementsProposed            Agreement[]                 @relation("AgreementProposedBy")
+  negotiationOffersMade         NegotiationOffer[]          @relation("NegotiationOfferProposedBy")
+  contractsAsClient             Contract[]                  @relation("ContractClient")
+  contractsAsFreelancer         Contract[]                  @relation("ContractFreelancer")
+  signatureAudits               ContractSignatureAudit[]
+  paymentsAsClient              Payment[]                   @relation("PaymentClient")
+  paymentsAsFreelancer          Payment[]                   @relation("PaymentFreelancer")
+  reviewsGiven                  Review[]                    @relation("ReviewReviewer")
+  reviewsReceived               Review[]                    @relation("ReviewReviewee")
+  pricingAnalyses               PricingAnalysis[]
+  pricingApplicationReceipts    PricingApplicationReceipt[]
   /// [PRISMA-GAP-12] E-41. ApplicationOperation.clientId 역참조 — applications(위, 프리랜서
   /// 쪽 지원 목록)와 별개의 관계라 이름을 구분했다.
-  applicationOperationsAsClient ApplicationOperation[] @relation("ApplicationOperationClient")
+  applicationOperationsAsClient ApplicationOperation[]      @relation("ApplicationOperationClient")
   /// [PRISMA-GAP-17] E-47. Delivery.requestedBy 역참조.
-  deliveryRequests Delivery[]
+  deliveryRequests              Delivery[]
 
   @@unique([oauthProvider, oauthSubject], name: "uq_users_oauth")
   @@index([role])
@@ -408,20 +408,20 @@ model RegistrationIntent {
 }
 
 model AuthSession {
-  id                  String    @id @db.VarChar(30)
-  userId              String    @map("user_id") @db.VarChar(30)
+  id                String                @id @db.VarChar(30)
+  userId            String                @map("user_id") @db.VarChar(30)
   /// [PRISMA-GAP-7] Supabase 쪽 세션 식별자. 전역 UNIQUE 아님 — 활성 세션(revoked_at IS
   /// NULL) 한정 부분 유니크를 마이그레이션 SQL에 수동 추가한다(파일 맨 끝 부록 참고).
-  providerSessionId  String    @map("provider_session_id") @db.VarChar(64)
-  refreshTokenHash    String    @unique @map("refresh_token_hash") @db.VarChar(255)
-  previousTokenHash   String?   @map("previous_token_hash") @db.VarChar(255)
-  deviceLabel         String?   @map("device_label") @db.VarChar(100)
-  issuedAt            DateTime  @default(now()) @map("issued_at")
-  expiresAt           DateTime  @map("expires_at")
-  lastUsedAt          DateTime? @map("last_used_at")
-  revokedAt           DateTime? @map("revoked_at")
-  revokedReason        SessionRevokedReason? @map("revoked_reason")
-  createdAt            DateTime  @default(now()) @map("created_at")
+  providerSessionId String                @map("provider_session_id") @db.VarChar(64)
+  refreshTokenHash  String                @unique @map("refresh_token_hash") @db.VarChar(255)
+  previousTokenHash String?               @map("previous_token_hash") @db.VarChar(255)
+  deviceLabel       String?               @map("device_label") @db.VarChar(100)
+  issuedAt          DateTime              @default(now()) @map("issued_at")
+  expiresAt         DateTime              @map("expires_at")
+  lastUsedAt        DateTime?             @map("last_used_at")
+  revokedAt         DateTime?             @map("revoked_at")
+  revokedReason     SessionRevokedReason? @map("revoked_reason")
+  createdAt         DateTime              @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id])
 
@@ -443,15 +443,15 @@ model OAuthNonce {
 }
 
 model ClientProfile {
-  id                String    @id @db.VarChar(30)
-  userId            String    @unique @map("user_id") @db.VarChar(30)
-  companyName       String    @map("company_name") @db.VarChar(100)
-  businessField     BusinessField @map("business_field")
-  businessFieldEtc  String?   @map("business_field_etc") @db.VarChar(100)
-  websiteUrl        String?   @map("website_url")
-  completedAt       DateTime? @map("completed_at")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  id               String        @id @db.VarChar(30)
+  userId           String        @unique @map("user_id") @db.VarChar(30)
+  companyName      String        @map("company_name") @db.VarChar(100)
+  businessField    BusinessField @map("business_field")
+  businessFieldEtc String?       @map("business_field_etc") @db.VarChar(100)
+  websiteUrl       String?       @map("website_url")
+  completedAt      DateTime?     @map("completed_at")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id])
 
@@ -459,33 +459,33 @@ model ClientProfile {
 }
 
 model FreelancerProfile {
-  id                 String    @id @db.VarChar(30)
-  userId             String    @unique @map("user_id") @db.VarChar(30)
-  primaryCategory    ProjectCategory @map("primary_category")
-  careerYears        Int       @default(0) @map("career_years") @db.SmallInt
-  hourlyRateAmount   Int?      @map("hourly_rate_amount")
-  portfolioUrl       String?   @map("portfolio_url")
-  completedAt        DateTime? @map("completed_at")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  id               String          @id @db.VarChar(30)
+  userId           String          @unique @map("user_id") @db.VarChar(30)
+  primaryCategory  ProjectCategory @map("primary_category")
+  careerYears      Int             @default(0) @map("career_years") @db.SmallInt
+  hourlyRateAmount Int?            @map("hourly_rate_amount")
+  portfolioUrl     String?         @map("portfolio_url")
+  completedAt      DateTime?       @map("completed_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
 
-  user            User              @relation(fields: [userId], references: [id])
+  user             User              @relation(fields: [userId], references: [id])
   freelancerSkills FreelancerSkill[]
 
   @@map("freelancer_profiles")
 }
 
 model Skill {
-  id               String   @id @db.VarChar(40)
-  name             String   @db.VarChar(50)
-  nameKey          String   @map("name_key") @db.VarChar(60)
-  groupCode        SkillGroup @map("group_code")
-  displayOrder     Int      @default(0) @map("display_order") @db.SmallInt
-  isCustom         Boolean  @default(false) @map("is_custom")
-  createdByUserId  String?  @map("created_by_user_id") @db.VarChar(30)
-  isActive         Boolean  @default(true) @map("is_active")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id              String     @id @db.VarChar(40)
+  name            String     @db.VarChar(50)
+  nameKey         String     @map("name_key") @db.VarChar(60)
+  groupCode       SkillGroup @map("group_code")
+  displayOrder    Int        @default(0) @map("display_order") @db.SmallInt
+  isCustom        Boolean    @default(false) @map("is_custom")
+  createdByUserId String?    @map("created_by_user_id") @db.VarChar(30)
+  isActive        Boolean    @default(true) @map("is_active")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
 
   createdBy        User?             @relation("SkillCreatedBy", fields: [createdByUserId], references: [id])
   freelancerSkills FreelancerSkill[]
@@ -514,47 +514,47 @@ model FreelancerSkill {
 // ═════════════════════════════════════════════════════════════════════
 
 model Project {
-  id                    String   @id @db.VarChar(30)
-  clientId              String   @map("client_id") @db.VarChar(30)
-  title                 String   @db.VarChar(100)
-  description           String
-  category              ProjectCategory
-  budgetAmount          Int      @map("budget_amount")
+  id             String          @id @db.VarChar(30)
+  clientId       String          @map("client_id") @db.VarChar(30)
+  title          String          @db.VarChar(100)
+  description    String
+  category       ProjectCategory
+  budgetAmount   Int             @map("budget_amount")
   /// [PRISMA-GAP-4] CR-0007
-  budgetSource          BudgetSource @default(CLIENT_INPUT) @map("budget_source")
+  budgetSource   BudgetSource    @default(CLIENT_INPUT) @map("budget_source")
   /// [PRISMA-GAP-4] CR-0007
-  budgetSourceAt        DateTime @default(now()) @map("budget_source_at")
+  budgetSourceAt DateTime        @default(now()) @map("budget_source_at")
 
   recruitmentStartAt    DateTime? @map("recruitment_start_at")
   recruitmentDeadlineAt DateTime  @map("recruitment_deadline_at")
 
-  recruitmentStatus     RecruitmentStatus         @default(OPEN) @map("recruitment_status")
-  transactionStatus     ProjectTransactionStatus  @default(NONE) @map("transaction_status")
+  recruitmentStatus RecruitmentStatus        @default(OPEN) @map("recruitment_status")
+  transactionStatus ProjectTransactionStatus @default(NONE) @map("transaction_status")
 
-  applicationCount        Int       @default(0) @map("application_count")
-  recruitmentClosedAt     DateTime? @map("recruitment_closed_at")
-  canceledAt               DateTime? @map("canceled_at")
-  deadlineNotifiedAt       DateTime? @map("deadline_notified_at")
+  applicationCount    Int       @default(0) @map("application_count")
+  recruitmentClosedAt DateTime? @map("recruitment_closed_at")
+  canceledAt          DateTime? @map("canceled_at")
+  deadlineNotifiedAt  DateTime? @map("deadline_notified_at")
 
-  pendingApplicationCount  Int       @default(0) @map("pending_application_count")
-  acceptedApplicationId    String?   @map("accepted_application_id") @db.VarChar(30)
-  paymentPendingAt         DateTime? @map("payment_pending_at")
-  projectVersion            Int       @default(1) @map("project_version")
+  pendingApplicationCount Int       @default(0) @map("pending_application_count")
+  acceptedApplicationId   String?   @map("accepted_application_id") @db.VarChar(30)
+  paymentPendingAt        DateTime? @map("payment_pending_at")
+  projectVersion          Int       @default(1) @map("project_version")
 
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt              DateTime  @updatedAt @map("updated_at")
-  deletedAt               DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
-  client         User             @relation("ProjectClient", fields: [clientId], references: [id])
-  projectSkills  ProjectSkill[]
-  bookmarks      Bookmark[]
-  applications   Application[]
-  contracts      Contract[]
-  reviews        Review[]
-  pricingAnalyses PricingAnalysis[]
+  client                     User                        @relation("ProjectClient", fields: [clientId], references: [id])
+  projectSkills              ProjectSkill[]
+  bookmarks                  Bookmark[]
+  applications               Application[]
+  contracts                  Contract[]
+  reviews                    Review[]
+  pricingAnalyses            PricingAnalysis[]
   pricingApplicationReceipts PricingApplicationReceipt[]
   /// [PRISMA-GAP-17] E-48 역참조.
-  invalidations  Invalidation[]
+  invalidations              Invalidation[]
 
   @@index([recruitmentStatus, recruitmentDeadlineAt], name: "ix_projects_recruit")
   @@index([clientId, createdAt])
@@ -610,25 +610,25 @@ model ProjectContractIdempotencyRecord {
 // ═════════════════════════════════════════════════════════════════════
 
 model Application {
-  id                     String              @id @db.VarChar(30)
-  projectId              String              @map("project_id") @db.VarChar(30)
-  freelancerId           String              @map("freelancer_id") @db.VarChar(30)
-  coverLetter            String              @map("cover_letter")
-  expectedAmount         Int                 @map("expected_amount")
-  expectedDurationDays   Int                 @map("expected_duration_days") @db.SmallInt
-  status                 ApplicationStatus   @default(PENDING)
-  rejectionType           ApplicationRejectionType? @map("rejection_type")
-  decidedAt               DateTime?           @map("decided_at")
-  createdAt               DateTime            @default(now()) @map("created_at")
-  updatedAt                DateTime            @updatedAt @map("updated_at")
+  id                   String                    @id @db.VarChar(30)
+  projectId            String                    @map("project_id") @db.VarChar(30)
+  freelancerId         String                    @map("freelancer_id") @db.VarChar(30)
+  coverLetter          String                    @map("cover_letter")
+  expectedAmount       Int                       @map("expected_amount")
+  expectedDurationDays Int                       @map("expected_duration_days") @db.SmallInt
+  status               ApplicationStatus         @default(PENDING)
+  rejectionType        ApplicationRejectionType? @map("rejection_type")
+  decidedAt            DateTime?                 @map("decided_at")
+  createdAt            DateTime                  @default(now()) @map("created_at")
+  updatedAt            DateTime                  @updatedAt @map("updated_at")
 
-  project     Project    @relation(fields: [projectId], references: [id])
-  freelancer  User       @relation(fields: [freelancerId], references: [id])
-  agreement    Agreement?
+  project           Project                 @relation(fields: [projectId], references: [id])
+  freelancer        User                    @relation(fields: [freelancerId], references: [id])
+  agreement         Agreement?
   negotiationOffers NegotiationOffer[]
   /// [PRISMA-GAP-12·14] E-41·E-43 역참조.
-  operations   ApplicationOperation[]
-  stateEvents  ApplicationStateEvent[]
+  operations        ApplicationOperation[]
+  stateEvents       ApplicationStateEvent[]
 
   @@unique([projectId, freelancerId], name: "uq_applications_once")
   @@index([freelancerId, createdAt])
@@ -657,20 +657,20 @@ model ApplicationIdempotencyKey {
 
 /// [PRISMA-GAP-12] E-41 신설. 수락/거절 후속 처리 outbox 작업 단위.
 model ApplicationOperation {
-  id                      String    @id @db.VarChar(30)
-  applicationId           String    @map("application_id") @db.VarChar(30)
-  projectId               String    @map("project_id") @db.VarChar(30)
-  clientId                String    @map("client_id") @db.VarChar(30)
-  type                    String    @db.VarChar(10)
-  status                  String    @default("QUEUED") @db.VarChar(10)
-  updatedAt               DateTime  @default(now()) @map("updated_at")
-  retryAfterSeconds       Int       @default(0) @map("retry_after_seconds")
-  requiresOperatorAction  Boolean   @default(false) @map("requires_operator_action")
-  leaseUntil              DateTime? @map("lease_until")
-  attempts                Int       @default(0) @db.SmallInt
+  id                     String    @id @db.VarChar(30)
+  applicationId          String    @map("application_id") @db.VarChar(30)
+  projectId              String    @map("project_id") @db.VarChar(30)
+  clientId               String    @map("client_id") @db.VarChar(30)
+  type                   String    @db.VarChar(10)
+  status                 String    @default("QUEUED") @db.VarChar(10)
+  updatedAt              DateTime  @default(now()) @map("updated_at")
+  retryAfterSeconds      Int       @default(0) @map("retry_after_seconds")
+  requiresOperatorAction Boolean   @default(false) @map("requires_operator_action")
+  leaseUntil             DateTime? @map("lease_until")
+  attempts               Int       @default(0) @db.SmallInt
 
-  application Application            @relation(fields: [applicationId], references: [id])
-  client      User                   @relation("ApplicationOperationClient", fields: [clientId], references: [id])
+  application Application                @relation(fields: [applicationId], references: [id])
+  client      User                       @relation("ApplicationOperationClient", fields: [clientId], references: [id])
   steps       ApplicationOperationStep[]
 
   @@index([status], name: "ix_application_operations_queued")
@@ -695,12 +695,12 @@ model ApplicationOperationStep {
 
 /// [PRISMA-GAP-14] E-43 신설. 지원 상태 전이 이력.
 model ApplicationStateEvent {
-  id             String                    @id @db.VarChar(30)
-  applicationId  String                    @map("application_id") @db.VarChar(30)
-  fromStatus     ApplicationStatus?        @map("from_status")
-  toStatus       ApplicationStatus         @map("to_status")
-  rejectionType  ApplicationRejectionType? @map("rejection_type")
-  occurredAt     DateTime                  @map("occurred_at")
+  id            String                    @id @db.VarChar(30)
+  applicationId String                    @map("application_id") @db.VarChar(30)
+  fromStatus    ApplicationStatus?        @map("from_status")
+  toStatus      ApplicationStatus         @map("to_status")
+  rejectionType ApplicationRejectionType? @map("rejection_type")
+  occurredAt    DateTime                  @map("occurred_at")
 
   application Application @relation(fields: [applicationId], references: [id])
 
@@ -711,27 +711,27 @@ model ApplicationStateEvent {
 /// [PRISMA-GAP-15] E-45 신설. 모집 마감 시 대기 지원 일괄거절의 멱등 결과. closureEventId는
 /// project-management가 발급하는 사건 id라 FK를 걸지 않는다(원본과 동일).
 model ApplicationClosure {
-  closureEventId    String   @id @map("closure_event_id") @db.VarChar(30)
-  rejectedCount     Int      @map("rejected_count")
-  alreadyProcessed  Boolean  @map("already_processed")
-  result            Json
-  createdAt         DateTime @default(now()) @map("created_at")
+  closureEventId   String   @id @map("closure_event_id") @db.VarChar(30)
+  rejectedCount    Int      @map("rejected_count")
+  alreadyProcessed Boolean  @map("already_processed")
+  result           Json
+  createdAt        DateTime @default(now()) @map("created_at")
 
   @@map("application_closures")
 }
 
 model Notification {
-  id            String            @id @db.VarChar(30)
-  recipientId   String            @map("recipient_id") @db.VarChar(30)
-  type          NotificationType
-  title         String            @db.VarChar(100)
-  body          String            @db.VarChar(500)
-  linkUrl       String            @map("link_url")
-  resourceType  String?           @map("resource_type") @db.VarChar(30)
-  resourceId    String?           @map("resource_id") @db.VarChar(30)
-  dedupeKey     String            @unique @map("dedupe_key") @db.VarChar(120)
-  readAt        DateTime?         @map("read_at")
-  createdAt     DateTime          @default(now()) @map("created_at")
+  id           String           @id @db.VarChar(30)
+  recipientId  String           @map("recipient_id") @db.VarChar(30)
+  type         NotificationType
+  title        String           @db.VarChar(100)
+  body         String           @db.VarChar(500)
+  linkUrl      String           @map("link_url")
+  resourceType String?          @map("resource_type") @db.VarChar(30)
+  resourceId   String?          @map("resource_id") @db.VarChar(30)
+  dedupeKey    String           @unique @map("dedupe_key") @db.VarChar(120)
+  readAt       DateTime?        @map("read_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
 
   recipient User @relation(fields: [recipientId], references: [id])
 
@@ -750,18 +750,18 @@ model Notification {
 // ═════════════════════════════════════════════════════════════════════
 
 model Agreement {
-  id                 String          @id @db.VarChar(30)
-  applicationId      String          @unique @map("application_id") @db.VarChar(30)
-  proposedByUserId   String          @map("proposed_by_user_id") @db.VarChar(30)
-  agreedAmount       Int             @map("agreed_amount")
-  status             AgreementStatus @default(PROPOSED)
-  respondedAt        DateTime?       @map("responded_at")
-  createdAt          DateTime        @default(now()) @map("created_at")
-  updatedAt          DateTime        @updatedAt @map("updated_at")
+  id               String          @id @db.VarChar(30)
+  applicationId    String          @unique @map("application_id") @db.VarChar(30)
+  proposedByUserId String          @map("proposed_by_user_id") @db.VarChar(30)
+  agreedAmount     Int             @map("agreed_amount")
+  status           AgreementStatus @default(PROPOSED)
+  respondedAt      DateTime?       @map("responded_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
 
-  application  Application @relation(fields: [applicationId], references: [id])
-  proposedBy   User        @relation("AgreementProposedBy", fields: [proposedByUserId], references: [id])
-  contract     Contract?
+  application Application @relation(fields: [applicationId], references: [id])
+  proposedBy  User        @relation("AgreementProposedBy", fields: [proposedByUserId], references: [id])
+  contract    Contract?
 
   @@map("agreements")
 }
@@ -769,15 +769,15 @@ model Agreement {
 /// [PRISMA-CHECK-2] ERD를 그대로 따랐다 — application_id로 독립 참조(agreements와 병행
 /// 테이블). 실제 인메모리 구현은 agreement 아래 중첩 배열로 다르게 짜여 있다. 위 설명 참고.
 model NegotiationOffer {
-  id                  String          @id @db.VarChar(30)
-  applicationId       String          @map("application_id") @db.VarChar(30)
-  round               Int             @default(1) @db.SmallInt
-  proposedByUserId    String          @map("proposed_by_user_id") @db.VarChar(30)
-  offeredAmount       Int             @map("offered_amount")
-  status              AgreementStatus @default(PROPOSED)
-  respondedAt         DateTime?       @map("responded_at")
-  rejectedReason      String?         @map("rejected_reason") @db.VarChar(30)
-  createdAt           DateTime        @default(now()) @map("created_at")
+  id               String          @id @db.VarChar(30)
+  applicationId    String          @map("application_id") @db.VarChar(30)
+  round            Int             @default(1) @db.SmallInt
+  proposedByUserId String          @map("proposed_by_user_id") @db.VarChar(30)
+  offeredAmount    Int             @map("offered_amount")
+  status           AgreementStatus @default(PROPOSED)
+  respondedAt      DateTime?       @map("responded_at")
+  rejectedReason   String?         @map("rejected_reason") @db.VarChar(30)
+  createdAt        DateTime        @default(now()) @map("created_at")
 
   application Application @relation(fields: [applicationId], references: [id])
   proposedBy  User        @relation("NegotiationOfferProposedBy", fields: [proposedByUserId], references: [id])
@@ -787,35 +787,35 @@ model NegotiationOffer {
 }
 
 model Contract {
-  id                     String         @id @db.VarChar(30)
-  agreementId            String         @unique @map("agreement_id") @db.VarChar(30)
-  projectId              String         @map("project_id") @db.VarChar(30)
-  clientId                String         @map("client_id") @db.VarChar(30)
-  freelancerId            String         @map("freelancer_id") @db.VarChar(30)
+  id           String @id @db.VarChar(30)
+  agreementId  String @unique @map("agreement_id") @db.VarChar(30)
+  projectId    String @map("project_id") @db.VarChar(30)
+  clientId     String @map("client_id") @db.VarChar(30)
+  freelancerId String @map("freelancer_id") @db.VarChar(30)
 
-  projectTitleSnapshot     String         @map("project_title_snapshot") @db.VarChar(100)
-  agreedAmount              Int            @map("agreed_amount")
-  workStartDate             DateTime       @map("work_start_date") @db.Date
-  workEndDate               DateTime       @map("work_end_date") @db.Date
-  termsSnapshot             Json           @map("terms_snapshot")
+  projectTitleSnapshot String   @map("project_title_snapshot") @db.VarChar(100)
+  agreedAmount         Int      @map("agreed_amount")
+  workStartDate        DateTime @map("work_start_date") @db.Date
+  workEndDate          DateTime @map("work_end_date") @db.Date
+  termsSnapshot        Json     @map("terms_snapshot")
 
-  status                   ContractStatus @default(DRAFT)
-  clientSignedAt             DateTime?      @map("client_signed_at")
-  freelancerSignedAt          DateTime?      @map("freelancer_signed_at")
-  signedAt                    DateTime?      @map("signed_at")
-  canceledAt                  DateTime?      @map("canceled_at")
+  status             ContractStatus @default(DRAFT)
+  clientSignedAt     DateTime?      @map("client_signed_at")
+  freelancerSignedAt DateTime?      @map("freelancer_signed_at")
+  signedAt           DateTime?      @map("signed_at")
+  canceledAt         DateTime?      @map("canceled_at")
 
-  createdAt                DateTime       @default(now()) @map("created_at")
-  updatedAt                 DateTime       @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  agreement          Agreement                @relation(fields: [agreementId], references: [id])
-  project             Project                  @relation(fields: [projectId], references: [id])
-  client               User                     @relation("ContractClient", fields: [clientId], references: [id])
-  freelancer            User                     @relation("ContractFreelancer", fields: [freelancerId], references: [id])
-  signatureAudits       ContractSignatureAudit[]
-  payment                Payment?
-  delivery                Delivery?
-  reviews                 Review[]
+  agreement       Agreement                @relation(fields: [agreementId], references: [id])
+  project         Project                  @relation(fields: [projectId], references: [id])
+  client          User                     @relation("ContractClient", fields: [clientId], references: [id])
+  freelancer      User                     @relation("ContractFreelancer", fields: [freelancerId], references: [id])
+  signatureAudits ContractSignatureAudit[]
+  payment         Payment?
+  delivery        Delivery?
+  reviews         Review[]
 
   @@index([projectId])
   @@index([clientId, createdAt])
@@ -824,14 +824,14 @@ model Contract {
 }
 
 model ContractSignatureAudit {
-  id         String    @id @db.VarChar(30)
-  contractId String    @map("contract_id") @db.VarChar(30)
-  signerId   String    @map("signer_id") @db.VarChar(30)
-  signerRole UserRole  @map("signer_role")
-  signedAt   DateTime  @map("signed_at")
-  ipAddress  String?   @map("ip_address") @db.VarChar(45)
-  userAgent  String?   @map("user_agent") @db.VarChar(300)
-  createdAt  DateTime  @default(now()) @map("created_at")
+  id         String   @id @db.VarChar(30)
+  contractId String   @map("contract_id") @db.VarChar(30)
+  signerId   String   @map("signer_id") @db.VarChar(30)
+  signerRole UserRole @map("signer_role")
+  signedAt   DateTime @map("signed_at")
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.VarChar(300)
+  createdAt  DateTime @default(now()) @map("created_at")
 
   contract Contract @relation(fields: [contractId], references: [id])
   signer   User     @relation(fields: [signerId], references: [id])
@@ -841,36 +841,36 @@ model ContractSignatureAudit {
 }
 
 model Payment {
-  id                  String        @id @db.VarChar(30)
-  contractId          String        @unique @map("contract_id") @db.VarChar(30)
-  clientId            String        @map("client_id") @db.VarChar(30)
-  freelancerId        String        @map("freelancer_id") @db.VarChar(30)
+  id           String @id @db.VarChar(30)
+  contractId   String @unique @map("contract_id") @db.VarChar(30)
+  clientId     String @map("client_id") @db.VarChar(30)
+  freelancerId String @map("freelancer_id") @db.VarChar(30)
 
-  currency            String        @default("KRW") @db.Char(3)
-  paymentAmount       Int           @map("payment_amount")
-  platformFeeAmount   Int           @map("platform_fee_amount")
-  settlementAmount    Int           @map("settlement_amount")
+  currency          String @default("KRW") @db.Char(3)
+  paymentAmount     Int    @map("payment_amount")
+  platformFeeAmount Int    @map("platform_fee_amount")
+  settlementAmount  Int    @map("settlement_amount")
 
-  status              PaymentStatus @default(READY)
-  pgProvider          String        @default("TOSS_PAYMENTS") @map("pg_provider") @db.VarChar(20)
-  pgOrderId           String        @unique @map("pg_order_id") @db.VarChar(64)
-  pgPaymentKey        String?       @unique @map("pg_payment_key") @db.VarChar(200)
-  paymentMethod       String?       @map("payment_method") @db.VarChar(30)
-  rawResponse         Json?         @map("raw_response")
+  status        PaymentStatus @default(READY)
+  pgProvider    String        @default("TOSS_PAYMENTS") @map("pg_provider") @db.VarChar(20)
+  pgOrderId     String        @unique @map("pg_order_id") @db.VarChar(64)
+  pgPaymentKey  String?       @unique @map("pg_payment_key") @db.VarChar(200)
+  paymentMethod String?       @map("payment_method") @db.VarChar(30)
+  rawResponse   Json?         @map("raw_response")
 
-  paidAt              DateTime?     @map("paid_at")
-  failedAt              DateTime?     @map("failed_at")
-  releasedAt             DateTime?     @map("released_at")
-  refundedAt              DateTime?     @map("refunded_at")
-  failureCode              String?       @map("failure_code") @db.VarChar(50)
-  failureMessage            String?       @map("failure_message") @db.VarChar(300)
+  paidAt         DateTime? @map("paid_at")
+  failedAt       DateTime? @map("failed_at")
+  releasedAt     DateTime? @map("released_at")
+  refundedAt     DateTime? @map("refunded_at")
+  failureCode    String?   @map("failure_code") @db.VarChar(50)
+  failureMessage String?   @map("failure_message") @db.VarChar(300)
 
-  createdAt           DateTime      @default(now()) @map("created_at")
-  updatedAt             DateTime      @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  contract    Contract @relation(fields: [contractId], references: [id])
-  client       User     @relation("PaymentClient", fields: [clientId], references: [id])
-  freelancer    User     @relation("PaymentFreelancer", fields: [freelancerId], references: [id])
+  contract   Contract @relation(fields: [contractId], references: [id])
+  client     User     @relation("PaymentClient", fields: [clientId], references: [id])
+  freelancer User     @relation("PaymentFreelancer", fields: [freelancerId], references: [id])
 
   @@index([freelancerId, releasedAt])
   @@index([status])
@@ -878,28 +878,28 @@ model Payment {
 }
 
 model Delivery {
-  id             String         @id @db.VarChar(30)
-  contractId     String         @unique @map("contract_id") @db.VarChar(30)
-  status         DeliveryStatus @default(IN_PROGRESS)
-  message        String?
-  attachmentUrl  String?        @map("attachment_url")
-  requestedAt    DateTime?      @map("requested_at")
-  approvedAt     DateTime?      @map("approved_at")
+  id            String         @id @db.VarChar(30)
+  contractId    String         @unique @map("contract_id") @db.VarChar(30)
+  status        DeliveryStatus @default(IN_PROGRESS)
+  message       String?
+  attachmentUrl String?        @map("attachment_url")
+  requestedAt   DateTime?      @map("requested_at")
+  approvedAt    DateTime?      @map("approved_at")
   /// [PRISMA-GAP-17] E-47 신설, 2026-09-08. version·objectKey·fileName·mimeType·sizeBytes
   /// 5종은 원본(조준영, public-api.mock.ts DeliveryRow) 그대로. fileSha256·requestedBy
   /// 2종은 원본에 없던 필드 — spec.md 규칙 23 근거로 팀장이 추가(조준영 확인 필요).
-  version        Int            @default(0)
-  objectKey      String?        @map("object_key") @db.VarChar(300)
-  fileName       String?        @map("file_name") @db.VarChar(255)
-  mimeType       String?        @map("mime_type") @db.VarChar(100)
-  sizeBytes      Int?           @map("size_bytes")
-  fileSha256     String?        @map("file_sha256") @db.VarChar(64)
-  requestedBy    String?        @map("requested_by") @db.VarChar(30)
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
+  version       Int            @default(0)
+  objectKey     String?        @map("object_key") @db.VarChar(300)
+  fileName      String?        @map("file_name") @db.VarChar(255)
+  mimeType      String?        @map("mime_type") @db.VarChar(100)
+  sizeBytes     Int?           @map("size_bytes")
+  fileSha256    String?        @map("file_sha256") @db.VarChar(64)
+  requestedBy   String?        @map("requested_by") @db.VarChar(30)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  contract Contract @relation(fields: [contractId], references: [id])
-  requester User?   @relation(fields: [requestedBy], references: [id])
+  contract  Contract @relation(fields: [contractId], references: [id])
+  requester User?    @relation(fields: [requestedBy], references: [id])
 
   @@map("deliveries")
 }
@@ -920,26 +920,26 @@ model Invalidation {
 }
 
 model Review {
-  id          String          @id @db.VarChar(30)
-  projectId   String          @map("project_id") @db.VarChar(30)
-  contractId  String          @map("contract_id") @db.VarChar(30)
-  reviewerId  String          @map("reviewer_id") @db.VarChar(30)
-  revieweeId  String          @map("reviewee_id") @db.VarChar(30)
-  direction   ReviewDirection
-  rating      Int             @db.SmallInt
-  comment     String?
+  id                       String          @id @db.VarChar(30)
+  projectId                String          @map("project_id") @db.VarChar(30)
+  contractId               String          @map("contract_id") @db.VarChar(30)
+  reviewerId               String          @map("reviewer_id") @db.VarChar(30)
+  revieweeId               String          @map("reviewee_id") @db.VarChar(30)
+  direction                ReviewDirection
+  rating                   Int             @db.SmallInt
+  comment                  String?
   /// review_direction별 허용 태그 5종(총 10종)은 DB가 아니라 Review 서비스(API 계층)가
   /// 검증한다 — ERD review_direction enum 주석 표 참고. isPublic은 컬럼이 아니다(계산값).
-  tags        Json            @default("[]")
+  tags                     Json            @default("[]")
   /// [PRISMA-GAP-9] E-39 신설, 2026-09-08. REVIEW_CREATED 이벤트 발행 시각 — 원본(조준영,
   /// review.service.ts publishNewlyPublic)의 outbox형 플래그를 그대로 반영. NULL이면 미발행.
-  reviewCreatedPublishedAt DateTime? @map("review_created_published_at")
-  createdAt   DateTime        @default(now()) @map("created_at")
+  reviewCreatedPublishedAt DateTime?       @map("review_created_published_at")
+  createdAt                DateTime        @default(now()) @map("created_at")
 
-  project   Project  @relation(fields: [projectId], references: [id])
-  contract  Contract @relation(fields: [contractId], references: [id])
-  reviewer  User     @relation("ReviewReviewer", fields: [reviewerId], references: [id])
-  reviewee  User     @relation("ReviewReviewee", fields: [revieweeId], references: [id])
+  project  Project  @relation(fields: [projectId], references: [id])
+  contract Contract @relation(fields: [contractId], references: [id])
+  reviewer User     @relation("ReviewReviewer", fields: [reviewerId], references: [id])
+  reviewee User     @relation("ReviewReviewee", fields: [revieweeId], references: [id])
 
   @@unique([projectId, direction], name: "uq_review_once_per_direction")
   @@index([revieweeId, createdAt])
@@ -963,45 +963,45 @@ model ReviewIdempotencyKey {
 // ═════════════════════════════════════════════════════════════════════
 
 model PricingAnalysis {
-  id                    String                      @id @db.VarChar(30)
-  requesterId           String                      @map("requester_id") @db.VarChar(30)
-  projectId             String?                     @map("project_id") @db.VarChar(30)
+  id          String  @id @db.VarChar(30)
+  requesterId String  @map("requester_id") @db.VarChar(30)
+  projectId   String? @map("project_id") @db.VarChar(30)
 
-  inputSnapshot         Json                        @map("input_snapshot")
+  inputSnapshot     Json  @map("input_snapshot")
   /// [PRISMA-GAP-5] E-32 (CR-AP-001): PENDING/REJECTED엔 결과가 없다. NOT NULL → nullable.
-  recommendedAmount     Int?                        @map("recommended_amount")
+  recommendedAmount Int?  @map("recommended_amount")
   /// [PRISMA-GAP-5] E-32 (CR-AP-001): 위와 동일.
-  breakdown             Json?
+  breakdown         Json?
 
-  modelName             String?                     @map("model_name") @db.VarChar(50)
-  promptVersion          String?                     @map("prompt_version") @db.VarChar(20)
-  resultSchemaVersion     String?                     @map("result_schema_version") @db.VarChar(20)
-  failureCode              String?                     @map("failure_code") @db.VarChar(50)
+  modelName                     String? @map("model_name") @db.VarChar(50)
+  promptVersion                 String? @map("prompt_version") @db.VarChar(20)
+  resultSchemaVersion           String? @map("result_schema_version") @db.VarChar(20)
+  failureCode                   String? @map("failure_code") @db.VarChar(50)
   /// [PRISMA-GAP-5] E-34 (CR-AP-004) 신설. REJECTED exact replay용 최초 공개 실패 사본.
-  failureSnapshot           Json?                       @map("failure_snapshot")
+  failureSnapshot               Json?   @map("failure_snapshot")
   /// [PRISMA-GAP-5] E-34 (CR-AP-004) 신설. REJECTED에서만 NOT NULL, 502|504.
-  failureHttpStatus         Int?                        @map("failure_http_status") @db.SmallInt
+  failureHttpStatus             Int?    @map("failure_http_status") @db.SmallInt
   /// [PRISMA-GAP-5] E-35 (CR-AP-005): unique 범위를 요청자별 복합으로 변경 — 아래 @@index 참고.
-  idempotencyKey            String                      @map("idempotency_key") @db.VarChar(100)
+  idempotencyKey                String  @map("idempotency_key") @db.VarChar(100)
   /// [PRISMA-GAP-5] E-37 (CR-AP-006): 매 생성 시 항상 계산되므로 nullable → NOT NULL.
-  requestFingerprint        String                      @map("request_fingerprint") @db.VarChar(64)
+  requestFingerprint            String  @map("request_fingerprint") @db.VarChar(64)
   /// [PRISMA-GAP-5] E-37 (CR-AP-006) 신설. requestFingerprint 계산 규칙 버전.
-  inputFingerprintSchemaVersion String                  @map("input_fingerprint_schema_version") @db.VarChar(20)
+  inputFingerprintSchemaVersion String  @map("input_fingerprint_schema_version") @db.VarChar(20)
 
-  reviewStatus           PricingAnalysisReviewStatus @default(PENDING) @map("review_status")
-  reviewedAt              DateTime?                   @map("reviewed_at")
-  appliedAt                DateTime?                   @map("applied_at")
+  reviewStatus PricingAnalysisReviewStatus @default(PENDING) @map("review_status")
+  reviewedAt   DateTime?                   @map("reviewed_at")
+  appliedAt    DateTime?                   @map("applied_at")
 
-  createdAt              DateTime                    @default(now()) @map("created_at")
-  updatedAt                DateTime                    @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  requester User     @relation(fields: [requesterId], references: [id])
-  project   Project? @relation(fields: [projectId], references: [id])
+  requester           User                        @relation(fields: [requesterId], references: [id])
+  project             Project?                    @relation(fields: [projectId], references: [id])
   applicationReceipts PricingApplicationReceipt[]
 
+  @@unique([requesterId, idempotencyKey], map: "uq_pricing_analyses_requester_idempotency")
   @@index([requesterId, createdAt])
   @@index([projectId])
-  @@unique([requesterId, idempotencyKey], map: "uq_pricing_analyses_requester_idempotency")
   @@map("pricing_analyses")
 }
 
@@ -1012,21 +1012,21 @@ model PricingAnalysis {
 /// 같은 Prisma $transaction으로 함께 commit/rollback한다 — ai-pricing과 project-management가
 /// 같은 DB를 쓰므로 saga/outbox 없이 단일 트랜잭션으로 충분하다고 판단했다(ERD E-33).
 model PricingApplicationReceipt {
-  id                  String   @id @db.VarChar(30)
-  operation           String   @db.VarChar(30)
-  actorUserId         String   @map("actor_user_id") @db.VarChar(30)
-  idempotencyKey      String   @map("idempotency_key") @db.VarChar(100)
-  pricingAnalysisId   String   @map("pricing_analysis_id") @db.VarChar(30)
-  projectId           String   @map("project_id") @db.VarChar(30)
-  requestFingerprint  String   @map("request_fingerprint") @db.VarChar(64)
-  httpStatus          Int      @map("http_status") @db.SmallInt
-  responseBody        Json     @map("response_body")
-  processedAt         DateTime @map("processed_at")
-  createdAt           DateTime @default(now()) @map("created_at")
+  id                 String   @id @db.VarChar(30)
+  operation          String   @db.VarChar(30)
+  actorUserId        String   @map("actor_user_id") @db.VarChar(30)
+  idempotencyKey     String   @map("idempotency_key") @db.VarChar(100)
+  pricingAnalysisId  String   @map("pricing_analysis_id") @db.VarChar(30)
+  projectId          String   @map("project_id") @db.VarChar(30)
+  requestFingerprint String   @map("request_fingerprint") @db.VarChar(64)
+  httpStatus         Int      @map("http_status") @db.SmallInt
+  responseBody       Json     @map("response_body")
+  processedAt        DateTime @map("processed_at")
+  createdAt          DateTime @default(now()) @map("created_at")
 
-  actor           User             @relation(fields: [actorUserId], references: [id])
-  pricingAnalysis PricingAnalysis  @relation(fields: [pricingAnalysisId], references: [id])
-  project         Project          @relation(fields: [projectId], references: [id])
+  actor           User            @relation(fields: [actorUserId], references: [id])
+  pricingAnalysis PricingAnalysis @relation(fields: [pricingAnalysisId], references: [id])
+  project         Project         @relation(fields: [projectId], references: [id])
 
   @@unique([actorUserId, idempotencyKey], map: "uq_pricing_application_receipts_actor_idempotency")
   @@index([pricingAnalysisId])
