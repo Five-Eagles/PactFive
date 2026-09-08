@@ -2,9 +2,13 @@ import { http } from '../../../shared/http';
 import type {
   ConfirmPaymentResponse,
   CurrentNegotiationOfferResponse,
+  GetCancellationResponse,
   GetContractResponse,
+  GetDeliveryResponse,
   GetPaymentResponse,
+  GetSettlementResponse,
   PreparePaymentResponse,
+  PrepareDeliveryUploadResponse,
   SignContractResponse,
 } from '../contract.types';
 
@@ -26,6 +30,19 @@ export function proposeOffer(
   return http.post<CurrentNegotiationOfferResponse>(
     `/v1/projects/${projectId}/negotiation-offers`,
     { amount, currency: 'KRW' },
+  );
+}
+
+/** AGR-02 재제안. */
+export function counterOffer(
+  projectId: string,
+  offerId: string,
+  amount: number,
+  expectedRound: number,
+): Promise<CurrentNegotiationOfferResponse> {
+  return http.post<CurrentNegotiationOfferResponse>(
+    `/v1/projects/${projectId}/negotiation-offers/${offerId}/counter`,
+    { amount, currency: 'KRW', expectedRound },
   );
 }
 
@@ -67,10 +84,56 @@ export function fetchPayment(paymentId: string): Promise<GetPaymentResponse> {
   return http.get<GetPaymentResponse>(`/v1/payments/${paymentId}`);
 }
 
+export function fetchSettlement(paymentId: string): Promise<GetSettlementResponse> {
+  return http.get<GetSettlementResponse>(`/v1/payments/${paymentId}/settlement`);
+}
+
 export function confirmPayment(input: {
   orderId: string;
   amount: number;
   paymentKey: string;
 }): Promise<ConfirmPaymentResponse> {
   return http.post<ConfirmPaymentResponse>('/v1/payments/confirm', input);
+}
+
+export function fetchCancellation(projectId: string): Promise<GetCancellationResponse> {
+  return http.get<GetCancellationResponse>(`/v1/projects/${projectId}/cancellation`);
+}
+
+export function fetchDelivery(contractId: string): Promise<GetDeliveryResponse> {
+  return http.get<GetDeliveryResponse>(`/v1/contracts/${contractId}/delivery`);
+}
+
+export function prepareDeliveryUpload(
+  contractId: string,
+  input: { fileName: string; contentType: string; size: number; sha256: string },
+): Promise<PrepareDeliveryUploadResponse> {
+  return http.post<PrepareDeliveryUploadResponse>(
+    `/v1/contracts/${contractId}/deliveries/upload-prepare`,
+    input,
+  );
+}
+
+/** `Idempotency-Key`는 매 제출마다 새로 만들어 호출자가 넣는다(api-contract.md 규칙 23). */
+export function requestDelivery(
+  contractId: string,
+  input: { objectKey: string; uploadId: string; message: string },
+  idempotencyKey: string,
+): Promise<GetDeliveryResponse> {
+  return http.post<GetDeliveryResponse>(
+    `/v1/contracts/${contractId}/deliveries/request`,
+    input,
+    { headers: { 'Idempotency-Key': idempotencyKey } },
+  );
+}
+
+export function approveDelivery(
+  contractId: string,
+  idempotencyKey: string,
+): Promise<GetDeliveryResponse> {
+  return http.post<GetDeliveryResponse>(
+    `/v1/contracts/${contractId}/deliveries/approve`,
+    {},
+    { headers: { 'Idempotency-Key': idempotencyKey } },
+  );
 }

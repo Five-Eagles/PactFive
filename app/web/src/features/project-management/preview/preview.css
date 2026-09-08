@@ -1,0 +1,624 @@
+/*
+ * 미리보기 화면 전용 스타일 — 전문가 찾기 · 전문가 프로필 · 이용 방법 · 안전한 거래 등.
+ *
+ * 원본: features/project-management/design/reference-proposal/{experts,expert,guide}.html
+ *
+ * **여기서 원시값을 새로 만들지 않는다.** 반경·간격·그림자·색은 전부 `home/home.css` 가
+ * `:root` 에 선언해 둔 것을 그대로 쓴다. 두 벌이 되면 언젠가 한쪽만 바뀐다.
+ * 그래서 이 파일에는 `home.css` 에 아직 없는 **클래스만** 있다.
+ *
+ * 카드의 겹 규칙도 `.ecard` 를 그대로 따른다 — 판(썸네일) · 표면(흰 카드 + `--edge-top`) ·
+ * 앞으로 나온 아바타. 새로 만드는 것은 그 위에 얹히는 부분뿐이다.
+ */
+
+/* ── 소개 띠 ───────────────────────────────────────────
+   목록 위의 노란 판. 프로젝트 목록에는 없는 화면이라 어디에 왔는지 알려 줄 필요가 있다.
+   노란 판은 화면당 한 번만 쓴다 (design-tokens.md §11). */
+
+.pv-lead {
+  background: var(--campaign-yellow-soft);
+  border-bottom: 1px solid var(--campaign-yellow-edge);
+}
+
+.pv-lead__in {
+  max-width: var(--page-w);
+  margin: 0 auto;
+  padding: var(--gap-6) var(--gutter) var(--gap-5);
+}
+
+.pv-lead h1 {
+  margin: 0;
+  font-size: 32px;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+}
+
+.pv-lead p {
+  margin: var(--gap-3) 0 0;
+  font-size: 15px;
+  color: var(--content-secondary);
+  max-width: 52ch;
+}
+
+/* ── 페이지 껍데기 ─────────────────────────────────────── */
+
+.pv {
+  max-width: var(--page-w);
+  margin: 0 auto;
+  padding: var(--gap-5) var(--gutter) 64px;
+}
+
+.pv-layout {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  gap: var(--gap-5);
+}
+
+/* ── 상시 필터 패널 ────────────────────────────────────
+   프로젝트 찾기(browse)와 같은 구조다 — 두 화면이 다르게 생기면
+   같은 일을 두 번 배워야 한다. */
+
+.pv-filters {
+  align-self: start;
+  position: sticky;
+  top: var(--gap-4);
+  padding: var(--gap-4);
+}
+
+.pv-filters h2 {
+  margin: 0 0 var(--gap-3);
+  font-size: 15px;
+}
+
+.pv-fgroup {
+  padding: var(--gap-3) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pv-fgroup b {
+  display: block;
+  font-size: 13px;
+  margin-bottom: var(--gap-2);
+}
+
+.pv-fgroup label {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+  padding: 3px 0;
+  font-size: 13px;
+  color: var(--content-secondary);
+  cursor: pointer;
+}
+
+.pv-fgroup input {
+  accent-color: var(--action);
+}
+
+/* ── 목록 위 줄 ────────────────────────────────────────── */
+
+.pv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-3);
+  margin-bottom: var(--gap-4);
+  flex-wrap: wrap;
+}
+
+.pv-count {
+  margin: 0;
+  margin-right: auto;
+  font-size: 14px;
+  color: var(--content-secondary);
+}
+
+/* 정렬은 알약 버튼 셋. 접힌 목록(select)으로 두면 지금 무엇으로 줄 세웠는지
+   펼쳐 보기 전에는 알 수 없다 */
+.pv-sorts {
+  display: flex;
+  gap: var(--gap-1);
+}
+
+.pv-sorts button {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface);
+  border-radius: var(--r-pill);
+  padding: 7px var(--gap-3);
+  font: inherit;
+  font-size: 13px;
+  color: var(--content-tertiary);
+  cursor: pointer;
+}
+
+.pv-sorts button[aria-pressed='true'] {
+  border-color: var(--action);
+  color: var(--action-quiet);
+  font-weight: 700;
+  background: var(--surface-selected);
+}
+
+.pv-pager {
+  display: flex;
+  gap: var(--gap-1);
+  justify-content: center;
+  margin-top: var(--gap-5);
+}
+
+.pv-pager button {
+  min-width: 36px;
+  height: 36px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface);
+  font: inherit;
+  font-size: 14px;
+  color: var(--content-secondary);
+  cursor: pointer;
+}
+
+.pv-pager button[aria-current='page'] {
+  border-color: var(--action);
+  color: var(--action-quiet);
+  font-weight: 700;
+  background: var(--surface-selected);
+}
+
+@media (max-width: 1279px) {
+  .grid4 { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 1023px) {
+  .pv-layout { grid-template-columns: 1fr; }
+  .pv-filters { position: static; }
+  .pv-fgroup { display: inline-block; margin-right: var(--gap-5); vertical-align: top; border-top: 0; }
+  .grid4 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 767px) {
+  .grid4 { grid-template-columns: 1fr; }
+  .pv-lead h1 { font-size: 26px; }
+}
+
+/* ── 전문가 카드 — `.ecard` 위에 얹는 부분 ──────────────── */
+
+/* 시안(_tokens.css)의 값을 그대로 쓴다. 눈대중으로 다시 정하지 않는다 */
+.ecard__thumb {
+  display: block;
+  aspect-ratio: 16 / 10;
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.ecard__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 썸네일 위로 아바타가 올라온다 — 3겹의 "부양".
+   흰 테두리가 판(사진)과 표면(카드) 사이를 갈라 준다 */
+.ecard__thumb + .ecard__who {
+  margin-top: -21px;
+  padding-top: 0;
+}
+
+.ecard__thumb + .ecard__who .avatar {
+  border: 3px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+/* 아바타가 위로 올라간 만큼 이름을 내려 맞춘다 */
+.ecard__thumb + .ecard__who .ecard__name {
+  min-width: 0;
+  padding-top: 18px;
+}
+
+.ecard__name b {
+  display: block;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 카드 전체가 누를 수 있는 자리다. 이름에만 밑줄이 그어지면 거기만 누르는 곳처럼 보인다 */
+.ecard a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ecard:hover .ecard__name b a {
+  text-decoration: underline;
+}
+
+.ecard__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-2);
+  margin: var(--gap-3) 0 0;
+  padding: 0 var(--gap-4);
+}
+
+.ecard__rate {
+  font-size: 13px;
+  color: var(--content-secondary);
+  white-space: nowrap;
+}
+
+/* 별 색은 캠페인 노랑과 다르다 — 시안이 평점 전용 토큰을 따로 두었다 */
+.ecard__rate .star {
+  color: var(--rating-star);
+}
+
+/* 평가가 없는 것과 낮은 것은 다르다. 회색으로 작게 눕혀 구분한다 */
+.ecard__rate.none {
+  color: var(--content-tertiary);
+  font-size: 12px;
+}
+
+.ecard__skills {
+  display: flex;
+  gap: var(--gap-1);
+  flex-wrap: wrap;
+  margin: var(--gap-3) 0 0;
+  padding: 0 var(--gap-4) var(--gap-4);
+}
+
+.ecard__facts b {
+  color: var(--content);
+}
+
+/* ── 전문가 프로필 ─────────────────────────────────────
+   시안(expert.html)의 값 그대로다. 눈대중으로 다시 정하지 않는다. */
+
+.pv-crumb {
+  margin: 0 0 var(--gap-2);
+  font-size: 13px;
+  color: var(--content-tertiary);
+}
+
+.pv-crumb a {
+  color: var(--action-quiet);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pv-crumb a:hover {
+  text-decoration: underline;
+}
+
+/* 프로필 머리 — 노란 판 위에 흰 카드가 걸친다.
+   겹: 노란 띠(판) → 흰 카드(표면) → 아바타(부양) */
+.pv-hero {
+  position: relative;
+  margin-top: var(--gap-4);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--campaign-yellow-soft);
+  border: 1px solid var(--campaign-yellow-edge);
+  border-bottom: 0;
+  height: 96px;
+}
+
+.pv-head-card {
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+}
+
+.pv-card-head {
+  position: relative;
+  margin-top: -40px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--gap-4);
+  align-items: end;
+  padding: 0 var(--gap-5) var(--gap-5);
+}
+
+.pv-pavatar {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--r-pill);
+  display: grid;
+  place-items: center;
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--content-inverse);
+  background: var(--navy-500);
+  border: 4px solid var(--surface);
+  box-shadow: var(--shadow-raise);
+}
+
+.pv-who h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.pv-who p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--content-secondary);
+}
+
+.pv-who__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-1);
+  margin-top: var(--gap-2);
+}
+
+.pv-rate {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pv-rate b {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pv-rate .star {
+  color: var(--rating-star);
+}
+
+.pv-rate span {
+  display: block;
+  font-size: 12px;
+  color: var(--content-tertiary);
+}
+
+/* 0.0 으로 그리면 "나쁘다"로 읽힌다. "아직 없다"와 다르다 */
+.pv-rate.none b {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--content-tertiary);
+}
+
+.pv-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--gap-5);
+  padding-bottom: var(--gap-6);
+  margin-top: var(--gap-5);
+}
+
+.pv-block {
+  padding: var(--gap-5);
+  margin-bottom: var(--gap-4);
+  box-shadow: var(--shadow-card), var(--edge-top);
+}
+
+.pv-block h2 {
+  margin: 0 0 var(--gap-3);
+  font-size: 17px;
+  letter-spacing: -0.02em;
+}
+
+.pv-bio {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.8;
+  color: var(--content-secondary);
+}
+
+/* 포트폴리오 — 작업물이 이 화면의 본론이다. 가장 큰 자리를 준다 */
+.pv-shots {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--gap-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pv-shot {
+  position: relative;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
+  margin: 0;
+}
+
+.pv-shot img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+
+.pv-shot figcaption {
+  padding: var(--gap-3);
+  font-size: 13px;
+  color: var(--content-secondary);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pv-shot figcaption b {
+  display: block;
+  color: var(--content);
+  font-size: 13.5px;
+  margin-bottom: 2px;
+}
+
+.pv-kv {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: var(--gap-3);
+  padding: var(--gap-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 14px;
+}
+
+.pv-kv:last-child {
+  border-bottom: 0;
+}
+
+.pv-kv__k {
+  color: var(--content-tertiary);
+}
+
+/* 받은 평가 */
+.pv-rev {
+  padding: var(--gap-4) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.pv-rev:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.pv-rev__top {
+  display: flex;
+  align-items: baseline;
+  gap: var(--gap-3);
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.pv-rev__who {
+  font-weight: 700;
+}
+
+.pv-rev__when {
+  color: var(--content-tertiary);
+  margin-left: auto;
+}
+
+.pv-rev p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--content-secondary);
+}
+
+.pv-rev .star {
+  color: var(--rating-star);
+}
+
+/* 오른쪽 행동 — 프로젝트 상세와 같은 자리 */
+.pv-side {
+  align-self: start;
+  position: sticky;
+  top: var(--gap-4);
+}
+
+.pv-hire {
+  padding: var(--gap-5);
+  box-shadow: var(--shadow-card), var(--edge-top);
+}
+
+.pv-hire__rate {
+  margin: 0;
+  font-size: 13px;
+  color: var(--content-tertiary);
+}
+
+.pv-hire__rate b {
+  display: block;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--content);
+  letter-spacing: -0.02em;
+  margin-top: 2px;
+}
+
+.pv-hire .btn {
+  width: 100%;
+  margin-top: var(--gap-4);
+}
+
+.pv-hire__note {
+  margin: var(--gap-3) 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--content-tertiary);
+}
+
+@media (max-width: 1023px) {
+  .pv-body { grid-template-columns: 1fr; }
+  .pv-side { position: static; }
+}
+
+@media (max-width: 767px) {
+  .pv-card-head { grid-template-columns: auto minmax(0, 1fr); gap: var(--gap-3); }
+  .pv-rate { grid-column: 1 / -1; text-align: left; }
+  .pv-shots { grid-template-columns: 1fr; }
+}
+
+/* ── 문서형 화면 (이용 방법 · 안전한 거래 · 약관) ────────── */
+
+.pv-doc {
+  max-width: 760px;
+}
+
+.pv-doc h2 {
+  margin: var(--gap-6) 0 var(--gap-3);
+  font-size: 19px;
+  letter-spacing: -0.01em;
+}
+
+.pv-doc h2:first-child {
+  margin-top: 0;
+}
+
+.pv-doc p,
+.pv-doc li {
+  font-size: 14.5px;
+  line-height: 1.8;
+  color: var(--content-secondary);
+}
+
+.pv-steps {
+  display: grid;
+  gap: var(--gap-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: pv-step;
+}
+
+.pv-steps li {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: var(--gap-3);
+  align-items: start;
+  padding: var(--gap-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--edge-top);
+}
+
+.pv-steps li::before {
+  counter-increment: pv-step;
+  content: counter(pv-step);
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-pill);
+  background: var(--navy-50);
+  color: var(--navy-600);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.pv-steps b {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--content);
+  font-size: 14.5px;
+}
+
+.pv-steps span {
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--content-secondary);
+}

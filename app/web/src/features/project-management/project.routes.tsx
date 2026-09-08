@@ -6,6 +6,8 @@ import { ProjectDetailPage } from './ProjectDetailPage';
 import { ProjectEditPage } from './ProjectEditPage';
 import { ProjectManagePage } from './ProjectManagePage';
 import { ProjectRegisterForm } from './ProjectRegisterForm';
+import { previewRoutes } from './preview/preview.routes';
+import { infoRoutes } from './info/info.routes';
 
 /**
  * project-management 라우트 정의 + 경로 상수.
@@ -37,6 +39,13 @@ export type ProjectRouteSlots = {
   clientId: string | null;
   renderBookmark?: (projectId: string) => ReactNode;
   renderRecommendations?: (projectId: string) => ReactNode;
+  /** applications 소유 — 지원하기 화면 경로. 이 폴더는 applications를 import하지 않는다
+   * (app/web/AGENTS.md "폴더 간 접점"). App.tsx가 실제 경로를 끼운다. */
+  applyHref?: (projectId: string) => string;
+  /** applications 소유 — 지원자 관리 화면 경로. 위와 같은 슬롯 원칙. */
+  applicantsHref?: (projectId: string) => string;
+  /** ai-pricing 소유 — AI 추천 예산 화면 경로. 위와 같은 슬롯 원칙(2026-09-05). */
+  pricingAnalysisHref?: (query: { title: string; description: string; category: string }) => string;
   /** 대표 페이지 전용 — 이 화면은 AppShell을 안 쓰고 자기 헤더를 그려서 세션 정보가 직접 필요하다
    * (homepage-transplant-plan.md 4번 절 Option C). */
   homeViewer: { email: string; role: 'CLIENT' | 'FREELANCER'; userId: string } | null;
@@ -49,6 +58,9 @@ export function projectRoutes({
   clientId,
   renderBookmark,
   renderRecommendations,
+  applyHref,
+  applicantsHref,
+  pricingAnalysisHref,
   homeViewer,
   homeMyActivityHref,
   onHomeLogout,
@@ -72,19 +84,35 @@ export function projectRoutes({
         element={<ProjectBrowsePage renderBookmark={renderBookmark} />}
       />
       {/* 등록 경로를 상세보다 먼저 둔다 — `/projects/new` 가 `:projectId` 로 잡히면 안 된다 */}
-      <Route path={PROJECT_ROUTES.register} element={<ProjectRegisterForm />} />
+      <Route
+        path={PROJECT_ROUTES.register}
+        element={<ProjectRegisterForm pricingAnalysisHref={pricingAnalysisHref} />}
+      />
       <Route
         path="/projects/:projectId"
         element={
           <ProjectDetailPage
             renderBookmark={renderBookmark}
             renderRecommendations={renderRecommendations}
+            applyHref={applyHref}
           />
         }
       />
-      <Route path={PROJECT_ROUTES.manage} element={<ProjectManagePage clientId={clientId} />} />
+      <Route
+        path={PROJECT_ROUTES.manage}
+        element={<ProjectManagePage clientId={clientId} applicantsHref={applicantsHref} />}
+      />
       {/* 등록(/projects/new)과 마찬가지로 :projectId 라우트보다 더 구체적인 경로다 */}
       <Route path="/my/projects/:projectId/edit" element={<ProjectEditPage />} />
+
+      {/* 시안에는 있지만 아직 만들기로 정하지 않은 화면들 — 전부 ComingSoonOverlay 뒤다.
+          담당이 정해지면 그 기능 폴더로 옮기고 여기서 뺀다 (preview/preview.routes.tsx) */}
+      {previewRoutes()}
+
+      {/* 안내 화면 — 이용 방법·안전한 거래·약관·개인정보·고객센터.
+          이쪽은 블러를 덮지 않는다. 이미 정해진 것을 설명할 뿐이라 완성된 화면이다
+          (info/info.routes.tsx) */}
+      {infoRoutes()}
     </>
   );
 }

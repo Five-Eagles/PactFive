@@ -4,7 +4,9 @@ import { REVIEW_COLLECTION_METHODS } from "./review.constants";
 export const REVIEW_ROUTES = [
   { method: "POST", path: "/api/v1/projects/:projectId/reviews" },
   { method: "GET", path: "/api/v1/projects/:projectId/reviews" },
-  { method: "GET", path: "/api/v1/users/:userId/review-summary" },
+  { method: "GET", path: "/api/v1/projects/:projectId/reviews/me" },
+  { method: "GET", path: "/api/v1/users/:userId/rating" },
+  { method: "GET", path: "/api/v1/users/:userId/reviews" },
 ] as const;
 
 export function isReviewMethodAllowed(method: string): boolean {

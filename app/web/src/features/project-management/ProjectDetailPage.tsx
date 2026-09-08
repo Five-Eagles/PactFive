@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
 import {
   Button,
@@ -33,6 +33,8 @@ export type ProjectDetailPageProps = {
   renderBookmark?: (projectId: string) => ReactNode;
   /** 화면 하단 추천 섹션. 후보가 없으면 engagement 쪽이 스스로 감춘다 (규칙 24) */
   renderRecommendations?: (projectId: string) => ReactNode;
+  /** applications 소유 — 지원하기 화면 경로. 없으면(슬롯 미주입) 버튼을 링크로 만들지 않는다. */
+  applyHref?: (projectId: string) => string;
 };
 
 /** 모집 기간 표기 — 시안의 "즉시 시작 — 2026. 9. 16." */
@@ -49,6 +51,7 @@ function formatDate(iso: string): string {
 export function ProjectDetailPage({
   renderBookmark,
   renderRecommendations,
+  applyHref,
 }: ProjectDetailPageProps) {
   const { projectId = '' } = useParams();
   const { data, loading, error } = useProject(projectId);
@@ -145,9 +148,15 @@ export function ProjectDetailPage({
             <>
               <div className="btn-row" style={{ marginBottom: 12 }}>
                 <span style={{ flex: 1 }}>
-                  <Button variant="primary" fullWidth disabled={data.canApply === false}>
-                    {data.canApply === false ? '모집이 마감되었습니다' : '지원하기'}
-                  </Button>
+                  {data.canApply === false || !applyHref ? (
+                    <Button variant="primary" fullWidth disabled>
+                      {data.canApply === false ? '모집이 마감되었습니다' : '지원하기'}
+                    </Button>
+                  ) : (
+                    <Link to={applyHref(data.projectId)} className="btn btn--primary btn--full">
+                      지원하기
+                    </Link>
+                  )}
                 </span>
                 {renderBookmark?.(data.projectId)}
               </div>

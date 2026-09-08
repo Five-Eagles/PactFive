@@ -15,11 +15,14 @@ build/
 out/
 .turbo/
 *.tsbuildinfo
+app/server/index.js
 
 # ===== Prisma / DB (로컬 개발용 DB 파일) =====
 app/server/prisma/*.db
 app/server/prisma/*.sqlite
 app/server/prisma/migrations/dev/
+# prisma generate 산출물 — postinstall이 매번 재생성한다(2026-09-07, PRISMA-GAP-7 트랙)
+app/server/src/generated/
 
 # ===== Logs =====
 *.log

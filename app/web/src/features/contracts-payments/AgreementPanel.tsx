@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { Badge, Button, Money, Notice } from './ui';
+import type { NegotiationOfferView } from './contract.types';
 
 /**
  * 금액 합의 패널. 앱 셸 없이 상태 분기만 둔다. 문구는 design/agreement.html과 같다.
  *
- * 원본: features/contracts-payments/prototype/web/AgreementPanel.tsx (67207c8)
+ * 원본: features/contracts-payments/prototype/web/AgreementPanel.tsx (28471d6, #80)의
+ * 재제안(AGR-02)·이력(AGR-03) 부분을 이 기능의 기존 클래스 표기(panel.css)에 맞춰 다시
+ * 구현했다 — 프로토타입 컴포넌트를 그대로 옮기지 않고, 이 파일이 이미 쓰던 패턴(Badge·Button·
+ * Money·Notice, `.panel`/`.facts`/`.btn-row`/`.dialog` 클래스)을 그대로 확장했다.
  * 순수 표시 컴포넌트다 — 데이터 패칭·제출 핸들러는 상위(AgreementPage)가 props로 준다.
  */
 export type AgreementView =
@@ -14,18 +18,24 @@ export type AgreementView =
   | 'stale'
   | 'canceled'
   | 'proposed'
-  | 'respond';
+  | 'respond'
+  | 'rejected';
 
 export type AgreementPanelProps = {
   view?: AgreementView;
   amount?: number;
   projectTitle?: string;
+  /** AGR-03. round 오름차순, 최신보다 작은 round는 「대체됨」으로 표시한다. */
+  history?: NegotiationOfferView[];
+  reopened?: boolean | null;
   amountInput?: string;
   amountError?: string | null;
   onAmountChange?: (value: string) => void;
   onPropose?: () => void;
   onAccept?: () => void;
   onReject?: (reasonCode: string) => void;
+  /** AGR-02 재제안. */
+  onCounter?: (amount: number) => void;
   onRetry?: () => void;
   submitting?: boolean;
 };
@@ -33,16 +43,45 @@ export type AgreementPanelProps = {
 const DEFAULT_TITLE = '쇼핑몰 웹사이트 구축';
 const DEFAULT_AMOUNT = 1_000_000;
 
+/** round 1만 「최초 제안」. 그 외는 「N회 수정」이다(AGR-03). */
+function historyLabelForRound(round: number): string {
+  return round === 1 ? '최초 제안' : `${round - 1}회 수정`;
+}
+
+function OfferHistory({ history, latestRound }: { history: NegotiationOfferView[]; latestRound: number }) {
+  if (history.length < 2) return null;
+  return (
+    <div className="offer-history">
+      <p className="helper">이전 제안 이력</p>
+      <ul className="history-list">
+        {history
+          .slice()
+          .sort((a, b) => a.round - b.round)
+          .map((row) => (
+            <li key={row.offerId} className={row.round < latestRound ? 'history-row superseded' : 'history-row'}>
+              <span className="history-label">{historyLabelForRound(row.round)}</span>
+              <Money amount={row.amount} />
+              {row.round < latestRound ? <Badge tone="neutral" label="이후 제안으로 대체됨" /> : null}
+            </li>
+          ))}
+      </ul>
+    </div>
+  );
+}
+
 export function AgreementPanel({
   view = 'create',
   amount = DEFAULT_AMOUNT,
   projectTitle = DEFAULT_TITLE,
+  history = [],
+  reopened,
   amountInput,
   amountError,
   onAmountChange,
   onPropose,
   onAccept,
   onReject,
+  onCounter,
   onRetry,
   submitting = false,
 }: AgreementPanelProps) {
@@ -113,6 +152,27 @@ export function AgreementPanel({
     );
   }
 
+  if (view === 'rejected') {
+    // AGR-02/03 최종 거절 이후 — 재개 여부는 서버가 restore에서 이미 판정해 둔 값이다.
+    return (
+      <article className="panel">
+        <div className="panel-head">
+          <h2 className="title">금액 합의</h2>
+          <Badge tone="danger" label="거절됨" />
+        </div>
+        <Notice tone={reopened ? 'warning' : 'danger'}>
+          {reopened ? '거절되어 모집이 다시 열렸습니다' : '거절되어 거래가 끝났습니다'}
+        </Notice>
+        <p className="status-copy">
+          {reopened
+            ? '이 지원자와의 합의는 끝났습니다. 프로젝트는 다시 지원을 받을 수 있는 상태입니다.'
+            : '마감이 지났거나 다른 지원이 대기 중이라 모집이 자동으로 다시 열리지 않았습니다.'}
+        </p>
+        <OfferHistory history={history} latestRound={history[history.length - 1]?.round ?? 0} />
+      </article>
+    );
+  }
+
   if (view === 'proposed') {
     return (
       <article className="panel">
@@ -133,6 +193,7 @@ export function AgreementPanel({
           </dd>
         </dl>
         <p className="helper">지금은 바꿀 수 없습니다. 프리랜서가 응답하면 다음 단계로 갑니다.</p>
+        <OfferHistory history={history} latestRound={history[history.length - 1]?.round ?? 0} />
       </article>
     );
   }
@@ -142,8 +203,10 @@ export function AgreementPanel({
       <AgreementRespondPanel
         projectTitle={projectTitle}
         amount={amount}
+        history={history}
         onAccept={onAccept}
         onReject={onReject}
+        onCounter={onCounter}
         submitting={submitting}
       />
     );
@@ -200,17 +263,35 @@ export function AgreementPanel({
 function AgreementRespondPanel({
   projectTitle,
   amount,
+  history,
   onAccept,
   onReject,
+  onCounter,
   submitting,
 }: {
   projectTitle: string;
   amount: number;
+  history: NegotiationOfferView[];
   onAccept?: () => void;
   onReject?: (reasonCode: string) => void;
+  onCounter?: (amount: number) => void;
   submitting: boolean;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [counterOpen, setCounterOpen] = useState(false);
+  const [counterInput, setCounterInput] = useState('');
+  const [counterError, setCounterError] = useState<string | null>(null);
+
+  function submitCounter() {
+    const counterAmount = Number(counterInput.replace(/[^0-9]/g, ''));
+    if (!counterAmount || counterAmount <= 0) {
+      setCounterError('금액을 입력해 주세요.');
+      return;
+    }
+    setCounterError(null);
+    setCounterOpen(false);
+    onCounter?.(counterAmount);
+  }
 
   return (
     <>
@@ -220,8 +301,8 @@ function AgreementRespondPanel({
           <Badge tone="warning" label="응답 대기" />
         </div>
         <p className="status-copy">
-          의뢰인이 아래 금액을 제안했습니다. <strong>지금 수락하거나 거절</strong>할 수 있습니다.
-          거절하면 이 거래는 끝납니다.
+          의뢰인이 아래 금액을 제안했습니다. <strong>수락·재제안·거절</strong> 중 하나를 고를 수
+          있습니다. 거절하면 이 거래는 끝납니다.
         </p>
         <dl className="facts">
           <dt>프로젝트 제목</dt>
@@ -231,14 +312,49 @@ function AgreementRespondPanel({
             <Money amount={amount} />
           </dd>
         </dl>
-        <div className="btn-row">
-          <Button variant="primary" disabled={submitting} onClick={onAccept}>
-            수락하기
-          </Button>
-          <Button variant="danger" disabled={submitting} onClick={() => setConfirmOpen(true)}>
-            거절하기
-          </Button>
-        </div>
+        <OfferHistory history={history} latestRound={history[history.length - 1]?.round ?? 0} />
+        {counterOpen ? (
+          <div className="field-row">
+            <label className="label" htmlFor="agreement-counter-amount">
+              재제안 금액
+            </label>
+            <input
+              className={counterError ? 'field error' : 'field'}
+              id="agreement-counter-amount"
+              inputMode="numeric"
+              placeholder="금액"
+              value={counterInput}
+              aria-invalid={counterError ? 'true' : undefined}
+              onChange={(event) => {
+                setCounterInput(event.target.value);
+                setCounterError(null);
+              }}
+            />
+            <p className={counterError ? 'helper error' : 'helper'}>
+              {counterError ?? '새 금액을 보내면 상대방이 다시 수락·재제안·거절할 수 있습니다.'}
+            </p>
+            <div className="btn-row">
+              <Button variant="quiet" onClick={() => setCounterOpen(false)}>
+                취소
+              </Button>
+              <Button variant="primary" disabled={submitting} onClick={submitCounter}>
+                재제안 보내기
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="btn-row">
+            <Button variant="primary" disabled={submitting} onClick={onAccept}>
+              수락하기
+            </Button>
+            <Button variant="secondary" disabled={submitting} onClick={() => setCounterOpen(true)}>
+              재제안하기
+            </Button>
+            <Button variant="danger" disabled={submitting} onClick={() => setConfirmOpen(true)}>
+              거절하기
+            </Button>
+          </div>
+        )}
       </article>
       <div
         className={confirmOpen ? 'overlay-backdrop open' : 'overlay-backdrop'}

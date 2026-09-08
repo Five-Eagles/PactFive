@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>contracts-payments — 정산·수수료 (high-fi)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+<link rel="stylesheet" href="_tokens.css" />
+<link rel="stylesheet" href="panel.css" />
+</head>
+<body>
+
+<div class="meta">
+  <h1>정산·수수료</h1>
+  <p>페이지 본문 · 앱 셸 없음 · /projects/:projectId/payments/:paymentId/settlement · SET-01 · 규칙 4·17·23</p>
+  <span class="fi">high-fi</span>
+</div>
+
+<section class="screen">
+  <div class="id">정산 가능 · ELIGIBLE</div>
+  <article class="settlement-page">
+    <header class="settlement-page-head">
+      <div class="settlement-page-head-copy">
+        <h1 class="page-title">정산·수수료</h1>
+        <p class="settlement-page-links">
+          <a href="#delivery">납품</a>
+          <a href="#project">프로젝트</a>
+          <button type="button" class="settlement-help">무슨 뜻인가요?</button>
+        </p>
+      </div>
+      <span class="badge success">정산 가능</span>
+    </header>
+    <p class="sandbox-banner">
+      <span class="badge info">Sandbox 정산 시뮬레이션</span>
+      <span>실제 계좌 입금이 아닙니다.</span>
+    </p>
+    <div class="settlement-grid">
+      <aside class="settlement-side">
+        <section class="panel">
+          <h2 class="agreement-card-title">결제액</h2>
+          <p class="caption">MANUAL_SIMULATION</p>
+          <p class="offer-amount"><span class="money">100,000원</span></p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">납품 확인</button>
+          </div>
+        </section>
+      </aside>
+      <div class="settlement-main">
+        <section class="panel" id="settlement">
+          <p class="status-copy" role="status">정산 가능한 상태입니다. 처리는 운영 시뮬레이션이며 이 화면에서 지급하지 않습니다.</p>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>결제 금액</dt>
+            <dd><span class="money">100,000원</span></dd>
+            <dt>플랫폼 수수료</dt>
+            <dd><span class="money">10,000원</span> <span class="caption">(10%)</span></dd>
+            <dt>정산 예정액</dt>
+            <dd><span class="money">90,000원</span></dd>
+          </dl>
+        </section>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section class="screen overlay-demo">
+  <div class="id">SET-M01 · 상태 설명</div>
+  <div class="overlay-backdrop open">
+    <div class="dialog" role="dialog" aria-modal="true">
+      <h2 class="title">정산 상태가 궁금하신가요?</h2>
+      <p class="status-copy">Sandbox에서는 실제 계좌 입금이 없습니다. 결제 승인은 의뢰인 결제 완료이고, 정산 시뮬레이션은 내부 처리입니다.</p>
+      <div class="btn-row">
+        <button type="button" class="btn primary">확인</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen">
+  <div class="id">완료 · RELEASED</div>
+  <article class="settlement-page">
+    <header class="settlement-page-head">
+      <div class="settlement-page-head-copy">
+        <h1 class="page-title">정산·수수료</h1>
+      </div>
+      <span class="badge success">시뮬레이션 완료</span>
+    </header>
+    <p class="sandbox-banner">
+      <span class="badge info">Sandbox 정산 시뮬레이션</span>
+      <span>실제 계좌 입금이 아닙니다.</span>
+    </p>
+    <div class="settlement-grid">
+      <aside class="settlement-side">
+        <section class="panel">
+          <h2 class="agreement-card-title">결제액</h2>
+          <p class="offer-amount"><span class="money">100,000원</span></p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">리뷰 작성</button>
+          </div>
+        </section>
+      </aside>
+      <div class="settlement-main">
+        <section class="panel">
+          <p class="status-copy" role="status">정산 시뮬레이션이 완료되었습니다. 거래가 <strong>완료</strong>입니다.</p>
+        </section>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section class="required">
+  <h2>필수 요소 목록</h2>
+  <p class="lead"><code>prototype/run.tsx</code>가 <code>SettlementPanel</code>을 렌더링해 확인한다.</p>
+  <table>
+    <thead><tr><th>화면</th><th>종류</th><th>텍스트</th></tr></thead>
+    <tbody>
+      <tr><td>공통</td><td>배지</td><td>Sandbox 정산 시뮬레이션</td></tr>
+      <tr><td>가능</td><td>안내</td><td>정산 가능한 상태입니다</td></tr>
+      <tr><td>완료</td><td>안내</td><td>정산 시뮬레이션이 완료되었습니다</td></tr>
+      <tr><td>도움</td><td>버튼</td><td>무슨 뜻인가요?</td></tr>
+    </tbody>
+  </table>
+  <p class="helper" style="margin-top:14px">지급 실행·재지급 버튼 없음. 실제 입금으로 쓰지 않는다.</p>
+</section>
+
+</body>
+</html>

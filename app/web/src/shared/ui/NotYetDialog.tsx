@@ -44,20 +44,12 @@ function NotYetDialog({ screenKey, onClose }: { screenKey: NotYetScreenKey; onCl
         aria-describedby="notyet-desc"
       >
         <h2 id="notyet-title" className="h3" style={{ marginTop: 0 }}>
-          {screen.name} 화면은 아직 없습니다
+          {screen.name}, 준비 중입니다
         </h2>
         <div id="notyet-desc">
-          {screen.note && (
-            <p style={{ marginTop: 0 }}>{screen.note}</p>
-          )}
-          <dl className="caption" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 16px' }}>
-            <dt style={{ fontWeight: 700 }}>담당</dt>
-            <dd style={{ margin: 0 }}>{screen.owner}</dd>
-            <dt style={{ fontWeight: 700 }}>명세</dt>
-            <dd style={{ margin: 0 }}>
-              <code>{screen.where}</code>
-            </dd>
-          </dl>
+          <p style={{ marginTop: 0 }}>
+            아직 열지 않은 기능입니다. 준비가 끝나면 이 자리에서 바로 이용하실 수 있습니다.
+          </p>
         </div>
         <div className="btn-row" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
           <Button variant="primary" onClick={onClose}>

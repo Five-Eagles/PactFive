@@ -2,29 +2,30 @@
 
 | 항목 | 내용 |
 |---|---|
-| 원본 | `docs/domain/reference/erd-v1.4.html` (DBML: `docs/domain/reference/erd-v1.4.dbml`) |
+| 원본 | `docs/domain/reference/erd-v1.4.html` (DBML: `docs/domain/reference/erd-v1.4.dbml`, 파일명은 v1.4 유지·내용은 v1.6) |
 | 작성 | 김락원 (팀장) |
-| 버전 | v1.4 |
-| 근거 | `docs/domain/prd.md` §6 데이터 모델 (PRD v6.4 대조 완료) |
-| 반영일 | 2026-08-25 |
+| 버전 | v1.6 |
+| 근거 | `docs/domain/prd.md` §6 데이터 모델 (PRD v6.5 대조 완료) |
+| 반영일 | 2026-08-25 (v1.5 개정: 2026-09-04, v1.6 개정: 2026-09-04) |
 | 상태 | **구현 초안 확정** — 엔티티 수 고정 원칙은 폐기되었다(D-62·D-70·D-78 종결). 새 엔티티는 담당자를 명시하고 §6.10 검증 범위에 추가하는 방식으로 계속 확장될 수 있다 |
 
 이 문서는 원본을 요약한 포인터입니다. 필드 단위 상세, 불변식 30개 매핑, DBML로 표현 못하는
 SQL 제약, 확장 지점은 원본 HTML을 직접 엽니다.
 
-## 엔티티 19종 (담당자별)
+## 엔티티 21종 (담당자별)
 
 | 담당자 | 엔티티 |
 |---|---|
-| 오민혁 | `users`, `auth_sessions`, `client_profiles`, `freelancer_profiles`, `skills`, `freelancer_skills` |
+| 오민혁 | `users`, `auth_sessions`, `registration_intents`, `client_profiles`, `freelancer_profiles`, `skills`, `freelancer_skills` |
 | 유동우 | `projects`, `project_skills`, `bookmarks` |
 | 최윤석 | `applications`, `notifications` |
 | 조준영 | `agreements`, `negotiation_offer`, `contracts`, `contract_signature_audits`, `payments`, `deliveries`, `reviews` |
-| 오민혁 | `pricing_analyses` |
+| 오민혁 | `pricing_analyses`, `pricing_application_receipts` |
 
-`auth_sessions`(E-22)와 `negotiation_offer`(E-25)는 v1.3~v1.4에서 신설된 엔티티다 — 과거 v1.2의
-"17종 고정" 원칙(구 E-01)은 PRD §6.1 D-62에서 이미 폐기된 것으로 확인되어 철회됐다 (아래
-"최근 확정 사항" 참고). 담당자는 자기 담당 절만 확인하면 된다 (원본 §6.10 검증 범위).
+`auth_sessions`(E-22)와 `negotiation_offer`(E-25)는 v1.3~v1.4에서, `registration_intents`(E-30,
+v1.5)와 `pricing_application_receipts`(E-36, v1.6)는 2026-09-04에 신설된 엔티티다 — 과거 v1.2의
+"17종 고정" 원칙(구 E-01)은 PRD §6.1 D-62에서 이미 폐기된 것으로 확인되어 철회됐다 (아래 "최근
+확정 사항" 참고). 담당자는 자기 담당 절만 확인하면 된다 (원본 §6.10 검증 범위).
 
 ## enum 값 목록 (저장 enum 12종)
 
@@ -51,9 +52,10 @@ SQL 제약, 확장 지점은 원본 HTML을 직접 엽니다.
 
 | enum | 값 |
 |---|---|
-| `project_category` | `WEB_DEVELOPMENT` · `APP_DEVELOPMENT` · `DESIGN` · `MARKETING` · `PLANNING` · `ETC` (6종, D-12) |
-| `business_field` | `project_category`와 같은 6종 재사용. `ETC`일 때만 `business_field_etc` 자유 입력 |
+| `project_category` | `WEB_DEVELOPMENT` · `MOBILE_APP` · `DESIGN` · `DATA_AI` · `PLANNING` · `MARKETING` (6종, D-12·**D-91로 값 정정**) |
+| `business_field` | `project_category`와 같은 6종 재사용(D-63). `business_field_etc` 자유 입력 트리거 필드는 오민혁 확인 필요 |
 | `skill_group` | `FRONTEND` · `BACKEND` · `MOBILE` · `DATA_INFRA` · `DESIGN` · `MARKETING` · `PLANNING` · `ETC` (8종, 필터 UI 그룹핑용) |
+| `budget_source` | `CLIENT_INPUT` · `AI_ANALYSIS` (2종, E-31 신설 — CR-0007 종결) |
 
 알림 종류 `notification_type` (13값)은 **네이밍 컨벤션 §10 `NotificationType`이 정본**이며 이
 ERD와 항상 같은 목록이어야 한다 (PRD D-76·D-86).
@@ -68,9 +70,10 @@ ERD와 항상 같은 목록이어야 한다 (PRD D-76·D-86).
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | `usr_01H8X…` 형식 |
+| `id` | varchar(30) | PK | `usr_01H8X…` 형식. PactFive 자체 발급 ID |
+| `auth_user_id` | varchar(64) | NOT NULL, UNIQUE | **(E-29 신설, v1.5)** Supabase `auth.users` UUID. `id`와 별개 값 — 매핑 키가 ERD에 없어 코드가 이미 쓰던 값을 뒤늦게 반영 |
 | `email` | varchar(255) | NOT NULL, 부분 UNIQUE(활성 사용자 범위) | 소셜 로그인 연동 키 |
-| `password_hash` | varchar(255) | NULL | 해싱 저장. 소셜 전용 계정은 비어 있음 |
+| `password_hash` | varchar(255) | NULL | **(E-28 정정, v1.5)** 실사용 안 함 — ADR-0008(Supabase Auth 채택)이 비밀번호 해싱·검증을 Supabase에 위임해, 서버 코드 어디서도 이 컬럼을 안 쓴다. 영구 NULL 예상. 오민혁 확인 후 제거 검토 |
 | `name` | varchar(50) | NOT NULL | 이름 |
 | `role` | `user_role` enum | NOT NULL | `CLIENT` \| `FREELANCER` |
 | `profile_image_url`, `bio` | text | NULL | 공통 프로필 |
@@ -107,7 +110,26 @@ ERD와 항상 같은 목록이어야 한다 (PRD D-76·D-86).
 즉시 폐기(`revoked_reason='REUSE_DETECTED'`). 비밀번호 변경·전체 로그아웃 시 사용자의 미폐기
 세션 전체를 일괄 `revoked_at` 처리. 물리 삭제하지 않는다(감사 목적 보존).
 
-## 엔티티별 필드 정의 (users · auth_sessions 제외 17종)
+## `registration_intents` 엔티티 (v1.5 신설 — E-30, 오민혁 담당)
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `auth_user_id` | varchar(64) | PK | Supabase `auth.users` UUID. 이 시점엔 아직 `users` 행이 없다(이메일 확인 전) |
+| `email` | varchar(255) | NOT NULL | — |
+| `name` | varchar(50) | NOT NULL | — |
+| `role` | `user_role` enum | NOT NULL | — |
+| `return_to` | text | NOT NULL | 인증 완료 후 복귀 경로 |
+| `nonce` | varchar(100) | NOT NULL | — |
+| `issued_at` | timestamptz | NOT NULL | — |
+| `expires_at` | timestamptz | NOT NULL | — |
+| `recovery_expires_at` | timestamptz | NOT NULL | — |
+
+이메일 확인 대기 중인 가입 시도를 담는 임시 상태 테이블이다. 거래 이력이 아니므로 물리 삭제
+가능(인증 완료 시 정리, 만료분은 배치로 정리 — 배치 자체는 아직 없음, 리스크로 남김). 원래
+`user-management`의 `RegistrationIntentRepository`로만 구현돼 있었고 ERD엔 없었다 —
+feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 필요성을 남겨 뒀다.
+
+## 엔티티별 필드 정의 (users · auth_sessions · registration_intents 제외 17종)
 
 **(Fact)** 컬럼명·타입·NOT NULL 여부는 원본 `docs/domain/reference/erd-v1.4.html`의 다이어그램에서
 직접 추출한 값입니다. **(Assumption)** "의미" 칸 중 원본 프로즈(설계 원칙, 확장 지점 설명)에
@@ -185,6 +207,8 @@ ERD와 항상 같은 목록이어야 한다 (PRD D-76·D-86).
 | `description` | text | NOT NULL | — (원본 §3 해당 절 참고) |
 | `category` | project_category | NOT NULL | — (원본 §3 해당 절 참고) |
 | `budget_amount` | integer | NOT NULL | — (원본 §3 해당 절 참고) |
+| `budget_source` | budget_source | NOT NULL, DEFAULT `CLIENT_INPUT` | **(v1.5 신설, E-31)** 예산이 사용자 입력인지 AI 분석 결과인지. CR-0007 종결 — Trust by Evidence 원칙(ux-philosophy.md §6) 위반 방지. 공개 응답엔 넣지 않음(등록 의뢰인만 봄) |
+| `budget_source_at` | timestamptz | NOT NULL, DEFAULT `now()` | **(v1.5 신설, E-31)** 출처가 정해진 시각 |
 | `recruitment_start_at` | timestamptz | NULL | — (원본 §3 해당 절 참고) |
 | `recruitment_deadline_at` | timestamptz | NOT NULL | — (원본 §3 해당 절 참고) |
 | `recruitment_status` | recruitment_status | NOT NULL | 모집 상태 (`RecruitmentStatus`, PRD §2 정본) |
@@ -383,25 +407,58 @@ ERD와 항상 같은 목록이어야 한다 (PRD D-76·D-86).
 
 #### `pricing_analyses`
 
+**(v1.6 변경)** `recommended_amount`·`breakdown`은 `PENDING`/`REJECTED`에 결과가 없어 NOT NULL →
+NULL로, `idempotency_key`는 단독 unique → `(requester_id, idempotency_key)` 복합 unique로,
+`request_fingerprint`는 매 생성 시 항상 계산돼 NULL → NOT NULL로 정정했다. `failure_snapshot`·
+`failure_http_status`·`input_fingerprint_schema_version` 3개 컬럼을 신설했다 (CR-AP-001·004·005·006
+채택, E-32·34·35·37 — 아래 "최근 확정 사항" 참고).
+
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
 | `id` | varchar(30) | PK | PK |
 | `requester_id` | varchar(30) | NOT NULL | `users` 참조 |
 | `project_id` | varchar(30) | NULL | `projects` 참조 |
 | `input_snapshot` | jsonb | NOT NULL | AI 분석 요청 시점의 입력값 스냅샷 (jsonb) |
-| `recommended_amount` | integer | NOT NULL | AI 추천 금액 |
-| `breakdown` | jsonb | NOT NULL | 추천 금액 산출 근거 (jsonb) |
+| `recommended_amount` | integer | NULL | AI 추천 금액. `APPROVED`에서만 NOT NULL |
+| `breakdown` | jsonb | NULL | 추천 금액 산출 근거 (jsonb). `APPROVED`에서만 NOT NULL |
 | `model_name` | varchar(50) | NULL | 사용한 AI 모델 |
 | `prompt_version` | varchar(20) | NULL | 프롬프트 버전 — 재현성 추적용 |
 | `result_schema_version` | varchar(20) | NULL | `breakdown`/`input_snapshot`의 스키마 버전 |
 | `failure_code` | varchar(50) | NULL | — (원본 §3 해당 절 참고) |
-| `idempotency_key` | varchar(100) | NOT NULL | 중복 요청 방지 키 |
-| `request_fingerprint` | varchar(64) | NULL | 요청 내용 해시 (캐싱/중복 탐지 추정) |
+| `failure_snapshot` | jsonb | NULL | **(v1.6 신설)** `REJECTED`에서만 NOT NULL. exact replay용 최초 공개 실패 사본 |
+| `failure_http_status` | smallint | NULL | **(v1.6 신설)** `REJECTED`에서만 NOT NULL. 최초 공개 502\|504 |
+| `idempotency_key` | varchar(100) | NOT NULL | 중복 요청 방지 키. unique 범위는 `(requester_id, idempotency_key)` |
+| `request_fingerprint` | varchar(64) | NOT NULL | 요청 내용 해시 (캐싱/중복 탐지) |
+| `input_fingerprint_schema_version` | varchar(20) | NOT NULL | **(v1.6 신설)** `request_fingerprint` 계산 규칙 버전 |
 | `review_status` | pricing_analysis_review_status | NOT NULL | 담당자가 AI 추천을 검토했는지 (`pricing_analysis_review_status`) |
 | `reviewed_at` | timestamptz | NULL | — (원본 §3 해당 절 참고) |
 | `applied_at` | timestamptz | NULL | 추천 금액을 실제 프로젝트에 적용한 시각 |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 | `updated_at` | timestamptz | NOT NULL | 수정 시각 |
+
+#### `pricing_application_receipts` (v1.6 신설 — E-36, 오민혁 담당)
+
+기존 프로젝트에 AI 추천 예산을 적용(`POST /pricing-analyses/:id/apply`)할 때의 멱등 결과 저장소다.
+분석 생성 멱등(`pricing_analyses.idempotency_key`)과는 작업·키 범위가 달라 별도 테이블로 분리했다.
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `id` | varchar(30) | PK | `par_...` |
+| `operation` | varchar(30) | NOT NULL | 현재 `APPLY_PRICING_ANALYSIS` 하나뿐 |
+| `actor_user_id` | varchar(30) | NOT NULL | 요청자. `users` 참조 |
+| `idempotency_key` | varchar(100) | NOT NULL | 적용 요청 Idempotency-Key |
+| `pricing_analysis_id` | varchar(30) | NOT NULL | `pricing_analyses` 참조 |
+| `project_id` | varchar(30) | NOT NULL | `projects` 참조 |
+| `request_fingerprint` | varchar(64) | NOT NULL | 같은 키·다른 fingerprint 재요청을 409로 구분 |
+| `http_status` | smallint | NOT NULL | 최초 응답 HTTP 상태 (200\|409) |
+| `response_body` | jsonb | NOT NULL | exact replay용 최초 공개 응답 사본 |
+| `processed_at` | timestamptz | NOT NULL | 최초 처리 완료 시각 |
+| `created_at` | timestamptz | NOT NULL | 생성 시각 |
+
+unique 범위는 `(actor_user_id, idempotency_key)`. 이 행 저장과 `pricing_analyses.applied_at`/
+`project_id` 갱신, `projects.budget_amount` 갱신은 같은 DB 트랜잭션으로 함께 commit되거나 함께
+rollback된다 — ai-pricing과 project-management가 같은 Postgres DB를 쓰기 때문에 saga/outbox 없이
+단일 트랜잭션으로 충분하다고 판단했다(CR-AP-003 단순화 채택, E-33).
 
 ## 최근 확정 사항 (Decision Log 요약)
 
@@ -421,6 +478,56 @@ ERD와 항상 같은 목록이어야 한다 (PRD D-76·D-86).
 - **(v1.4)** 재모집 시 모집 마감일(365일 상한) 기준점을 "현재 모집 회차 시작 시각"으로 명확화
   (I-28, PRD D-85). 재모집 API(A-13)의 처리 순서는 **시작 시각 갱신 → 상한 검증**이다 — PRD
   v6.4 D-90이 이 규칙을 A-13 스펙 본문에 명시했다 (이전에는 ERD 컬럼 주석에만 있었음)
+- **(v1.5, 2026-09-04)** 팀장이 Prisma 스키마를 처음 설계하며 발견한 정본-구현 불일치 5건 정정·신설
+  (PRD D-91):
+  - `project_category`·`business_field` 값 정정 — `APP_DEVELOPMENT`→`MOBILE_APP`,
+    `ETC`→`DATA_AI` (E-27). 실제 구현이 v1.4 확정 이후 이 값을 이미 일관되게 써 왔던 것을
+    문서가 뒤늦게 반영. D-63(세 곳이 같은 6종 공유)에 따라 `business_field`도 같이 맞췄다
+  - `users.password_hash` 노트 정정 — ADR-0008(Supabase Auth 채택)로 실사용 안 함, 영구 NULL
+    예상 (E-28)
+  - `users.auth_user_id` 신설 — Supabase `auth.users` UUID 매핑 키. 코드는 이미 쓰고 있었으나
+    ERD엔 없었음 (E-29)
+  - `registration_intents` 신설 — 20번째 엔티티. 이메일 확인 대기 중인 가입 시도 저장소 (E-30)
+  - `projects.budget_source`/`budget_source_at` 신설 — CR-0007 종결. AI 단가 분석의 예산
+    덮어쓰기 사실을 화면에 노출 (E-31)
+- **(v1.6, 2026-09-04)** ai-pricing Step 2(동기식 MVP) 구현 완료 후 오민혁이 제기한 CR 6건 중
+  5건(CR-AP-002 카테고리 값은 위 E-27로 이미 해결) 채택 (PRD D-92):
+  - `pricing_analyses.recommended_amount`/`breakdown` nullable화 + 상태별 CHECK 신설 — `PENDING`/
+    `REJECTED`에는 결과가 없다 (E-32, CR-AP-001)
+  - 기존 프로젝트 적용의 교차 도메인 원자성 확정 — `pricing_application_receipts` 신설(21번째
+    엔티티)로 적용 멱등 결과를 분리 저장. CR 원안(saga/outbox 대비)은 두 도메인이 같은 Postgres
+    DB를 쓰므로 단일 DB 트랜잭션으로 단순화해 채택 (E-33·E-36, CR-AP-003)
+  - `failure_snapshot`/`failure_http_status` 신설 — `REJECTED` exact replay가 배포 사이에도 같은
+    응답을 재생하도록 최초 공개 실패를 원자적으로 저장 (E-34, CR-AP-004)
+  - `idempotency_key` unique 범위를 단독 컬럼 → `(requester_id, idempotency_key)` 복합으로 변경
+    — 서로 다른 사용자의 같은 키가 충돌하지 않도록 (E-35, CR-AP-005)
+  - `input_fingerprint_schema_version` 신설 + `request_fingerprint`를 NULL 허용 → NOT NULL로 정정
+    — 입력 정규화 규칙이 바뀌어도 과거 해시를 올바로 재검증 (E-37, CR-AP-006)
+  - 오민혁의 Step 2 프로토타입이 이미 이 CR들이 요청하는 모양으로 구현·테스트돼 있어, E-27~E-31과
+    같은 성격의 "코드가 맞고 ERD가 뒤처진" 정정이다 — CR-AP-003만 새로운 설계 판단이었다
+- **(2026-09-07)** `reviews.tags` 코드 10종(방향별 5종)을 CR-RV-001(조준영) 채택으로 전량 교체
+  (E-19 → **E-38**):
+  - 배경: 「PactFive_상호_리뷰_평균_별점_설계서」v2.0을 reviews Increment 정본으로 채택하기로
+    했는데, 그 설계서의 태그 코드가 기존 ERD E-19(2026-08-20 PM 승인요청서 확정본) 10종과
+    달랐다. `features/reviews/`의 spec·api-contract·prototype이 이미 설계서 코드로 구현·검증돼
+    있어(`origin/feature/reviews` 브랜치, 커밋 `b9ccc92`), ERD가 뒤처진 상태였다 — E-27·E-32~37과
+    같은 성격의 정정
+  - 새 코드: `CLIENT_TO_FREELANCER` — `WORK_QUALITY`·`ON_TIME_DELIVERY`·`GOOD_COMMUNICATION`·
+    `REQUIREMENT_UNDERSTANDING`·`PROFESSIONAL_ATTITUDE`. `FREELANCER_TO_CLIENT` —
+    `CLEAR_REQUIREMENTS`·`FAST_FEEDBACK`·`GOOD_COMMUNICATION`·`SCOPE_STABILITY`·
+    `PROFESSIONAL_ATTITUDE`(상세는 `erd-v1.4.dbml` E-38 주석)
+  - 검증 방식(422 `REVIEW_TAG_INVALID`, DB는 jsonb 배열만 강제하고 방향별 허용 코드는 Review
+    서비스가 담당)은 E-19와 동일 — 코드 목록만 바뀐다
+  - 검토했던 대안: E-19 유지 + 설계서 태그는 표시명만 사용. 설계서 v2.0을 구현 기준으로 쓰기로
+    확정해 기각(CR 원문 참고)
+  - **가정**: 코드별 한글 표시 문구(예: 구 코드의 "책임감이 있어요")는 설계서 v2.0 원문에
+    있을 것으로 보이나, `features/reviews/`의 spec·api-contract·prototype 어디에도 한글 라벨이
+    없어 이 개정에서는 코드만 반영했다. 화면에 노출할 한글 라벨이 필요하면 조준영 확인 필요
+  - **남은 일 (팀장 다음 통합)**: `app/server/src/features/reviews/review.constants.ts`와
+    `app/web`의 리뷰 태그 UI는 아직 구(舊) E-19 코드를 쓰고 있다. `feature/reviews` 브랜치가
+    develop에 머지되기 전까지 ERD(신규 코드)와 app/(구 코드)가 서로 다른 상태로 남는다 —
+    다음 통합 때 함께 반영할 것
+  - CR 원문: `features/reviews/change-requests/0001-review-tag-codes-v2.md`
 
 엔티티 수 고정 원칙 폐기(D-62·D-70)에 따라 앞으로도 새 엔티티는 담당자 명시 + §6.10 검증 범위
 추가만으로 계속 신설될 수 있다. 전체 Decision Log는 원본 §9(Decision Log), PRD 부록 E 참고.

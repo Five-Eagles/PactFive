@@ -28,11 +28,11 @@ import {
  * ## 왜 HTTP 로 부르지 않나
  *
  * 두 기능이 같은 Express 앱 안에 있다. 자기 자신에게 HTTP 왕복을 돌면 서버리스 실행 시간만
- * 쓰고 얻는 게 없다. 대신 조립 지점(`app/server/src/app.ts`)이 project-management 의 계약
+ * 쓰고 얻는 게 없다. 대신 조립 지점(`app/server/src/express-app.ts`)이 project-management 의 계약
  * 서비스를 `delegate` 로 넣어 준다.
  *
  * **project-management 폴더를 import 하지 않는다.** `delegate` 의 모양을 여기서 구조적으로
- * 선언해 두고 app.ts 가 실제 구현을 끼운다 — 기능 폴더 간 직접 import 금지(app/web/AGENTS.md
+ * 선언해 두고 express-app.ts 가 실제 구현을 끼운다 — 기능 폴더 간 직접 import 금지(app/web/AGENTS.md
  * "폴더 간 접점"과 같은 원칙). 두 도메인이 다른 서버로 갈라지면 이 파일만 HTTP 클라이언트로
  * 바꾼다 (ADR-0009).
  */
