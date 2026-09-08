@@ -91,7 +91,52 @@ SERVER_BASE_URL=http://localhost:4000 npm run seed:contractable
   `POST /api/v1/auth/sessions`(로그인)를 다시 호출하면 새 토큰을 받을 수 있다 — 이번에는
   로컬 사용자 정보가 이미 있으므로 한 번의 로그인 호출로 끝난다.
 
-## 7. 안전 관련 참고 (Fact)
+## 7. 이 시드 계정으로 테스트할 수 있는 범위 (Scope)
+
+**Fact.** 스크립트가 끝나면 프로젝트가 "계약 대기(CONTRACT_PENDING)" 상태이고, 그 다음부터는
+`contracts-payments` 기능의 공개 API 14종을 실제로 순서대로 호출할 수 있다. 단, **API로
+끝까지 되는 구간**과 **API만으로는 끝까지 안 되는 구간**이 나뉜다 — 후자를 모르고
+테스트하면 "왜 안 되지"에서 시간을 쓰게 되므로 먼저 밝혀둔다.
+
+### 7-1. API 호출만으로 끝까지 되는 구간
+
+아래 순서대로, 누가(의뢰인/프리랜서) 호출해야 하는지까지 표로 정리했다. `{projectId}`는
+스크립트 출력의 `projectId`, `{contractId}`는 2단계(합의 수락) 응답에 담겨 온다.
+
+| 단계 | 호출자 | 메서드/경로 | 핵심 입력 | 비고 |
+|---|---|---|---|---|
+| 1. 합의 제안 | 의뢰인 | `POST /api/v1/projects/{projectId}/negotiation-offers` | `amount`(숫자) | **첫 제안은 반드시 의뢰인만** 할 수 있다 (코드가 강제) |
+| 1-1. (선택) 재제안 | 상대방 | `POST /api/v1/projects/{projectId}/negotiation-offers/{offerId}/counter` | `amount`, `expectedRound`(직전 offer의 `round`) | 방금 제안한 사람은 재응답 불가(403) |
+| 2. 합의 수락 | 프리랜서 | `POST /api/v1/projects/{projectId}/negotiation-offers/{offerId}/accept` | `expectedRound` | 이 호출로 `Contract`(DRAFT)가 생성된다 — 응답의 `contractId`를 저장해 둔다. **의뢰인이 아닌 첫 accept 호출자가 그대로 "그 계약의 프리랜서"로 기록된다**(7-3 참고) — 그러니 반드시 프리랜서 계정으로 호출한다 |
+| 3. 서명 | 의뢰인, 프리랜서 각 1회 | `POST /api/v1/contracts/{contractId}/sign` | (본문 없음) | 양쪽 다 서명해야 `SIGNED`로 바뀐다 |
+| 4. 결제 준비 | 의뢰인 또는 프리랜서(계약 당사자면 누구든) | `POST /api/v1/payments` | `contractId` | 응답에 `paymentId`·`orderId`·`clientKey` |
+| 5. 납품 업로드 준비 | 프리랜서 | `POST /api/v1/contracts/{contractId}/deliveries/upload-prepare` | `fileName`,`contentType`,`size`,`sha256`(64자리 16진수 — 실제 파일 없이도 임의 문자열로 테스트 가능) | 응답에 `uploadId`·`objectKey` |
+| 6. 납품 요청 | 프리랜서 | `POST /api/v1/contracts/{contractId}/deliveries/request` (헤더 `Idempotency-Key` 필수) | `objectKey`,`uploadId`(5단계 응답 값 그대로),`message` | |
+| 7. 납품 승인 | 의뢰인 | `POST /api/v1/contracts/{contractId}/deliveries/approve` (헤더 `Idempotency-Key` 필수) | `expectedVersion`(선택) | |
+| 조회용 | 양쪽 다 | `GET /api/v1/projects/{projectId}/negotiation-offers/current`, `GET /api/v1/contracts/{contractId}`, `GET /api/v1/payments/{paymentId}`, `GET /api/v1/payments/{paymentId}/settlement`, `GET /api/v1/contracts/{contractId}/delivery`, `GET /api/v1/projects/{projectId}/cancellation` | — | 상태 확인용 GET들 |
+
+### 7-2. API만으로는 끝까지 안 되는 구간 — Fact
+
+- **결제 확정(`POST /api/v1/payments/confirm`)**: `orderId`·`amount`와 함께 실제
+  `paymentKey`가 필요한데, 이 값은 토스페이먼츠 결제위젯에서 실제로 결제(샌드박스 테스트
+  카드)를 완료해야만 발급된다. 즉 4단계에서 받은 `clientKey`로 **브라우저에서 결제 위젯을
+  띄우는 화면 테스트가 한 번은 필요**하다 — curl/Postman만으로는 여기서 막힌다.
+- **정산 완료(RELEASED) 전이**: 코드에 `simulateSettlementResult()` 함수가 있지만
+  "브라우저 경로가 아니다 — HTTP 라우트로 노출하지 않는다"는 주석과 함께 **어떤 API
+  경로에도 연결돼 있지 않다**. 즉 결제가 `PAID`까지 가더라도, 정산이 `RELEASED`로
+  넘어가는 걸 API 호출로는 재현할 수 없다 — 이건 사람이 만든 테스트용 지름길이 아직 없다는
+  뜻으로, 이미 알려진 기능 공백이다 (자동 정산 트리거 부재는 이전에도 보고된 항목).
+
+### 7-3. 알려진 설계상 제약 — Fact
+
+`public-api.service.ts` 상단 주석에 명시된 제약: 지원 수락(applications 기능) 시점에
+"어떤 프리랜서가 수락됐는지"를 contracts-payments가 조회할 방법이 없어서, **합의를
+수락(accept)하는 첫 번째 비-의뢰인 사용자를 그대로 그 계약의 프리랜서로 기록**한다. 이번
+시드 스크립트는 프리랜서 계정 하나만 만들고 그 계정이 지원·합의수락을 모두 하므로 문제가
+되지 않지만, 여러 프리랜서 계정으로 확장 테스트를 하려는 경우에는 "지원을 넣은 사람"과
+"합의를 수락하는 사람"이 자동으로 일치하지 않는다는 점을 알고 있어야 한다.
+
+## 8. 안전 관련 참고 (Fact)
 
 - 이 계정들은 `@example.com` 도메인의 테스트 계정이다. 실제 사람에게 메일이 가지 않는다.
 - `SUPABASE_SERVICE_ROLE_KEY`(관리자 권한 키)는 스크립트 실행 중 로컬 프로세스 안에서만
@@ -102,7 +147,7 @@ SERVER_BASE_URL=http://localhost:4000 npm run seed:contractable
   실행하면 실제 서비스에 테스트 계정/프로젝트가 그대로 생긴다. 로컬 개발 서버에서만
   쓴다.
 
-## 8. 문제가 생기면 (Troubleshooting)
+## 9. 문제가 생기면 (Troubleshooting)
 
 | 증상 | 원인 추정 |
 |---|---|
@@ -119,4 +164,8 @@ SERVER_BASE_URL=http://localhost:4000 npm run seed:contractable
 `project.service.ts`를, 지원/수락은 `applications/application.router.ts`·
 `application.service.ts`를 직접 읽고 확인했다. 카테고리 값(`WEB_DEVELOPMENT` 등)과
 기술 스택 값(`REACT`, `NODEJS` 등)은 `project-management/in-memory-external.adapter.ts`의
-허용 목록에서 그대로 가져왔다.
+허용 목록에서 그대로 가져왔다. 7절(테스트 가능 범위)은
+`contracts-payments/public-api.routes.ts`·`public-api.controller.ts`·
+`public-api.service.ts`를 직접 읽고 확인했다 — 특히 결제 확정에 실제 `paymentKey`가
+필요하다는 점과 `simulateSettlementResult()`가 어떤 라우트에도 연결돼 있지 않다는 점은
+코드와 코드 주석에서 그대로 확인한 사실(Fact)이며, 팀장의 추정이 섞이지 않았다.
