@@ -85,7 +85,11 @@ async function main(): Promise<void> {
     isPricingAnalysisResponse,
     PricingAnalysisClientError,
   } = apiModule;
-  const { PricingAnalysisPage, pricingFocusTargetForStatus } = pageModule;
+  const {
+    PricingAnalysisPage,
+    pricingFocusTargetForStatus,
+    selectPricingAnalysisForDisplay,
+  } = pageModule;
   const { PricingAnalysisForm } = formModule;
   const {
     getWithinPendingDeadline,
@@ -1816,6 +1820,72 @@ async function main(): Promise<void> {
       tupleScopeRateLimit.consumedBy("usr") === 1 && tupleScopeRateLimit.consumedBy("usr:part") === 1,
       "tuple scope별 quota가 분리되지 않음",
     );
+  });
+
+  await test("S2-R22 실제 결과가 없는 화면은 시안 견적을 생성하지 않는다", () => {
+    assert(selectPricingAnalysisForDisplay(null) === null, "실제 결과 없음이 시안 견적으로 바뀜");
+    assert(selectPricingAnalysisForDisplay(null, undefined) === null, "미지정 프리뷰에서 시안 견적을 생성함");
+    const pageSource = readFileSync(
+      path.join(repositoryRoot, "features/ai-pricing/prototype/web/PricingAnalysisPage.tsx"),
+      "utf8",
+    );
+    assert(
+      pageSource.includes("selectPricingAnalysisForDisplay(workflow.analysis, previewState)"),
+      "화면이 명시적 프리뷰 대신 실제 요청 상태를 시안 선택에 사용함",
+    );
+    const html = renderToStaticMarkup(createElement(PricingAnalysisPage, {
+      context: {
+        kind: "registration", onUseRecommendation: () => undefined,
+        onUseDirectInput: () => undefined, onBack: () => undefined,
+      },
+    }));
+    assert(!html.includes("pricing-report__amount"), "실제 결과 없이 금액 보고서를 렌더링함");
+    assert(!html.includes("이 추천 예산 사용하기"), "실제 결과 없이 추천 채택을 노출함");
+    assert(!html.includes("pra_preview_1"), "시안 분석 ID가 일반 화면에 유출됨");
+  });
+
+  await test("S2-R23 명시적 결과 프리뷰만 격리된 시안 견적을 사용한다", () => {
+    for (const previewState of ["idle", "loading", "submitting", "rejected"] as const) {
+      assert(selectPricingAnalysisForDisplay(null, previewState) === null, `${previewState}에 시안 결과가 생김`);
+    }
+    for (const previewState of ["ready", "applying", "applied", "conflict", "error"] as const) {
+      const preview = selectPricingAnalysisForDisplay(null, previewState);
+      assert(preview?.pricingAnalysisId === "pra_preview_1", `${previewState} 결과 시안이 사라짐`);
+      assert(preview.result?.recommendedAmount === 1_500_000, `${previewState} 시안 금액 불일치`);
+      assert(
+        preview.appliedAt === (previewState === "applied" ? "2026-09-04T09:05:00.000Z" : null),
+        `${previewState} 적용 상태 불일치`,
+      );
+    }
+    const first = selectPricingAnalysisForDisplay(null, "ready");
+    assert(first?.result, "프리뷰 결과 누락");
+    first.result.breakdown[0].amount = 1;
+    const second = selectPricingAnalysisForDisplay(null, "ready");
+    assert(second?.result?.breakdown[0].amount === 300_000, "프리뷰 간 내부 금액 객체를 공유함");
+  });
+
+  await test("S2-R24 실제 승인·대기·거절 결과를 시안으로 덮어쓰지 않는다", async () => {
+    const api = createPricingAnalysisApiMock();
+    const approved = (await api.create(actor, validInput, "create-key-display-01")).body;
+    assert(approved.reviewStatus === "APPROVED", "검증에 필요한 실제 Mock 승인 결과 누락");
+    const pending = {
+      ...approved, reviewStatus: "PENDING" as const, result: null,
+      failure: null, reviewedAt: null, appliedAt: null,
+    };
+    const rejected = {
+      ...approved, reviewStatus: "REJECTED" as const, result: null, appliedAt: null,
+      failure: { code: "PRICING_ANALYSIS_TIMEOUT" as const, message: "분석 시간이 초과되었습니다.", retryable: true },
+    };
+    const before = JSON.stringify([approved, pending, rejected]);
+    for (const analysis of [approved, pending, rejected]) {
+      for (const previewState of [undefined, "error", "conflict", "ready", "applied"] as const) {
+        assert(
+          selectPricingAnalysisForDisplay(analysis, previewState) === analysis,
+          `${analysis.reviewStatus} 실제 결과를 시안으로 교체함`,
+        );
+      }
+    }
+    assert(JSON.stringify([approved, pending, rejected]) === before, "표시 선택이 실제 분석 결과를 변경함");
   });
 
   console.log(`=== 결과: PASS ${passed}, FAIL ${failed}, TOTAL ${passed + failed} ===`);

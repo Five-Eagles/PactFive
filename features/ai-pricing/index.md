@@ -2,9 +2,21 @@
 
 담당자: 오민혁
 
-기준일: 2026-09-04
+기준일: 2026-09-08
 
 ## 현재 상태
+
+- 기능 원본의 실제 오류 화면에서 샘플 보고서가 표시되던 문제를 수정했다. 샘플은 명시적
+  `previewState`에서만 사용하고 실제 응답은 그대로 보존한다. 레이아웃·API 변경은 없다.
+- `develop ec1c01f`에서 앱 서버 route·분석 화면·프로젝트 등록 왕복과 9/7 분석 ID handoff 수정이
+  반영된 사실을 확인했다. 이번 작업은 해당 앱 코드를 수정하거나 운영 배포하지 않았다.
+- PRD D-91~D-93·ERD E-32~E-37의 CR 6건 채택을 확인했다. 카테고리 통일·원자성 결정은 완료된
+  안건이며 재구현하지 않는다. CR-AP-002/003 문서 상태 정리는 회의에서 정한 팀장 작업이다.
+- 실제 DB/외부 벤더 E2E와 project-management CR-0012는 이 기능 원본 테스트의 통과와 구분한다.
+  9/8 검증 범위 및 후속 QA는 `test-report.md` 상단을 참고한다.
+- 회귀 runner 30 PASS / 0 FAIL (기존 27 + 신규 3), strict TypeScript PASS, preview build PASS.
+
+## 2026-09-04 구현 완료 기록 (통합 전 이력)
 
 - Step 1 내부 포트를 호환성 그대로 보존했다.
   - 신규 프로젝트: `claimPricingAnalysisForCreatedProject(transaction, input)`
@@ -53,7 +65,10 @@ deadline으로 조회한다. 각 GET 자체도 남은 deadline으로 취소한�
 - `test-report.md` — 자동 검증과 UX 철학 확인 결과
 - `change-requests/` — 도메인 정본·런타임·원자성 충돌의 승인 요청
 
-## 배포 블로커
+## 2026-09-04 배포 블로커 기록 (통합 전 이력)
+
+다음은 최초 전달 당시 목록이다. 카테고리/원자성 등 문서 결정이 지금도 미해결이라는 뜻이 아니다.
+최신 통합 상태는 위 "현재 상태"를 따르고, 실제 DB/벤더 검증 잔여는 `test-report.md`에 구분한다.
 
 1. `pricing_analyses`가 PENDING/REJECTED를 저장하도록 결과 컬럼 nullability와 상태 CHECK를 확정해야
    한다 (`CR-AP-001`).
@@ -85,4 +100,4 @@ npx tsc --noEmit --strict --esModuleInterop --jsx react-jsx --lib ES2022,DOM --m
 npm run preview:build
 ```
 
-현재 결과: runner 27 PASS / 0 FAIL, strict TypeScript PASS, preview build PASS.
+현재 결과(9/8): runner 30 PASS / 0 FAIL, strict TypeScript PASS, preview build PASS (102 modules).
