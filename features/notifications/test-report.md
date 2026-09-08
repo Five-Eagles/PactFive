@@ -1,5 +1,59 @@
 # notifications 테스트 결과
 
+## 2026-09-08 통합 준비 검증
+
+기준: `origin/develop ec1c01f`를 `feature/notifications`에 동기화한 뒤 담당 폴더만 변경.
+기존 PR #75의 develop 병합과 운영 app 연결은 별개의 상태다.
+
+| 검증 | 결과 | 실제 범위 |
+|---|---|---|
+| `npx tsx features/notifications/prototype/run.tsx` | **84 PASS / 0 FAIL** | 기존67 + 새 조립/loopback HTTP6 + 공용 request 주입11 |
+| `npx tsc -p features/notifications/prototype/tsconfig.json` | PASS | 담당 구현·테스트 strict typecheck |
+| `npm run preview:build` | PASS | 공용 Vite preview, 102 modules |
+| `npm run check:design` | FAIL, 기존 상태 재확인 | applications/contracts-payments/reviews의 `.success`가 공유 tokens.css에 없음; 해당 파일 미수정 |
+
+### 추가 규칙과 연동 범위
+
+| 규칙 | 검증 | 결과 |
+|---|---|---|
+| 19 | 필수 인증 resolver, 한 저장소의 전달 port→Express→API4→실제 NotificationHttpApi, 구조분해 호출 | 통과 |
+| 20 | 외부 공용 오류 클래스의 401을 조회/개별/전체 읽음에서 정규화, 목록·배지 제거 | 통과 |
+| 20 | 400/404/5xx/네트워크 오류 안전 문구, 확인 데이터 보존, 잘못된 DTO 거부, 정확한 경로 | 통과 |
+| 1–4 | 동일 HTTP 경로에서 본인 격리·타인404·반복 읽음·전체 읽음·인증 전 malformed JSON·비공개 생성 | 통과 |
+| 5–14 | 정규화한 필수6종 생성→재전달→본인 목록/개수, 필드 부족한 축약 이벤트 거부 | 통과 |
+| 13·18 | 부분 저장 실패 retry_required→같은 closure 재전달 delivered·중복 없음 | 통과; 실제 원천 operation ACK/영속 worker/10분 SLA는 미검증 |
+| 15–17 | 기존 SSR·필수 요소·스타일·store 회귀67 중 관련 항목 | 통과; 이번에는 화면 표현 변경/브라우저 QA를 새로 실행하지 않음 |
+
+서버 연동은 `notification-integration.test.ts`에서 **127.0.0.1 임시 포트**와 테스트 전용 인증
+resolver·in-memory repository를 사용한다. 실제 Supabase 계정·운영 DB·프로젝트 상태 변경·
+외부 알림 발송은 없다. 공용 request 검증은 `notification-transport.test.ts`의 주입 함수/
+별도 오류 클래스로 수행하며 app의 `shared/http.ts` 자체를 실행한 것은 아니다. 전역 header와
+페이지가 같은 snapshot을 실제 React 앱에서 소비하는지는 아래 통합 후 QA로 확인한다.
+
+### 팀장 통합 후 QA 체크리스트 (아직 실행하지 않음)
+
+1. DB·ID: 실제 생성 사용자/프로젝트 ID가 varchar(30) 및 알림 입력/링크 계약에 맞는지 확인.
+   현재 기본 사용자와 프로젝트 생성자는 모두36자이므로 정책 결정 전 운영 성공으로 표시하지 않음.
+2. API4: 활성 의뢰인·프리랜서로 목록/개수/개별/전체 읽음. 타인/없는ID404, 비로그인401,
+   malformed JSON 인증 전401/인증 후400, 공개 생성404, Cache-Control no-store 확인.
+3. UI: `/notifications` 직접 진입/새로고침/로그인 복귀. AppShell과 별도 HomeHeader 배지가
+   목록과 같은 snapshot을 써서 개별/전체 읽음 즉시 반영. 100건 밖 미읽음도 총수에 포함.
+4. 세션: bootstrap 완료 전 요청 없음, 로그아웃/다른 계정/같은 계정 재로그인 시 이전 목록 숨김.
+   공용 HTTP401 뒤 세션 처리, 늦은 응답 무시, refresh token 갱신 중 불필요한 store 초기화 없음.
+5. 통신: 기존 `/api` base에 `/v1/notifications` 경로 연결, 배포 CORS·쿠키·Bearer 유지.
+   공용 HTTP는 2xx status를 숨기므로 201/202를 정확한200과 구분하는 계약 검증은 추가로 필요.
+6. 원천 사건: 실제 지원→수락→자동미선정/직접미선정, 마감과 취소 별도 문구·수신자 확인.
+   같은 eventId/closureEventId 재전달은 한 건, 마감/취소를 AUTO_REJECTED로 중복 생성하지 않음.
+7. 실패: DB 저장 실패/부분 저장/저장 후 ACK 유실 시 본 작업을 되돌리지 않고 알림 단계만
+   재시도. 영속 사건·상태 변경 전 수신자 스냅샷 보존과 재시작·다중worker 중복 방지를 확인.
+8. 마감: 아무도 조회하지 않아도 능동 worker가 실행됨. 알림 저장 성공 이후 deadlineNotifiedAt,
+   이미 CLOSED여도 미전달 재시도, deadline→알림 저장 10분 이내 증거 확인.
+
+현재 원천별 파일 근거/담당자/정책 미확정 항목은 CR-0001, 서버/웹 조립 예시는 API 계약을
+정본으로 사용한다. 화면 재설계 프롬프트의 표현 변경은 이번 범위가 아니며 기존 design/은 유지.
+
+## 2026-09-07 최초 구현 검증 기록
+
 담당자: 오민혁 · 테스트 날짜: 2026-09-07
 테스트한 커밋: develop b945f7c 기반 feature/notifications 구현 (커밋 전)
 
