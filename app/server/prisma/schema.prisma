@@ -378,6 +378,11 @@ model User {
   reviewsReceived       Review[]             @relation("ReviewReviewee")
   pricingAnalyses        PricingAnalysis[]
   pricingApplicationReceipts PricingApplicationReceipt[]
+  /// [PRISMA-GAP-12] E-41. ApplicationOperation.clientId 역참조 — applications(위, 프리랜서
+  /// 쪽 지원 목록)와 별개의 관계라 이름을 구분했다.
+  applicationOperationsAsClient ApplicationOperation[] @relation("ApplicationOperationClient")
+  /// [PRISMA-GAP-17] E-47. Delivery.requestedBy 역참조.
+  deliveryRequests Delivery[]
 
   @@unique([oauthProvider, oauthSubject], name: "uq_users_oauth")
   @@index([role])
@@ -548,6 +553,8 @@ model Project {
   reviews        Review[]
   pricingAnalyses PricingAnalysis[]
   pricingApplicationReceipts PricingApplicationReceipt[]
+  /// [PRISMA-GAP-17] E-48 역참조.
+  invalidations  Invalidation[]
 
   @@index([recruitmentStatus, recruitmentDeadlineAt], name: "ix_projects_recruit")
   @@index([clientId, createdAt])
@@ -585,6 +592,19 @@ model Bookmark {
   @@map("bookmarks")
 }
 
+/// [PRISMA-GAP-16] E-46 신설, 2026-09-08. project-management 계약 함수(수락/거절/취소 등)
+/// 멱등 처리 기록 — 원본(유동우, project-contract.service.ts findProcessed/markProcessed)
+/// 그대로 반영. FK를 걸지 않는다 — result는 호출 시점의 스냅샷이라 참조 대상 삭제와 무관하게
+/// 남아야 한다.
+model ProjectContractIdempotencyRecord {
+  idempotencyKey String   @id @map("idempotency_key") @db.VarChar(100)
+  processedAt    DateTime @map("processed_at")
+  result         Json
+  projectVersion Int      @map("project_version")
+
+  @@map("project_contract_idempotency_records")
+}
+
 // ═════════════════════════════════════════════════════════════════════
 // 축 3. 지원 · 알림 (최윤석 — applications · notifications)
 // ═════════════════════════════════════════════════════════════════════
@@ -606,11 +626,98 @@ model Application {
   freelancer  User       @relation(fields: [freelancerId], references: [id])
   agreement    Agreement?
   negotiationOffers NegotiationOffer[]
+  /// [PRISMA-GAP-12·14] E-41·E-43 역참조.
+  operations   ApplicationOperation[]
+  stateEvents  ApplicationStateEvent[]
 
   @@unique([projectId, freelancerId], name: "uq_applications_once")
   @@index([freelancerId, createdAt])
   @@index([projectId, status])
   @@map("applications")
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// applications 내부 부기 테이블 4종 — [PRISMA-GAP-11~15] E-41~E-45, 2026-09-08 신설
+// 전부 PR #83(최윤석, feat(applications): 지원 Mock에 eligibility·202/outbox와 건수
+// 분담을 넣는다, develop 커밋 6202e16)의 원본 구조를 그대로 반영 — 새 설계 판단 아님.
+// type·status를 Prisma enum이 아니라 VarChar로 두는 것도 원본 코드의 리터럴 유니온을
+// 그대로 옮긴 것이다(팀장이 임의로 enum화하지 않음).
+// ─────────────────────────────────────────────────────────────────────
+
+/// [PRISMA-GAP-11] E-44 신설. 지원 관련 요청(생성/수락/거절) 멱등 캐시.
+model ApplicationIdempotencyKey {
+  key           String   @id @db.VarChar(160)
+  bodyHash      String   @map("body_hash") @db.VarChar(64)
+  applicationId String   @map("application_id") @db.VarChar(30)
+  operationId   String?  @map("operation_id") @db.VarChar(30)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("application_idempotency_keys")
+}
+
+/// [PRISMA-GAP-12] E-41 신설. 수락/거절 후속 처리 outbox 작업 단위.
+model ApplicationOperation {
+  id                      String    @id @db.VarChar(30)
+  applicationId           String    @map("application_id") @db.VarChar(30)
+  projectId               String    @map("project_id") @db.VarChar(30)
+  clientId                String    @map("client_id") @db.VarChar(30)
+  type                    String    @db.VarChar(10)
+  status                  String    @default("QUEUED") @db.VarChar(10)
+  updatedAt               DateTime  @default(now()) @map("updated_at")
+  retryAfterSeconds       Int       @default(0) @map("retry_after_seconds")
+  requiresOperatorAction  Boolean   @default(false) @map("requires_operator_action")
+  leaseUntil              DateTime? @map("lease_until")
+  attempts                Int       @default(0) @db.SmallInt
+
+  application Application            @relation(fields: [applicationId], references: [id])
+  client      User                   @relation("ApplicationOperationClient", fields: [clientId], references: [id])
+  steps       ApplicationOperationStep[]
+
+  @@index([status], name: "ix_application_operations_queued")
+  @@map("application_operations")
+}
+
+/// [PRISMA-GAP-13] E-42 신설. operation 하위 단계별 진행 이력 — 원본은 operation JSON 안의
+/// steps 배열이지만, 팀장이 자식 테이블로 정규화했다(데이터 의미는 원본과 동일).
+model ApplicationOperationStep {
+  id          String  @id @db.VarChar(30)
+  operationId String  @map("operation_id") @db.VarChar(30)
+  seq         Int     @db.SmallInt
+  name        String  @db.VarChar(30)
+  status      String  @db.VarChar(10)
+  reason      String? @db.VarChar(200)
+
+  operation ApplicationOperation @relation(fields: [operationId], references: [id])
+
+  @@unique([operationId, seq], name: "uq_operation_step_seq")
+  @@map("application_operation_steps")
+}
+
+/// [PRISMA-GAP-14] E-43 신설. 지원 상태 전이 이력.
+model ApplicationStateEvent {
+  id             String                    @id @db.VarChar(30)
+  applicationId  String                    @map("application_id") @db.VarChar(30)
+  fromStatus     ApplicationStatus?        @map("from_status")
+  toStatus       ApplicationStatus         @map("to_status")
+  rejectionType  ApplicationRejectionType? @map("rejection_type")
+  occurredAt     DateTime                  @map("occurred_at")
+
+  application Application @relation(fields: [applicationId], references: [id])
+
+  @@index([applicationId, occurredAt])
+  @@map("application_state_events")
+}
+
+/// [PRISMA-GAP-15] E-45 신설. 모집 마감 시 대기 지원 일괄거절의 멱등 결과. closureEventId는
+/// project-management가 발급하는 사건 id라 FK를 걸지 않는다(원본과 동일).
+model ApplicationClosure {
+  closureEventId    String   @id @map("closure_event_id") @db.VarChar(30)
+  rejectedCount     Int      @map("rejected_count")
+  alreadyProcessed  Boolean  @map("already_processed")
+  result            Json
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("application_closures")
 }
 
 model Notification {
@@ -778,12 +885,38 @@ model Delivery {
   attachmentUrl  String?        @map("attachment_url")
   requestedAt    DateTime?      @map("requested_at")
   approvedAt     DateTime?      @map("approved_at")
+  /// [PRISMA-GAP-17] E-47 신설, 2026-09-08. version·objectKey·fileName·mimeType·sizeBytes
+  /// 5종은 원본(조준영, public-api.mock.ts DeliveryRow) 그대로. fileSha256·requestedBy
+  /// 2종은 원본에 없던 필드 — spec.md 규칙 23 근거로 팀장이 추가(조준영 확인 필요).
+  version        Int            @default(0)
+  objectKey      String?        @map("object_key") @db.VarChar(300)
+  fileName       String?        @map("file_name") @db.VarChar(255)
+  mimeType       String?        @map("mime_type") @db.VarChar(100)
+  sizeBytes      Int?           @map("size_bytes")
+  fileSha256     String?        @map("file_sha256") @db.VarChar(64)
+  requestedBy    String?        @map("requested_by") @db.VarChar(30)
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
   contract Contract @relation(fields: [contractId], references: [id])
+  requester User?   @relation(fields: [requestedBy], references: [id])
 
   @@map("deliveries")
+}
+
+/// [PRISMA-GAP-17] E-48 신설, 2026-09-08. 프로젝트 취소 시 계약 무효화 최종 결과.
+/// 원본(조준영 mock)엔 결과값 개념은 있으나 별도 테이블화는 팀장 판단(spec.md 규칙 25 근거,
+/// 조준영 확인 필요).
+model Invalidation {
+  cancellationId       String   @id @map("cancellation_id") @db.VarChar(30)
+  projectId            String   @map("project_id") @db.VarChar(30)
+  contractInvalidation String   @map("contract_invalidation") @db.VarChar(20)
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([projectId, createdAt], name: "ix_invalidations_latest_by_project")
+  @@map("invalidations")
 }
 
 model Review {
@@ -798,6 +931,9 @@ model Review {
   /// review_direction별 허용 태그 5종(총 10종)은 DB가 아니라 Review 서비스(API 계층)가
   /// 검증한다 — ERD review_direction enum 주석 표 참고. isPublic은 컬럼이 아니다(계산값).
   tags        Json            @default("[]")
+  /// [PRISMA-GAP-9] E-39 신설, 2026-09-08. REVIEW_CREATED 이벤트 발행 시각 — 원본(조준영,
+  /// review.service.ts publishNewlyPublic)의 outbox형 플래그를 그대로 반영. NULL이면 미발행.
+  reviewCreatedPublishedAt DateTime? @map("review_created_published_at")
   createdAt   DateTime        @default(now()) @map("created_at")
 
   project   Project  @relation(fields: [projectId], references: [id])
@@ -808,6 +944,18 @@ model Review {
   @@unique([projectId, direction], name: "uq_review_once_per_direction")
   @@index([revieweeId, createdAt])
   @@map("reviews")
+}
+
+/// [PRISMA-GAP-10] E-40 신설, 2026-09-08. 리뷰 작성 멱등 캐시 — 원본(조준영,
+/// review.service.ts getIdempotency/setIdempotency) 그대로 반영. 같은 키·같은 본문 재요청은
+/// 200으로 기존 리뷰를 재반환하고, 같은 키·다른 본문은 409 REVIEW_ALREADY_EXISTS.
+model ReviewIdempotencyKey {
+  key       String   @id @db.VarChar(160)
+  bodyHash  String   @map("body_hash") @db.VarChar(64)
+  reviewId  String   @map("review_id") @db.VarChar(30)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("review_idempotency_keys")
 }
 
 // ═════════════════════════════════════════════════════════════════════
