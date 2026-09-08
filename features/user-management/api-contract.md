@@ -1,5 +1,96 @@
 # user-management — API 계약
 
+## 내부 리뷰 공개 소비 및 인증 식별자 (2026-09-08 후속)
+
+이 포트는 공개 HTTP가 아니다. reviews의 기존 이벤트 5필드와 합계 reader에 구조적으로
+호환되며 다른 feature 소스를 import하지 않는다. 실제 이벤트 버스/worker 조립은 팀장 책임이다.
+
+```ts
+createReviewCreatedConsumer(repository: UserRatingRepository, ratings: PublishedRatingAggregateReader): {
+  publishReviewCreated(event: {
+    reviewId: string; projectId: string; revieweeId: string; rating: number; publishedAt: string;
+  }): Promise<void>;
+};
+// ratings.getPublishedRatingAggregate(revieweeId): Promise<{ ratingSum: number; reviewCount: number }>
+```
+
+- 입력 검증과 캐시 계산은 SPEC UR-01~UR-06을 따른다. producer의 공개 커밋 후 신뢰된 채널에서만
+  호출한다. `REVIEW_CREATED`는 notifications 13종 enum에 추가되는 알림 유형이 아니다.
+- 이벤트 식별자는 기존 profile 포트처럼 불투명 문자열로 읽으며 varchar(30) 길이를 소비기에서
+  강제하지 않는다. 기존 인증 기본값으로 생성된 36자 자료를 임의 절단/치환하거나 갑자기
+  수신 거절하지 않기 위함이다. 신규 생성기만 30자로 고치며 실제 DB 저장 호환은 통합 때 조사한다.
+- `UserRatingRepository.withUserRatingTransaction(userId, callback)`은 잠금 획득 뒤 callback을
+  시작한다. `findUser()` → **새 공개 집계 조회** → `replaceRating({ratingAverage,reviewCount})` →
+  commit 전부를 동일 사용자 직렬화 경계로 묶는다. 집계를 미리 읽고 update만 잠그는 구현은 금지한다.
+- 실제 adapter는 다중 worker가 공유하는 DB row/advisory lock과 잠금 획득 이후의 primary/일관된
+  최신 snapshot을 사용한다. 두 필드는 함께 commit/rollback하며 사용자 삭제도 같은 잠금에 참여한다.
+- 0건은 `{ratingAverage:null,reviewCount:0}`. 양수 캐시는 소수 둘째 자리 half-up이며
+  reviews 공개 UI의 한 자리 평균 원본이 아니다(489/110 캐시는 4.45, 표시값은 합계에서 직접 4.4).
+- 성공은 `Promise<void>` 완료다. 실패는 `UserRatingProjectionError`이며 코드와 retryable만
+  운영 분류에 사용한다. 내부 예외/사용자 정보를 로그·HTTP로 그대로 내보내지 않는다.
+
+| code | retryable | 전달자 처리 |
+|---|---|---|
+| INVALID_REVIEW_EVENT | false | 불량 이벤트를 격리·조사. 성공 ACK 금지 |
+| USER_UNAVAILABLE | false | 없는/탈퇴/불일치 사용자. 생성·부활하지 않고 격리·조사 |
+| INVALID_RATING_AGGREGATE | true | 집계 경계 장애를 조사하고 제한적 재시도 |
+| DEPENDENCY_UNAVAILABLE | true | 저장소·집계·commit 결과 불명 포함. backoff 재전달 |
+
+새 durable receipt 테이블은 만들지 않는다. 중복/역순 이벤트가 현재 합계로 대체되어 멱등 수렴한다.
+worker는 캐시 commit 성공 이후에만 전달 성공을 기록한다. 장기 실패의 dead-letter/재처리는
+팀장 통합 게이트이며 이 feature에 운영 큐를 만든 것으로 보고하지 않는다.
+
+인증 `AuthSessionService`의 신규 `nextUserId`/`nextSessionId` 기본값은
+`createAuthRecordId("usr"|"ses", timestamp)`를 사용한다. 기존 ERD가 요구하는 접두어 + ULID26 =
+30자이며 `node:crypto.randomBytes(10)`의 80비트 난수와 48비트 밀리초를 인코딩한다.
+기존 ID·Supabase UUID·토큰은 변환하지 않는다. 시간·난수 주입은 결정적 단위검증용이며 운영은
+기본 보안 난수를 쓴다. 구현 근거: [ULID 정본](https://github.com/ulid/spec).
+
+운영 adapter·producer 및 app ID 생성기 반영 조건은
+`change-requests/0002-user-rating-and-auth-id-integration.md`를 따른다.
+
+## 내부 프로필 완성도 조회 포트 (2026-09-08 추가)
+
+서버 내부 계약이며 신규 공개 HTTP API가 아니다. 인증된 호출자가 서버에서 확인한 사용자 ID만
+전달한다. 다른 feature의 DB 직접 조회를 대체하되, 해당 업무의 역할·리소스 권한 검사는 유지한다.
+ID는 불투명 문자열로 취급한다. 빈값·공백·제어문자는 거부하되 기존 인증 생성기의 36자 ID를
+조회 계층에서 임의로 자르거나 거부하지 않는다. DB의 varchar(30)과 생성기 길이 차이는 별도 통합 점검 대상이다.
+
+```ts
+type ProfileCompletion = {
+  status: "COMPLETE" | "INCOMPLETE" | "UNAVAILABLE";
+  completedAt: string | null;
+  missingFields: string[];
+};
+type ProfileCompletionPort = {
+  getProfileCompletion(userId: string): Promise<ProfileCompletion>;
+};
+```
+
+- 구현 진입점: `prototype/server/profile-completion.service.ts`의
+  `createProfileCompletionPort(repository)`. 구현은 외부 feature나 Prisma 생성물을 import하지 않는다.
+- 저장소: `ProfileCompletionRepository.findProfileCompletionSnapshot(userId)`는 사용자와 역할에 맞는
+  본인 프로필, **연결된** 기술의 ID·활성 여부, 서버가 저장한 UTC 완성 시각을 일관된 snapshot으로
+  반환한다. 사용자 없음은 null, 활성 사용자에게 프로필만 없으면 `profile: null`이다.
+  운영 adapter는 join 또는 일관된 DB transaction으로 읽고 Date를 ISO UTC 문자열로 변환해야 한다.
+- COMPLETE: `completedAt`은 저장된 시각, `missingFields: []`.
+- INCOMPLETE: `completedAt: null`, 아래 필드 코드 중 하나 이상. 프로필 행 자체가 없으면 역할별
+  기본 필수 코드 전체(CLIENT 2개/FREELANCER 3개)를 반환한다.
+- UNAVAILABLE: `completedAt: null`, `missingFields: []`. 저장소 장애·사용자 없음/탈퇴·소유자 불일치·
+  비정상 역할/응답과 필드-완성시각 불일치를 구분해 외부로 노출하지 않는다. COMPLETE fallback 금지.
+- 반환 코드(순서 고정): `CLIENT_COMPANY_NAME`, `CLIENT_BUSINESS_FIELD`,
+  `CLIENT_BUSINESS_FIELD_ETC`; 또는 `FREELANCER_PRIMARY_CATEGORY`,
+  `FREELANCER_CAREER_YEARS`, `FREELANCER_SKILLS`. 누락뿐 아니라 필수 조건을 만족하지 않는 필드도
+  포함한다. 현 enum에는 ETC가 없으므로 CLIENT_BUSINESS_FIELD_ETC는 비NULL 잔존값에만 사용한다.
+- 필수 필드·완성 시각 기준은 spec PC-01~PC-08. 조회는 재계산 결과를 **저장하지 않는다**.
+  필드가 완성됐는데 시각이 없다면 조회 시간으로 꾸미지 않고 UNAVAILABLE를 반환한다.
+- applications의 기존 포트에 구조적으로 주입할 수 있다. COMPLETE만 지원 허용,
+  INCOMPLETE는 PROFILE_INCOMPLETE, UNAVAILABLE는 DEPENDENCY_UNAVAILABLE(503)로 처리한다.
+  project-management의 현 2상태 포트에는 실패 매핑 계약 합의 없이 직접 주입하지 않는다.
+
+Mock은 인메모리 snapshot이며 DB 구현/프로필 저장 API/프로필 편집 UI/app 게이트 연결은 미포함이다.
+통합 요청: `change-requests/0001-profile-completion-integration.md`.
+
 > 상태: **작업 가설**. 구현 후 팀장 통합 단계에서 확정한다. 단, 동일 이메일 연결, OAuth intent,
 > 세션 동기화 책임, 서버/BFF 쿠키 방식은 2026-08-25 user-management **DECISION**으로 잠갔다.
 > 2026-08-26에는 8월 27일 구현 범위에 맞춰 가입 intent 저장 책임과 실제 Supabase SDK가 표현 가능한
