@@ -131,6 +131,45 @@
   margin-bottom: 8px;
 }
 
+/*
+ * 2026-09-07 팀장 반영 추가분 — 재제안 이력(AGR-03)·납품 파일(DLV-01)·정산(SET-01 v2)에서
+ * 공통으로 쓰는 "부가 정보 목록" 조각. 기존 `.facts`와 같은 톤(subtle 배경)을 재사용하고,
+ * 새 색상·레이아웃 단위를 만들지 않는다(design-tokens.md 변수만 쓴다).
+ */
+.offer-history,
+.delivery-file,
+.settlement-breakdown {
+  margin: 0 0 16px;
+}
+.history-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface-subtle);
+  border-radius: var(--btn-radius);
+  font-size: 14px;
+}
+.history-row.superseded {
+  color: var(--content-tertiary);
+  text-decoration: line-through;
+}
+.history-row.superseded .money {
+  color: var(--content-tertiary);
+}
+.history-label {
+  flex: 1;
+  font-weight: 600;
+}
+
 /* 오버레이(거절 확인 다이얼로그)는 `shared/ui/tokens.css`의 `.overlay-backdrop`·`.dialog`를
  * 그대로 쓴다 — ReopenRecruitmentDialog(project-management)가 이미 쓰고 있는 것과 같은 규칙이고
  * (딤+본체 동시 240ms, reduced-motion 대응, pointer-events 방어) 값도 design-tokens.md §13로

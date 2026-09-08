@@ -6,22 +6,29 @@
 ## 스펙 (features/reviews/)
 - spec.md: 상호 리뷰 규칙 1~13. 작성은 `COMPLETED`만 (I-24).
   방향당 1건·수정 불가 (I-23). 단독 공개 14일은 ASSUMPTION.
-- api-contract.md: `POST/GET .../reviews`, `GET .../review-summary`. PATCH 없음.
+- api-contract.md: `POST/GET .../reviews`, `GET .../reviews/me`,
+  `GET .../users/:userId/rating`, `GET .../users/:userId/reviews`. PATCH 없음.
+  본문 `content`. `visibility`는 계산값. `review-summary`는 폐기.
 - prototype/: 공개 API Mock(`createReviewApiMock`) + `run.tsx`.
-  `npx tsx prototype/run.tsx` → PASS 40.
-- design/: high-fi 1화면 (`high-fi.html`). 패널만 (앱 셸 없음). 라우트 `/projects/:projectId/reviews`.
-  low-fi는 `low-fi.html`에 남김.
-  오버레이·reduced-motion은 `design/panel.css` (앱 셸·stagger 없음).
-  빈·제출 화면에 14일 단독 공개 안내를 넣었다. 일수는 ASSUMPTION이다.
-- review/: 팀장 통합 요청 `review/teamlead-review-panel-api-2026-09-03.md`.
+  리뷰 화면은 하이브리드 REV-01. 작성 GET은 `/me`+`/rating`.
+  확인 모달은 미리보기만. `npx tsx prototype/run.tsx` → PASS 69.
+- design/: high-fi (`high-fi.html`) 페이지 본문. `.review-grid`. 앱 셸 없음.
+  라우트 `/projects/:projectId/reviews`. 프리랜서 CTA는 applications `listMyApplications`
+  (`ACCEPTED` ∧ `COMPLETED` 「완료됨」). 태그 표시명은 설계서 §10.
+- change-requests/: E-19 태그 `0001-review-tag-codes-v2.md`.
+  창·Projection `0002-review-window-and-rating-projection.md`.
+- review/: 팀장 통합 요청 `review/teamlead-review-panel-api-2026-09-03.md`
+  (당시 계약은 review-summary. 현재 원본은 `/rating`).
 
 ## 교차 담당
 - 유동우: `transactionStatus` 읽기 (`COMPLETED` · `CANCELED`).
-- 오민혁: 회신 반영. `REVIEW_CREATED` 소비·`users` 캐시 UPDATE는 오민혁(미구현).
-  조준영은 `getPublishedRatingAggregate`만 제공. 계약: `../contracts-payments/review/external-wait-2026-08-31.md` §3.
-- 팀장: `REVIEW_REQUESTED` 알림 발송. 발행은 contracts-payments `publishReviewRequested`.
-  계약: `../contracts-payments/review/yoonseok-ports-contract.md`.
-- 팀장: sandbox 키 · 단독 공개 14일 ASSUMPTION. 같은 파일 §1·§2.
+  공개 목록·상세는 PM 규칙 9 유지. 프리랜서 완료 가시성은 applications `GET .../applications/me`.
+- 조준영 (applications): 프리랜서 CTA 소유. `listMyApplications`의 `transactionStatus`와
+  「완료됨」배지. reviews는 작성 API·화면만.
+- 오민혁: `REVIEW_CREATED` 소비·`users` 캐시 UPDATE는 오민혁(미구현).
+  조준영은 `getPublishedRatingAggregate`만 제공.
+- 팀장: `REVIEW_REQUESTED` 알림 발송. 발행은 CP `publishReviewRequested`.
+- 팀장: sandbox 키 · 단독 공개 14일 ASSUMPTION · ERD 태그 CR.
 
 ## 갱신 이력
 
@@ -40,3 +47,8 @@
 | 2026-09-03 | 팀장 통합 요청 1장 (`review/teamlead-review-panel-api-2026-09-03.md`) |
 | 2026-09-03 | `REVIEW_REQUESTED` 발송 담당을 팀장으로. applications 손잡이는 조준영 확정 |
 | 2026-09-03 | 시안↔패널 14일 안내 문구 일치. ASSUMPTION 유지 |
+| 2026-09-04 | 하이브리드 REV-01. 작성 GET 조립은 list+summary. 계약 경로·작성 마감 14일 없음 |
+| 2026-09-07 | 설계서 v2.0. `/me`·`/rating`·`content`·visibility. 태그 CR. PASS 65 |
+| 2026-09-07 | 오케스트레이션 별칭 `getUserRatingSummary` = `getUserRating` / `getPublishedRatingAggregate` |
+| 2026-09-07 | 실서비스 검토 F06·F07·F12 Mock. window·Projection·displayAverageRating. CR-0002 |
+| 2026-09-07 | 규칙 11: 프리랜서 CTA = 내 지원 현황 ACCEPTED∧COMPLETED. PM 규칙 9 유지 |

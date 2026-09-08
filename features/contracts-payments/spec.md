@@ -85,6 +85,8 @@
      (C1). I-30(`COMPLETED`는 `APPROVED` ∧ `RELEASED`)은 **호출자가 호출 전에 지킨다.**
      project-management `run.tsx`는 `IN_PROGRESS`가 아니면 거부까지만 확인한다.
    - **실행 후:** `COMPLETED` (모집 `CLOSED` 유지). 직후 `publishReviewRequested` 양쪽 1회. 발송은 최윤석. throw여도 COMPLETED 유지.
+     `REVIEW_REQUESTED`는 알림이다. 프리랜서 「리뷰 작성」링크는 CP가 열지 않는다.
+     완료 가시성은 applications `listMyApplications`.
    - **오류:** `404 PROJECT_NOT_FOUND`. `409 PROJECT_TRANSITION_CONFLICT` (`IN_PROGRESS`가
      아님, 포함 `CANCELED` — D-30). `409 PROJECT_VERSION_CONFLICT`. `422 VALIDATION_ERROR`.
      호출자가 409를 받으면 상태를 다시 읽어 이미 `COMPLETED`면 성공으로 치고, 아니면 오류 보고한다.
@@ -355,7 +357,7 @@ applications 범위 밖. restore 시 기존 `REJECTED`는 되살리지 않음. �
 멱등 키·버전 비증가·내부 경로·`notReopenedReason`·start/complete 버전 필수·최윤석 호출 순서는
 FACT다. 합의·서명·결제 정본은 `review/spec-design-eval.md` 최적안이다.
 알림 4종은 포트 발행 / 발송은 최윤석 (`NotificationTriggerPort`). 납품 2종은 납품 Increment
-경로에서만 발행한다.
+경로에서만 발행한다. 화면 CTA는 applications 지원 목록이다.
 대기 정본은 `review/external-wait-2026-08-31.md`.
 
 추가 제안 2건 — **조준영 동의.**

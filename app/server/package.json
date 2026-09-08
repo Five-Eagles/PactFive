@@ -9,11 +9,14 @@
   "scripts": {
     "dev": "tsx watch src/dev-server.ts",
     "bundle": "esbuild src/express-app.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=index.js",
-    "build": "tsc --noEmit && npm run bundle",
-    "postinstall": "npm run bundle",
-    "typecheck": "tsc --noEmit"
+    "prisma:generate": "prisma generate",
+    "build": "npm run prisma:generate && tsc --noEmit && npm run bundle",
+    "postinstall": "npm run prisma:generate && npm run bundle",
+    "typecheck": "npm run prisma:generate && tsc --noEmit"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "@supabase/supabase-js": "^2.112.4",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
@@ -24,6 +27,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^22.9.0",
+    "prisma": "^7.10.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }

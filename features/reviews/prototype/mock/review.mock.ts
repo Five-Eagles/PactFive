@@ -1,11 +1,14 @@
-import { addDaysIso, MOCK_CLIENT_USER_ID, MOCK_FREELANCER_USER_ID, MOCK_NOW, MOCK_OUTSIDER_USER_ID, MOCK_UNREVIEWED_USER_ID } from "../server/review.constants";
+import { addDaysIso, MOCK_CLIENT_USER_ID, MOCK_FREELANCER_USER_ID, MOCK_NOW, MOCK_OUTSIDER_USER_ID, MOCK_UNREVIEWED_USER_ID, SOLO_PUBLIC_AFTER_DAYS } from "../server/review.constants";
 import type { ReviewCreatedEvent, ReviewEventPort } from "../server/review-event.port";
 import {
   createReview,
+  getMyProjectReview,
   getPublishedRatingAggregate,
-  getReviewSummary,
+  getUserRating,
   listProjectReviews,
+  listUserReviews,
   publishDueSoloReviews,
+  refreshUserRatingProjection,
   type ReviewServiceDeps,
 } from "../server/review.service";
 import type {
@@ -13,7 +16,9 @@ import type {
   ProjectReviewContext,
   ReviewRow,
   ReviewStore,
+  ReviewWindow,
   UserRatingCache,
+  UserRatingProjection,
 } from "../server/review.types";
 
 function seedCreatedAt(nowIso: string, daysAgo: number): string {
@@ -24,6 +29,9 @@ function createMemoryStore(nowIso: string): ReviewStore {
   const projects = new Map<string, ProjectReviewContext>();
   const users = new Map<string, UserRatingCache>();
   const reviews: ReviewRow[] = [];
+  const windows = new Map<string, ReviewWindow>();
+  const projections = new Map<string, UserRatingProjection>();
+  const outbox: Array<{ eventId: string; payload: unknown }> = [];
   const idempotency = new Map<string, { bodyHash: string; reviewId: string }>();
   let seq = 200;
 
@@ -35,19 +43,24 @@ function createMemoryStore(nowIso: string): ReviewStore {
     projects.set(row.projectId, row);
   }
 
-  // 시드 사용자는 캐시가 비어 있고, 리뷰 작성 후에도 이 값을 바꾸지 않는다.
   addUser(MOCK_CLIENT_USER_ID);
   addUser(MOCK_FREELANCER_USER_ID);
   addUser(MOCK_OUTSIDER_USER_ID);
   addUser(MOCK_UNREVIEWED_USER_ID);
 
-  const signed = (projectId: string, transactionStatus: ProjectReviewContext["transactionStatus"], contractStatus: ProjectReviewContext["contractStatus"] = "SIGNED"): ProjectReviewContext => ({
+  const signed = (
+    projectId: string,
+    transactionStatus: ProjectReviewContext["transactionStatus"],
+    contractStatus: ProjectReviewContext["contractStatus"] = "SIGNED",
+    completedAt: string | null = transactionStatus === "COMPLETED" ? nowIso : null,
+  ): ProjectReviewContext => ({
     projectId,
     clientId: MOCK_CLIENT_USER_ID,
     freelancerId: MOCK_FREELANCER_USER_ID,
     transactionStatus,
     contractStatus,
     contractId: `ctr_${projectId}`,
+    completedAt,
   });
 
   addProject(signed("prj_completed", "COMPLETED"));
@@ -56,15 +69,26 @@ function createMemoryStore(nowIso: string): ReviewStore {
   addProject(signed("prj_contract_canceled", "COMPLETED", "CANCELED"));
   addProject(signed("prj_both", "COMPLETED"));
   addProject(signed("prj_solo_fresh", "COMPLETED"));
-  addProject(signed("prj_solo_due", "COMPLETED"));
+  addProject(signed("prj_solo_due", "COMPLETED", "SIGNED", seedCreatedAt(nowIso, 14)));
   addProject(signed("prj_avg_a", "COMPLETED"));
   addProject(signed("prj_avg_b", "COMPLETED"));
+  for (const project of projects.values()) {
+    if (project.transactionStatus === "COMPLETED" && project.completedAt) {
+      windows.set(project.projectId, {
+        projectId: project.projectId,
+        openedAt: project.completedAt,
+        deadlineAt: addDaysIso(project.completedAt, SOLO_PUBLIC_AFTER_DAYS),
+        policyVersion: 1,
+      });
+    }
+  }
 
-  function seedReview(row: Omit<ReviewRow, "reviewCreatedPublishedAt"> & { reviewCreatedPublishedAt?: string | null }): void {
+  function seedReview(
+    row: Omit<ReviewRow, "reviewCreatedPublishedAt"> & { reviewCreatedPublishedAt?: string | null },
+  ): void {
     reviews.push({ ...row, reviewCreatedPublishedAt: row.reviewCreatedPublishedAt ?? null });
   }
 
-  // 단독·양쪽·평균 시드. isPublic은 컬럼이 아니라 조회 때 계산한다.
   seedReview({
     reviewId: "rvw_solo_fresh",
     projectId: "prj_solo_fresh",
@@ -73,8 +97,8 @@ function createMemoryStore(nowIso: string): ReviewStore {
     revieweeId: MOCK_FREELANCER_USER_ID,
     direction: "CLIENT_TO_FREELANCER",
     rating: 5,
-    comment: "아직 비공개",
-    tags: ["RESPONSIBILITY"],
+    content: "아직 비공개",
+    tags: ["PROFESSIONAL_ATTITUDE"],
     createdAt: nowIso,
   });
   seedReview({
@@ -85,8 +109,8 @@ function createMemoryStore(nowIso: string): ReviewStore {
     revieweeId: MOCK_FREELANCER_USER_ID,
     direction: "CLIENT_TO_FREELANCER",
     rating: 4,
-    comment: "14일 경과",
-    tags: ["COMMUNICATION"],
+    content: "14일 경과",
+    tags: ["GOOD_COMMUNICATION"],
     createdAt: seedCreatedAt(nowIso, 14),
   });
   seedReview({
@@ -97,8 +121,8 @@ function createMemoryStore(nowIso: string): ReviewStore {
     revieweeId: MOCK_FREELANCER_USER_ID,
     direction: "CLIENT_TO_FREELANCER",
     rating: 5,
-    comment: "의뢰인 리뷰",
-    tags: ["DELIVERABLE_QUALITY"],
+    content: "의뢰인 리뷰",
+    tags: ["WORK_QUALITY"],
     createdAt: nowIso,
   });
   seedReview({
@@ -109,8 +133,8 @@ function createMemoryStore(nowIso: string): ReviewStore {
     revieweeId: MOCK_CLIENT_USER_ID,
     direction: "FREELANCER_TO_CLIENT",
     rating: 4,
-    comment: "프리랜서 리뷰",
-    tags: ["REQUIREMENT_CLARITY"],
+    content: "프리랜서 리뷰",
+    tags: ["CLEAR_REQUIREMENTS"],
     createdAt: nowIso,
   });
   seedReview({
@@ -121,7 +145,7 @@ function createMemoryStore(nowIso: string): ReviewStore {
     revieweeId: MOCK_FREELANCER_USER_ID,
     direction: "CLIENT_TO_FREELANCER",
     rating: 5,
-    comment: null,
+    content: null,
     tags: [],
     createdAt: nowIso,
   });
@@ -133,7 +157,7 @@ function createMemoryStore(nowIso: string): ReviewStore {
     revieweeId: MOCK_CLIENT_USER_ID,
     direction: "FREELANCER_TO_CLIENT",
     rating: 5,
-    comment: null,
+    content: null,
     tags: [],
     createdAt: nowIso,
   });
@@ -145,7 +169,7 @@ function createMemoryStore(nowIso: string): ReviewStore {
     revieweeId: MOCK_FREELANCER_USER_ID,
     direction: "CLIENT_TO_FREELANCER",
     rating: 4,
-    comment: null,
+    content: null,
     tags: [],
     createdAt: nowIso,
   });
@@ -157,7 +181,7 @@ function createMemoryStore(nowIso: string): ReviewStore {
     revieweeId: MOCK_CLIENT_USER_ID,
     direction: "FREELANCER_TO_CLIENT",
     rating: 4,
-    comment: null,
+    content: null,
     tags: [],
     createdAt: nowIso,
   });
@@ -201,6 +225,39 @@ function createMemoryStore(nowIso: string): ReviewStore {
       seq += 1;
       return `rvw_${seq}`;
     },
+    ensureWindow(project) {
+      const existing = windows.get(project.projectId);
+      if (existing) return existing;
+      const openedAt = project.completedAt;
+      if (!openedAt) {
+        throw new Error(`review window needs completedAt for ${project.projectId}`);
+      }
+      const row: ReviewWindow = {
+        projectId: project.projectId,
+        openedAt,
+        deadlineAt: addDaysIso(openedAt, SOLO_PUBLIC_AFTER_DAYS),
+        policyVersion: 1,
+      };
+      windows.set(project.projectId, row);
+      return row;
+    },
+    getWindow(projectId) {
+      return windows.get(projectId);
+    },
+    getProjection(userId) {
+      const row = projections.get(userId);
+      return row ? { ...row } : undefined;
+    },
+    setProjection(row) {
+      projections.set(row.userId, { ...row });
+    },
+    enqueueOutbox(eventId, payload) {
+      if (outbox.some((item) => item.eventId === eventId)) return;
+      outbox.push({ eventId, payload });
+    },
+    listOutbox() {
+      return outbox.map((item) => ({ ...item }));
+    },
   };
 }
 
@@ -217,7 +274,6 @@ export function createReviewApiMock(nowIso: string = MOCK_NOW) {
   const store = createMemoryStore(nowIso);
   const publishedEvents: ReviewCreatedEvent[] = [];
   let currentNow = nowIso;
-  // now는 테스트가 14일을 재현할 때만 바꾼다.
   const deps: ReviewServiceDeps = {
     store,
     events: createRecordingEventPort(publishedEvents),
@@ -245,14 +301,35 @@ export function createReviewApiMock(nowIso: string = MOCK_NOW) {
     async listProjectReviews(projectId: string, actorUserId: string | undefined) {
       return listProjectReviews(deps, projectId, actorUserId);
     },
-    async getReviewSummary(userId: string, actorUserId: string | undefined) {
-      return getReviewSummary(deps, userId, actorUserId);
+    async getMyProjectReview(projectId: string, actorUserId: string | undefined) {
+      return getMyProjectReview(deps, projectId, actorUserId);
+    },
+    async getUserRating(userId: string, actorUserId: string | undefined) {
+      return getUserRating(deps, userId, actorUserId);
+    },
+    getUserRatingSummary(userId: string, actorUserId: string | undefined) {
+      return getUserRating(deps, userId, actorUserId);
+    },
+    async listUserReviews(userId: string, actorUserId: string | undefined, page?: number, pageSize?: number) {
+      return listUserReviews(deps, userId, actorUserId, page, pageSize);
     },
     async getPublishedRatingAggregate(revieweeId: string) {
       return getPublishedRatingAggregate(deps, revieweeId);
     },
     async publishDueSoloReviews() {
       return publishDueSoloReviews(deps);
+    },
+    async refreshUserRatingProjection(userId: string) {
+      return refreshUserRatingProjection(deps, userId);
+    },
+    seedStaleProjection(userId: string, ratingSum: number, reviewCount: number) {
+      store.setProjection({ userId, ratingSum, reviewCount, calculatedAt: "2000-01-01T00:00:00Z" });
+    },
+    getProjection(userId: string) {
+      return store.getProjection(userId);
+    },
+    listOutbox() {
+      return store.listOutbox();
     },
   };
 }

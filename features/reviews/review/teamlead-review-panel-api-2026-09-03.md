@@ -73,6 +73,7 @@ PATCH/PUT/DELETE `/reviews` 없음. 호출하면 405. 공개 라우트로 다시
 
 작성 진입은 결제 완료 후다. contracts-payments가 `publishReviewRequested`를 발행하면
 당사자가 리뷰를 쓴다. 발행은 CP, 발송(`REVIEW_REQUESTED`)은 팀장.
+`REVIEW_REQUESTED`는 알림이지 화면 CTA가 아니다.
 
 `REVIEW_CREATED`는 공개 커밋 이후 5필드만 발행한다
 (`reviewId` · `projectId` · `revieweeId` · `rating` · `publishedAt`).
@@ -80,6 +81,13 @@ PATCH/PUT/DELETE `/reviews` 없음. 호출하면 405. 공개 라우트로 다시
 합계 정본은 `getPublishedRatingAggregate`다.
 
 단독 공개 14일은 ASSUMPTION (PRD에 기간 없음). 회신 전 상수를 바꾸지 않는다.
+
+## 후기 — 2026-09-07 유동우 합의
+
+프리랜서 리뷰 진입은 공개 프로젝트 상세가 아니다 (PM 규칙 9 유지).
+팀장이 `MyApplicationsPage`를 이식할 때 `status === ACCEPTED && transactionStatus === COMPLETED`이면
+「완료됨」배지 → `/projects/:projectId/reviews`. app 이식 경로의 단수 `/review`는 이 정본과 맞출 것.
+`app/`은 여전히 팀장만 수정한다.
 
 ---
 
