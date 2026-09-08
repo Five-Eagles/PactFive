@@ -118,18 +118,29 @@ export type GetPaymentResponse = {
 };
 
 export type InvalidateAgreementInput = {
-  cancellationId: string;
+  /** 유동우 호출 키. 없으면 cancellationEventId와 같다. */
+  cancellationId?: string;
+  /** 설계서 v2.0 별칭. 있으면 cancellationId와 같은 사건으로 본다. */
+  cancellationEventId?: string;
   actorUserId: string;
   reason: "PROJECT_CANCELED";
-  projectCanceledAt: string;
+  /** 유동우 호출 시각. 없으면 occurredAt과 같다. */
+  projectCanceledAt?: string;
   requestId: string;
   idempotencyKey: string;
-  occurredAt: string;
+  occurredAt?: string;
 };
 
 export type InvalidateAgreementResponse = {
   alreadyProcessed: boolean;
   result: "DONE" | "NOT_NEEDED" | "FAILED";
+  /** 설계서 v2.0. result와 같은 값이다. */
+  state: "DONE" | "NOT_NEEDED" | "FAILED";
+  projectId: string;
+  agreementStatus: "REJECTED" | null;
+  contractStatus: "CANCELED" | null;
+  signaturesPreserved: boolean;
+  changed: boolean;
 };
 
 export type PostActionResult = "DONE" | "NOT_NEEDED" | "FAILED";

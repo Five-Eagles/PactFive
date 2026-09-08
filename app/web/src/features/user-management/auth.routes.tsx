@@ -2,6 +2,7 @@ import { Route, useNavigate, useSearchParams } from 'react-router-dom';
 import { LoginForm } from './LoginForm';
 import { SignUpForm, type SignUpMode } from './SignUpForm';
 import { EmailConfirmationPage } from './EmailConfirmationPage';
+import { EMAIL_CONFIRMATION_PATH, getInitialEmailConfirmationTokenHash } from './auth.bootstrap';
 
 /**
  * user-management 라우트 정의 + 경로 상수 (app/web/AGENTS.md "진입점 구조").
@@ -16,7 +17,7 @@ import { EmailConfirmationPage } from './EmailConfirmationPage';
 export const AUTH_ROUTES = {
   login: '/login',
   signUp: '/sign-up',
-  confirm: '/auth/confirm',
+  confirm: EMAIL_CONFIRMATION_PATH,
 } as const;
 
 function LoginPage() {
@@ -38,8 +39,7 @@ function SignUpPage() {
 
 function ConfirmEmailPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const tokenHash = searchParams.get('token') ?? searchParams.get('tokenHash') ?? '';
+  const tokenHash = getInitialEmailConfirmationTokenHash();
 
   return <EmailConfirmationPage tokenHash={tokenHash} onNavigate={(path) => navigate(path)} />;
 }

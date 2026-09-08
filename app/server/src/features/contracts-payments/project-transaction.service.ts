@@ -1,10 +1,13 @@
+import { ignoreNotificationFailure, type NotificationTriggerPort } from "./notification.port";
 import type { ProjectTransactionPort } from "./project-transaction.port";
 import type {
   CompleteProjectTransactionInput,
+  CompleteProjectTransactionResponse,
   MarkPaymentPendingInput,
   RestorePreContractProjectInput,
   StartProjectTransactionInput,
 } from "./project-transaction.types";
+import { isDomainContractError } from "./project-transaction.types";
 
 /**
  * 원본 파일명은 `contract-transaction.service.ts`였다. 이 기능의 나머지 파일(port/types/mock)이
@@ -12,7 +15,7 @@ import type {
  * 거래 상태 enum 이름을 `ProjectTransactionStatus`로 이미 확정해 두었으므로 `project-transaction`
  * 쪽으로 통일했다 — 원본 담당자(조준영)에게 이 이름 불일치를 확인받아야 한다(feedback_loop 기록).
  */
-export type DeliveryStatus = "APPROVED" | "PENDING" | "REJECTED" | string;
+export type DeliveryStatus = "IN_PROGRESS" | "DELIVERY_REQUESTED" | "APPROVED";
 export type PaymentStatus = "RELEASED" | "PAID" | "READY" | string;
 
 /** I-30 등 호출자가 포트를 부르기 전에 막는 오류. HTTP 5종 코드가 아니다. */
@@ -54,19 +57,63 @@ export async function startProjectTransactionIfAccepted(
   return port.startProjectTransaction(projectId, input);
 }
 
-/** I-30: 납품 승인·정산 완료 전에는 complete 포트를 호출하지 않는다. */
+/**
+ * I-30: 납품 승인·정산 완료 전에는 complete 포트를 호출하지 않는다.
+ *
+ * `notify`를 넣으면(교차 생명주기 Coordinator 경유) COMPLETED 전이 성공 직후에만
+ * `publishReviewRequested`를 양쪽 1회 발행한다(spec.md 규칙 4·26) — throw여도 COMPLETED는
+ * 유지하고, 발행 실패도 COMPLETED를 되돌리지 않는다.
+ */
 export async function completeProjectTransactionIfSettled(
   port: ProjectTransactionPort,
   projectId: string,
   input: CompleteProjectTransactionInput,
   deliveryStatus: DeliveryStatus,
   paymentStatus: PaymentStatus,
+  notify?: { notifications: NotificationTriggerPort; freelancerId: string },
 ) {
   if (deliveryStatus !== "APPROVED" || paymentStatus !== "RELEASED") {
     throw new CallerGuardError("I30_NOT_SATISFIED");
   }
-  await requireNegotiationContext(port, projectId);
-  return port.completeProjectTransaction(projectId, input);
+  const context = await requireNegotiationContext(port, projectId);
+  let result: CompleteProjectTransactionResponse;
+  try {
+    result = await port.completeProjectTransaction(projectId, input);
+  } catch (err) {
+    // 409면 현재 상태를 다시 읽어 COMPLETED만 멱등 성공으로 친다(spec.md 규칙 4).
+    if (
+      isDomainContractError(err) &&
+      (err.body.error.code === "PROJECT_TRANSITION_CONFLICT" ||
+        err.body.error.code === "PROJECT_VERSION_CONFLICT")
+    ) {
+      const again = await requireNegotiationContext(port, projectId);
+      if (again.transactionStatus === "COMPLETED") {
+        return {
+          projectId,
+          recruitmentStatus: again.recruitmentStatus,
+          transactionStatus: "COMPLETED" as const,
+          alreadyProcessed: true,
+          processedAt: input.occurredAt,
+          changed: false,
+          projectVersion: again.projectVersion,
+        };
+      }
+    }
+    throw err;
+  }
+  // COMPLETED 전이 성공 뒤에만 발행한다. throw여도 완료를 되돌리지 않는다.
+  if (notify && result.changed) {
+    await ignoreNotificationFailure(() =>
+      notify.notifications.publishReviewRequested({
+        type: "REVIEW_REQUESTED",
+        projectId,
+        clientId: context.clientId,
+        freelancerId: notify.freelancerId,
+        occurredAt: input.occurredAt,
+      }),
+    );
+  }
+  return result;
 }
 
 export async function restorePreContractProjectAfterReject(

@@ -64,6 +64,34 @@ PATCH/PUT/DELETE `/applications` 없음. 공개 라우트로 다시 만들지 �
 수락은 ① `acceptProjectApplication` 성공 ② 잔여 `PENDING` → `REJECTED` +
 `AUTO_OTHER_ACCEPTED` ③ 알림 발행. C-01 실패 시 거절·알림을 하지 않는다 (규칙 3).
 실 `acceptProjectApplication` HTTP는 유동우. 조준영 Mock은 포트 스탠드인만 쓴다.
+생성 +1/+1 · `DIRECT` −1만 applications가 쓴다. 수락·마감의 대기는 PM이 0.
+
+---
+
+## 후기 — 2026-09-07 유동우 보완사항
+
+`app/` 이식 시:
+
+1. `createApplication` 저장 직후 전체 +1 · 대기 +1. `rejectApplication`의 새 `DIRECT`만 대기 −1.
+   수락·`AUTO_*`·일괄 거절에서는 카운트를 빼지 않는다. 0은 유동우 포트.
+2. `GET /api/v1/applications/me` 항목에 `transactionStatus` (삭제면 `null`).
+3. `MyApplicationsPage`에서 `ACCEPTED` ∧ `COMPLETED`이면 「완료됨」→
+   `/projects/:projectId/reviews`. 단수 `/review`가 아니다.
+
+`app/`은 여전히 팀장만 수정한다.
+
+---
+
+## 후기 — 2026-09-07 설계서 v2.0
+
+설계서 경로를 쓰지 않는다. 이미 이식된 `GET /api/v1/applications/me`,
+`POST /api/v1/applications/:id/accept|reject`, 웹 `/applications/me`,
+`/projects/:id/applicants`를 유지한다.
+
+원본 갱신만: 입력 범위(100~3,000자 · 1만~10억 · 1~365) · 제출 확인 모달 ·
+거절 4종 한국어 · 상태 카피 `검토 중`/`선정됨`/`미선정`. `COMPLETED` 배지·리뷰 경로는
+유지. eligibility·단건 GET·페이지·202/outbox·프로필 게이트는
+`features/applications` Mock에 반영중(CR-0002). 공개 경로 유지. `app/`은 팀장.
 
 ---
 
