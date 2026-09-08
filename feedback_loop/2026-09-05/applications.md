@@ -12,7 +12,7 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
 
 ## 항목 1 — applications를 app/server·app/web에 이식했다 (확인만 필요)
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — 무엇을 했는지**
 - 서버: `app/server/src/features/applications/`에 8개 파일 신설
@@ -48,11 +48,15 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
 - 위 재해석(동기 → 비동기 프로젝트 조회)이 규칙 9·10의 의도와 어긋나지 않는지만 봐주시면
   됩니다. 이상 없으면 상태를 `반영완료`로 바꿔주세요.
 
+**담당자 확인 (조준영, 2026-09-08)**
+- 규칙 9·10과 어긋나지 않음. `clientId`로 403/404를 가르는 입력과 UX 복사는 그대로다.
+  spec에 PM 읽기 포트 한 줄을 넣었다. app/은 CR-0002 이전이므로 eligibility·202는 후속.
+
 ---
 
 ## 항목 2 — [CR] applicationCount·pendingApplicationCount 갱신 주체가 applications인데 쓰기 포트가 없다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact**
 - `project.types.ts`의 `ProjectRecord.applicationCount`·`pendingApplicationCount` 필드에
@@ -80,5 +84,10 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
   project-management가 자기 저장소에서 직접 카운트하는 방식으로 바꿀지"를 정해주시면 됩니다.
   정해지면 팀장이 반영합니다. 결정 전까지는 화면의 지원 건수 표시가 부정확합니다 —
   급하면 `재이슈`로 올려주세요.
+
+**담당자 확인 (조준영, 2026-09-08)**
+- 쓰기 포트를 연다. 조회 시 COUNT는 기각 (`CR-AP-001`). 생성 +1/+1 · DIRECT −1만
+  applications. 수락·마감·취소 대기는 PM이 0. `AUTO_*`는 빼지 않는다.
+- Mock·spec·`run.tsx`는 반영됨. `app/` 쓰기 포트와 PM 규칙 56 문구는 유동우·팀장.
 
 ---

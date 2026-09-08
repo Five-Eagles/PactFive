@@ -14,7 +14,7 @@ affected_features: [applications, project-management]
 | 받는 사람 | 조준영 (applications) · 유동우 (project-management) |
 | 보내는 사람 | 조준영 (reviews · contracts-payments) |
 | 날짜 | 2026-09-07 |
-| 상태 | 반영중 (`feature/applications` Mock) |
+| 상태 | 반영중 (applications Mock 확인 2026-09-08. `app/`·PM 미반영) |
 | ID | `CR-AP-001` |
 | 근거 | 유동우 `260907 보완사항.md` 건 1 · `feedback_loop/2026-09-05/applications.md` 항목 2 |
 
@@ -96,3 +96,9 @@ applications가 쓸 포트가 없다. 화면 "지원 N건"이 0이다.
 - **조회 시 COUNT.** 컬럼·규칙 56을 폐기해야 하고 팀장 스키마 + 다른 담당 일정이 밀린다. 기각.
 - **건 1을 reviews/CP에서 구현.** 카운트 소유는 applications·PM이다. CTA만 reviews가 계약한다. 기각.
 - **수락 때도 applications가 −1.** 잔여 `AUTO_OTHER_ACCEPTED`와 겹친다. 유동우 0안이 안전하다.
+
+## Mock 반영 (2026-09-08 확인)
+
+`features/applications/` 조준영 할 일 1~4는 Mock에 있다. `createApplication` +1/+1,
+`DIRECT` −1, `AUTO_*` 비감산, C-01 스탠드인 `pendingApplicationCount: 0`.
+`app/` 쓰기 포트와 `acceptProjectApplication`·마감·취소의 0은 유동우·팀장.

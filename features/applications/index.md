@@ -35,3 +35,5 @@
 | 2026-09-07 | listMyApplications `transactionStatus`. 「완료됨」→ `/projects/:id/reviews` |
 | 2026-09-07 | 설계서 v2.0: 입력 범위·제출 확인·거절 문구. 후속은 CR-0002 |
 | 2026-09-07 | CR-0002 Mock: eligibility·202/outbox·GAP-01 NULL·페이지 |
+| 2026-09-08 | feedback 항목 1 반영완료. PM 프로젝트 조각은 읽기 포트. |
+| 2026-09-08 | feedback 항목 2 반영완료. CR-AP-001 쓰기 포트. Mock만. |

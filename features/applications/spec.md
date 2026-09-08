@@ -33,7 +33,10 @@ applications. 수락·마감·취소의 대기는 PM이 0. `AUTO_*`에서 applic
 
 유동우: `acceptProjectApplication` — `recruitmentStatus → CLOSED`,
 `transactionStatus → CONTRACT_PENDING`, `acceptedApplicationId`.
-모집 상태 읽기 (`OPEN`만 생성·수락).
+모집 상태 읽기 (`OPEN`만 생성·수락). 프로젝트 조각(`clientId` ·
+`recruitmentStatus` · `transactionStatus` · `acceptedApplicationId`)은 PM 정본이다.
+Mock은 같은 저장소에서 동기 조회하고, app/은 `ProjectApplicationContextPort`로
+비동기 읽기만 한다. 권한(규칙 9)·OPEN(규칙 5)의 판정 입력은 같다.
 
 알림: `APPLICATION_SUBMITTED` · `APPLICATION_ACCEPTED` · `APPLICATION_REJECTED` ·
 `APPLICATION_AUTO_REJECTED`를 포트에 쌓기만 한다. 발송은 notifications.
