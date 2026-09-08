@@ -12,7 +12,7 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
 
 ## 항목 1 — reviews를 app/server·app/web에 이식했다 (확인만 필요)
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — 무엇을 했는지**
 - 서버: `app/server/src/features/reviews/`에 8개 파일 신설
@@ -45,15 +45,18 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
 - 검증: `npx tsx features/reviews/prototype/run.tsx` → **PASS 40 / FAIL 0** (재해석 전후 로직
   변화 없음 확인). `app/server`·`app/web` 양쪽 `tsc --noEmit`·`vite build` 통과.
 
-**담당자 메모 (조준영 확인 요청 — 재작업이 아니라 확인만 해주면 됨)**
-- 위 재해석(프로젝트 조각 2-delegate 합성, userExists 임시 캐시)이 규칙 7·9와 어긋나지 않는지만
-  봐주시면 됩니다. 이상 없으면 상태를 `반영완료`로 바꿔주세요.
+**담당자 메모 (조준영 · 2026-09-07)**
+확인했습니다. 2-delegate(PM `clientId`·`transactionStatus` / CP `freelancerId`·`contractId`·`contractStatus`)는 규칙 9 당사자·규칙 1·8 상태 읽기와 맞습니다. 폴더 직접 import 없이 배선한 것도 맞습니다.
+
+`userExists` 임시 캐시는 규칙 7 요약의 `USER_NOT_FOUND`용입니다. 재시작 후 미요청 사용자를 못 찾는 한계는 오민혁 조회가 나올 때까지 둡니다. 공개분만 평균하는 로직은 그대로입니다.
+
+이상 없어서 항목 1은 `반영완료`로 바꿉니다.
 
 ---
 
 ## 항목 2 — [CR] 이번 반영에서 일부러 하지 않은 것 3가지
 
-상태: 미확인
+상태: 검토중
 
 **Fact**
 1. **`publishDueSoloReviews`(14일 경과 단독 리뷰를 스캔해 뒤늦게 공개 이벤트를 보내는 배치
@@ -82,7 +85,8 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
 
 **담당자 메모**
 - 1번·2번은 급하지 않으면 그대로 두고 다음 스프린트에서 notifications 담당이 정해질 때 같이
-  풀어도 됩니다. 3번(프리랜서에게 거래 완료 여부를 어떻게 알려줄지)은 project-management
-  담당자와 먼저 합의가 필요합니다 — 정해지면 팀장이 진입점을 연결합니다.
+  풀어도 됩니다. 3번(프리랜서 진입점)은 2026-09-07 유동우 합의: PM 규칙 9 유지. CTA는
+  공개 상세가 아니라 내 지원 현황(`listMyApplications`)의 ACCEPTED∧COMPLETED 「완료됨」배지
+  → `/projects/:projectId/reviews`. spec 규칙 11에 고정. 팀장 `app/` 이식은 아직이라 검토중.
 
 ---

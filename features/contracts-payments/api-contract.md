@@ -200,18 +200,24 @@
 
 ## POST /internal/v1/projects/:projectId/invalidate-agreement
 
-규칙 15·25. 유동우 → 조준영. 프로젝트 취소 시 합의 `REJECTED`·계약 `CANCELED`.
+규칙 15·25. 정본 취소·합의·계약 설계서 v2.0 §8. 유동우 → 조준영.
+프로젝트 취소 시 합의 `REJECTED`·계약 `CANCELED`. restore 호출 없음.
 서명 감사·terms 스냅샷은 삭제·수정하지 않는다. 멱등 키 `invalidate-{cancellationId}`.
-같은 키·같은 본문(`reason`·`projectCanceledAt`)은 최초 응답. 같은 키·다른 본문은 409.
+`cancellationEventId`는 `cancellationId` 별칭, `occurredAt`은 `projectCanceledAt` 별칭.
+같은 키·같은 본문(`reason`·취소 시각)은 최초 응답. 같은 키·다른 본문은 409.
 `paymentPendingAt`이 있으면 `409 PROJECT_CANCEL_AFTER_PAYMENT` (원장 변경 없음).
+F11: 공개 필드는 `cancellationId`/`result`. applications `closureEventId`는
+`toApplicationClosureEventId(cancellationId)` 변환만. 새 HTTP 없음.
 `IN_PROGRESS`/`COMPLETED`는 `409 PROJECT_TRANSITION_CONFLICT`.
-이미 무효화면 `alreadyProcessed: true`.
+이미 무효화면 `alreadyProcessed: true`. 공개 POST 취소는 유동우(경로 `/cancel` vs
+`/cancellations`는 그쪽). 설계서 §12 신설 코드는 쓰지 않는다.
 
 요청:
 
 ```json
 {
-  "cancellationId": "cnl_123", "actorUserId": "usr_client_a",
+  "cancellationId": "cnl_123", "cancellationEventId": "cnl_123",
+  "actorUserId": "usr_client_a",
   "reason": "PROJECT_CANCELED", "projectCanceledAt": "2026-08-27T05:00:00Z",
   "requestId": "req_invalidate_01",
   "idempotencyKey": "invalidate-cnl_123",
@@ -219,9 +225,18 @@
 }
 ```
 
-응답 200: `{ "alreadyProcessed": false, "result": "DONE" }`.
+응답 200:
+
+```json
+{
+  "projectId": "prj_123", "alreadyProcessed": false, "result": "DONE",
+  "state": "DONE", "agreementStatus": "REJECTED", "contractStatus": "CANCELED",
+  "signaturesPreserved": true, "changed": true
+}
+```
+
 무효화할 합의·계약이 없으면 `NOT_NEEDED`. 시도 실패는 `FAILED` (D-89).
-같은 `cancellationId`는 최초 `result` + `alreadyProcessed: true`.
+같은 `cancellationId`는 최초 `result`/`state` + `alreadyProcessed: true`, `changed: false`.
 
 에러: 404. 409 `PROJECT_CANCEL_AFTER_PAYMENT`. 409 `PROJECT_TRANSITION_CONFLICT`. 422.
 
@@ -301,7 +316,7 @@ CTR-01 우측 컬럼 가설: `projectId`, `workStartDate`, `workEndDate`, `trans
 
 취소 결과 조회 가설. 당사자. 프로젝트 컨텍스트 + 합의·계약 + 마지막 무효화 결과를 조립한다.
 설계서 신설 `CANCEL_*` 코드는 쓰지 않는다. `availableActions`는 넣지 않는다.
-브라우저 `POST /cancel`(A-07)은 이 기능이 부르지 않는다. `applicationRejection`은 항상
+브라우저 공개 POST 취소(A-07)는 유동우. 이 GET은 조립만 한다. `applicationRejection`은 항상
 `NOT_NEEDED`(지원 일괄 거절은 최윤석). `postActions.notification`은 발송 없이
 `NOT_NEEDED`. 실패 시드만 `FAILED`. `FAILED`는 취소 실패가 아니며 202 후처리 화면이다.
 
@@ -343,7 +358,8 @@ CTR-01 우측 컬럼 가설: `projectId`, `workStartDate`, `workEndDate`, `trans
 ### POST /api/v1/contracts/:contractId/deliveries/approve — `approveDelivery`
 
 의뢰인. `DELIVERY_REQUESTED`만. 새 `Idempotency-Key`. 본문 `{ "expectedVersion"? }`.
-성공 `APPROVED` 후 `publishDeliveryApproved`와 내부 정산 evaluate 1회. 결제 `RELEASED`이거나
+성공 `APPROVED` 후 `publishDeliveryApproved`. F03: 이 호출은 Payment를 잠그지 않는다.
+정산 `evaluateSettlement`는 승인 커밋 후 별 호출. 결제 `RELEASED`이거나
 이후 Mock `simulateSettlementResult(SUCCESS)`가 `RELEASED`로 바꾸면 규칙 4 complete.
 `PAID`만이면 프로젝트는 `IN_PROGRESS` 유지. 이미 `APPROVED`면 최초 `approvedAt` 유지.
 `simulateSettlementReleased`는 I-30 순서 헬퍼이며 실행 원장 가드를 건너뛴다.
@@ -586,14 +602,24 @@ type GetCancellationResponse = {
 };
 type PostActionResult = 'DONE' | 'NOT_NEEDED' | 'FAILED';
 type InvalidateAgreementInput = {
-  cancellationId: string;
+  cancellationId?: string;
+  cancellationEventId?: string;
   actorUserId: string;
   reason: 'PROJECT_CANCELED';
-  projectCanceledAt: string;
+  projectCanceledAt?: string;
+  requestId: string;
+  idempotencyKey: string;
+  occurredAt?: string;
 };
 type InvalidateAgreementResponse = {
   alreadyProcessed: boolean;
   result: PostActionResult;
+  state: PostActionResult;
+  projectId: string;
+  agreementStatus: 'REJECTED' | null;
+  contractStatus: 'CANCELED' | null;
+  signaturesPreserved: boolean;
+  changed: boolean;
 };
 
 type DomainContractErrorBody = {

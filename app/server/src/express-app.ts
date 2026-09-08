@@ -9,9 +9,11 @@ import { AuthSessionService } from './features/user-management/auth.service';
 import { createSupabaseAuthAdapter } from './features/user-management/supabase-auth.adapter';
 import { MockAuthProvider } from './features/user-management/mock-auth.adapter';
 import { InMemoryAuthRepository } from './features/user-management/in-memory-auth.repository';
+import { PrismaAuthRepository } from './features/user-management/prisma-auth.repository';
 import { authenticateMockAuthorization } from './features/user-management/auth.mock';
 import type { AuthProvider } from './features/user-management/auth.port';
 import type { AuthRepositories } from './features/user-management/auth.repository';
+import { getPrismaClient, isPrismaConfigured } from './shared/prisma-client';
 import { createRequireAuth } from './shared/require-auth';
 import { createOptionalAuth } from './shared/optional-auth';
 import { createRequireServiceToken } from './shared/require-service-token';
@@ -27,8 +29,13 @@ import { InMemoryBookmarkRepository } from './features/engagement/in-memory-book
 import { InMemoryProjectTransactionCallLogRepository } from './features/contracts-payments/in-memory-project-transaction-call-log.repository';
 import { createProjectManagementAdapter } from './features/contracts-payments/project-management.adapter';
 import { InMemoryContractsPaymentsRepository } from './features/contracts-payments/in-memory-contracts-payments.repository';
-import { createPublicApiService } from './features/contracts-payments/public-api.service';
+import {
+  createContractsPaymentsSnapshotReader,
+  createPublicApiService,
+} from './features/contracts-payments/public-api.service';
 import { createPublicApiRouter } from './features/contracts-payments/public-api.routes';
+import { InMemoryNotificationTriggerAdapter } from './features/contracts-payments/in-memory-notification.adapter';
+import { createTransactionLifecycleCoordinator } from './features/contracts-payments/transaction-lifecycle.coordinator';
 import { hasPgSecretKey, createTossPaymentsAdapter } from './features/contracts-payments/toss-payments.adapter';
 import type { PaymentGateway } from './features/contracts-payments/payment.port';
 import { InMemoryPricingAnalysisRepository } from './features/ai-pricing/in-memory-pricing-analysis.repository';
@@ -139,9 +146,14 @@ try {
         process.env.AUTH_EMAIL_CONFIRMATION_REDIRECT_URL ?? `${allowedOrigins[0] ?? ''}/auth/confirm`,
     });
   }
-  // app/server/prisma/schema.prisma가 비어 있는 동안은(팀장 전담 영역) 두 모드 모두 인메모리
-  // 저장소를 쓴다. 스키마가 채워지면 Prisma 기반 구현으로 교체한다.
-  authRepositories = new InMemoryAuthRepository();
+  // 2026-09-07: DATABASE_URL이 있으면 실제 Postgres(Supabase)로, 없으면 인메모리로 —
+  // 다른 벤더 키(PG_SECRET_KEY 등)와 동일한 Boolean(process.env.X) fail-soft 패턴이다.
+  // 값이 없어도 서버는 그대로 동작한다(.env.example 공통 규칙 1) — 로컬/아직 마이그레이션
+  // 안 한 배포 환경은 지금처럼 인메모리로 계속 굴러간다. auth만 우선 전환한다 — 다른
+  // 기능(project-management 등)의 인메모리 저장소는 이 트랙 범위 밖이다.
+  authRepositories = isPrismaConfigured()
+    ? new PrismaAuthRepository(getPrismaClient())
+    : new InMemoryAuthRepository();
 } catch (error) {
   authWiringError = error;
   console.warn(
@@ -319,7 +331,8 @@ app.use(
 );
 
 // ---------------------------------------------------------------------------
-// applications — 지원 5종(작성·목록 2종·수락·거절). features/applications/api-contract.md.
+// applications — 지원 8종(eligibility·작성·목록 2종·단건 조회·수락·거절·operation 조회,
+// PR #83로 5종에서 늘었다). features/applications/api-contract.md.
 //
 // 프로젝트 읽기(clientId·recruitmentStatus·transactionStatus·acceptedApplicationId)와
 // 수락 처리는 project-management의 `projectContractService`에 위임한다 — 이 폴더는
@@ -412,10 +425,24 @@ function contractsPaymentsRandomId(prefix: string): string {
   return `${prefix}_${randomId()}`;
 }
 
+// 2026-09-07 팀장 반영 — sync-log.md 2026-09-03(67207c8) 이후 develop에 쌓인 #53·#66·#58·#80
+// 4개 PR 분량(재제안 AGR-02/03·납품 DLV-01·정산 조회 SET-01 v2·취소 조회 CAN-01 v2·교차
+// 생명주기 Coordinator)을 여기서 처음 배선한다. 알림 발행은 notifications가 아직 app/에
+// 실제 인바운드를 붙이지 않아(위 reviews 섹션 주석과 같은 이유) 인메모리로 로그만 남긴다.
+const contractsPaymentsNotifications = new InMemoryNotificationTriggerAdapter();
+
+const transactionLifecycleCoordinator = createTransactionLifecycleCoordinator({
+  projects: projectTransactionPort,
+  snapshots: createContractsPaymentsSnapshotReader(contractsPaymentsRepository),
+  notifications: contractsPaymentsNotifications,
+});
+
 const publicApiService = createPublicApiService({
   repo: contractsPaymentsRepository,
   projectPort: projectTransactionPort,
   paymentGateway,
+  notifications: contractsPaymentsNotifications,
+  coordinator: transactionLifecycleCoordinator,
   now: projectNow,
   randomId: contractsPaymentsRandomId,
 });
@@ -423,6 +450,7 @@ const publicApiService = createPublicApiService({
 app.use(
   createPublicApiRouter(publicApiService, {
     requireAuth,
+    requireServiceToken,
     paymentGatewayConfigured: paymentGateway !== null,
   }),
 );

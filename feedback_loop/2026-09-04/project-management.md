@@ -33,6 +33,21 @@ sync-log.md 기록: 있음
   비일관성은 감수하기로 했다 — AppShell 전체를 이 헤더로 승격할지는 이번 범위 밖의 별도
   결정이다(homepage-transplant-plan.md 4번 절 Decision).
 
+**후속 — 2026-09-08 팀장 결정 (위 "별도 결정" 항목에 대한 답)**
+- 담당자가 "프로젝트 찾기/내 프로젝트 화면 앱바가 대표 페이지랑 스타일·크기가 다르다"고
+  지적했고, 팀장이 "대표 페이지 기준으로 통일" 하기로 결정했다.
+- 반영 범위: `shared/ui/tokens.css`의 `.frame > header .logo`/`nav`를 `home.css`의
+  `.home-hdr .brand`/`nav` 값(로고 28px·두 톤, nav 15px/600/32px 간격)에 맞췄고,
+  `shared/ui/AppShell.tsx`의 로고 마크업을 `Pact<em>Five</em>`로 바꿔 두 톤이 실제로
+  나오게 했다. `AppShell`을 쓰는 다른 모든 화면(프로젝트 찾기·내 프로젝트·지원·계약 등)에
+  전부 영향이 간다.
+- **의도적으로 안 건드린 것**: 페이지 전체 폭(`PageBody`/`.body-pad`의 `max-width: 1120px`
+  vs 대표 페이지 `--page-w: 1412px`). 이건 헤더 하나가 아니라 이미 각 기능 담당자가 만들어
+  둔 모든 화면의 본문 레이아웃 폭에 영향이 가는 별도 결정이라 이번 범위에서 뺐다 — 필요하면
+  다시 논의.
+- tsc 검증 완료(app/web). `npm run check:design`은 기존에 있던(이번 변경과 무관한) `.success`
+  클래스 누락·기능별 `_tokens.css` 드리프트 경고만 그대로 있다.
+
 **담당자 메모**
 -
 

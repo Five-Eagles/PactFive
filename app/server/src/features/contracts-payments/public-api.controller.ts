@@ -52,6 +52,25 @@ export function createPublicApiController(service: PublicApiService) {
       }
     },
 
+    async counterOffer(req: Request, res: Response): Promise<void> {
+      try {
+        const body = req.body as Record<string, unknown>;
+        const result = await service.counterNegotiationOffer(
+          req.params.projectId,
+          req.params.offerId,
+          toAuth(req),
+          {
+            amount: Number(body.amount),
+            currency: 'KRW',
+            expectedRound: Number(body.expectedRound),
+          },
+        );
+        res.status(200).json(result);
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+
     async acceptOffer(req: Request, res: Response): Promise<void> {
       try {
         const body = req.body as Record<string, unknown>;
@@ -131,6 +150,113 @@ export function createPublicApiController(service: PublicApiService) {
           orderId: String(body.orderId ?? ''),
           amount: Number(body.amount),
           paymentKey: String(body.paymentKey ?? ''),
+        });
+        res.status(200).json(result);
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+
+    async getSettlement(req: Request, res: Response): Promise<void> {
+      try {
+        const result = await service.getSettlement(req.params.paymentId, toAuth(req));
+        res.status(200).json(result);
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+
+    async getCancellation(req: Request, res: Response): Promise<void> {
+      try {
+        const result = await service.getCancellation(req.params.projectId, toAuth(req));
+        res.status(200).json(result);
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+
+    async getDelivery(req: Request, res: Response): Promise<void> {
+      try {
+        const result = await service.getDelivery(req.params.contractId, toAuth(req));
+        res.status(200).json(result);
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+
+    async prepareDeliveryUpload(req: Request, res: Response): Promise<void> {
+      try {
+        const body = req.body as Record<string, unknown>;
+        const result = await service.prepareDeliveryUpload(req.params.contractId, toAuth(req), {
+          fileName: String(body.fileName ?? ''),
+          contentType: String(body.contentType ?? ''),
+          size: Number(body.size),
+          sha256: String(body.sha256 ?? ''),
+        });
+        res.status(200).json(result);
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+
+    async requestDelivery(req: Request, res: Response): Promise<void> {
+      try {
+        const body = req.body as Record<string, unknown>;
+        const idempotencyKey = String(req.header('Idempotency-Key') ?? body.idempotencyKey ?? '');
+        if (!idempotencyKey) {
+          res.status(422).json({
+            error: { code: 'VALIDATION_ERROR', message: 'Idempotency-Key가 필요합니다.', details: null },
+          });
+          return;
+        }
+        const result = await service.requestDelivery(req.params.contractId, toAuth(req), {
+          objectKey: String(body.objectKey ?? ''),
+          uploadId: String(body.uploadId ?? ''),
+          message: String(body.message ?? ''),
+          idempotencyKey,
+        });
+        res.status(200).json(result);
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+
+    async approveDelivery(req: Request, res: Response): Promise<void> {
+      try {
+        const body = req.body as Record<string, unknown>;
+        const idempotencyKey = String(req.header('Idempotency-Key') ?? body.idempotencyKey ?? '');
+        if (!idempotencyKey) {
+          res.status(422).json({
+            error: { code: 'VALIDATION_ERROR', message: 'Idempotency-Key가 필요합니다.', details: null },
+          });
+          return;
+        }
+        const result = await service.approveDelivery(req.params.contractId, toAuth(req), {
+          expectedVersion:
+            typeof body.expectedVersion === 'number' ? body.expectedVersion : undefined,
+          idempotencyKey,
+        });
+        res.status(200).json(result);
+      } catch (error) {
+        sendError(res, error);
+      }
+    },
+
+    /** 인바운드 — 유동우(project-management) → 조준영. requireServiceToken으로 보호한다. */
+    async invalidateAgreement(req: Request, res: Response): Promise<void> {
+      try {
+        const body = req.body as Record<string, unknown>;
+        const result = await service.invalidateAgreement(req.params.projectId, {
+          cancellationId: typeof body.cancellationId === 'string' ? body.cancellationId : undefined,
+          cancellationEventId:
+            typeof body.cancellationEventId === 'string' ? body.cancellationEventId : undefined,
+          actorUserId: String(body.actorUserId ?? ''),
+          reason: 'PROJECT_CANCELED',
+          projectCanceledAt:
+            typeof body.projectCanceledAt === 'string' ? body.projectCanceledAt : undefined,
+          requestId: String(body.requestId ?? ''),
+          idempotencyKey: String(body.idempotencyKey ?? ''),
+          occurredAt: typeof body.occurredAt === 'string' ? body.occurredAt : undefined,
         });
         res.status(200).json(result);
       } catch (error) {

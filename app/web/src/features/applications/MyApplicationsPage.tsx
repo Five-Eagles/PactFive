@@ -3,19 +3,19 @@ import { PageBody } from '../../shared/ui/AppShell';
 import { Button, EmptyState, Notice } from '../../shared/ui/primitives';
 import { PROJECT_ROUTES } from '../project-management/project.routes';
 import { useMyApplications } from './useApplications';
-import type { ApplicationItem } from './application.types';
+import type { MyApplicationItem } from './application.types';
 
 /**
- * 내 지원 현황(규칙 10, 프리랜서) — `ApplicationPanel.tsx`의 "mine"/"mineDeleted" 뷰를
- * 실제 목록으로 재해석했다.
+ * 내 지원 현황(규칙 10, 프리랜서) — `ApplicationPanel.tsx`의 "mine"/"mineDeleted"/"mineCanceled"
+ * 뷰를 실제 목록으로 재해석했다.
  *
- * 프로젝트가 삭제됐을 가능성(`mineDeleted` 뷰)은 이번 반영에서는 다루지 않는다 — 목록
- * 응답(`ApplicationItem`)에 프로젝트 삭제 여부 필드가 없다(project-management가 아직
- * "삭제된 프로젝트" 표시를 계약에 내놓지 않았다). 상세로 들어가는 링크만 두고, 없는
- * 프로젝트면 project-management의 404 화면이 그대로 뜬다.
+ * 2026-09-07 PR #83 이식 — 응답에 `projectNotice`(NONE/CANCELED/DELETED)가 새로 생겨서,
+ * 예전엔 다루지 않던 삭제·취소 안내(규칙 10 "삭제된 프로젝트 「의뢰인이 삭제한
+ * 프로젝트입니다.」")를 이제 실제로 보여줄 수 있다. 삭제된 프로젝트는 상세로 들어가는
+ * 링크를 주지 않는다 — 어차피 project-management가 404를 돌려준다.
  */
 
-const STATUS_LABEL: Record<ApplicationItem['status'], string> = {
+const STATUS_LABEL: Record<MyApplicationItem['status'], string> = {
   PENDING: '대기',
   ACCEPTED: '수락됨',
   REJECTED: '거절됨',
@@ -75,12 +75,16 @@ export function MyApplicationsPage() {
         {data.map((item) => (
           <div className="row" key={item.applicationId}>
             <div className="row__main">
-              {item.projectId ? (
-                <Link to={PROJECT_ROUTES.detail(item.projectId)}>{item.projectId}</Link>
-              ) : (
+              {item.projectNotice === 'DELETED' ? (
                 <span>프로젝트</span>
+              ) : (
+                <Link to={PROJECT_ROUTES.detail(item.projectId)}>{item.projectId}</Link>
               )}
               <span className="row__sub">지원일 {item.createdAt.slice(0, 10).replace(/-/g, '.')}</span>
+              {item.projectNotice === 'DELETED' && (
+                <span className="row__sub">의뢰인이 삭제한 프로젝트입니다.</span>
+              )}
+              {item.projectNotice === 'CANCELED' && <span className="row__sub">프로젝트가 취소되었습니다.</span>}
             </div>
             <span className={`badge ${item.status === 'ACCEPTED' ? 'info' : item.status === 'REJECTED' ? 'neutral' : 'warning'}`}>
               {STATUS_LABEL[item.status]}
