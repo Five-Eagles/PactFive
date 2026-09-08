@@ -8,10 +8,16 @@ export { ApplicationPanel };
 
 const PREVIEW_VIEWS: { id: ApplicationView; label: string }[] = [
   { id: "apply", label: "지원하기" },
+  { id: "applyBlocked", label: "프로필 미완성" },
   { id: "manage", label: "지원자 관리" },
   { id: "manageEmpty", label: "빈 목록" },
   { id: "conflict", label: "이미 수락됨" },
-  { id: "mine", label: "내 지원" },
+  { id: "acceptQueued", label: "후속 처리" },
+  { id: "mine", label: "검토 중" },
+  { id: "mineSelected", label: "선정됨" },
+  { id: "mineCompleted", label: "완료됨" },
+  { id: "mineRejected", label: "미선정" },
+  { id: "mineCanceled", label: "취소됨" },
   { id: "mineDeleted", label: "삭제된 프로젝트" },
   { id: "loading", label: "불러오는 중" },
   { id: "loadFailed", label: "불러오기 실패" },
