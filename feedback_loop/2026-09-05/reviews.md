@@ -56,7 +56,7 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
 
 ## 항목 2 — [CR] 이번 반영에서 일부러 하지 않은 것 3가지
 
-상태: 검토중
+상태: 반영완료
 
 **Fact**
 1. **`publishDueSoloReviews`(14일 경과 단독 리뷰를 스캔해 뒤늦게 공개 이벤트를 보내는 배치
@@ -88,5 +88,11 @@ sync-log.md 기록: 없음 — 이 브랜치가 develop에 실제로 merge된 �
   풀어도 됩니다. 3번(프리랜서 진입점)은 2026-09-07 유동우 합의: PM 규칙 9 유지. CTA는
   공개 상세가 아니라 내 지원 현황(`listMyApplications`)의 ACCEPTED∧COMPLETED 「완료됨」배지
   → `/projects/:projectId/reviews`. spec 규칙 11에 고정. 팀장 `app/` 이식은 아직이라 검토중.
+
+**담당자 확인 (조준영, 2026-09-08)**
+- 1: 배치 없음이 맞다. 조회 때 공개 계산. `publishDueSoloReviews`는 Mock만.
+- 2: 내부 함수만. HTTP는 팀장·오민혁 구독 때. 새 공개 경로 없음 (규칙 7).
+- 3: CTA 계약은 규칙 11. applications Mock에 「완료됨」있음. app/ 링크는 팀장.
+  app 라우트가 `/review`(단수)인 것은 재이식 때 `/reviews`로 맞출 일.
 
 ---
