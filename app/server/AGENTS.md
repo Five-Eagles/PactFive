@@ -4,22 +4,129 @@
 지침(권한·통합 절차)은 `app/AGENTS.md` 참고. 아키텍처 결정 근거는
 `docs/decisions/0007-backend-serverless-architecture.md`.
 
-## 배포 아키텍처 — 이중 진입점
+## 배포 아키텍처 (2026-09-07 최종 확정 — Express zero-config + 이름 회피)
 
 Express `app`은 순수 모듈로 작성한다 (`app.listen()`을 이 파일 안에서 호출하지 않는다).
 배포 진입점을 분리한다:
 
-- `app/server/src/app.ts` — Express `app` 생성·라우트 등록·미들웨어. `export default app;`만
-  한다. `app.listen()` 없음.
-- `app/server/api/index.ts` (Vercel 서버리스 진입점) — `app.ts`의 `app`을 import해 그대로
-  `export default app`. Vercel Node 런타임이 Express `app`을 `(req, res)` 핸들러로 인식하므로
-  별도 어댑터가 필요 없다.
-- `app/server/src/server.ts` (독립 서버 진입점, 필요해지면 추가) — `app.ts`의 `app`을 import해
+- `app/server/src/express-app.ts` — Express `app` 생성·라우트 등록·미들웨어. `export default
+  app;`만 한다. `app.listen()` 없음.
+- `app/server/index.js` (빌드 산출물, git에 없음, Root Directory 바로 밑) — `npm run
+  build`/`postinstall`이 esbuild로 `express-app.ts`를 번들링해 만든다. Vercel의 "Express on
+  Vercel" zero-config 기능이 이 경로를 자동 감지해 **앱 전체를 서버리스 함수 하나로** 배포한다
+  — Express 자체의 라우터가 그 함수 안에서 모든 경로(`/health`, `/api/v1/...` 전부)를
+  알아서 매칭해준다. `export default app`으로 내보낸 Express `app`을 그대로 인식하므로 별도
+  어댑터가 필요 없다.
+- `app/server/src/dev-server.ts` (독립 서버 진입점) — `express-app.ts`의 `app`을 import해
   `app.listen(PORT)` 한 줄만 추가한다. 비즈니스 로직 재작성 없음 — 이 파일 하나 추가/삭제로
   서버리스 ↔ 독립 서버 전환이 끝난다.
 
 컨트롤러/서비스/레포지토리 계층 구조와 파일명 규칙은 이 결정으로 바뀌지 않는다 —
 `docs/naming-convention.md` §6, `features/sample-login/prototype/server/` 그대로 따른다.
+
+**Vercel Dashboard 필수 설정 — 이 프로젝트(app/server)의 Framework Preset은 반드시
+"Express"로 둔다.** 왜 "Other"가 아니라 "Express"인지, 그리고 왜 실제 소스 파일 이름은
+`app.ts`/`server.ts`가 아니라 `express-app.ts`/`dev-server.ts`인지는 아래 "결정 기록"에
+전체 경위가 있다 — 결론만 보고 넘어가지 말고 한 번은 읽는다(같은 문제가 형태만 바꿔 두 번
+재발했었다).
+
+### 결정 기록 — 이 배포 방식이 정해지기까지 (2026-09-05 ~ 2026-09-07)
+
+**1차 사고 (2026-09-05, 코드 버그)**: 배포된 백엔드가 모든 요청에서 `ERR_MODULE_NOT_FOUND`로
+크래시. 원인 — `tsconfig.json`이 `moduleResolution: "bundler"`라 상대경로 import에 확장자가
+없어도 타입체크는 통과하지만, 실제 Node ESM 런타임(`"type": "module"`)은 확장자 없는
+상대경로를 못 찾는다. → esbuild로 번들링해서 확장자 문제 자체를 없애기로 함(모든 상대경로
+import가 한 파일로 합쳐짐).
+
+**2차 사고 (2026-09-06, Vercel 설정)** — 아래는 그때 남긴 "Express → Other" 결정 기록:
+
+**문제**: 배포된 백엔드가 모든 요청에서 `ERR_MODULE_NOT_FOUND: Cannot find module
+'.../auth.routes'`로 크래시했다. 빌드 로그는 매번 성공(`esbuild` 성공 로그까지 찍힘)했는데
+실제 요청은 매번 죽어서, "빌드는 되는데 배포된 산출물이 실행이 안 되는" 것처럼 보였다.
+
+**원인(Fact, 공식 문서로 확인함 — https://vercel.com/docs/frameworks/backend/express)**:
+Vercel의 "Express" Framework Preset은 zero-config 기능으로, Root Directory 기준
+`app.*`/`index.*`/`server.*`/`src/app.*`/`src/index.*`/`src/server.*` 중 존재하는 파일을
+**자동으로 찾아 그 파일 자체를 서버리스 함수로 배포한다** — `/api` 폴더나 `vercel.json`
+없이도 동작하게 만든 기능이다. 그리고 이 프리셋은 **애플리케이션 번들링(Webpack/Rollup
+등)을 하지 않는다** — 불필요한 파일만 걷어낼 뿐 상대경로 import 구조를 그대로 둔 채
+개별 트랜스파일만 한다.
+
+우리 `tsconfig.json`은 `moduleResolution: "bundler"`라 상대경로 import에 확장자가 없어도
+타입체크는 통과하지만(`from './features/.../auth.routes'`), 실제 Node ESM
+런타임(`"type": "module"`)은 확장자 없는 상대경로를 못 찾는다. `/api`에 esbuild로 번들링한
+결과물을 만들어 뒀었지만, **Vercel은 애초에 `/api`를 보지도 않고 (당시 이름이었던)
+`src/app.ts`를 zero-config로 직접 찾아 배포하고 있었다** — 번들은 항상 성공적으로
+만들어졌지만 한 번도 실제로 실행되지 않았다.
+
+**검토한 대안**:
+1. 실제 소스 파일 이름을 Vercel의 zero-config 감지 목록에서 벗어나게 바꾸고(`app.ts` →
+   `express-app.ts`, `server.ts` → `dev-server.ts`), 번들 산출물을 감지 목록 중 하나인
+   `app/server/index.js`로 내서 "Express" 프리셋을 그대로 유지 — 1차로 이렇게 고쳐서 동작은
+   확인했다.
+2. (**채택**) Framework Preset을 "Other"로 바꿔 zero-config 자동 감지 자체를 끄고, Vercel의
+   가장 표준적인 `/api` 폴더 컨벤션으로 되돌린다.
+
+**대안 1을 기각한 이유(Opinion)**: 동작은 하지만, 파일 이름 금기 규칙("`app.ts`/`index.ts`/
+`server.ts`류를 쓰면 안 된다")을 팀 전원이 앞으로도 계속 기억해야 하는 유지보수 부담이
+남는다. 이건 Vercel 고유의 잘 알려지지 않은 동작에 의존하는 방식이라, 5인·부트캠프 규모
+팀에서 각자 이해하고 지키기엔 과하다(`sdd-framework/constitution.md` 원칙 6). `/api` 방식은
+Vercel에서 가장 표준적이고 문서가 많은 배포 모델이라 동작이 파일 위치만 봐도 명시적이고,
+이 사고 같은 재발 위험이 사실상 없다.
+
+**결정**: `/api` 방식(대안 2)으로 확정. 파일 이름은 `express-app.ts`/`dev-server.ts`를 그대로
+유지한다 — 표준 방식으로 옮긴 뒤에는 이름 자체는 문제되지 않지만, 이미 바꾼 이름이 "이 파일이
+`app.listen()`을 하는지 아닌지"를 이름만 보고 구분하기 더 쉬워서 유지하기로 했다.
+
+이때 esbuild 산출물은 `app/server/api/index.js`로 냈고, 배포 직후 `Error: No Output
+Directory named "public" found`가 한 번 더 났다("Other" 프리셋은 정적 파일용 `public/`
+디렉터리가 기본으로 있다고 가정하는데 순수 API 백엔드라 그게 없었다) — `app/server/
+public/index.html`에 최소 플레이스홀더를 커밋해서 넘어갔었다.
+
+**3차 사고 (2026-09-07, "Other"의 치명적 결함 발견 — 최종 결정)**: "Other" 프리셋 배포가
+빌드까지는 성공했는데, 실제로 회원가입 페이지에서 API를 호출하면 404가 났다. 직접
+`curl`로 재현해보니 원인이 나왔다.
+
+**원인(Fact, 직접 재현해 확인함)**: `app/server/api/index.js` 파일 하나만 있고
+`vercel.json` 라우팅 설정이 없으면, Vercel은 문자 그대로 `/api` 경로만 그 함수로 보낸다.
+`/api/v1/auth/registrations`처럼 **그 밑의 중첩 경로는 함수에 아예 도달하지 못하고** 정적
+파일(`public/index.html`)로 대체 응답된다 — 실제로 배포된 URL에 `/api/v1/auth/registrations`
+로 요청을 보내보면 회원가입 처리 대신 `public/index.html` 내용이 그대로 돌아왔다. 우리
+라우터(`auth.routes.ts` 등)는 전부 `/api/v1/...` 형태의 절대 경로를 스스로 파싱해서
+매칭하는 구조라(Express 라우터가 요청 경로를 직접 봐야 함), 이 문제는 코드를 아무리
+고쳐도 "Other" + 단일 `/api/index.js` 조합에서는 풀리지 않는다. `vercel.json`의
+`rewrites`로 전체 경로를 `/api`로 몰아주는 방법도 검토했지만, 공식 문서에 "캡처된 경로는
+쿼리스트링으로 전달된다"고 명시돼 있어(경로 자체가 유지되지 않음) 이 구조에서는 쓸 수
+없다.
+
+반대로 "Express" zero-config 프리셋은 공식 문서에 "앱 전체가 서버리스 함수 하나가 되고,
+모든 요청이 그 함수로 가서 Express의 라우터가 경로를 매칭한다"고 명시돼 있다 — 이게
+정확히 우리에게 필요한 동작이다. 2차 사고 때 "Other"를 택한 이유(불투명한 자동 감지 회피)는
+여전히 타당하지만, "Other"는애초에 다중 경로를 가진 Express 앱을 `/api` 컨벤션만으로 못
+돌린다는 걸 그때는 몰랐다 — 이 부분에서 판단을 정정한다.
+
+**최종 결정**: Framework Preset을 다시 **"Express"**로 되돌린다. 2차 사고의 교훈(파일 이름
+회피)은 그대로 가져간다 — 실제 소스는 `express-app.ts`/`dev-server.ts`로 유지해 Vercel의
+zero-config 자동 감지 목록(`app.*`/`server.*`/`src/app.*`/`src/server.*` 등)에 걸리지
+않게 하고, esbuild 번들 산출물만 감지 목록에 있는 `app/server/index.js`(Root Directory
+바로 밑)로 낸다. 이러면: 번들링으로 확장자 문제가 없고(1차 사고 해결), zero-config가
+Express 라우터를 통째로 위임받아 모든 경로를 올바르게 매칭하며(3차 사고 해결), 우리 소스
+이름이 자동 감지에 안 걸려 번들이 항상 실행된다(2차 사고 해결) — 세 사고 전부가 이 조합
+하나로 풀린다. `public/` 플레이스홀더는 "Other" 전용 요구사항이었으므로 제거했다.
+
+**향후 조건**: 이 프로젝트의 Framework Preset은 항상 "Express"여야 한다. 다시 "Other"로
+바뀌면 3차 사고가 재발한다 — 배포 후 특정 API만 안 되고 다른 요청은 되는 것처럼 보이면
+(예: `/health`는 되는데 `/api/v1/...`는 안 됨, 혹은 그 반대) 제일 먼저 이 설정부터
+확인한다.
+
+**적용 방법**: esbuild가 `express-app.ts`를 `app/server/index.js`로 번들링한다(모든
+상대경로 import가 한 파일로 합쳐지므로 확장자 문제 자체가 없다 — npm 패키지는
+`--packages=external`로 번들에 안 넣고 node_modules를 그대로 쓴다). `app/server/index.js`
+는 git에 커밋하지 않는다(`.gitignore`), 매 설치/빌드마다(`postinstall`/`build`) 새로
+생성된다. **`app/server/`와 `app/server/src/`에 `app.*`/`index.*`/`server.*` 이름의 파일을
+새로 만들지 않는다** — Vercel의 zero-config 감지 목록과 겹치면 2차 사고가 재발한다. 배포
+전에는 반드시 로컬에서 `npm run build`를 돌려 `node index.js`(app/server 안에서)를 직접
+import해보고 안 죽는지 확인한다.
 
 ## 외부 벤더 연동 (Supabase Auth·토스페이먼츠·OpenAI)
 
@@ -96,9 +203,13 @@ Supabase가 아니라 Kakao 자체 정책이므로 미리 확인해야 한다.
 프록시한다 — 로컬 개발의 `app/web/vite.config.ts` `/api` 프록시(→ `localhost:3000`)와
 같은 사고방식을 배포 환경까지 그대로 유지하는 것이다.
 
-**아직 안 끝난 부분**: `app/web/vercel.json`의 `destination`은 자리표시자다. Vercel
-프로젝트를 실제로 만들어 `app/server`의 실제 배포 URL을 알아야 채울 수 있다 — 개발
-배포(Preview)·프로덕션 배포 각각 실제 URL로 교체해야 한다.
+**2026-09-07 반영**: `app/web/vercel.json`의 `destination`을 실제 프로덕션 URL
+(`https://pact-five-server.vercel.app`)로 채웠다 — 이게 자리표시자로 남아있던 것도 오늘
+"회원가입 페이지에서 404" 증상의 한 원인이었다(프론트가 호출하는 `/api/*`가 존재하지 않는
+도메인으로 리라이트되고 있었다). **아직 남은 부분**: 이 값은 프로덕션 URL 하나뿐이라 Preview
+배포(PR별로 열리는 임시 배포)는 전부 프로덕션 백엔드를 호출한다 — 팀 규모상 지금은 이 정도로
+충분하다고 보지만, Preview별로 분리해야 할 필요가 생기면(예: 백엔드 API를 깨는 변경을
+Preview에서 미리 검증하고 싶을 때) 재검토한다.
 
 `WEB_ORIGIN` 환경 변수(CORS 허용 목록 + 이메일 인증 리다이렉트 URL의 기반, `app.ts` 참고)는
 이 rewrite와 별개로 계속 쓴다 — rewrite는 브라우저 트래픽을 동일 출처로 만들 뿐, `app/server`를

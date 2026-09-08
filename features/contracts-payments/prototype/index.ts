@@ -10,7 +10,12 @@ export {
   MOCK_DELIVERY_CONTRACT_CANCELED,
 } from "./mock/public-api.mock";
 export { PublicApiError, isPublicApiError } from "./server/public-api.types";
-export type { GetPaymentResponse, GetDeliveryResponse } from "./server/public-api.types";
+export type {
+  GetPaymentResponse,
+  GetDeliveryResponse,
+  GetSettlementResponse,
+  GetCancellationResponse,
+} from "./server/public-api.types";
 export type { PreparePaymentResponse } from "./mock/payment-record.mock";
 export type { ConfirmPaymentInput, ConfirmPaymentResponse } from "./server/payment.port";
 export type { ProjectTransactionMockOptions } from "./mock/project-transaction.mock";
@@ -19,6 +24,8 @@ export type { NotificationTriggerMock } from "./mock/notification.mock";
 export { MOCK_INTERNAL_SERVICE_TOKEN } from "./server/project-transaction.constants";
 export type { ProjectTransactionPort } from "./server/project-transaction.port";
 export { DomainContractError, isDomainContractError } from "./server/project-transaction.types";
+export { withActiveProjectGuard } from "./server/project-guard";
+export { toApplicationClosureEventId } from "./server/closure-adapter";
 export type {
   DeliveryApprovedEvent,
   DeliveryRequestedEvent,
@@ -51,3 +58,15 @@ export type {
   StartProjectTransactionInput,
   StartProjectTransactionResponse,
 } from "./server/project-transaction.types";
+export {
+  createMemoryLifecycleSnapshot,
+  createTransactionLifecycleCoordinator,
+} from "./server/transaction-lifecycle.coordinator";
+export type {
+  CoordinatorHandleResult,
+  MemoryLifecycleSnapshot,
+  TransactionLifecycleCoordinator,
+  TransactionLifecycleEvent,
+  TransactionLifecycleSnapshot,
+  TransactionLifecycleSnapshotReader,
+} from "./server/transaction-lifecycle.coordinator";

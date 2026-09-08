@@ -5,8 +5,8 @@ import { EmptyState } from './ui/primitives';
  * 아직 설계/통합되지 않은 기능의 라우트에 들어왔을 때 보여주는 공용 안내 화면.
  *
  * `NotFoundPage`(App.tsx, 진짜 404 — 경로 자체가 없음)와는 다르다. 이 컴포넌트는 "경로는
- * 등록돼 있지만 화면 구현이 아직 없다"는 뜻이다 — applications·ai-pricing·reviews·
- * notifications, 그리고 contracts-payments의 웹 화면(서버만 반영됨)이 여기 해당한다.
+ * 등록돼 있지만 화면 구현이 아직 없다"는 뜻이다 — applications·reviews·notifications가
+ * 여기 해당한다(ai-pricing은 2026-09-04 통합으로 빠졌다 — features/ai-pricing/).
  *
  * 2026-09-04: 문구를 **방문자가 읽는 말**로 바꿨다. 전에는 "설계되지 않았거나 통합되지
  * 않았습니다. 팀장에게 문의하세요"였는데, 이건 우리끼리 쓰는 말이다 — 배포된 화면에서

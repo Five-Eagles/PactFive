@@ -29,7 +29,7 @@ export type AccessTokenVerifier = (accessToken: string) => Promise<Authenticated
  *
  * 실제 검증 로직(Supabase 세션 확인 등)은 이 파일이 알지 못한다 — 벤더 SDK를 여기서 직접
  * import하지 않는다(ADR-0009). 대신 컨트롤러/서비스와 마찬가지로 포트 뒤에 두고, 조립 지점인
- * `app/server/src/app.ts`에서 실제 검증 함수(개발 중에는 user-management의 Mock 인증, 이후에는
+ * `app/server/src/express-app.ts`에서 실제 검증 함수(개발 중에는 user-management의 Mock 인증, 이후에는
  * `AuthProvider.verifyAccessToken` 기반 함수)를 주입한다.
  */
 export function createRequireAuth(verifyAccessToken: AccessTokenVerifier) {

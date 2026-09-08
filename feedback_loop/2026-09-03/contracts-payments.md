@@ -14,7 +14,7 @@ sync-log 자체에 적혀 있던 "다음 통합 대상"을 처리했다.
 
 ## 항목 1 — 프리랜서 본인 확인을 지원서 단위로 못 한다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - `acceptNegotiationOffer`·`rejectNegotiationOffer`·서명·결제 조회는 "의뢰인이 아닌 그 거래의
@@ -35,13 +35,14 @@ sync-log 자체에 적혀 있던 "다음 통합 대상"을 처리했다.
   수락된 지원자의 user id를 포함시켜 이 서비스가 대조하도록 바꿔야 한다.
 
 **담당자 메모**
--
+- 잠정 조치 인정. applications가 수락 지원 userId를 주기 전에는 의뢰인이 아닌 첫 accept
+  호출자를 프리랜서로 둔다. 제3자 선점 위험이 있다. spec 규칙 11에 한 줄로 남긴다.
 
 ---
 
 ## 항목 2 — 계약의 프로젝트 제목이 빈 문자열이다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - `GetContractResponse.termsSnapshot.projectTitle`을 채우려면 프로젝트 제목이 필요한데,
@@ -60,13 +61,15 @@ sync-log 자체에 적혀 있던 "다음 통합 대상"을 처리했다.
   옆에 `projectTitle`을 추가하는 것이 가장 적은 변경이다 — project-management 쪽 확인 필요.
 
 **담당자 메모**
--
+- PM 조회에 title이 없으면 빈 문자열은 app 공백이다. 스냅샷 정본은 spec 규칙 20
+  (`projects.title`). negotiation-context에 `projectTitle` 추가는 유동우 확인 사항이다.
+  호출자가 임의로 내부 계약을 넓히지 않은 판단에 동의한다.
 
 ---
 
 ## 항목 3 — 화면 URL 모양을 이번에 새로 정했다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - api-contract.md는 `/api/v1/...` API 경로만 정의하고, 화면(라우트) URL은 정의하지 않았다.
@@ -85,13 +88,15 @@ sync-log 자체에 적혀 있던 "다음 통합 대상"을 처리했다.
   파생값을 채운다)과 일관되게 맞췄다.
 
 **담당자 메모**
--
+- 통합된 3화면은 app 경로가 정본이다. spec 규칙 17을 `/contracts/:contractId/sign`·
+  `/contracts/:contractId/payment`로 맞춘다. `paymentId`는 URL에 넣지 않는다.
+  납품·정산·취소 화면 경로는 아직 app 없어 초안으로 둔다.
 
 ---
 
 ## 항목 4 — [참고] 변형 클래스 표기가 project-management/engagement와 다르다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact**
 - `npm run check:design`이 기존부터(오늘 새로 생긴 게 아니라 `features/contracts-payments/
@@ -111,13 +116,13 @@ sync-log 자체에 적혀 있던 "다음 통합 대상"을 처리했다.
   (조준영·오정훈[reviews] 양쪽 시안을 다시 만들어야 할 수도 있다). 지금은 공존시켰다.
 
 **담당자 메모**
--
+- 공존 인정. 이 기능 시안은 `.btn.primary`를 유지한다. BEM 통일은 팀 논의 후에만 한다.
 
 ---
 
 ## 항목 5 — PG 미설정 시 503으로 먼저 끊는다
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - api-contract.md는 `PG_SECRET_KEY`가 없을 때 결제 준비·확정 API가 어떤 응답을 줘야 하는지
@@ -134,4 +139,6 @@ sync-log 자체에 적혀 있던 "다음 통합 대상"을 처리했다.
   안전하다")과 같은 원칙을 그대로 확장했다.
 
 **담당자 메모**
--
+- prototype은 규칙 9대로 키 없으면 Mock·`keyMissing`을 유지한다. app 공개 결제 POST를
+  503으로 끊는 것은 통합 레이어로 인정한다. `PAYMENT_GATEWAY_NOT_CONFIGURED`는 규칙 8
+  5종에 넣지 않는다. spec 규칙 9에 한 줄로 구분한다.

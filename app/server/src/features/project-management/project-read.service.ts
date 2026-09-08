@@ -15,7 +15,7 @@
  *
  * engagement 는 이 파일을 **직접 import 하지 않는다.** 자기 쪽
  * `bookmark.port.ts` 의 `ProjectReadPort` 만 보고, 두 쪽을 잇는 어댑터는
- * 조립 지점(`app/server/src/app.ts`)에서 만든다 — 기능 폴더 간 직접 import 금지.
+ * 조립 지점(`app/server/src/express-app.ts`)에서 만든다 — 기능 폴더 간 직접 import 금지.
  */
 
 import type { ProjectRepository } from './project.repository';

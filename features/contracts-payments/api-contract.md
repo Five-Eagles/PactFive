@@ -200,14 +200,24 @@
 
 ## POST /internal/v1/projects/:projectId/invalidate-agreement
 
-규칙 15·22. 유동우 → 조준영. 프로젝트 취소 시 합의 `REJECTED`·계약 `CANCELED`.
-서명 감사는 삭제하지 않는다. 멱등 키 `invalidate-{cancellationId}`.
+규칙 15·25. 정본 취소·합의·계약 설계서 v2.0 §8. 유동우 → 조준영.
+프로젝트 취소 시 합의 `REJECTED`·계약 `CANCELED`. restore 호출 없음.
+서명 감사·terms 스냅샷은 삭제·수정하지 않는다. 멱등 키 `invalidate-{cancellationId}`.
+`cancellationEventId`는 `cancellationId` 별칭, `occurredAt`은 `projectCanceledAt` 별칭.
+같은 키·같은 본문(`reason`·취소 시각)은 최초 응답. 같은 키·다른 본문은 409.
+`paymentPendingAt`이 있으면 `409 PROJECT_CANCEL_AFTER_PAYMENT` (원장 변경 없음).
+F11: 공개 필드는 `cancellationId`/`result`. applications `closureEventId`는
+`toApplicationClosureEventId(cancellationId)` 변환만. 새 HTTP 없음.
+`IN_PROGRESS`/`COMPLETED`는 `409 PROJECT_TRANSITION_CONFLICT`.
+이미 무효화면 `alreadyProcessed: true`. 공개 POST 취소는 유동우(경로 `/cancel` vs
+`/cancellations`는 그쪽). 설계서 §12 신설 코드는 쓰지 않는다.
 
 요청:
 
 ```json
 {
-  "cancellationId": "cnl_123", "actorUserId": "usr_client_a",
+  "cancellationId": "cnl_123", "cancellationEventId": "cnl_123",
+  "actorUserId": "usr_client_a",
   "reason": "PROJECT_CANCELED", "projectCanceledAt": "2026-08-27T05:00:00Z",
   "requestId": "req_invalidate_01",
   "idempotencyKey": "invalidate-cnl_123",
@@ -215,11 +225,20 @@
 }
 ```
 
-응답 200: `{ "alreadyProcessed": false, "result": "DONE" }`.
-무효화할 합의·계약이 없으면 `NOT_NEEDED`. 시도 실패는 `FAILED` (D-89).
-같은 `cancellationId`는 최초 `result` + `alreadyProcessed: true`.
+응답 200:
 
-에러: 404. 422.
+```json
+{
+  "projectId": "prj_123", "alreadyProcessed": false, "result": "DONE",
+  "state": "DONE", "agreementStatus": "REJECTED", "contractStatus": "CANCELED",
+  "signaturesPreserved": true, "changed": true
+}
+```
+
+무효화할 합의·계약이 없으면 `NOT_NEEDED`. 시도 실패는 `FAILED` (D-89).
+같은 `cancellationId`는 최초 `result`/`state` + `alreadyProcessed: true`, `changed: false`.
+
+에러: 404. 409 `PROJECT_CANCEL_AFTER_PAYMENT`. 409 `PROJECT_TRANSITION_CONFLICT`. 422.
 
 ---
 
@@ -233,15 +252,22 @@
 의뢰인 최초 제안. 본문 `{ "amount": 900000, "currency": "KRW" }`.
 멱등 키 클라이언트가 생성. 성공: `agreements` 없으면 생성
 (`application_id`, `proposed_by_user_id`=의뢰인, `agreed_amount`=제안액, `PROPOSED`)
-+ offer round 1. Increment 1에서는 의뢰인만. 재제안은 계약에만 있고 이 Increment 테스트 밖.
++ offer round 1. Increment 1에서는 의뢰인만. 재제안은 `counterNegotiationOffer`.
 
 ### GET /api/v1/projects/:projectId/negotiation-offers/current
 
 당사자. 최신 round + 합의 상태 + 있으면 `contractId`·`contractStatus`.
 합의가 없으면 200이고 `offer`·`agreementId`·`contractId`는 `null`(빈 생성).
+`offers`는 라운드 이력(오름차순). `includeHistory` 쿼리·`/agreements/{id}` 5종은 쓰지 않는다.
 AGR-01 우측 컬럼·거절 분기: `projectTitle`, `recruitmentStatus`, `transactionStatus`,
 `canceledAt`, `applicationId`. `reopened`/`notReopenedReason`은 합의 `REJECTED`일 때만
 채우고, 그 외는 `null`.
+
+### POST /api/v1/projects/:projectId/negotiation-offers/:offerId/counter — `counterNegotiationOffer`
+
+최신 offer 수신자만. 본문 `{ "amount": 900000, "currency": "KRW", "expectedRound": 1 }`.
+새 round = 최신 + 1. 합의는 `PROPOSED` 유지. restore·`projectVersion` 증가 없음.
+작성자 재응답은 403 `PROJECT_FORBIDDEN`. 라운드 불일치는 409 `PROJECT_TRANSITION_CONFLICT`.
 
 ### POST /api/v1/projects/:projectId/negotiation-offers/:offerId/accept — `acceptNegotiationOffer`
 
@@ -257,6 +283,8 @@ AGR-01 우측 컬럼·거절 분기: `projectTitle`, `recruitmentStatus`, `trans
 ### GET /api/v1/contracts/:contractId
 
 규칙 20. 당사자. `terms_snapshot`·서명 시각·`status`. PDF 없음.
+CTR-01 우측 컬럼 가설: `projectId`, `workStartDate`, `workEndDate`, `transactionStatus`,
+`canceledAt`, `paymentStatus`. `termsHash`·`availableActions`는 넣지 않는다.
 
 ### POST /api/v1/contracts/:contractId/sign — `signContract`
 
@@ -266,13 +294,31 @@ AGR-01 우측 컬럼·거절 분기: `projectTitle`, `recruitmentStatus`, `trans
 ### POST /api/v1/payments — 결제 준비
 
 규칙 6 이후. 계약 `SIGNED`. ERD NOT NULL 채움(규칙 19): `payment_amount`·수수료·정산액·KRW.
-응답: `{ paymentId, orderId, amount, clientKey }`. `clientKey`는 서버 시크릿이 아님.
+응답: `{ paymentId, orderId, amount, clientKey, orderName, successUrl, failUrl, environment }`.
+`clientKey`는 서버 시크릿이 아님. `environment`는 `SANDBOX`. 프론트는 준비값을 수정하지 않는다.
 `FAILED` 후 재결제는 같은 `paymentId`에 새 `orderId`(I-17).
 
 ### GET /api/v1/payments/:paymentId
 
 규칙 21. 당사자. `paymentId` = `payments.id`. `status` (`READY` \| `PENDING` \| `PAID` \| `FAILED`).
-응답에 현재 `orderId`를 포함한다.
+응답에 현재 `orderId`와 서버 확정 금액 3종(`amount`·`platformFeeAmount`·`settlementAmount`)·
+`projectTitle`·`projectTransactionStatus`·`environment`를 포함한다. `availableActions`는 넣지 않는다.
+
+### GET /api/v1/payments/:paymentId/settlement
+
+정산·수수료 조회 가설. 당사자. 결제 행 + 납품·프로젝트 상태를 조립한다. 설계서 신설
+`SETTLEMENT_*` 코드는 쓰지 않는다. `availableActions`·`viewerRole`은 넣지 않는다.
+응답 금액 3종은 서버 스냅샷이며 화면이 10%를 다시 나누지 않는다. `releasedAt`은
+`RELEASED`일 때만. 내부 Mock `evaluateSettlement`·`simulateSettlementResult`·
+`recoverStuckSettlements`는 브라우저 경로가 아니다 (규칙 24).
+
+### GET /api/v1/projects/:projectId/cancellation
+
+취소 결과 조회 가설. 당사자. 프로젝트 컨텍스트 + 합의·계약 + 마지막 무효화 결과를 조립한다.
+설계서 신설 `CANCEL_*` 코드는 쓰지 않는다. `availableActions`는 넣지 않는다.
+브라우저 공개 POST 취소(A-07)는 유동우. 이 GET은 조립만 한다. `applicationRejection`은 항상
+`NOT_NEEDED`(지원 일괄 거절은 최윤석). `postActions.notification`은 발송 없이
+`NOT_NEEDED`. 실패 시드만 `FAILED`. `FAILED`는 취소 실패가 아니며 202 후처리 화면이다.
 
 ### POST /api/v1/payments/confirm — `confirmPayment`
 
@@ -292,25 +338,31 @@ AGR-01 우측 컬럼·거절 분기: `projectTitle`, `recruitmentStatus`, `trans
 
 ### GET /api/v1/contracts/:contractId/delivery
 
-납품 행이 없으면 200이고 `delivery`는 `null`. 우측 컬럼: `projectTitle`, `transactionStatus`,
-`canceledAt`, `contractStatus`, `agreedAmount`, `paymentStatus`.
+`IN_PROGRESS` 프로젝트는 Delivery 행을 돌려준다. 요청 전 `status`는 `IN_PROGRESS`이고
+`file`·`message`는 null. 우측 컬럼: `projectTitle`, `transactionStatus`, `canceledAt`,
+`contractStatus`, `agreedAmount`, `paymentStatus`.
 파일은 파일명·MIME·size만. `objectKey` 없음. 단기 `downloadUrl`은 당사자 GET에만.
 승인 후 화면은 이 GET을 다시 쳐 `SETTLEMENT_PENDING`/`COMPLETED`를 정한다.
 
 ### POST /api/v1/contracts/:contractId/deliveries/upload-prepare
 
-프리랜서. 제한된 업로드 URL + `objectKey`. 저장소 직접 업로드는 PactFive API가 아니다.
+프리랜서. 본문 `{ "fileName", "contentType", "size", "sha256" }`. 제한된 업로드 URL +
+서버 `objectKey` + `uploadId`. sha256은 `^[0-9a-f]{64}$`. 저장소 직접 업로드는 PactFive API가 아니다.
 
 ### POST /api/v1/contracts/:contractId/deliveries/request — `requestDelivery`
 
-본문 `{ "objectKey", "message" }`. `Idempotency-Key` 필수. 성공 `DELIVERY_REQUESTED` 후
-`publishDeliveryRequested`. 업로드 실패 시 이 API를 부르지 않는다.
+본문 `{ "objectKey", "uploadId", "message" }`. `Idempotency-Key` 필수. 성공
+`DELIVERY_REQUESTED` 후 `publishDeliveryRequested`. 같은 키·같은 본문은 기존 결과
+(`alreadyProcessed: true`). 같은 키·다른 본문 409. 업로드·검사 미완 422.
 
 ### POST /api/v1/contracts/:contractId/deliveries/approve — `approveDelivery`
 
-의뢰인. `DELIVERY_REQUESTED`만. 새 `Idempotency-Key`. 성공 `APPROVED` 후
-`publishDeliveryApproved`. 결제 `RELEASED`일 때만 규칙 4 complete. `PAID`만이면 프로젝트는
-`IN_PROGRESS` 유지.
+의뢰인. `DELIVERY_REQUESTED`만. 새 `Idempotency-Key`. 본문 `{ "expectedVersion"? }`.
+성공 `APPROVED` 후 `publishDeliveryApproved`. F03: 이 호출은 Payment를 잠그지 않는다.
+정산 `evaluateSettlement`는 승인 커밋 후 별 호출. 결제 `RELEASED`이거나
+이후 Mock `simulateSettlementResult(SUCCESS)`가 `RELEASED`로 바꾸면 규칙 4 complete.
+`PAID`만이면 프로젝트는 `IN_PROGRESS` 유지. 이미 `APPROVED`면 최초 `approvedAt` 유지.
+`simulateSettlementReleased`는 I-30 순서 헬퍼이며 실행 원장 가드를 건너뛴다.
 
 ---
 
@@ -395,11 +447,13 @@ type AgreementStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED';
 type ContractStatus = 'DRAFT' | 'SIGNING' | 'SIGNED' | 'CANCELED';
 
 type ProposeNegotiationOfferInput = { amount: number; currency: 'KRW' };
+type CounterNegotiationOfferInput = { amount: number; currency: 'KRW'; expectedRound: number };
 type CurrentNegotiationOfferResponse = {
   projectId: string;
   agreementId: string | null;
   agreementStatus: AgreementStatus | null;
   offer: { offerId: string; round: number; amount: number; currency: 'KRW'; offeredByUserId: string } | null;
+  offers: { offerId: string; round: number; amount: number; currency: 'KRW'; offeredByUserId: string }[];
   contractId: string | null;
   contractStatus: ContractStatus | null;
   projectTitle: string;
@@ -454,9 +508,22 @@ type GetDeliveryResponse = {
   canApprove: boolean;
   canDownload: boolean;
   canReview: boolean;
+  alreadyProcessed?: boolean;
 };
-type RequestDeliveryInput = { objectKey: string; message: string };
-type ApproveDeliveryInput = { expectedVersion?: number };
+type PrepareDeliveryUploadInput = {
+  fileName: string;
+  contentType: string;
+  size: number;
+  sha256: string;
+};
+type PrepareDeliveryUploadResponse = {
+  uploadId: string;
+  uploadUrl: string;
+  objectKey: string;
+  expiresAt: string;
+};
+type RequestDeliveryInput = { objectKey: string; uploadId: string; message: string; idempotencyKey: string };
+type ApproveDeliveryInput = { expectedVersion?: number; idempotencyKey: string };
 type RetrievePaymentResponse = {
   orderId: string;
   amount: number;
@@ -469,28 +536,90 @@ type PaymentGateway = {
 };
 type GetContractResponse = {
   contractId: string;
+  projectId: string;
   status: ContractStatus;
   termsSnapshot: { schemaVersion: 1; amount: number; currency: 'KRW'; projectTitle: string };
+  workStartDate: string;
+  workEndDate: string;
   clientSignedAt: string | null;
   freelancerSignedAt: string | null;
   signedAt: string | null;
+  transactionStatus: ProjectTransactionStatus;
+  canceledAt: string | null;
+  paymentStatus: PaymentStatus | null;
 };
 type GetPaymentResponse = {
   paymentId: string;
+  contractId: string;
   orderId: string;
   amount: number;
+  currency: 'KRW';
+  platformFeeAmount: number;
+  settlementAmount: number;
   status: PaymentStatus;
+  projectTitle: string;
+  projectTransactionStatus: 'CONTRACT_PENDING' | 'IN_PROGRESS' | 'CANCELED';
+  environment: 'SANDBOX';
+};
+type GetSettlementResponse = {
+  paymentId: string;
+  contractId: string;
+  projectId: string;
+  projectTitle: string;
+  environment: 'SANDBOX';
+  provider: 'MANUAL_SIMULATION';
+  currency: 'KRW';
+  paymentAmount: number;
+  platformFeeRateBps: number;
+  platformFeeAmount: number;
+  settlementAmount: number;
+  paymentStatus: PaymentStatus | 'RELEASED';
+  deliveryStatus: DeliveryStatus | null;
+  projectTransactionStatus: 'CONTRACT_PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED';
+  canceledAt: string | null;
+  releasedAt: string | null;
+};
+type SimulateSettlementResultInput = {
+  result: 'SUCCESS' | 'FAILURE' | 'UNKNOWN';
+  idempotencyKey: string;
+};
+type GetCancellationResponse = {
+  projectId: string;
+  projectTitle: string;
+  recruitmentStatus: RecruitmentStatus;
+  transactionStatus: ProjectTransactionStatus;
+  paymentPendingAt: string | null;
+  canceledAt: string | null;
+  acceptedApplicationId: string | null;
+  agreementStatus: 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | null;
+  contractStatus: ContractStatus | null;
+  hasSignatureAudit: boolean;
+  postActions: {
+    applicationRejection: PostActionResult;
+    contractInvalidation: PostActionResult;
+    notification: PostActionResult;
+  } | null;
 };
 type PostActionResult = 'DONE' | 'NOT_NEEDED' | 'FAILED';
 type InvalidateAgreementInput = {
-  cancellationId: string;
+  cancellationId?: string;
+  cancellationEventId?: string;
   actorUserId: string;
   reason: 'PROJECT_CANCELED';
-  projectCanceledAt: string;
+  projectCanceledAt?: string;
+  requestId: string;
+  idempotencyKey: string;
+  occurredAt?: string;
 };
 type InvalidateAgreementResponse = {
   alreadyProcessed: boolean;
   result: PostActionResult;
+  state: PostActionResult;
+  projectId: string;
+  agreementStatus: 'REJECTED' | null;
+  contractStatus: 'CANCELED' | null;
+  signaturesPreserved: boolean;
+  changed: boolean;
 };
 
 type DomainContractErrorBody = {
@@ -500,6 +629,7 @@ type DomainContractErrorBody = {
       | 'PROJECT_TRANSITION_CONFLICT'
       | 'PROJECT_VERSION_CONFLICT'
       | 'PROJECT_ALREADY_RESTORED'
+      | 'PROJECT_CANCEL_AFTER_PAYMENT'
       | 'VALIDATION_ERROR';
     message: string;
     details: null | Array<{ field: string; reason: string }>;

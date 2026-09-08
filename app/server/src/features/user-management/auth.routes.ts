@@ -9,10 +9,10 @@ import type { AllowedOrigins, AuthSessionService } from "./auth.service";
  * export한다. sample-login처럼 `export default router` 하나로 끝낼 수 없는 이유: 이 서비스는
  * Supabase 포트(`AuthProvider`)·저장소(`AuthRepositories`)·비밀 키를 생성자 주입받는 구조라
  * (ADR-0009 조립 지점 원칙) 라우터 생성 시점에 이미 완성된 `AuthSessionService` 인스턴스가
- * 필요하다. 조립은 `app/server/src/app.ts`에서 한 곳만 한다.
+ * 필요하다. 조립은 `app/server/src/express-app.ts`에서 한 곳만 한다.
  *
  * 경로는 `docs/naming-convention.md` §7과 원본 api-contract.md를 그대로 따른다 — 전부
- * `/api/v1/auth/...` 절대 경로이므로 app.ts는 `app.use(createAuthRouter(...))`처럼 prefix 없이
+ * `/api/v1/auth/...` 절대 경로이므로 express-app.ts는 `app.use(createAuthRouter(...))`처럼 prefix 없이
  * 마운트한다.
  *
  * 2026-08-28 통합: 두 번째 인자가 `string`에서 `AllowedOrigins`(문자열 또는 문자열 배열)로

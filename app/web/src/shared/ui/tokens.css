@@ -138,17 +138,30 @@ body {
   padding: 0 24px;
 }
 
+/* 2026-09-08 — 대표 페이지 헤더(.home-hdr, home.css)와 크기·톤을 통일했다(팀장 결정,
+ * feedback_loop/2026-09-04/project-management.md 항목 1 "미확인" 후속). 로고 두 줄 색 분리는
+ * AppShell.tsx가 "Pact<em>Five</em>"로 렌더해야 아래 em 규칙이 먹는다.
+ * 페이지 폭(1120px vs 대표 페이지의 --page-w=1412px) 자체는 이번에 안 건드렸다 — body-pad를
+ * 공유하는 다른 기능 화면 전부에 영향이 가는 별도 결정이라 팀장 확인 후로 미룬다. */
 .frame > header .logo {
+  font-size: 28px;
   font-weight: 800;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.05em;
+  white-space: nowrap;
   color: var(--content);
   text-decoration: none;
 }
 
+.frame > header .logo em {
+  font-style: normal;
+  color: var(--action);
+}
+
 .frame > header nav {
   display: flex;
-  gap: 24px;
-  font-size: 14px;
+  gap: 32px;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--content-secondary);
 }
 

@@ -58,6 +58,45 @@
 //   (Trust by Evidence 원칙 위반)를 막기 위한 컬럼 — 코드(`ProjectRecord.budgetSource`)엔
 //   이미 있고 Mock 기준으로 끝까지 동작을 확인했다. 이번에 정식 컬럼으로 승격했다.
 //
+// [PRISMA-GAP-5] pricing_analyses 5개 컬럼 nullable/신설 정정 — 2026-09-04 ERD에도 정식
+//   반영됨(E-32·E-34·E-35·E-37, ai-pricing CR-AP-001·004·005·006 채택)
+//   오민혁의 ai-pricing Step 2(동기식 MVP) 프로토타입(`pricing-analysis.types.ts`,
+//   in-memory 저장소)이 이미 이 모양(결과 nullable discriminated union, 실패 스냅샷,
+//   요청자별 복합 멱등키, fingerprint 스키마 버전)으로 구현·테스트돼 있었다 —
+//   PRISMA-GAP-1~4와 같은 성격의 "코드가 맞고 정본이 뒤처진" 정정이다.
+//
+// [PRISMA-GAP-6] pricing_application_receipts 테이블 신설 — 2026-09-04 ERD에도 정식
+//   반영됨(E-33·E-36, CR-AP-003 단순화 채택)
+//   기존 프로젝트에 AI 추천 예산을 적용할 때 project-management(projects.budget_amount)와
+//   ai-pricing(pricing_analyses.applied_at/project_id)이 함께 바뀐다. CR 원안은 saga/outbox
+//   보상 경계까지 요구했지만, 두 도메인이 이 파일 하나(같은 Postgres DB) 위에 있어 단일
+//   Prisma $transaction으로 충분하다고 판단해 단순화했다(팀장 판단) — 적용 멱등 결과만
+//   이 신설 테이블에 원자적으로 함께 저장한다.
+//
+// [PRISMA-GAP-7] auth_sessions.provider_session_id 컬럼 신설 — 2026-09-07, ERD 아직 미반영
+//   물리 마이그레이션 준비 중(인메모리→Prisma 어댑터 교체, 팀장 작업) 발견. AuthSessionRecord
+//   (auth.types.ts)와 InMemoryAuthRepository는 Supabase 쪽 세션 식별자(providerSessionId)로
+//   "현재 활성 세션 충돌 검사"(createSession)와 "OAuth 콜백 완료 후 세션 조회"
+//   (findActiveByProviderSessionId)를 수행하는데, 이 컬럼이 ERD·기존 schema.prisma
+//   어디에도 없었다 — refresh_token_hash만으로는 이 두 조회를 대체할 수 없다(리프레시
+//   전 발급 직후 시점엔 아직 없음). PRISMA-GAP-1~4와 같은 성격의 "코드가 맞고 정본이
+//   뒤처진" 사례. 전역 UNIQUE가 아니라 **활성 세션 한정 부분 유니크**가 맞다 — 같은
+//   providerSessionId가 로그아웃(revoked) 이후 재로그인으로 재사용될 수 있기 때문
+//   (InMemoryAuthRepository.createSession의 activeConflict 조건이 `revokedAt === null`
+//   범위로만 검사하는 것과 동일). 부분 유니크 인덱스는 파일 맨 끝 부록에 추가했다.
+//   ERD(dbml/html) 반영은 다음 정본 동기화 때 처리 — app/server/prisma/schema.prisma가
+//   이번에도 코드 우선으로 앞서 나간 상태다.
+//
+// [PRISMA-GAP-8] oauth_nonces 테이블 신설 — 2026-09-07, ERD 아직 미반영
+//   AuthRepositories.consumeOAuthNonce(auth.repository.ts)는 OAuth 콜백 완료
+//   (completeOAuthCallback)·취소 흐름에서 같은 OAuth intent가 두 번 소비되는 걸 막는
+//   재사용 방지 저장소다(auth.service.ts:625, 1095) — 로그인 콜백 경로의 보안 통제라
+//   PRISMA-GAP-3(registration_intents)처럼 임시로 인메모리에 남겨두면 서버리스 인스턴스가
+//   갈릴 때 재사용 방지가 간헐적으로 무력화될 위험이 있어(팀장 판단으로) 이번에 같이
+//   테이블화했다. registration_intents와 같은 성격 — 거래 이력이 아니므로 물리 삭제
+//   가능, 만료된 행은 주기적으로 청소해도 무방하다(현재는 자동 청소 없음 — TTL 기반
+//   배치/크론은 미구현, 필요해지면 별도 작업).
+//
 // ─────────────────────────────────────────────────────────────────────
 // 2026-09-04 확인 완료 — ADR-0008 근거로 해결됨 (재확인 필요 목록에서 이동)
 // ─────────────────────────────────────────────────────────────────────
@@ -108,13 +147,26 @@
 // "부록 — 마이그레이션에 수동으로 추가해야 하는 제약" 참고.
 // =====================================================================
 
+// 2026-09-07: "prisma-client-js"(구, node_modules 생성 + 네이티브 쿼리 엔진 바이너리)
+// 대신 신형 "prisma-client" 제너레이터를 쓴다. Vercel 서버리스에서 배포 OS별
+// binaryTargets를 맞춰야 하는 문제 자체가 없다 — @prisma/adapter-pg(순수 JS pg 드라이버)
+// 위에서 동작해서 네이티브 바이너리가 필요 없다. importFileExtension="ts"는 로컬
+// `npm run dev`(tsx watch)가 생성 코드의 .js import를 못 찾는 문제를 피하기 위함
+// (Prisma 공식 문서 권고).
 generator client {
-  provider = "prisma-client-js"
+  provider             = "prisma-client"
+  output               = "../src/generated/prisma"
+  moduleFormat         = "esm"
+  importFileExtension  = "ts"
 }
 
+// 2026-09-07 정정: Prisma 7부터 datasource의 url/directUrl을 schema.prisma에 못 쓴다
+// (P1012 — "no longer supported in schema files"). CLI(generate/migrate)용 연결
+// 문자열은 이제 app/server/prisma.config.ts의 datasource.url이 정본이다. 런타임
+// PrismaClient는 여전히 shared/prisma-client.ts가 DATABASE_URL을 @prisma/adapter-pg에
+// 직접 넘겨서 쓴다(이건 v7에서도 그대로 지원 — "adapter" 패턴 자체는 안 바뀜).
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -310,6 +362,7 @@ model User {
   reviewsGiven          Review[]             @relation("ReviewReviewer")
   reviewsReceived       Review[]             @relation("ReviewReviewee")
   pricingAnalyses        PricingAnalysis[]
+  pricingApplicationReceipts PricingApplicationReceipt[]
 
   @@unique([oauthProvider, oauthSubject], name: "uq_users_oauth")
   @@index([role])
@@ -337,6 +390,9 @@ model RegistrationIntent {
 model AuthSession {
   id                  String    @id @db.VarChar(30)
   userId              String    @map("user_id") @db.VarChar(30)
+  /// [PRISMA-GAP-7] Supabase 쪽 세션 식별자. 전역 UNIQUE 아님 — 활성 세션(revoked_at IS
+  /// NULL) 한정 부분 유니크를 마이그레이션 SQL에 수동 추가한다(파일 맨 끝 부록 참고).
+  providerSessionId  String    @map("provider_session_id") @db.VarChar(64)
   refreshTokenHash    String    @unique @map("refresh_token_hash") @db.VarChar(255)
   previousTokenHash   String?   @map("previous_token_hash") @db.VarChar(255)
   deviceLabel         String?   @map("device_label") @db.VarChar(100)
@@ -350,8 +406,20 @@ model AuthSession {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId, revokedAt], name: "ix_auth_sessions_user")
+  @@index([providerSessionId], name: "ix_auth_sessions_provider_session")
   @@index([expiresAt])
   @@map("auth_sessions")
+}
+
+/// [PRISMA-GAP-8] ERD 19종에 없던 신설 테이블 — 위 설명 참고. 거래 이력이 아니므로
+/// 물리 삭제를 허용한다(consumeOAuthNonce가 성공 소비 시 굳이 지우진 않지만, 만료
+/// 행 정리는 나중에 배치로 추가할 수 있다).
+model OAuthNonce {
+  nonce     String   @id @db.VarChar(100)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("oauth_nonces")
 }
 
 model ClientProfile {
@@ -464,6 +532,7 @@ model Project {
   contracts      Contract[]
   reviews        Review[]
   pricingAnalyses PricingAnalysis[]
+  pricingApplicationReceipts PricingApplicationReceipt[]
 
   @@index([recruitmentStatus, recruitmentDeadlineAt], name: "ix_projects_recruit")
   @@index([clientId, createdAt])
@@ -736,15 +805,25 @@ model PricingAnalysis {
   projectId             String?                     @map("project_id") @db.VarChar(30)
 
   inputSnapshot         Json                        @map("input_snapshot")
-  recommendedAmount     Int                         @map("recommended_amount")
-  breakdown             Json
+  /// [PRISMA-GAP-5] E-32 (CR-AP-001): PENDING/REJECTED엔 결과가 없다. NOT NULL → nullable.
+  recommendedAmount     Int?                        @map("recommended_amount")
+  /// [PRISMA-GAP-5] E-32 (CR-AP-001): 위와 동일.
+  breakdown             Json?
 
   modelName             String?                     @map("model_name") @db.VarChar(50)
   promptVersion          String?                     @map("prompt_version") @db.VarChar(20)
   resultSchemaVersion     String?                     @map("result_schema_version") @db.VarChar(20)
   failureCode              String?                     @map("failure_code") @db.VarChar(50)
-  idempotencyKey            String                      @unique @map("idempotency_key") @db.VarChar(100)
-  requestFingerprint        String?                     @map("request_fingerprint") @db.VarChar(64)
+  /// [PRISMA-GAP-5] E-34 (CR-AP-004) 신설. REJECTED exact replay용 최초 공개 실패 사본.
+  failureSnapshot           Json?                       @map("failure_snapshot")
+  /// [PRISMA-GAP-5] E-34 (CR-AP-004) 신설. REJECTED에서만 NOT NULL, 502|504.
+  failureHttpStatus         Int?                        @map("failure_http_status") @db.SmallInt
+  /// [PRISMA-GAP-5] E-35 (CR-AP-005): unique 범위를 요청자별 복합으로 변경 — 아래 @@index 참고.
+  idempotencyKey            String                      @map("idempotency_key") @db.VarChar(100)
+  /// [PRISMA-GAP-5] E-37 (CR-AP-006): 매 생성 시 항상 계산되므로 nullable → NOT NULL.
+  requestFingerprint        String                      @map("request_fingerprint") @db.VarChar(64)
+  /// [PRISMA-GAP-5] E-37 (CR-AP-006) 신설. requestFingerprint 계산 규칙 버전.
+  inputFingerprintSchemaVersion String                  @map("input_fingerprint_schema_version") @db.VarChar(20)
 
   reviewStatus           PricingAnalysisReviewStatus @default(PENDING) @map("review_status")
   reviewedAt              DateTime?                   @map("reviewed_at")
@@ -755,10 +834,40 @@ model PricingAnalysis {
 
   requester User     @relation(fields: [requesterId], references: [id])
   project   Project? @relation(fields: [projectId], references: [id])
+  applicationReceipts PricingApplicationReceipt[]
 
   @@index([requesterId, createdAt])
   @@index([projectId])
+  @@unique([requesterId, idempotencyKey], map: "uq_pricing_analyses_requester_idempotency")
   @@map("pricing_analyses")
+}
+
+/// [PRISMA-GAP-6] E-36 (CR-AP-003 단순화 채택) 신설 — 21번째 엔티티.
+/// 기존 프로젝트에 AI 추천 예산을 적용(POST /pricing-analyses/:id/apply)할 때의 멱등 결과
+/// 저장소. 분석 생성 멱등(PricingAnalysis.idempotencyKey)과는 작업·키 범위가 달라 분리했다.
+/// 이 행 저장과 PricingAnalysis.appliedAt/projectId 갱신, Project.budgetAmount 갱신은
+/// 같은 Prisma $transaction으로 함께 commit/rollback한다 — ai-pricing과 project-management가
+/// 같은 DB를 쓰므로 saga/outbox 없이 단일 트랜잭션으로 충분하다고 판단했다(ERD E-33).
+model PricingApplicationReceipt {
+  id                  String   @id @db.VarChar(30)
+  operation           String   @db.VarChar(30)
+  actorUserId         String   @map("actor_user_id") @db.VarChar(30)
+  idempotencyKey      String   @map("idempotency_key") @db.VarChar(100)
+  pricingAnalysisId   String   @map("pricing_analysis_id") @db.VarChar(30)
+  projectId           String   @map("project_id") @db.VarChar(30)
+  requestFingerprint  String   @map("request_fingerprint") @db.VarChar(64)
+  httpStatus          Int      @map("http_status") @db.SmallInt
+  responseBody        Json     @map("response_body")
+  processedAt         DateTime @map("processed_at")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  actor           User             @relation(fields: [actorUserId], references: [id])
+  pricingAnalysis PricingAnalysis  @relation(fields: [pricingAnalysisId], references: [id])
+  project         Project          @relation(fields: [projectId], references: [id])
+
+  @@unique([actorUserId, idempotencyKey], map: "uq_pricing_application_receipts_actor_idempotency")
+  @@index([pricingAnalysisId])
+  @@map("pricing_application_receipts")
 }
 
 // =====================================================================
@@ -771,7 +880,9 @@ model PricingAnalysis {
 //
 //  projects        : I-04, I-08, I-28, budget_amount>0, title/description 길이,
 //                     pending_application_count>=0, project_version>=1
-//  auth_sessions    : expires_at>issued_at, revoked_at/revoked_reason 페어링
+//  auth_sessions    : expires_at>issued_at, revoked_at/revoked_reason 페어링,
+//                     uq_auth_sessions_active_provider_session(부분 유니크,
+//                     provider_session_id WHERE revoked_at IS NULL — PRISMA-GAP-7)
 //  negotiation_offer: offered_amount>0, round>=1
 //  applications     : uq_applications_one_accepted(부분 유니크, I-10),
 //                     expected_amount>0, expected_duration_days>0
@@ -783,8 +894,11 @@ model PricingAnalysis {
 //  users            : uq_users_email_active(부분 유니크 — email UNIQUE 컬럼 제약 대체)
 //  client_profiles  : business_field='ETC' ⇔ business_field_etc 페어링(E-14)
 //  skills           : uq_skills_official_name_key / uq_skills_custom_name_key(부분 유니크)
-//  pricing_analyses : recommended_amount>0, review_status⇔reviewed_at 페어링,
-//                     applied_at IS NULL OR review_status='APPROVED'
+//  pricing_analyses : recommended_amount IS NULL OR recommended_amount>0,
+//                     상태별 결과/실패/reviewed_at 조합 CHECK(E-32, CR-AP-001 — 상세는 ERD 부록),
+//                     applied_at IS NULL OR review_status='APPROVED',
+//                     uq_pricing_analyses_requester_idempotency는 @@unique로 이미 반영됨(E-35)
+//  pricing_application_receipts : http_status IN (200, 409) (E-36, CR-AP-003)
 //
 //  권한 회수(E-16, 오민혁 MUST) — 앱 실행 role에서:
 //    REVOKE UPDATE, DELETE ON reviews FROM app_role;

@@ -7,89 +7,357 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
 <link rel="stylesheet" href="_tokens.css" />
 <link rel="stylesheet" href="panel.css" />
+<style>
+  body { padding-inline: 0; }
+  .meta, .required { max-width: 1200px; margin-inline: auto; padding-inline: 32px; }
+  @media (max-width: 1000px) {
+    .meta, .required { padding-inline: 16px; }
+  }
+</style>
 </head>
 <body>
 
 <div class="meta">
   <h1>계약 서명</h1>
-  <p>패널만 · 앱 셸 없음 · /projects/:projectId/contracts/:contractId · design-system v1.0 · 규칙 17</p>
+  <p>페이지 본문 · 앱 셸 없음 · 8:4 그리드 · /projects/:projectId/contracts/:contractId · 규칙 17</p>
   <span class="fi">high-fi</span>
 </div>
 
 <section class="screen">
-  <div class="id">서명하기 · 조건 근거</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">계약 서명</h2>
+  <div class="id">미서명 · READY_TO_SIGN</div>
+  <article class="contract-page has-fixed-cta">
+    <header class="contract-page-head">
+      <div class="contract-page-head-copy">
+        <h2 class="page-title">계약 서명</h2>
+        <p class="contract-page-links"><a href="#project">프로젝트</a></p>
+      </div>
       <span class="badge neutral">작성 중</span>
-    </div>
-    <p class="status-copy">합의된 조건입니다. 내용을 확인한 뒤 <strong>서명하기</strong>를 누르면 이 계약에 동의합니다. 상대도 같은 조건에 서명해야 결제가 시작됩니다.</p>
-    <dl class="facts">
-      <dt>프로젝트 제목</dt>
-      <dd>쇼핑몰 웹사이트 구축</dd>
-      <dt>합의 금액</dt>
-      <dd><span class="money">1,000,000원</span></dd>
-    </dl>
-    <p class="helper">서명 뒤에는 이 금액을 바꿀 수 없습니다.</p>
-    <div class="btn-row">
-      <button type="button" class="btn primary">서명하기</button>
+    </header>
+    <div class="contract-grid">
+      <div class="contract-main">
+        <section class="panel">
+          <p class="status-copy" role="status">합의된 조건입니다. 내용을 확인한 뒤 <strong>서명하기</strong>를 누르면 이 계약에 동의합니다. 상대도 같은 조건에 서명해야 결제가 시작됩니다.</p>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>합의 금액</dt>
+            <dd><span class="money">1,000,000원</span></dd>
+            <dt>작업 기간</dt>
+            <dd>2026-09-03 ~ 2026-09-30</dd>
+          </dl>
+          <p class="helper">이 서명은 플랫폼 내부 전자 동의입니다. 공증이나 공인전자서명을 뜻하지 않습니다.</p>
+        </section>
+      </div>
+      <aside class="contract-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">서명 현황</h3>
+          <ol class="progress-steps">
+            <li><span>의뢰인</span><span>서명 전</span></li>
+            <li><span>프리랜서</span><span>서명 전</span></li>
+          </ol>
+        </section>
+        <section class="panel" id="project">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>거래</dt>
+            <dd>계약 대기</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김프리</p>
+          <p class="caption">프리랜서</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>서명 뒤에는 이 금액을 바꿀 수 없습니다.</li>
+            <li>누구나 먼저 서명할 수 있습니다.</li>
+          </ul>
+        </section>
+      </aside>
+      <div class="contract-cta-bar btn-row">
+        <button type="button" class="btn primary">서명하기</button>
+      </div>
     </div>
   </article>
 </section>
 
 <section class="screen">
-  <div class="id">상대 서명 대기</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">계약 서명</h2>
+  <div class="id">상대 서명 대기 · WAITING_COUNTERPART</div>
+  <article class="contract-page">
+    <header class="contract-page-head">
+      <div class="contract-page-head-copy">
+        <h2 class="page-title">계약 서명</h2>
+        <p class="contract-page-links"><a href="#project">프로젝트</a></p>
+      </div>
       <span class="badge warning">서명 중</span>
+    </header>
+    <div class="contract-grid">
+      <div class="contract-main">
+        <section class="panel">
+          <p class="status-copy" role="status">내 서명은 완료되었습니다. <strong>상대방의 서명</strong>을 기다리는 중입니다. 양쪽이 서명하면 결제로 넘어갑니다.</p>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>합의 금액</dt>
+            <dd><span class="money">1,000,000원</span></dd>
+            <dt>작업 기간</dt>
+            <dd>2026-09-03 ~ 2026-09-30</dd>
+          </dl>
+          <p class="helper">이 서명은 플랫폼 내부 전자 동의입니다. 공증이나 공인전자서명을 뜻하지 않습니다.</p>
+        </section>
+      </div>
+      <aside class="contract-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">서명 현황</h3>
+          <ol class="progress-steps">
+            <li><span>의뢰인</span><span>서명 전</span></li>
+            <li class="done"><span>프리랜서</span><span>서명 완료 · 2026-09-03</span></li>
+          </ol>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>거래</dt>
+            <dd>계약 대기</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김의뢰</p>
+          <p class="caption">의뢰인</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>서명은 한 번만 기록됩니다. 상대가 서명할 때까지 기다려 주세요.</li>
+          </ul>
+        </section>
+      </aside>
     </div>
-    <p class="status-copy">내 서명은 완료되었습니다. <strong>상대방의 서명</strong>을 기다리는 중입니다. 양쪽이 서명하면 결제로 넘어갑니다.</p>
-    <dl class="facts">
-      <dt>프로젝트 제목</dt>
-      <dd>쇼핑몰 웹사이트 구축</dd>
-      <dt>합의 금액</dt>
-      <dd><span class="money">1,000,000원</span></dd>
-    </dl>
-    <p class="helper">서명은 한 번만 기록됩니다. 상대가 서명할 때까지 기다려 주세요.</p>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">M01 서명 확인</div>
+  <div class="overlay-demo">
+    <div class="overlay-backdrop open" aria-hidden="false">
+      <div class="dialog dialog-md" role="dialog" aria-modal="true" aria-labelledby="m01-title">
+        <h2 class="title" id="m01-title">계약 내용에 동의하고 서명할까요?</h2>
+        <p class="status-copy">쇼핑몰 웹사이트 구축, 금액 <strong class="money">1,000,000원</strong>, 기간 2026-09-03 ~ 2026-09-30.</p>
+        <label class="choice"><input type="checkbox" name="consent" /><span>본인이 계약 당사자이며 현재 표시된 내용에 동의합니다</span></label>
+        <div class="btn-row">
+          <button type="button" class="btn quiet">계약서 다시 보기</button>
+          <button type="button" class="btn primary" disabled>동의하고 서명하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen">
+  <div class="id">의뢰인 결제 필요 · SIGNED_PAYMENT_REQUIRED</div>
+  <article class="contract-page has-fixed-cta">
+    <header class="contract-page-head">
+      <div class="contract-page-head-copy">
+        <h2 class="page-title">계약 서명</h2>
+        <p class="contract-page-links"><a href="#project">프로젝트</a></p>
+      </div>
+      <span class="badge success">체결</span>
+    </header>
+    <div class="contract-grid">
+      <div class="contract-main">
+        <section class="panel">
+          <p class="status-copy" role="status">양측 서명이 끝났습니다. <strong>결제</strong>가 끝나야 작업이 시작됩니다.</p>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>합의 금액</dt>
+            <dd><span class="money">1,000,000원</span></dd>
+            <dt>작업 기간</dt>
+            <dd>2026-09-03 ~ 2026-09-30</dd>
+          </dl>
+          <p class="helper">이 서명은 플랫폼 내부 전자 동의입니다. 공증이나 공인전자서명을 뜻하지 않습니다.</p>
+        </section>
+      </div>
+      <aside class="contract-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">서명 현황</h3>
+          <ol class="progress-steps">
+            <li class="done"><span>의뢰인</span><span>서명 완료 · 2026-09-03</span></li>
+            <li class="done"><span>프리랜서</span><span>서명 완료 · 2026-09-03</span></li>
+          </ol>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>거래</dt>
+            <dd>계약 대기</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김프리</p>
+          <p class="caption">프리랜서</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>결제가 끝나야 작업이 시작됩니다. 체결만으로 작업을 시작하지 않습니다.</li>
+          </ul>
+        </section>
+      </aside>
+      <div class="contract-cta-bar btn-row">
+        <button type="button" class="btn primary">결제하기</button>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">M02 체결 완료</div>
+  <div class="overlay-demo">
+    <div class="overlay-backdrop open" aria-hidden="false">
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="m02-title">
+        <h2 class="title" id="m02-title">양측 서명이 완료되었습니다</h2>
+        <p class="status-copy">2026-09-03에 체결되었습니다. 체결만으로 작업이 시작되지 않습니다.</p>
+        <div class="btn-row">
+          <button type="button" class="btn quiet">닫기</button>
+          <button type="button" class="btn primary">결제하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen">
+  <div class="id">작업 중 · IN_PROGRESS</div>
+  <article class="contract-page">
+    <header class="contract-page-head">
+      <div class="contract-page-head-copy">
+        <h2 class="page-title">계약 서명</h2>
+        <p class="contract-page-links"><a href="#project">프로젝트</a></p>
+      </div>
+      <span class="badge success">체결</span>
+    </header>
+    <div class="contract-grid">
+      <div class="contract-main">
+        <section class="panel">
+          <p class="status-copy" role="status">계약과 결제가 끝났습니다. 이 거래는 <strong>작업 중</strong>입니다.</p>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>합의 금액</dt>
+            <dd><span class="money">1,000,000원</span></dd>
+            <dt>작업 기간</dt>
+            <dd>2026-09-03 ~ 2026-09-30</dd>
+          </dl>
+          <div class="btn-row after-offer">
+            <button type="button" class="btn primary">프로젝트 확인</button>
+          </div>
+          <p class="helper">이 서명은 플랫폼 내부 전자 동의입니다. 공증이나 공인전자서명을 뜻하지 않습니다.</p>
+        </section>
+      </div>
+      <aside class="contract-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">서명 현황</h3>
+          <ol class="progress-steps">
+            <li class="done"><span>의뢰인</span><span>서명 완료 · 2026-09-03</span></li>
+            <li class="done"><span>프리랜서</span><span>서명 완료 · 2026-09-03</span></li>
+          </ol>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>계약과 결제가 모두 끝난 뒤에만 작업을 시작합니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
   </article>
 </section>
 
 <section class="screen">
   <div class="id">불러오는 중</div>
-  <article class="panel" aria-busy="true">
-    <div class="panel-head">
-      <h2 class="title">계약 서명</h2>
+  <article class="contract-page" aria-busy="true">
+    <header class="contract-page-head">
+      <div class="contract-page-head-copy">
+        <h2 class="page-title">계약 서명</h2>
+      </div>
+    </header>
+    <div class="contract-grid">
+      <div class="contract-main">
+        <section class="panel">
+          <p class="helper">계약 내용을 불러오는 중입니다.</p>
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+        </section>
+      </div>
+      <aside class="contract-side">
+        <section class="panel"><div class="skeleton"></div></section>
+      </aside>
     </div>
-    <p class="helper">계약 내용을 불러오는 중입니다.</p>
-    <div class="skeleton"></div>
-    <div class="skeleton"></div>
   </article>
 </section>
 
 <section class="screen">
   <div class="id">불러오기 실패</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">계약 서명</h2>
-    </div>
-    <p class="notice danger" role="alert">계약 내용을 불러오지 못했습니다</p>
-    <p class="status-copy">네트워크를 확인한 뒤 다시 시도해 주세요.</p>
-    <div class="btn-row">
-      <button type="button" class="btn primary">다시 시도</button>
+  <article class="contract-page">
+    <header class="contract-page-head">
+      <div class="contract-page-head-copy">
+        <h2 class="page-title">계약 서명</h2>
+      </div>
+    </header>
+    <div class="contract-grid">
+      <div class="contract-main">
+        <section class="panel">
+          <p class="notice danger" role="alert">계약 내용을 불러오지 못했습니다</p>
+          <p class="status-copy">네트워크를 확인한 뒤 다시 시도해 주세요.</p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">다시 시도</button>
+          </div>
+        </section>
+      </div>
+      <aside class="contract-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes"><li>다시 불러온 뒤 이어서 진행할 수 있습니다.</li></ul>
+        </section>
+      </aside>
     </div>
   </article>
 </section>
 
 <section class="screen">
   <div class="id">취소 안내</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">계약 서명</h2>
+  <article class="contract-page">
+    <header class="contract-page-head">
+      <div class="contract-page-head-copy">
+        <h2 class="page-title">계약 서명</h2>
+      </div>
       <span class="badge danger">무효</span>
+    </header>
+    <div class="contract-grid">
+      <div class="contract-main">
+        <section class="panel">
+          <p class="notice danger" role="alert">프로젝트가 취소되었습니다</p>
+          <p class="status-copy">서명을 진행할 수 없습니다. 이 계약은 더 이상 유효하지 않습니다.</p>
+        </section>
+      </div>
+      <aside class="contract-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes"><li>취소된 프로젝트에서는 서명할 수 없습니다.</li></ul>
+        </section>
+      </aside>
     </div>
-    <p class="notice danger" role="alert">프로젝트가 취소되었습니다</p>
-    <p class="status-copy">서명을 진행할 수 없습니다. 이 계약은 더 이상 유효하지 않습니다.</p>
   </article>
 </section>
 
@@ -103,6 +371,9 @@
       <tr><td rowspan="3">서명</td><td>라벨</td><td>프로젝트 제목</td></tr>
       <tr><td>라벨</td><td>합의 금액</td></tr>
       <tr><td>버튼</td><td>서명하기</td></tr>
+      <tr><td>M01</td><td>제목</td><td>계약 내용에 동의하고 서명할까요?</td></tr>
+      <tr><td>M02</td><td>제목</td><td>양측 서명이 완료되었습니다</td></tr>
+      <tr><td>결제 필요</td><td>버튼</td><td>결제하기</td></tr>
       <tr><td>취소</td><td>안내</td><td>프로젝트가 취소되었습니다</td></tr>
       <tr><td>불러오는 중</td><td>안내</td><td>계약 내용을 불러오는 중입니다.</td></tr>
       <tr><td rowspan="2">불러오기 실패</td><td>안내</td><td>계약 내용을 불러오지 못했습니다</td></tr>
@@ -110,8 +381,8 @@
     </tbody>
   </table>
   <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
-  제목·금액 숫자(데이터). 취소 화면에는 서명하기가 <strong>없어야</strong> 한다.
-  취소 문구는 PRD §14.9 정본.</p>
+  제목·금액 숫자(데이터). 취소·대기·작업 중 화면에는 서명하기가 <strong>없어야</strong> 한다.
+  <code>SIGNED</code>만으로 작업 시작을 표시하지 않는다. 권한 없음 화면에는 금액을 넣지 않는다.</p>
 </section>
 
 </body>

@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, setAuthTokenProvider } from '../../shared/http';
-import type { AuthenticatedSessionResponse, OAuthProvider } from './auth.types';
+import type {
+  AuthenticatedSessionResponse,
+  CompleteRegistrationInput,
+  OAuthProvider,
+  RegisterInput,
+  UserRole,
+} from './auth.types';
 import {
+  completeRegistration as completeRegistrationRequest,
+  confirmEmail as confirmEmailRequest,
   createAuthSession,
   createOAuthAuthorization,
   deleteCurrentAuthSession,
   getCurrentAuthContext,
   refreshAuthSession,
+  registerAccount,
   requestEmailConfirmation,
 } from './api/auth';
 
@@ -17,7 +26,11 @@ import {
  * `api/{도메인}.ts`가 보호 API를 호출할 때도 이 훅이 관리하는 accessToken을 자동으로 쓴다.
  */
 export type AuthViewState =
-  | { status: 'anonymous'; message: string | null; action: null | 'RESEND' | 'COMPLETE_REGISTRATION' }
+  | {
+      status: 'anonymous';
+      message: string | null;
+      action: null | 'RESEND' | 'COMPLETE_REGISTRATION' | 'LOGOUT';
+    }
   | { status: 'restoring'; message: null; action: null }
   | { status: 'submitting'; message: null; action: null }
   | { status: 'authenticated'; message: null; action: null; session: AuthenticatedSessionResponse }
@@ -34,6 +47,58 @@ export function getAccessTokenInMemory(): string | null {
 
 export function clearAccessTokenInMemory(): void {
   accessTokenInMemory = null;
+}
+
+// --- 로컬 개발 전용 mock 로그인 토글 (2026-09-07) ---------------------------------------
+//
+// 로컬 `npm run dev`는 app/server의 `AUTH_PROVIDER_MODE`가 기본값으로 `mock`이고(그 모드의
+// `requireAuth`는 `app/server/src/features/user-management/auth.mock.ts`가 정의한 고정 토큰
+// 두 개만 인정한다), 실제 로그인 화면을 통과해도 거기서 발급되는 토큰(`mock-access-N`)은 이
+// 고정 토큰과 다르므로 보호된 API가 여전히 401을 낸다 — 로그인 화면 자체가 로컬 테스트에
+// 쓸모가 없다는 뜻이다. 그래서 화면 전환 없이 이 고정 토큰으로 바로 갈아 끼우는 토글을 뒀다.
+//
+// 아래 두 값(토큰·userId)은 auth.mock.ts를 그대로 미러링한 것이다 — 서버 쪽 값이 바뀌면
+// 여기도 같이 고쳐야 한다(app/web은 app/server를 import하지 않으므로 자동으로 안 맞춰진다,
+// contract.types.ts가 public-api.types.ts를 그대로 미러링하는 것과 같은 이유·같은 위험).
+//
+// 프로덕션 빌드에서는 죽는다 — `import.meta.env.DEV`는 Vite가 빌드 시점에 상수로 치환해
+// 죽은 코드로 접히므로, `DevAuthToggle`을 렌더하는 조건문(App.tsx)과 함께 번들에서 빠진다.
+export type DevMockRole = 'CLIENT' | 'FREELANCER';
+
+export const DEV_MOCK_AUTH_ENABLED = import.meta.env.DEV;
+
+const DEV_MOCK_SESSIONS: Record<DevMockRole, AuthenticatedSessionResponse> = {
+  CLIENT: {
+    accessToken: 'pactfive-mock-client-01',
+    accessTokenExpiresAt: '2099-01-01T00:00:00.000Z',
+    returnTo: '/',
+    user: {
+      userId: 'usr_00000000000000000000000001',
+      email: 'mock-client@pactfive.test',
+      name: '(mock) 의뢰인',
+      role: 'CLIENT',
+      profileImageUrl: null,
+    },
+  },
+  FREELANCER: {
+    accessToken: 'pactfive-mock-freelancer-01',
+    accessTokenExpiresAt: '2099-01-01T00:00:00.000Z',
+    returnTo: '/',
+    user: {
+      userId: 'usr_00000000000000000000000002',
+      email: 'mock-freelancer@pactfive.test',
+      name: '(mock) 프리랜서',
+      role: 'FREELANCER',
+      profileImageUrl: null,
+    },
+  },
+};
+
+/** 이 accessToken이 mock 토글이 발급한 것인지 — 실제 로그인과 구분해 배지 문구를 고를 때 쓴다. */
+export function devMockRoleForToken(accessToken: string | null): DevMockRole | null {
+  if (accessToken === DEV_MOCK_SESSIONS.CLIENT.accessToken) return 'CLIENT';
+  if (accessToken === DEV_MOCK_SESSIONS.FREELANCER.accessToken) return 'FREELANCER';
+  return null;
 }
 
 function createAuthEpochGuard() {
@@ -82,7 +147,12 @@ export function reduceAuthFailure(error: unknown): AuthViewState {
     if (error.code === 'REGISTRATION_COMPLETION_REQUIRED') {
       return { status: 'anonymous', message: error.message, action: 'COMPLETE_REGISTRATION' };
     }
-    if (error.status === 503) {
+    // 2026-09-05 — 가입/가입 복구 도중 이미 다른 계정으로 로그인돼 있는 충돌.
+    // 원본(prototype useAuth.ts)의 action: "LOGOUT" 분기를 그대로 옮겼다.
+    if (error.code === 'AUTH_CONTEXT_CONFLICT') {
+      return { status: 'anonymous', message: error.message, action: 'LOGOUT' };
+    }
+    if (error.status >= 500 && error.status <= 599) {
       return { status: 'retryable', message: error.message, action: 'RETRY' };
     }
     if (error.status === 401) clearAccessTokenInMemory();
@@ -101,7 +171,8 @@ export function createReturnNavigator(navigate: (path: string) => void): (path: 
   };
 }
 
-export function useAuth() {
+export function useAuth(options: { restoreOnMount?: boolean } = {}) {
+  const restoreOnMount = options.restoreOnMount ?? true;
   const [state, setState] = useState<AuthViewState>({ status: 'anonymous', message: null, action: null });
 
   const login = useCallback(async (input: { email: string; password: string; returnTo: string }) => {
@@ -147,13 +218,65 @@ export function useAuth() {
     }
   }, []);
 
-  const startOAuth = useCallback(async (oauthProvider: OAuthProvider, returnTo: string) => {
+  // 2026-09-05 — 회원가입도 소셜로 시작할 수 있어 role을 선택적으로 함께 보낸다
+  // (원본 prototype useAuth.ts와 동일, `CreateOAuthAuthorizationInput.role`은 이미 있었다).
+  const startOAuth = useCallback(async (oauthProvider: OAuthProvider, returnTo: string, role?: UserRole) => {
     const capturedEpoch = authEpoch.advance();
     setState({ status: 'submitting', message: null, action: null });
     try {
-      const result = await createOAuthAuthorization({ oauthProvider, returnTo });
+      const result = await createOAuthAuthorization({ oauthProvider, returnTo, role });
       if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
       window.location.assign(result.authorizationUrl);
+    } catch (error) {
+      if (!authEpoch.isCurrent(capturedEpoch)) throw error;
+      setState(reduceAuthFailure(error));
+      throw error;
+    }
+  }, []);
+
+  // 2026-09-05 — 회원가입 3종. 원본(prototype useAuth.ts)의 register/completeRegistration/
+  // confirmEmail을 그대로 옮겼다. register는 세션을 만들지 않는다(이메일 확인 대기) — 성공하면
+  // anonymous로 돌아가되 서버가 준 안내 문구만 message에 싣는다.
+  const register = useCallback(async (input: RegisterInput) => {
+    const capturedEpoch = authEpoch.advance();
+    setState({ status: 'submitting', message: null, action: null });
+    try {
+      const response = await registerAccount(input);
+      if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
+      setState({ status: 'anonymous', message: response.message, action: null });
+      return response;
+    } catch (error) {
+      if (!authEpoch.isCurrent(capturedEpoch)) throw error;
+      setState(reduceAuthFailure(error));
+      throw error;
+    }
+  }, []);
+
+  const completeRegistration = useCallback(async (input: CompleteRegistrationInput) => {
+    const capturedEpoch = authEpoch.advance();
+    setState({ status: 'submitting', message: null, action: null });
+    try {
+      const session = await completeRegistrationRequest(input);
+      if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
+      accessTokenInMemory = session.accessToken;
+      setState({ status: 'authenticated', message: null, action: null, session });
+      return session;
+    } catch (error) {
+      if (!authEpoch.isCurrent(capturedEpoch)) throw error;
+      setState(reduceAuthFailure(error));
+      throw error;
+    }
+  }, []);
+
+  const confirmEmail = useCallback(async (tokenHash: string) => {
+    const capturedEpoch = authEpoch.advance();
+    setState({ status: 'submitting', message: null, action: null });
+    try {
+      const session = await confirmEmailRequest(tokenHash);
+      if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
+      accessTokenInMemory = session.accessToken;
+      setState({ status: 'authenticated', message: null, action: null, session });
+      return session;
     } catch (error) {
       if (!authEpoch.isCurrent(capturedEpoch)) throw error;
       setState(reduceAuthFailure(error));
@@ -175,6 +298,32 @@ export function useAuth() {
     }
   }, []);
 
+  /**
+   * 로컬 mock 토글 전용 — 실제 로그인 화면을 거치지 않고 바로 authenticated 상태로
+   * 전환한다. 네트워크 호출이 없으므로 `authService`가 없어도(Supabase 미설정) 동작한다.
+   * `DEV_MOCK_AUTH_ENABLED`가 false면(프로덕션 빌드) 아무 일도 하지 않는다 — 방어적으로
+   * 한 번 더 막아 둔다(App.tsx가 토글 자체를 안 그리는 것과 별개의 두 번째 방어선).
+   */
+  const devLoginAsMock = useCallback((role: DevMockRole) => {
+    if (!DEV_MOCK_AUTH_ENABLED) return;
+    authEpoch.advance(); // 진행 중이던 실제 로그인/복원 흐름은 취소된 걸로 친다.
+    const session = DEV_MOCK_SESSIONS[role];
+    accessTokenInMemory = session.accessToken;
+    setState({ status: 'authenticated', message: null, action: null, session });
+  }, []);
+
+  /**
+   * mock 세션을 끈다. 실제 `logout()`과 달리 서버에 `DELETE`를 보내지 않는다 — mock
+   * 토큰은 서버가 세션으로 알지 못하는 고정 문자열이라 그 호출은 401만 돌려주고,
+   * `shared/http.ts`의 `onUnauthorized`(로그인 화면 이동)까지 잘못 튀길 뿐이다.
+   */
+  const devLogoutMock = useCallback(() => {
+    if (!DEV_MOCK_AUTH_ENABLED) return;
+    authEpoch.advance();
+    clearAccessTokenInMemory();
+    setState({ status: 'anonymous', message: null, action: null });
+  }, []);
+
   const logout = useCallback(async () => {
     authEpoch.advance();
     clearAccessTokenInMemory();
@@ -188,8 +337,20 @@ export function useAuth() {
   }, []);
 
   useEffect(() => {
-    void restore().catch(() => undefined);
-  }, [restore]);
+    if (restoreOnMount) void restore().catch(() => undefined);
+  }, [restore, restoreOnMount]);
 
-  return { state, login, restore, startOAuth, resendConfirmation, logout };
+  return {
+    state,
+    login,
+    register,
+    completeRegistration,
+    confirmEmail,
+    restore,
+    startOAuth,
+    resendConfirmation,
+    logout,
+    devLoginAsMock,
+    devLogoutMock,
+  };
 }
