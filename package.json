@@ -7,6 +7,7 @@
     "dev": "node scripts/dev.js",
     "dev:run": "concurrently --names server,web --prefix-colors cyan,magenta --kill-others-on-fail \"npm --prefix app/server run dev\" \"npm --prefix app/web run dev\"",
     "dev:mock-auth": "node scripts/dev-mock-auth.js",
+    "seed:contractable": "node scripts/seed-contractable-project.js",
     "check:design": "node scripts/check-design-drift.js",
     "test:integration": "tsc --project tests/tsconfig.json && tsx --test tests/email-confirmation-bootstrap.test.ts app/web/tests/project-registration-draft.test.ts app/server/tests/project-pricing-registration.test.ts",
     "sample:login": "tsx features/sample-login/prototype/run.tsx",
