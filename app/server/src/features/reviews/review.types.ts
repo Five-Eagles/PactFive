@@ -173,16 +173,23 @@ export type PublishedRatingAggregate = {
   reviewCount: number;
 };
 
-/** 리뷰 자기 자신의 행 저장소. 프로젝트 조각·사용자 존재 여부는 없다 (위 주석 참고). */
+/**
+ * 리뷰 자기 자신의 행 저장소. 프로젝트 조각·사용자 존재 여부는 없다 (위 주석 참고).
+ *
+ * 2026-09-08 팀장 반영: Prisma 백엔드 추가를 위해 전 메서드를 Promise 반환으로 바꿨다(원본은
+ * 단일 프로세스 Mock이라 동기였다) — InMemory 구현은 이미 동기로 계산한 값을 Promise.resolve로
+ * 감싸기만 하면 되고, review.service.ts 호출부는 전부 이미 async 함수 안이라 await만 추가하면
+ * 된다(기계적 변경, 검증은 tsc가 대신한다).
+ */
 export type ReviewRepository = {
-  getReviewsByProject(projectId: string): ReviewRow[];
-  getReview(reviewId: string): ReviewRow | undefined;
-  getAllReviews(): ReviewRow[];
-  insertReview(row: ReviewRow): void;
-  markReviewCreatedPublished(reviewId: string, publishedAt: string): void;
-  getIdempotency(key: string): { bodyHash: string; reviewId: string } | undefined;
-  setIdempotency(key: string, bodyHash: string, reviewId: string): void;
-  nextReviewId(): string;
+  getReviewsByProject(projectId: string): Promise<ReviewRow[]>;
+  getReview(reviewId: string): Promise<ReviewRow | undefined>;
+  getAllReviews(): Promise<ReviewRow[]>;
+  insertReview(row: ReviewRow): Promise<void>;
+  markReviewCreatedPublished(reviewId: string, publishedAt: string): Promise<void>;
+  getIdempotency(key: string): Promise<{ bodyHash: string; reviewId: string } | undefined>;
+  setIdempotency(key: string, bodyHash: string, reviewId: string): Promise<void>;
+  nextReviewId(): Promise<string>;
 };
 
 /** 프로젝트 조각 읽기 — project-management + contracts-payments delegate 합성

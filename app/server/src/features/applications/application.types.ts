@@ -319,25 +319,30 @@ export type IdempotencyRecord = {
  * PR #83 이식으로 operation(outbox 기록)·상태 이력을 추가했다 — 둘 다 applications 자신의
  * 데이터라 프로젝트 컨텍스트 분리 원칙과 무관하게 그대로 옮긴다.
  */
+/**
+ * 2026-09-08 팀장 반영: Prisma 백엔드 추가를 위해 전 메서드를 Promise 반환으로 바꿨다 —
+ * InMemory 구현은 계산한 값을 Promise.resolve로 감싸기만 하면 되고, application.service.ts
+ * 호출부는 전부 이미 async 함수 안이라 await만 추가하면 된다.
+ */
 export type ApplicationRepository = {
-  getApplication(applicationId: string): ApplicationRow | undefined;
-  getByProject(projectId: string): ApplicationRow[];
-  getByFreelancer(freelancerId: string): ApplicationRow[];
-  findByProjectFreelancer(projectId: string, freelancerId: string): ApplicationRow | undefined;
-  insertApplication(row: ApplicationRow): void;
-  saveApplication(row: ApplicationRow): void;
-  getIdempotency(key: string): IdempotencyRecord | undefined;
-  setIdempotency(key: string, bodyHash: string, applicationId: string, operationId?: string): void;
-  getClosure(closureEventId: string): RejectPendingApplicationsResult | undefined;
-  setClosure(closureEventId: string, result: RejectPendingApplicationsResult): void;
-  nextApplicationId(): string;
-  nextOperationId(): string;
-  saveOperation(row: ApplicationOperation): void;
-  getOperation(operationId: string): ApplicationOperation | undefined;
-  getOperations(): ApplicationOperation[];
-  listQueuedOperations(): ApplicationOperation[];
-  appendStateEvent(event: ApplicationStateEvent): void;
-  getStateEvents(applicationId: string): ApplicationStateEvent[];
+  getApplication(applicationId: string): Promise<ApplicationRow | undefined>;
+  getByProject(projectId: string): Promise<ApplicationRow[]>;
+  getByFreelancer(freelancerId: string): Promise<ApplicationRow[]>;
+  findByProjectFreelancer(projectId: string, freelancerId: string): Promise<ApplicationRow | undefined>;
+  insertApplication(row: ApplicationRow): Promise<void>;
+  saveApplication(row: ApplicationRow): Promise<void>;
+  getIdempotency(key: string): Promise<IdempotencyRecord | undefined>;
+  setIdempotency(key: string, bodyHash: string, applicationId: string, operationId?: string): Promise<void>;
+  getClosure(closureEventId: string): Promise<RejectPendingApplicationsResult | undefined>;
+  setClosure(closureEventId: string, result: RejectPendingApplicationsResult): Promise<void>;
+  nextApplicationId(): Promise<string>;
+  nextOperationId(): Promise<string>;
+  saveOperation(row: ApplicationOperation): Promise<void>;
+  getOperation(operationId: string): Promise<ApplicationOperation | undefined>;
+  getOperations(): Promise<ApplicationOperation[]>;
+  listQueuedOperations(): Promise<ApplicationOperation[]>;
+  appendStateEvent(event: ApplicationStateEvent): Promise<void>;
+  getStateEvents(applicationId: string): Promise<ApplicationStateEvent[]>;
 };
 
 /** 프로젝트 컨텍스트 읽기 — project-management delegate (app/web/AGENTS.md "폴더 간 접점"). */

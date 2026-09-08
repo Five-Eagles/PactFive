@@ -17,6 +17,11 @@ import type { ProjectReviewContext, ProjectReviewContextPort } from './review.ty
  * 실무에서는 일어나지 않아야 하는 경우다. 별도 오류 코드를 새로 만들지 않고
  * `PROJECT_NOT_FOUND`로 합류시킨다(review.service.ts) — 이 판단은 CR-0012와 같은 원칙으로
  * feedback_loop에 남긴다.
+ *
+ * 2026-09-08 팀장 반영: `ContractsPaymentsRepository`가 Promise 반환으로 바뀌면서(6기능 Prisma
+ * 이식 트랙) `ContractByProjectDelegate.findContractByProjectId`도 Promise 반환으로 맞췄다 —
+ * express-app.ts가 `contractsPaymentsRepository`를 구조적으로 그대로 끼우는 자리라, 저장소
+ * 쪽 타입이 바뀌면 이 delegate 타입도 같이 바뀌어야 한다.
  */
 export type ProjectNegotiationContextDelegate = {
   getProjectNegotiationContext(projectId: string): Promise<{
@@ -27,9 +32,9 @@ export type ProjectNegotiationContextDelegate = {
 };
 
 export type ContractByProjectDelegate = {
-  findContractByProjectId(projectId: string):
-    | { contractId: string; freelancerId: string; status: ProjectReviewContext['contractStatus'] }
-    | undefined;
+  findContractByProjectId(
+    projectId: string,
+  ): Promise<{ contractId: string; freelancerId: string; status: ProjectReviewContext['contractStatus'] } | undefined>;
 };
 
 function isNotFound(error: unknown): boolean {
@@ -54,7 +59,7 @@ export function createProjectReviewContextAdapter(
         if (isNotFound(error)) return null;
         throw error;
       }
-      const contract = contractDelegate.findContractByProjectId(projectId);
+      const contract = await contractDelegate.findContractByProjectId(projectId);
       if (!contract) return null;
       return {
         projectId: project.projectId,

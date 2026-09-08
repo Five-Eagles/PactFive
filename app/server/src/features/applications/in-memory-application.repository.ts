@@ -14,6 +14,9 @@ import type {
  * 여기서 복제하지 않는다.
  *
  * Prisma 도입 전까지 in-memory (다른 기능들과 같은 원칙 — app/server/AGENTS.md).
+ *
+ * 2026-09-08 팀장 반영: ApplicationRepository가 Promise 반환으로 바뀌면서, 이미 동기로 계산한
+ * 값을 Promise.resolve로 감싸기만 했다 — 내부 로직·자료구조는 그대로다.
  */
 export class InMemoryApplicationRepository implements ApplicationRepository {
   private readonly applications: ApplicationRow[] = [];
@@ -24,93 +27,93 @@ export class InMemoryApplicationRepository implements ApplicationRepository {
   private seq = 100;
   private operationSeq = 100;
 
-  getApplication(applicationId: string): ApplicationRow | undefined {
+  async getApplication(applicationId: string): Promise<ApplicationRow | undefined> {
     const row = this.applications.find((item) => item.applicationId === applicationId);
     return row ? { ...row } : undefined;
   }
 
-  getByProject(projectId: string): ApplicationRow[] {
+  async getByProject(projectId: string): Promise<ApplicationRow[]> {
     return this.applications.filter((item) => item.projectId === projectId).map((row) => ({ ...row }));
   }
 
-  getByFreelancer(freelancerId: string): ApplicationRow[] {
+  async getByFreelancer(freelancerId: string): Promise<ApplicationRow[]> {
     return this.applications
       .filter((item) => item.freelancerId === freelancerId)
       .map((row) => ({ ...row }));
   }
 
-  findByProjectFreelancer(projectId: string, freelancerId: string): ApplicationRow | undefined {
+  async findByProjectFreelancer(projectId: string, freelancerId: string): Promise<ApplicationRow | undefined> {
     const row = this.applications.find(
       (item) => item.projectId === projectId && item.freelancerId === freelancerId,
     );
     return row ? { ...row } : undefined;
   }
 
-  insertApplication(row: ApplicationRow): void {
+  async insertApplication(row: ApplicationRow): Promise<void> {
     this.applications.push({ ...row });
   }
 
-  saveApplication(row: ApplicationRow): void {
+  async saveApplication(row: ApplicationRow): Promise<void> {
     const index = this.applications.findIndex((item) => item.applicationId === row.applicationId);
     if (index >= 0) this.applications[index] = { ...row };
     else this.applications.push({ ...row });
   }
 
-  getIdempotency(key: string): IdempotencyRecord | undefined {
+  async getIdempotency(key: string): Promise<IdempotencyRecord | undefined> {
     const cached = this.idempotency.get(key);
     return cached ? { ...cached } : undefined;
   }
 
-  setIdempotency(key: string, bodyHash: string, applicationId: string, operationId?: string): void {
+  async setIdempotency(key: string, bodyHash: string, applicationId: string, operationId?: string): Promise<void> {
     this.idempotency.set(key, { bodyHash, applicationId, operationId });
   }
 
-  getClosure(closureEventId: string): RejectPendingApplicationsResult | undefined {
+  async getClosure(closureEventId: string): Promise<RejectPendingApplicationsResult | undefined> {
     const cached = this.closures.get(closureEventId);
     return cached ? { ...cached } : undefined;
   }
 
-  setClosure(closureEventId: string, result: RejectPendingApplicationsResult): void {
+  async setClosure(closureEventId: string, result: RejectPendingApplicationsResult): Promise<void> {
     this.closures.set(closureEventId, { ...result });
   }
 
-  nextApplicationId(): string {
+  async nextApplicationId(): Promise<string> {
     this.seq += 1;
     return `app_${this.seq}`;
   }
 
-  nextOperationId(): string {
+  async nextOperationId(): Promise<string> {
     this.operationSeq += 1;
     return `appop_${this.operationSeq}`;
   }
 
-  saveOperation(row: ApplicationOperation): void {
+  async saveOperation(row: ApplicationOperation): Promise<void> {
     const index = this.operations.findIndex((item) => item.operationId === row.operationId);
     const copy = { ...row, steps: row.steps.map((step) => ({ ...step })) };
     if (index >= 0) this.operations[index] = copy;
     else this.operations.push(copy);
   }
 
-  getOperation(operationId: string): ApplicationOperation | undefined {
+  async getOperation(operationId: string): Promise<ApplicationOperation | undefined> {
     const row = this.operations.find((item) => item.operationId === operationId);
     return row ? { ...row, steps: row.steps.map((step) => ({ ...step })) } : undefined;
   }
 
-  getOperations(): ApplicationOperation[] {
+  async getOperations(): Promise<ApplicationOperation[]> {
     return this.operations.map((row) => ({ ...row, steps: row.steps.map((step) => ({ ...step })) }));
   }
 
-  listQueuedOperations(): ApplicationOperation[] {
+  async listQueuedOperations(): Promise<ApplicationOperation[]> {
     return this.operations
       .filter((row) => row.status === 'QUEUED')
       .map((row) => ({ ...row, steps: row.steps.map((step) => ({ ...step })) }));
   }
 
-  appendStateEvent(event: ApplicationStateEvent): void {
+  async appendStateEvent(event: ApplicationStateEvent): Promise<void> {
     this.stateEvents.push({ ...event });
   }
 
-  getStateEvents(applicationId: string): ApplicationStateEvent[] {
+  async getStateEvents(applicationId: string): Promise<ApplicationStateEvent[]> {
     return this.stateEvents.filter((event) => event.applicationId === applicationId).map((event) => ({ ...event }));
   }
 }

@@ -62,6 +62,11 @@ import {
  * 마찬가지로 `projects.title`을 이 서비스가 조회할 방법이 없어 `projectTitleSnapshot`/
  * `projectTitle` 필드는 계속 빈 문자열이다 — negotiation-context 응답에 필드가 추가되면 채운다.
  * feedback_loop/2026-09-07/contracts-payments.md 참고.
+ *
+ * 2026-09-08 팀장 반영: `ContractsPaymentsRepository`가 Promise 반환으로 바뀌면서(6기능 Prisma
+ * 이식 트랙) 이 파일의 모든 `repo.*` 호출부에 `await`를 추가했다 — `toCurrent`/
+ * `ensureDeliveryForContract`도 내부에서 repo를 부르므로 async로 바뀌었다. 판정 순서·오류
+ * 코드는 그대로다.
  */
 
 export type PublicApiServiceDeps = {
@@ -116,12 +121,12 @@ export function createContractsPaymentsSnapshotReader(
 ): TransactionLifecycleSnapshotReader {
   return {
     async read(projectId: string): Promise<TransactionLifecycleSnapshot> {
-      const contract = repo.findContractByProjectId(projectId);
+      const contract = await repo.findContractByProjectId(projectId);
       if (!contract) {
         throw new Error(`contracts-payments snapshot: no contract for project ${projectId}`);
       }
-      const payment = repo.findPaymentByContractId(contract.contractId);
-      const delivery = repo.findDeliveryByContractId(contract.contractId);
+      const payment = await repo.findPaymentByContractId(contract.contractId);
+      const delivery = await repo.findDeliveryByContractId(contract.contractId);
       return {
         projectId,
         contractId: contract.contractId,
@@ -153,7 +158,7 @@ export function createPublicApiService({
 
   async function requireContractParty(contractId: string, auth: AuthContext | null): Promise<ContractRow> {
     if (!auth) throw new PublicApiError('AUTH_REQUIRED', '로그인이 필요합니다.');
-    const row = repo.findContractById(contractId);
+    const row = await repo.findContractById(contractId);
     if (!row) throw new DomainContractError('PROJECT_NOT_FOUND', '계약을 찾을 수 없습니다.');
     if (auth.userId !== row.clientId && auth.userId !== row.freelancerId) {
       throw new PublicApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
@@ -161,9 +166,12 @@ export function createPublicApiService({
     return row;
   }
 
-  function toCurrent(projectId: string, ctx: Awaited<ReturnType<typeof requireParty>>): CurrentNegotiationOfferResponse {
-    const agreement = repo.findAgreementByProjectId(projectId);
-    const contract = repo.findContractByProjectId(projectId);
+  async function toCurrent(
+    projectId: string,
+    ctx: Awaited<ReturnType<typeof requireParty>>,
+  ): Promise<CurrentNegotiationOfferResponse> {
+    const agreement = await repo.findAgreementByProjectId(projectId);
+    const contract = await repo.findContractByProjectId(projectId);
     const offer = agreement ? latestOffer(agreement) : undefined;
     // 합의가 REJECTED일 때만 restore 결과(재개 여부)를 채운다(api-contract.md GET .../current).
     const reopened = agreement?.status === 'REJECTED' ? ctx.recruitmentStatus === 'OPEN' : null;
@@ -186,8 +194,8 @@ export function createPublicApiService({
   }
 
   /** 계약당 1건. 없으면 초기 IN_PROGRESS로 만든다(spec.md 규칙 23). GET·업로드·요청 모두 이걸 거친다. */
-  function ensureDeliveryForContract(contractId: string): DeliveryRow {
-    const existing = repo.findDeliveryByContractId(contractId);
+  async function ensureDeliveryForContract(contractId: string): Promise<DeliveryRow> {
+    const existing = await repo.findDeliveryByContractId(contractId);
     if (existing) return existing;
     const row: DeliveryRow = {
       deliveryId: randomId('dlv'),
@@ -202,7 +210,7 @@ export function createPublicApiService({
       mimeType: null,
       sizeBytes: null,
     };
-    repo.saveDelivery(row);
+    await repo.saveDelivery(row);
     return row;
   }
 
@@ -235,7 +243,7 @@ export function createPublicApiService({
           '프로젝트 상태가 변경되어 처리할 수 없습니다.',
         );
       }
-      if (repo.findAgreementByProjectId(projectId)) {
+      if (await repo.findAgreementByProjectId(projectId)) {
         throw new DomainContractError(
           'PROJECT_TRANSITION_CONFLICT',
           '프로젝트 상태가 변경되어 처리할 수 없습니다.',
@@ -249,7 +257,7 @@ export function createPublicApiService({
         offeredByUserId: auth!.userId,
         rejectedReason: null,
       };
-      repo.saveAgreement({
+      await repo.saveAgreement({
         agreementId,
         projectId,
         applicationId: ctx.acceptedApplicationId,
@@ -270,7 +278,7 @@ export function createPublicApiService({
       input: CounterNegotiationOfferInput,
     ): Promise<CurrentNegotiationOfferResponse> {
       const ctx = await requireParty(projectId, auth);
-      const agreement = repo.findAgreementByProjectId(projectId);
+      const agreement = await repo.findAgreementByProjectId(projectId);
       if (!agreement) {
         throw new DomainContractError('PROJECT_NOT_FOUND', '합의를 찾을 수 없습니다.');
       }
@@ -304,7 +312,7 @@ export function createPublicApiService({
         rejectedReason: null,
       });
       agreement.agreedAmount = input.amount;
-      repo.saveAgreement(agreement);
+      await repo.saveAgreement(agreement);
       return toCurrent(projectId, ctx);
     },
 
@@ -316,10 +324,10 @@ export function createPublicApiService({
     ): Promise<CurrentNegotiationOfferResponse> {
       const ctx = await requireParty(projectId, auth);
       const idemKey = `negotiation-accept-${offerId}`;
-      const cached = repo.getIdempotent<CurrentNegotiationOfferResponse>('accept', idemKey);
+      const cached = await repo.getIdempotent<CurrentNegotiationOfferResponse>('accept', idemKey);
       if (cached) return { ...cached };
 
-      const agreement = repo.findAgreementByProjectId(projectId);
+      const agreement = await repo.findAgreementByProjectId(projectId);
       if (!agreement) {
         throw new DomainContractError('PROJECT_NOT_FOUND', '합의를 찾을 수 없습니다.');
       }
@@ -335,8 +343,8 @@ export function createPublicApiService({
         throw new PublicApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
       }
       if (agreement.status === 'ACCEPTED') {
-        const current = toCurrent(projectId, ctx);
-        repo.setIdempotent('accept', idemKey, current);
+        const current = await toCurrent(projectId, ctx);
+        await repo.setIdempotent('accept', idemKey, current);
         return current;
       }
       if (agreement.status !== 'PROPOSED') {
@@ -348,14 +356,14 @@ export function createPublicApiService({
       agreement.status = 'ACCEPTED';
       agreement.respondedAt = now();
       agreement.agreedAmount = offer.amount;
-      repo.saveAgreement(agreement);
+      await repo.saveAgreement(agreement);
 
       // 규칙 11: 의뢰인이 아닌 첫 accept 호출자를 프리랜서로 확정한다(파일 상단 주석).
       const freelancerId = auth!.userId === ctx.clientId ? offer.offeredByUserId : auth!.userId;
       const workStartDate = utcDate(now());
       const workEndDate = laterDate(workStartDate, utcDate(ctx.recruitmentDeadlineAt));
       const contractId = randomId('ctr');
-      repo.saveContract({
+      await repo.saveContract({
         contractId,
         agreementId: agreement.agreementId,
         projectId,
@@ -379,8 +387,8 @@ export function createPublicApiService({
         freelancerSignedAt: null,
         signedAt: null,
       });
-      const current = toCurrent(projectId, ctx);
-      repo.setIdempotent('accept', idemKey, current);
+      const current = await toCurrent(projectId, ctx);
+      await repo.setIdempotent('accept', idemKey, current);
       return current;
     },
 
@@ -391,12 +399,12 @@ export function createPublicApiService({
       input: RejectNegotiationOfferInput,
     ): Promise<CurrentNegotiationOfferResponse> {
       await requireParty(projectId, auth);
-      const agreement = repo.findAgreementByProjectId(projectId);
+      const agreement = await repo.findAgreementByProjectId(projectId);
       if (!agreement) {
         throw new DomainContractError('PROJECT_NOT_FOUND', '합의를 찾을 수 없습니다.');
       }
       const idemKey = `negotiation-reject-${agreement.agreementId}`;
-      const cached = repo.getIdempotent<CurrentNegotiationOfferResponse>('reject', idemKey);
+      const cached = await repo.getIdempotent<CurrentNegotiationOfferResponse>('reject', idemKey);
       if (cached) return { ...cached };
 
       const offer = latestOffer(agreement);
@@ -417,7 +425,7 @@ export function createPublicApiService({
       agreement.status = 'REJECTED';
       agreement.respondedAt = now();
       offer.rejectedReason = input.reason ?? input.reasonCode;
-      repo.saveAgreement(agreement);
+      await repo.saveAgreement(agreement);
 
       // 규칙 5 — 거절은 복원을 부른다 (CR-0002: acceptedApplicationId·paymentPendingAt도 비운다).
       await projectPort.restorePreContractProject(projectId, {
@@ -430,15 +438,15 @@ export function createPublicApiService({
         occurredAt: now(),
       });
       const refreshedCtx = await projectPort.getProjectNegotiationContext(projectId);
-      const current = toCurrent(projectId, refreshedCtx);
-      repo.setIdempotent('reject', idemKey, current);
+      const current = await toCurrent(projectId, refreshedCtx);
+      await repo.setIdempotent('reject', idemKey, current);
       return current;
     },
 
     async getContract(contractId: string, auth: AuthContext | null): Promise<GetContractResponse> {
       const row = await requireContractParty(contractId, auth);
       const ctx = await projectPort.getProjectNegotiationContext(row.projectId);
-      const payment = repo.findPaymentByContractId(contractId);
+      const payment = await repo.findPaymentByContractId(contractId);
       return {
         contractId: row.contractId,
         projectId: row.projectId,
@@ -459,13 +467,13 @@ export function createPublicApiService({
     async signContract(contractId: string, auth: AuthContext | null): Promise<SignContractResponse> {
       const row = await requireContractParty(contractId, auth);
       return withActiveProjectGuard(row.projectId, async () => {
-        const fresh = repo.findContractById(contractId)!;
+        const fresh = (await repo.findContractById(contractId))!;
         const ctx = await projectPort.getProjectNegotiationContext(fresh.projectId);
         if (ctx.canceledAt || fresh.status === 'CANCELED') {
           throw new DomainContractError('PROJECT_TRANSITION_CONFLICT', '프로젝트가 취소되었습니다.');
         }
         const idemKey = `contract-sign-${contractId}-${auth!.userId}`;
-        const cached = repo.getIdempotent<SignContractResponse>('sign', idemKey);
+        const cached = await repo.getIdempotent<SignContractResponse>('sign', idemKey);
         if (cached) return { ...cached, alreadyProcessed: true };
         if (fresh.status !== 'DRAFT' && fresh.status !== 'SIGNING') {
           throw new DomainContractError(
@@ -479,7 +487,7 @@ export function createPublicApiService({
         } else if (!fresh.freelancerSignedAt) {
           fresh.freelancerSignedAt = signedAt;
         }
-        repo.recordSignature({ contractId, signerId: auth!.userId, signedAt });
+        await repo.recordSignature({ contractId, signerId: auth!.userId, signedAt });
         const bothSigned = Boolean(fresh.clientSignedAt && fresh.freelancerSignedAt);
         if (bothSigned) {
           fresh.status = 'SIGNED';
@@ -487,7 +495,7 @@ export function createPublicApiService({
         } else {
           fresh.status = 'SIGNING';
         }
-        repo.saveContract(fresh);
+        await repo.saveContract(fresh);
         const response: SignContractResponse = {
           contractId: fresh.contractId,
           status: fresh.status === 'SIGNED' ? 'SIGNED' : 'SIGNING',
@@ -496,7 +504,7 @@ export function createPublicApiService({
           signedAt: fresh.signedAt,
           alreadyProcessed: false,
         };
-        repo.setIdempotent('sign', idemKey, response);
+        await repo.setIdempotent('sign', idemKey, response);
         // 교차 생명주기 Coordinator(규칙 26) — SIGNED∧PAID일 때만 start를 부른다.
         if (bothSigned) {
           await coordinator.onContractSigned({
@@ -521,7 +529,7 @@ export function createPublicApiService({
           '프로젝트 상태가 변경되어 처리할 수 없습니다.',
         );
       }
-      const existing = repo.findPaymentByContractId(input.contractId);
+      const existing = await repo.findPaymentByContractId(input.contractId);
       if (existing && (existing.status === 'READY' || existing.status === 'PAID')) {
         return {
           paymentId: existing.paymentId,
@@ -555,7 +563,7 @@ export function createPublicApiService({
       );
       const paymentId = existing?.paymentId ?? randomId('pay');
       const orderId = randomId('ord');
-      repo.savePayment({
+      await repo.savePayment({
         paymentId,
         contractId: row.contractId,
         orderId,
@@ -575,7 +583,7 @@ export function createPublicApiService({
     },
 
     async getPayment(paymentId: string, auth: AuthContext | null): Promise<GetPaymentResponse> {
-      const row = repo.findPaymentById(paymentId);
+      const row = await repo.findPaymentById(paymentId);
       if (!row) throw new DomainContractError('PROJECT_NOT_FOUND', '결제를 찾을 수 없습니다.');
       const contract = await requireContractParty(row.contractId, auth);
       const ctx = await projectPort.getProjectNegotiationContext(contract.projectId);
@@ -603,7 +611,7 @@ export function createPublicApiService({
       auth: AuthContext | null,
       input: ConfirmPaymentInput,
     ): Promise<ConfirmPaymentResponse> {
-      const row = repo.findPaymentByOrderId(input.orderId);
+      const row = await repo.findPaymentByOrderId(input.orderId);
 
       if (!row) {
         throw new DomainContractError('PROJECT_NOT_FOUND', '결제를 찾을 수 없습니다.');
@@ -624,14 +632,14 @@ export function createPublicApiService({
         ]);
       }
       row.status = 'PENDING';
-      repo.savePayment(row);
+      await repo.savePayment(row);
       try {
         const paid = await paymentGateway.confirmPayment(input);
         row.status = 'PAID';
         row.paymentKey = paid.paymentKey;
         row.failedAt = null;
         row.failureCode = null;
-        repo.savePayment(row);
+        await repo.savePayment(row);
 
         // 교차 생명주기 Coordinator(규칙 26) — SIGNED∧PAID일 때만 start를 부른다. 실패해도
         // PAID 원장은 유지하고(규칙 7), 재시도는 다음 사건(재confirm 폴링 등) 때 다시 평가한다.
@@ -645,7 +653,7 @@ export function createPublicApiService({
         if (isPaymentGatewayError(err)) {
           row.status = 'FAILED';
           row.failureCode = err.code;
-          repo.savePayment(row);
+          await repo.savePayment(row);
         }
         throw err;
       }
@@ -656,11 +664,11 @@ export function createPublicApiService({
     // -----------------------------------------------------------------------
 
     async getSettlement(paymentId: string, auth: AuthContext | null): Promise<GetSettlementResponse> {
-      const row = repo.findPaymentById(paymentId);
+      const row = await repo.findPaymentById(paymentId);
       if (!row) throw new DomainContractError('PROJECT_NOT_FOUND', '결제를 찾을 수 없습니다.');
       const contract = await requireContractParty(row.contractId, auth);
       const ctx = await projectPort.getProjectNegotiationContext(contract.projectId);
-      const delivery = repo.findDeliveryByContractId(row.contractId);
+      const delivery = await repo.findDeliveryByContractId(row.contractId);
       const projectTransactionStatus: GetSettlementResponse['projectTransactionStatus'] =
         ctx.transactionStatus === 'IN_PROGRESS' ||
         ctx.transactionStatus === 'COMPLETED' ||
@@ -696,14 +704,14 @@ export function createPublicApiService({
       paymentId: string,
       result: 'SUCCESS' | 'FAILURE' | 'UNKNOWN',
     ): Promise<void> {
-      const row = repo.findPaymentById(paymentId);
+      const row = await repo.findPaymentById(paymentId);
       if (!row) throw new DomainContractError('PROJECT_NOT_FOUND', '결제를 찾을 수 없습니다.');
       if (row.status !== 'PAID') return; // F04: 진입은 PAID∧APPROVED∧IN_PROGRESS.
       if (result === 'SUCCESS') {
         row.status = 'RELEASED';
         row.releasedAt = now();
-        repo.savePayment(row);
-        const contract = repo.findContractById(row.contractId);
+        await repo.savePayment(row);
+        const contract = await repo.findContractById(row.contractId);
         if (contract) {
           await coordinator.onPaymentReleased({
             eventId: randomId('evt_released'),
@@ -724,9 +732,9 @@ export function createPublicApiService({
       auth: AuthContext | null,
     ): Promise<GetCancellationResponse> {
       const ctx = await requireParty(projectId, auth);
-      const agreement = repo.findAgreementByProjectId(projectId);
-      const contract = repo.findContractByProjectId(projectId);
-      const invalidation = repo.findLatestInvalidationByProjectId(projectId);
+      const agreement = await repo.findAgreementByProjectId(projectId);
+      const contract = await repo.findContractByProjectId(projectId);
+      const invalidation = await repo.findLatestInvalidationByProjectId(projectId);
       return {
         projectId,
         projectTitle: contract?.projectTitleSnapshot ?? '',
@@ -737,7 +745,7 @@ export function createPublicApiService({
         acceptedApplicationId: ctx.acceptedApplicationId,
         agreementStatus: agreement?.status ?? null,
         contractStatus: contract?.status ?? null,
-        hasSignatureAudit: contract ? repo.hasSignatureAudit(contract.contractId) : false,
+        hasSignatureAudit: contract ? await repo.hasSignatureAudit(contract.contractId) : false,
         postActions: ctx.canceledAt
           ? {
               // 지원 일괄 거절은 최윤석(applications) 몫이다 — 이 조회는 항상 NOT_NEEDED로 둔다.
@@ -767,7 +775,7 @@ export function createPublicApiService({
         ]);
       }
       const idemKey = `invalidate-${cancellationId}`;
-      const cached = repo.getIdempotent<InvalidateAgreementResponse>('invalidate', idemKey);
+      const cached = await repo.getIdempotent<InvalidateAgreementResponse>('invalidate', idemKey);
       if (cached) return { ...cached, alreadyProcessed: true, changed: false };
 
       return withActiveProjectGuard(projectId, async () => {
@@ -785,8 +793,8 @@ export function createPublicApiService({
           );
         }
 
-        const agreement = repo.findAgreementByProjectId(projectId);
-        const contract = repo.findContractByProjectId(projectId);
+        const agreement = await repo.findAgreementByProjectId(projectId);
+        const contract = await repo.findContractByProjectId(projectId);
         let agreementStatus: 'REJECTED' | null = null;
         let contractStatus: 'CANCELED' | null = null;
         let changed = false;
@@ -795,7 +803,7 @@ export function createPublicApiService({
         if (agreement && agreement.status !== 'REJECTED') {
           agreement.status = 'REJECTED';
           agreement.respondedAt = agreement.respondedAt ?? now();
-          repo.saveAgreement(agreement);
+          await repo.saveAgreement(agreement);
           agreementStatus = 'REJECTED';
           changed = true;
           result = 'DONE';
@@ -805,7 +813,7 @@ export function createPublicApiService({
         // PAID 이후 계약 취소는 제외(규칙 25) — paymentPendingAt 없음을 위에서 이미 확인했다.
         if (contract && contract.status !== 'CANCELED') {
           contract.status = 'CANCELED';
-          repo.saveContract(contract);
+          await repo.saveContract(contract);
           contractStatus = 'CANCELED';
           changed = true;
           result = 'DONE';
@@ -823,8 +831,8 @@ export function createPublicApiService({
           signaturesPreserved: true,
           changed,
         };
-        repo.setIdempotent('invalidate', idemKey, response);
-        repo.saveInvalidation({
+        await repo.setIdempotent('invalidate', idemKey, response);
+        await repo.saveInvalidation({
           cancellationId,
           projectId,
           contractInvalidation: contract ? 'DONE' : 'NOT_NEEDED',
@@ -856,7 +864,7 @@ export function createPublicApiService({
           { field: 'sha256', reason: 'INVALID_FORMAT' },
         ]);
       }
-      ensureDeliveryForContract(contractId);
+      await ensureDeliveryForContract(contractId);
       const objectKey = `deliveries/${contractId}/${randomId('obj')}`;
       return {
         uploadId: randomId('upl'),
@@ -877,7 +885,7 @@ export function createPublicApiService({
       if (auth!.userId !== contract.freelancerId) {
         throw new PublicApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
       }
-      const cached = repo.getIdempotent<{ input: RequestDeliveryInput; response: GetDeliveryResponse }>(
+      const cached = await repo.getIdempotent<{ input: RequestDeliveryInput; response: GetDeliveryResponse }>(
         'delivery-request',
         input.idempotencyKey,
       );
@@ -895,7 +903,7 @@ export function createPublicApiService({
           { field: 'objectKey', reason: 'required' },
         ]);
       }
-      const delivery = ensureDeliveryForContract(contractId);
+      const delivery = await ensureDeliveryForContract(contractId);
       if (delivery.status !== 'IN_PROGRESS') {
         throw new DomainContractError(
           'PROJECT_TRANSITION_CONFLICT',
@@ -910,7 +918,7 @@ export function createPublicApiService({
       delivery.mimeType = delivery.mimeType ?? 'application/octet-stream';
       delivery.sizeBytes = delivery.sizeBytes ?? 0;
       delivery.version += 1;
-      repo.saveDelivery(delivery);
+      await repo.saveDelivery(delivery);
 
       await ignoreNotificationFailure(() =>
         notifications.publishDeliveryRequested({
@@ -922,7 +930,7 @@ export function createPublicApiService({
       );
 
       const response = await assembleDeliveryResponse(contractId, contract, auth!);
-      repo.setIdempotent('delivery-request', input.idempotencyKey, { input, response });
+      await repo.setIdempotent('delivery-request', input.idempotencyKey, { input, response });
       return { ...response, alreadyProcessed: false };
     },
 
@@ -939,13 +947,13 @@ export function createPublicApiService({
       if (auth!.userId !== contract.clientId) {
         throw new PublicApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
       }
-      const cached = repo.getIdempotent<GetDeliveryResponse>('delivery-approve', input.idempotencyKey);
+      const cached = await repo.getIdempotent<GetDeliveryResponse>('delivery-approve', input.idempotencyKey);
       if (cached) return { ...cached, alreadyProcessed: true };
 
-      const delivery = ensureDeliveryForContract(contractId);
+      const delivery = await ensureDeliveryForContract(contractId);
       if (delivery.status === 'APPROVED') {
         const response = await assembleDeliveryResponse(contractId, contract, auth!);
-        repo.setIdempotent('delivery-approve', input.idempotencyKey, response);
+        await repo.setIdempotent('delivery-approve', input.idempotencyKey, response);
         return { ...response, alreadyProcessed: true };
       }
       if (delivery.status !== 'DELIVERY_REQUESTED') {
@@ -960,7 +968,7 @@ export function createPublicApiService({
       delivery.status = 'APPROVED';
       delivery.approvedAt = now();
       delivery.version += 1;
-      repo.saveDelivery(delivery);
+      await repo.saveDelivery(delivery);
 
       await ignoreNotificationFailure(() =>
         notifications.publishDeliveryApproved({
@@ -980,7 +988,7 @@ export function createPublicApiService({
       });
 
       const response = await assembleDeliveryResponse(contractId, contract, auth!);
-      repo.setIdempotent('delivery-approve', input.idempotencyKey, response);
+      await repo.setIdempotent('delivery-approve', input.idempotencyKey, response);
       return { ...response, alreadyProcessed: false };
     },
   };
@@ -992,8 +1000,8 @@ export function createPublicApiService({
     auth: AuthContext,
   ): Promise<GetDeliveryResponse> {
     const ctx = await projectPort.getProjectNegotiationContext(contract.projectId);
-    const payment = repo.findPaymentByContractId(contractId);
-    const delivery = ensureDeliveryForContract(contractId);
+    const payment = await repo.findPaymentByContractId(contractId);
+    const delivery = await ensureDeliveryForContract(contractId);
     const isClient = auth.userId === contract.clientId;
     const isFreelancer = auth.userId === contract.freelancerId;
     return {
