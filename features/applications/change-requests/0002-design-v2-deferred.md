@@ -3,6 +3,7 @@ title: "설계서 v2.0 후속 — eligibility·202/outbox·GAP-01·프로필"
 status: "반영중"
 requested_by: "조준영 (applications)"
 date: "2026-09-07"
+updated: "2026-09-08"
 affected_docs: [features/applications/spec.md, features/applications/api-contract.md, docs/domain/erd.md]
 affected_features: [applications, project-management, contracts-payments, notifications]
 ---
@@ -14,7 +15,7 @@ affected_features: [applications, project-management, contracts-payments, notifi
 | 받는 사람 | 팀장 · 유동우(PM) · 오민혁(프로필) · 조준영(CP) |
 | 보내는 사람 | 조준영 (applications) |
 | 날짜 | 2026-09-07 |
-| 상태 | 반영중 (`feature/applications` Mock. `app/`·ERD 미반영) |
+| 상태 | applications 반영완료 (Mock·spec·시안) · `app/`·ERD·프로필 포트 대기 (2026-09-08) |
 | ID | `CR-AP-002` |
 | 근거 | Applications 설계서 v2.0 (`APP-DOC-01`~`08`) GAP-01~04 |
 
@@ -61,4 +62,26 @@ eligibility를 COMPLETE 우회로 Mock하는 안 — 설계서가 금지. 기각
 ## Mock 반영 (2026-09-07)
 
 경로 유지. 취소 NULL·eligibility·페이지·단건 GET·202/outbox는 prototype만. `app/` 이식 금지.
+
+## 진행 상황 (2026-09-08)
+
+**applications 쪽은 닫혔다.** 위 "제안하는 변경" 5개 항목이 Mock·spec·시안에 다 들어가
+있고 `npx tsx features/applications/prototype/run.tsx` → PASS 97 / FAIL 0으로 검증된다.
+`REJECTION_COPY` 4종 문구도 `application.constants.ts`·`ApplicationPanel.tsx`·`high-fi.html`에
+있고 `run.tsx`가 네 문구를 각각 대조한다.
+
+**남은 것은 전부 다른 담당이다.** 이 CR을 열어 둔 채로 대기한다.
+
+| 남은 항목 | 담당 | 막힌 이유 |
+|---|---|---|
+| GAP-01 `rejection_type` NULL CHECK | 김락원 · 팀장 | ERD CHECK 미확정. Mock은 NULL로 진행 |
+| GAP-02 실 outbox worker·스케줄러 | 팀장 | 서버리스. 이번 Increment 밖 |
+| GAP-04 `getProfileCompletion` 포트 | 오민혁 | user-management에 프로필 코드 없음 |
+| 상태 이력 테이블 | 김락원 · 팀장 | ERD 신설 필요. Mock은 메모리 append-only |
+| `app/` 이식 (eligibility·단건 GET·operation·202) | 팀장 | `app/`은 팀장만 수정 |
+| `app/web` 거절 4종 문구 | 팀장 | `MyApplicationsPage`는 상태 라벨만. `REJECTION_COPY` 미이식 |
+
+`app/` 미이식 항목은 CR-AP-001(지원 건수)·CR-AP-003(모집 상태 보정값)과 같은 통합 슬라이스에서
+함께 처리하는 쪽이 낫다 — 세 건 모두 `application.service.ts` 한 파일과
+`ProjectApplicationContextPort` 한 타입을 건드린다.
 

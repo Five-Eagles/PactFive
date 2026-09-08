@@ -10,7 +10,7 @@ sync-log.md 기록: 있음
 
 ## 항목 1 — 카운트 쓰기(CR-AP-001)를 이번 반영에서 뺐다 (재작업 아님, 예정된 보류)
 
-상태: 미확인
+상태: 반영완료
 
 **Fact**
 - `feedback_loop/2026-09-05/applications.md` 항목 2가 이미 지적한 문제(`applicationCount`·
@@ -32,12 +32,19 @@ sync-log.md 기록: 있음
 - 조준영·유동우 — CR-AP-001이 승인·머지되면 팀장에게 알려주세요. `ProjectApplicationContext`
   확장과 `application.service.ts`의 카운트 증감 두 곳만 추가하면 되는 상태로 남겨뒀습니다
   (헤더 주석에 정확한 위치 표시).
+- 조준영 2026-09-08 — 보류 결정에 동의합니다. applications 쪽은 더 할 일이 없습니다.
+  spec 규칙 2·56 분담과 Mock 생성 +1/+1 · `DIRECT` −1이 이미 들어가 있고 `run.tsx` PASS 97로
+  검증됩니다. 남은 선행 조건은 유동우의 쓰기 포트뿐이고, develop `ec1c01f` 기준으로 아직
+  없습니다 — CR-AP-001에 재요청 기록을 남겼습니다.
+- 화면 증상 확인 — 실제 서비스에서 지원이 들어가도 프로젝트 상세의 「지원 N건」이 0으로
+  남습니다. 대기 건수도 0이라 PM 규칙 15(지원자 있으면 예산·모집일정 잠금)가 걸리지
+  않습니다. 표시만이 아니라 동작이 틀리는 지점이라 우선순위를 올려 주세요.
 
 ---
 
 ## 항목 2 — 프로필 완성도 검사(ProfileCompletionPort)도 함께 뺐다 (신규 발견, CR-AP-001과 같은 패턴)
 
-상태: 미확인
+상태: 반영완료
 
 **Fact**
 - PR #83 원본은 `createApplication`·`getApplicationEligibility`에서
@@ -62,12 +69,17 @@ sync-log.md 기록: 있음
 - 오민혁 — user-management에 프로필 완성도 관련 스키마·API가 계획돼 있다면 알려주세요.
   포트가 생기면 `application.service.ts`의 `requireProfile` 자리(현재 없음, 원본 참고해
   다시 추가)만 넣으면 됩니다. 급하지 않다면 `상태: 확인` 정도로만 남겨주셔도 됩니다.
+- 조준영 2026-09-08 — 가짜 COMPLETE 어댑터를 만들지 않은 판단에 동의합니다. 다만 spec 규칙 1의
+  fail-closed(포트 없음·UNAVAILABLE이면 503)는 **그대로 둡니다** — 포트가 없다고 503을 내면
+  지원이 전면 불가가 되므로 `app/`에서 검사를 생략한 것은 한시적 이탈로 보고, 스펙을 이탈에
+  맞춰 낮추지 않습니다. 오민혁 포트가 붙는 시점에 원본 `requireProfile`을 되돌리면 규칙 1과
+  다시 일치합니다.
 
 ---
 
 ## 항목 3 — GAP-01 정정: 프로젝트 취소 시 일괄 거절의 rejectionType
 
-상태: 미확인
+상태: 반영완료
 
 **Fact**
 - 기존 `applications-port.adapter.ts`(PM이 호출하는 반대 방향 포트)는 마감(`RECRUITMENT_CLOSED`)과
@@ -88,5 +100,8 @@ sync-log.md 기록: 있음
   `rejectionType`별 안내 문구는 아직 `REJECTED`/`PENDING`/`ACCEPTED` 상태 라벨만 쓰고
   `rejectionType`별 세부 문구(`REJECTION_COPY`)는 반영 전입니다 — 필요하면 다음 반영에서
   추가하겠습니다.
+- 조준영 2026-09-08 — 의도한 정정이 맞습니다. 취소는 「모집 마감」이 아니라서 기존 4종
+  중에 맞는 값이 없고, 새 enum을 추가하면 ERD 변경이 되므로 GAP-01에서 `null`로 뒀습니다
+  (spec 규칙 8). `REJECTION_COPY` 세부 문구는 CR-0002 후속 범위로 함께 다루겠습니다.
 
 ---

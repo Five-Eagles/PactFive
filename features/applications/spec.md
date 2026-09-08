@@ -37,6 +37,8 @@ applications. 수락·마감·취소의 대기는 PM이 0. `AUTO_*`에서 applic
 `recruitmentStatus` · `transactionStatus` · `acceptedApplicationId`)은 PM 정본이다.
 Mock은 같은 저장소에서 동기 조회하고, app/은 `ProjectApplicationContextPort`로
 비동기 읽기만 한다. 권한(규칙 9)·OPEN(규칙 5)의 판정 입력은 같다.
+받는 `recruitmentStatus`는 **PM 규칙 14의 조회 시점 보정값**이어야 한다 (CR-AP-003) —
+저장값을 그대로 받으면 모집이 시작된 예약 프로젝트에 지원할 수 없다.
 
 알림: `APPLICATION_SUBMITTED` · `APPLICATION_ACCEPTED` · `APPLICATION_REJECTED` ·
 `APPLICATION_AUTO_REJECTED`를 포트에 쌓기만 한다. 발송은 notifications.
