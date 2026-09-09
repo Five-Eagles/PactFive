@@ -10,7 +10,7 @@ sync-log.md 기록: 없음
 
 ## 항목 1 — deliveries 컬럼 7종 + invalidations 테이블 신설 (E-47·E-48) — 확인 요청
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - `deliveries`에 `version`·`object_key`·`file_name`·`mime_type`·`size_bytes` 5개 컬럼을
@@ -39,13 +39,34 @@ sync-log.md 기록: 없음
   `prisma migrate dev`도 실행 전인 초안 단계다.
 
 **담당자 메모**
-- {검토 후 자유 기재}
+- 조준영 2026-09-09 — **두 컬럼 다 맞습니다. 원본 없이 추가한 것이 아니라 제가 제안해 둔
+  것입니다.** `features/contracts-payments/spec.md` 규칙 23 마지막 줄이 그대로 적혀 있습니다:
+  「ERD 제안: `fileObjectKey`·`fileSha256`·`version`·`requestedBy`(팀장 반영)」. `sha256`은
+  같은 규칙의 `upload-prepare` 본문 `{ fileName, contentType, size, sha256 }`에도 있습니다 —
+  클라이언트가 보낸 해시를 받아만 두고 저장할 자리가 없던 것이 문제였습니다. 필드명도
+  그대로 좋습니다.
+- `requested_by`도 필요합니다. 규칙 23은 「프리랜서 1회 요청 → 의뢰인 명시적 승인」인데,
+  승인자만 알 수 있고 요청자를 모르면 계약 당사자가 아닌 사람이 올린 납품을 사후에 가릴 수
+  없습니다. 실AV·실저장소가 스텁인 지금은 감사 기록이 유일한 방어선입니다.
+- **`invalidations` 별도 테이블도 동의합니다.** 규칙 25가 GET `postActions.contractInvalidation`을
+  `DONE`/`NOT_NEEDED`/`FAILED` 3상태로 내려주게 정해 뒀고, `FAILED`는 "취소 실패가 아니라
+  202 후처리"입니다. 결과값만 들고 있으면 재조회 때 `FAILED`를 되살릴 수 없어 화면이 무엇을
+  기다리는지 못 보여 줍니다. 이력으로 남기는 쪽이 규칙 25에 맞습니다.
+- 멱등 키는 확인해 봤고 문제 없습니다. `cancellation_id`가 PK라 유니크가 걸립니다.
+  `cancellationEventId`는 설계서 v2.0 별칭이고 Mock이 `input.cancellationId ?? input
+  .cancellationEventId`로 **하나로 정규화**하므로(`public-api.mock.ts:108`) 컬럼을 따로 둘
+  필요가 없습니다.
+- 다만 이 테이블만으로는 규칙 25의 **「다른 본문 409」를 판정할 수 없습니다.** Mock은
+  `invalidateIdempotency`에 `{ bodyHash, response }`를 함께 저장해 같은 키·다른 본문을
+  409로 막습니다(`public-api.mock.ts:1248·1284`). `invalidations`에는 `contract_invalidation`
+  결과만 있어서, 같은 `cancellationId`로 다른 본문이 오면 통과시킵니다. 아래 항목 2의
+  3번(범용 멱등 캐시)과 같은 뿌리라 CR-CP-002에 함께 넣었습니다.
 
 ---
 
 ## 항목 2 — PrismaContractsPaymentsRepository 작성 중 발견한 스키마-도메인 간극 3건 — 확인 요청
 
-상태: 미확인
+상태: 반영완료
 
 **배경**
 같은 날(2026-09-08) 뒤이어, 6기능 Prisma 이식 트랙의 마지막 순서로
@@ -79,7 +100,42 @@ schema.prisma(E-47·E-48, 위 항목 1) 사이에 3가지가 안 맞았다 — �
 코드 안에서 흡수 가능한 만큼만 흡수하고 나머지는 알려진 gap으로 남겼다.
 
 **담당자 메모**
-- {검토 후 자유 기재. 특히 2번(platformFeeRateBps)은 정산 요율이 향후 결제마다
-  달라질 계획이 있다면 스키마에 컬럼을 추가하는 편이 안전합니다.}
+- 조준영 2026-09-09 — 세 건 다 확인했습니다. **1번은 그대로 두고, 2번은 컬럼을 추가해야
+  하며, 3번은 알려진 gap으로 남기는 데 동의합니다.** 스키마 변경분은 `CR-CP-002`로
+  올렸습니다 (`features/contracts-payments/change-requests/0002-payment-fee-snapshot-columns.md`).
+
+**1번 (`Payment.clientId`/`freelancerId` 중복 저장) — 지금 방식 유지**
+
+`Contract`에서 찾아 채우는 방식이 맞습니다. 계약당 결제 1행이고 당사자는 계약이 정본이라
+값이 갈라질 수 없습니다. 스키마의 `@@index([freelancerId, releasedAt])`가 프리랜서별 정산
+조회용인데, 이 인덱스를 쓰려면 `payments`에 컬럼이 있어야 합니다 — join으로 바꾸면 정산
+목록이 느려집니다. 도메인 `PaymentRow`에 두 필드를 늘리는 건 반대합니다. 화면·API가 쓰지
+않는 값이라 응답 모양만 커집니다.
+
+**2번 (`platformFeeRateBps` 역산) — 컬럼을 추가해야 합니다. 미래 대비가 아니라 지금 규칙 위반입니다**
+
+- spec 규칙 24가 「수수료 `floor(paymentAmount × 1000 / 10000)`, **결제 생성 시 스냅샷**」이라고
+  못박아 뒀습니다. 스냅샷을 저장하라는 규칙인데 저장할 컬럼이 없습니다.
+- 요율이 바뀔 계획은 **이미 코드에 있습니다.** `payment-record.mock.ts`에
+  `setFeePolicyVersion`·`feePolicyVersion`이 있고, `run.tsx`의 「규칙 24: 정책 변경 뒤 스냅샷
+  불변」이 정책을 `fee-policy-v2`로 바꿔도 금액이 안 변하는지 검증합니다. 가상의 미래가
+  아니라 통과 중인 테스트입니다.
+- `fee_policy_version` 컬럼도 없습니다. 요율만 저장해도 **어느 정책으로 계산했는지** 남지
+  않아서, 정책을 바꾼 뒤 과거 정산을 감사할 수 없습니다. 두 컬럼은 같이 가야 합니다.
+- `pg_cost_amount`도 없습니다(`setPgCostAmount`, 규칙 24 「PG 비용은 정산액에서 빼지 않는다」).
+  빼지 않더라도 얼마 나갔는지는 기록해야 정산 원장이 맞습니다.
+- 역산 자체도 원리적으로 되돌릴 수 없는 계산입니다. `platformFeeAmount`가 버림이라 나머지가
+  버려집니다. 결제 금액이 1만 원 이상이면 `Math.round`가 오차를 덮어 지금은 맞지만,
+  **맞는 게 우연이지 보장이 아닙니다.** 요율이 1000이 아니게 되는 순간 조용히 틀립니다.
+
+**3번 (범용 멱등 캐시가 in-memory Map) — gap 유지에 동의. 다만 범위를 좁혀 주세요**
+
+서버 재시작 시 멱등 캐시가 비는 것은 받아들일 수 있습니다. 판단 근거는 규칙 25·23의 멱등이
+**CAS·유니크 제약으로 데이터 정합성은 지켜지고**, 캐시가 비면 재처리가 일어나도 결과가
+같기 때문입니다(`alreadyProcessed` 표시만 잘못 나갑니다).
+
+다만 한 가지는 정합성 문제입니다 — **같은 키·다른 본문 409**(규칙 23·25)는 캐시가 비면
+판정할 수 없습니다. 재시작 뒤에 다른 본문으로 같은 키가 오면 막지 못하고 통과합니다.
+`bodyHash`만 남기는 작은 테이블이면 충분해서 CR-CP-002에 함께 넣었습니다.
 
 ---

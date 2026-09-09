@@ -246,7 +246,11 @@ F11: 공개 필드는 `cancellationId`/`result`. applications `closureEventId`�
 ## 공개 API 초안 (규칙 16, Increment 1)
 
 브라우저. `Authorization: Bearer <accessToken>`. 상태 변경 POST는 `Idempotency-Key` 필수.
-컨트롤러 구현은 다음 스프린트.
+
+**2026-09-09 갱신 — `app/`에 이미 반영됐다.** 「컨트롤러 구현은 다음 스프린트」라고 적어
+두었지만 그 사이에 이식이 끝났다. `app/server/src/features/contracts-payments/
+public-api.routes.ts`에 아래 경로 16종이 등록돼 있고, 협상 취소용 내부 경로
+`POST /internal/v1/projects/:projectId/invalidate-agreement`도 함께 있다.
 
 ### POST /api/v1/projects/:projectId/negotiation-offers — `proposeNegotiationOffer`
 
