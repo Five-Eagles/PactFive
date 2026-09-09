@@ -43,4 +43,21 @@ sync-log.md 기록: 없음
 - 멱등 키 길이 `varchar(160)`은 applications와 같습니다. `CR-CP-002`에서 제가 120으로 제안한
   것과 어긋나므로, 팀장님이 한쪽으로 정해 주시면 그 값으로 맞추겠습니다.
 
+**태그 한글 라벨 회신 (E-38 / CR-RV-001 관련) — 조준영 2026-09-09**
+
+- `docs/domain/erd.md:638~640`에 「`features/reviews/`의 spec·api-contract·prototype 어디에도
+  한글 라벨이 없어 코드만 반영했다」는 가정이 있는데, **라벨 10종은 있습니다** —
+  `features/reviews/prototype/web/review.view-model.ts:61~75`입니다. 화면에만 쓰는 문구라
+  `server/`가 아니라 `web/` 아래에 두었습니다. 찾으신 곳이 `server/`였던 것 같습니다.
+- 전문은 `features/reviews/review/teamlead-port-instructions-2026-09-09.md` §1-2 표에
+  방향별로 정리해 두었습니다. `app/web`의 `TAG_LABEL`(`ReviewPage.tsx:28~38`)이 아직 구 E-19
+  라벨이라 그 표로 교체하시면 됩니다.
+- **한 가지 주의점**이 있습니다. `GOOD_COMMUNICATION`은 양방향 라벨이 같지만
+  `PROFESSIONAL_ATTITUDE`는 **다릅니다** — 의뢰인→프리랜서는 「업무 태도가 전문적이에요」,
+  프리랜서→의뢰인은 「협업 태도가 전문적이에요」입니다. 지금 `app/web`처럼 코드 하나에 라벨
+  하나를 매핑하는 `Record<string, string>` 구조로는 이 구분이 안 됩니다. 방향별로 골라야
+  합니다.
+- 그래서 라벨을 서버가 내려주는 방식으로 바꾸실 생각이면 알려주세요 — 계약에 필드가 늘어나므로
+  `api-contract.md`를 제가 고쳐야 합니다 (지시서 확인 질문 R4).
+
 ---

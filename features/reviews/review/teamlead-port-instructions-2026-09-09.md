@@ -1,30 +1,31 @@
-# reviews 재이식 지시서 (2026-09-09)
+# reviews 이식 지시서 (2026-09-09)
 
 | | |
 |---|---|
 | 받는 사람 | 팀장 |
 | 보내는 사람 | 조준영 (reviews) |
-| 목적 | `app/`의 reviews를 설계서 v2.0 계약으로 맞추는 이식 지시 |
+| 목적 | 판단할 것을 남기지 않은 이식 지시 |
+| 대체 | `teamlead-review-panel-api-2026-09-03.md` (폐기된 `review-summary`·PASS 40 기준) |
 
-`app/`은 팀장님만 수정하므로 제가 커밋하지 않습니다.
+`app/`은 팀장님만 수정하므로 제가 커밋하지 않습니다. **어디를 어떻게 바꾸는가**만 적었습니다.
 
-**이 문서는 개별 CR이 아니라 한 건의 재이식 요청입니다.** `app/`의 reviews가 2026-09-05
-이식본에서 멈춰 있어 그 뒤 확정된 설계서 v2.0 계약이 반영되지 않았습니다. 항목별로 CR을
-쪼개면 15건이 되고 서로 물려 있어 따로 처리할 수 없습니다.
+**배경.** `app/server/src/features/reviews/`는 2026-09-05 이식본인데 2026-09-07에 설계서
+v2.0으로 계약이 바뀌었습니다. 지금 `app/`은 폐기된 계약을 구현하고 있습니다. 원본은
+`run.tsx` PASS 69 / FAIL 0입니다. 우선순위는 **1 → 2 → 3 → 4**이고, 4번만 `CR-RV-002`
+승인이 선행조건입니다.
 
-## 선행 조건 — CR-RV-002가 먼저입니다
-
-[CR-RV-002](../change-requests/0002-review-window-and-rating-projection.md)의
-`review_windows` · `user_rating_projections` 두 테이블이 스키마에 없으면 아래 3번·6번을
-이식할 수 없습니다. 그 CR이 아직 `제안` 상태입니다.
-
-나머지 항목(1·2·4·5·7)은 선행 조건 없이 지금 진행할 수 있습니다.
+**이미 맞는 것 (건드리지 마세요).** 2026-09-08 통합의 두 가지는 원본과 일치합니다 —
+`review_created_published_at`(`schema.prisma:936`) + `publishNewlyPublic`
+(`review.service.ts:107~121`), `review_idempotency_keys`(`:952`) +
+`getIdempotency`/`setIdempotency`.
 
 ---
 
-## 1. 태그 코드가 폐기된 것을 쓰고 있다 (사용자에게 보임)
+## 1. 태그 코드 10종 · 필드명
 
-**파일** `app/server/src/features/reviews/review.constants.ts:6~20`
+### 1-1. 태그 코드 — `review.constants.ts:6~20`
+
+구 E-19를 v2.0으로 바꿉니다([api-contract.md](../api-contract.md) `:124~129`).
 
 ```ts
  export const CLIENT_TO_FREELANCER_TAGS = [
@@ -42,153 +43,157 @@
  ] as const;
 ```
 
-**ERD는 이미 v2입니다** — `docs/domain/erd.md:630`에 「E-38 개정 — CR-RV-001」로 반영
-기록이 있습니다. 계약은 `api-contract.md:124~130`. 즉 `app/` 코드만 남았습니다.
+`GOOD_COMMUNICATION`·`PROFESSIONAL_ATTITUDE`는 **양방향에 같은 코드**로 들어갑니다.
 
-웹 표시명도 같이 바꿔야 합니다 — `app/web/src/features/reviews/ReviewPage.tsx:29~38`,
-`review.types.ts:9`·`:23`. 표시명은 `spec.md:31~34`에 있습니다.
+### 1-2. 한글 라벨 (ERD 확인 요청 회신)
 
-**증상** 화면에 폐기된 태그(「책임감」·「기술력」·「대금 지급 신뢰도」)가 뜨고, 계약대로
-새 코드를 보내는 클라이언트는 422를 받습니다.
+[erd.md](../../../docs/domain/erd.md) `:638~640`이 「`features/reviews/` 어디에도 한글 라벨이
+없다」고 적었는데 **`prototype/web/review.view-model.ts:61~75`에 있습니다.** 화면 문구라
+`web/` 아래에 두었습니다. `app/web`의 `TAG_LABEL`(`ReviewPage.tsx:28~38`)을 이 표로 바꿉니다.
+
+| 방향 | 코드 | 한글 라벨 |
+|---|---|---|
+| 의뢰인 → 프리랜서 | `WORK_QUALITY` | 결과물 품질이 좋아요 |
+| 의뢰인 → 프리랜서 | `ON_TIME_DELIVERY` | 납기를 잘 지켜요 |
+| 의뢰인 → 프리랜서 | `GOOD_COMMUNICATION` | 소통이 원활해요 |
+| 의뢰인 → 프리랜서 | `REQUIREMENT_UNDERSTANDING` | 요구사항 이해가 정확해요 |
+| 의뢰인 → 프리랜서 | `PROFESSIONAL_ATTITUDE` | 업무 태도가 전문적이에요 |
+| 프리랜서 → 의뢰인 | `CLEAR_REQUIREMENTS` | 요구사항이 명확해요 |
+| 프리랜서 → 의뢰인 | `FAST_FEEDBACK` | 피드백이 빨라요 |
+| 프리랜서 → 의뢰인 | `GOOD_COMMUNICATION` | 소통이 원활해요 |
+| 프리랜서 → 의뢰인 | `SCOPE_STABILITY` | 업무 범위가 안정적이에요 |
+| 프리랜서 → 의뢰인 | `PROFESSIONAL_ATTITUDE` | 협업 태도가 전문적이에요 |
+
+`GOOD_COMMUNICATION`은 양쪽 라벨이 같지만 `PROFESSIONAL_ATTITUDE`는 **다릅니다**
+(「업무 태도」/「협업 태도」). 코드가 같아도 라벨은 방향별로 골라야 합니다.
+
+### 1-3. `comment` → `content`, `isPublic` → `visibility`
+
+`comment`는 이름만 바뀌지만 `isPublic`은 **타입이 바뀝니다** — boolean이 아니라
+`'BLINDED' | 'PUBLISHED'`입니다. 변환 함수 `visibilityOf`는 원본 `:58~60`에 한 줄로 있습니다.
+
+- `toItem`(`review.service.ts:77~87`) — `comment`·`isPublic`·`createdAt` →
+  `content`·`visibility`·`submittedAt`. `submittedAt`은 **이름만** 바뀝니다(값은 `row.createdAt`)
+- `toCreateBody`(`:89~97`) — `editable: false` 추가
+- `bodyHash`(`:42~48`) — `comment: input.comment ?? null`을 `content`로. **안 바꾸면 해시가
+  항상 `null`로 계산돼 본문이 다른 요청이 같은 키로 통과합니다**
+- `app/web/src/features/reviews/review.types.ts:38~52`도 같이
 
 ---
 
-## 2. 요청·응답 필드와 에러 코드가 계약과 다르다
+## 2. 화면에 잘못된 값이 나가는 것
 
-**필드** — `app/`은 `comment`·`isPublic`을 쓰고 `editable`이 없습니다. 계약은
-`content`·`visibility`·`editable`입니다(`api-contract.md:131~138`).
-
-- `comment` → `content`
-- `isPublic: boolean` → `visibility: 'BLINDED' | 'PUBLISHED'`
-- `editable` 추가
-
-`visibility`는 단순 개명이 아닙니다. `BLINDED`는 「상대가 아직 안 써서 가려진 상태」라는
-뜻이고 `isPublic: false`는 그 이유를 담지 못합니다.
-
-**에러 코드** — `app/server/.../review.service.ts:140~180`을 계약(`api-contract.md:37~41`)
-쪽으로 맞춥니다.
-
-- `TRANSACTION_NOT_COMPLETED` → `PROJECT_NOT_COMPLETED`
-- `REVIEW_ALREADY_EXISTS` → `REVIEW_ALREADY_SUBMITTED`
-- `PROJECT_FORBIDDEN` → `REVIEW_FORBIDDEN`
-- `VALIDATION_ERROR` → 값에 따라 `INVALID_REVIEW_RATING` · `REVIEW_TAG_INVALID` ·
-  `REVIEW_CONTENT_INVALID`로 나눔
-- `IDEMPOTENCY_KEY_REUSED` 추가 (같은 키·다른 본문)
-- `PROJECT_TRANSITION_CONFLICT`는 계약에 없음 — 위 코드들로 흡수
-
-`app/web`이 자체 코드 매핑으로 문구를 띄우고 있어(`ReviewPage.tsx:124~142`) 화면은 지금도
-뜹니다. 코드를 바꿀 때 이 매핑도 같이 고쳐야 합니다.
-
----
-
-## 3. 14일 판정 기준이 다르다 (선행: CR-RV-002)
-
-**파일** `app/server/src/features/reviews/review.service.ts:68~75`
-
-`app/`은 **각 리뷰 행의 `createdAt` + 14일**로 계산합니다.
+### 2-1. `displayAverageRating`이 없다 — `review.service.ts:257~261`
 
 ```ts
-return Date.parse(nowIso) - Date.parse(row.createdAt) >= SOLO_PUBLIC_AFTER_DAYS * DAY_MS;
+-  return { userId, averageRating: ratingSum / reviewCount, reviewCount };
++  return { userId, averageRating: displayAverageRating(ratingSum, reviewCount), reviewCount };
 ```
 
-원본은 **프로젝트 최초 `completedAt` 기준 window의 `deadlineAt`**을 봅니다
-(`prototype/server/review.service.ts:62~76`).
+`app/server/src/features/reviews/display-average.ts`를 새로 만듭니다(원본 전문):
 
 ```ts
-if (!window) return false;
-return Date.parse(nowIso) >= Date.parse(window.deadlineAt);
+/** 합계/건수에서 바로 한 자리로 반올림한다. 4.45를 다시 반올림하지 않는다. */
+export function displayAverageRating(ratingSum: number, reviewCount: number): number | null {
+  if (reviewCount <= 0) return null;
+  return Math.round((ratingSum / reviewCount) * 10) / 10;
+}
 ```
 
-**차이가 실제로 생깁니다.** 거래 완료 10일 뒤에 쓴 리뷰는 원본에서 4일 후 공개되지만
-`app/`에서는 14일 후 공개됩니다. 기준점이 프로젝트가 아니라 리뷰라서 사람마다 공개일이
-달라집니다.
+**핵심은 두 번 반올림하지 않는 것입니다.** 합계 489·건수 110이면 489/110 = 4.4454…이고
+한 번에 한 자리로 반올림하면 **4.4**입니다. 둘째 자리로 먼저 4.45를 만들고 다시 반올림하면
+**4.5**가 됩니다. 별점 한 칸이 틀립니다. `run.tsx` F12의 반례입니다.
 
-같은 window가 **작성 마감**도 정합니다. `app/`에는 `isPeriodClosed`와
-`REVIEW_PERIOD_CLOSED`가 없어서(`rg` 결과 0건) **기한이 한참 지나도 작성이 통과합니다.**
-원본은 `prototype/server/review.service.ts:81~84`·`:219~221`입니다.
+### 2-2. 에러 코드가 계약과 다르다 — `review.service.ts`
 
----
+| 위치 | 현재 | 바꿀 것 | HTTP |
+|---|---|---|---|
+| `:140` | `PROJECT_FORBIDDEN` | `REVIEW_FORBIDDEN` | 403 |
+| `:147` | `TRANSACTION_NOT_COMPLETED` | `PROJECT_NOT_COMPLETED` | 409 |
+| `:167` | `REVIEW_ALREADY_EXISTS` | `IDEMPOTENCY_KEY_REUSED` | 409 |
+| `:180` | `REVIEW_ALREADY_EXISTS` | `REVIEW_ALREADY_SUBMITTED` | 409 |
+| `:153` | `VALIDATION_ERROR` (rating) | `INVALID_REVIEW_RATING` | 400 |
+| `:56`·`:62` | `VALIDATION_ERROR` (tags) | `REVIEW_TAG_INVALID` | 422 |
 
-## 4. 폐기된 경로가 서빙 중이고 새 경로 3개가 없다
+**`:167`과 `:180`이 같은 코드인 것이 문제입니다.** 앞은 「같은 키로 다른 본문」, 뒤는
+「같은 방향 두 번째 리뷰」인데 화면이 둘을 구분할 수 없습니다.
 
-**파일** `app/server/src/features/reviews/review.router.ts:31~53` (현재 3개 경로만)
+`:134`(`idempotencyKey` 누락)는 `VALIDATION_ERROR`로 그대로 둡니다 — 원본도 같습니다.
 
-- **`GET /users/:userId/review-summary` → `GET /users/:userId/rating`**
-  `api-contract.md:8`이 `review-summary`를 폐기로 적었습니다. 웹도 같이 고쳐야 합니다 —
-  `app/web/src/features/reviews/api/review.ts:29`
-- **`GET /projects/:projectId/reviews/me` 신설** — 원본
-  `prototype/server/review.service.ts:272~315`. `canReview`·`reason`·`reviewDeadlineAt`·
-  `counterpartyReviewVisibility`를 돌려줍니다
-- **`GET /users/:userId/reviews` 신설** — 원본 `:357~390`, 계약 `api-contract.md:94~101`.
-  페이지네이션 포함
-- **405 `METHOD_NOT_ALLOWED`** — 라우터 주석(`:6~11`)이 「404가 안전한 기본값이라 405를
-  추가하지 않는다」고 적었습니다. 계약은 `api-contract.md:117`에서 405를 요구합니다.
-  원본은 `assertReviewWriteMethod`(`prototype/server/review.service.ts:136~140`).
-  급하지 않습니다
+`:143`의 취소 분기는 원본에서 별도 코드가 아니라 합쳐져 있습니다(원본 `:163~168`).
+`PROJECT_TRANSITION_CONFLICT`를 지우고 `transactionStatus !== 'COMPLETED' ||
+contractStatus === 'CANCELED'` 한 덩어리로 `PROJECT_NOT_COMPLETED`를 던집니다.
 
-**`/reviews/me`가 없어서 생기는 문제** — 화면이 작성 가능 여부·마감일·상대 공개 여부를
-서버에서 받지 못합니다. 그래서 `app/web`은 양방향 태그 10종을 **전부 보여주고** 서버 422에
-의존합니다(`ReviewPage.tsx:19~24` 주석에 이 절충이 적혀 있습니다). 1번의 태그 교체만 하고
-이 경로를 안 만들면, 사용자는 자기 방향이 아닌 태그를 골랐다가 거부당합니다.
+### 2-3. 본문 길이 검증이 없다
+
+`app/`에는 아예 없습니다. 원본 `normalizeContent`(`:47~56`)를 그대로 옮깁니다 — trim 후
+1~1,000자가 아니면 422 `REVIEW_CONTENT_INVALID`입니다. `undefined`는 통과(본문 없는 리뷰
+허용)이고 **공백만 있는 문자열은 422**입니다(trim 후 0자).
 
 ---
 
-## 5. 평균 평점이 반올림되지 않는다
+## 3. 라우트 3종 → 5종 — `review.router.ts`
 
-**파일** `app/server/src/features/reviews/review.service.ts:261`
+| 계약 경로 | 핸들러 | app 상태 |
+|---|---|---|
+| `POST /api/v1/projects/:projectId/reviews` | `createReview` | 있음 (`:31`) |
+| `GET /api/v1/projects/:projectId/reviews` | `listProjectReviews` | 있음 (`:41`) |
+| `GET /api/v1/projects/:projectId/reviews/me` | `getMyProjectReview` | **없음** |
+| `GET /api/v1/users/:userId/rating` | `getUserRating` | `review-summary`(`:47`) 대체 |
+| `GET /api/v1/users/:userId/reviews` | `listUserReviews` | **없음** |
 
-나눗셈 결과를 그대로 반환해서 `4.454545454545454`가 내려갑니다. 원본은
-`prototype/server/display-average.ts`의 `displayAverageRating`으로 한 자리 반올림합니다
-(`prototype/server/review.service.ts:351`).
+- **`review-summary` → `rating`.** 경로만이 아닙니다. `averageRating`이 2-1을 거쳐야 합니다.
+  함수명 `getReviewSummary` → `getUserRating`, 별칭 `getUserRatingSummary`를 같은 핸들러로
+  export(원본 `:355`)
+- **`reviews/me`** — 원본 `:272~315`. 응답 5필드는 [api-contract.md](../api-contract.md)
+  `:66~81`. **상대가 공개 전이면 존재·별점·본문을 주지 않고** `NOT_AVAILABLE`만
+- **`users/:userId/reviews`** — 원본 `:357~390`. `PUBLISHED`만, `publishedAt DESC,
+  reviewId DESC`, `page` 1~1000 · `pageSize` 1~50(기본 20). 정렬 키는
+  `reviewCreatedPublishedAt ?? createdAt`
+- `me`를 `reviews` 앞에 등록하는 편이 경로 혼동이 없습니다
+- **405** — `:6~12` 주석대로 지금은 404입니다. 계약은 405
+  ([api-contract.md](../api-contract.md) `:117`, 원본 판정 함수 `:136~140`). **급하지
+  않습니다** — 404도 안전한 기본값이라 나중에 붙이셔도 됩니다
 
-F12 검증 케이스가 있습니다 — 489/110은 4.445…이지만 **직접 반올림해 4.4**입니다. 두 번
-반올림하면 4.5가 되어 어긋납니다. `run.tsx`의 「F12: 489/110 직접 반올림은 4.4」가 이
-케이스입니다.
-
----
-
-## 6. 잠금·Projection이 없다 (선행: CR-RV-002)
-
-- **`withKeyedLock`** — 원본 `prototype/server/keyed-lock.ts`, 사용은
-  `prototype/server/review.service.ts:192`. `app/`의 `createReview`(`:124~205`)는 잠금 없이
-  진행합니다. 양쪽이 동시에 첫 리뷰를 제출하면 공개 판정이 어긋날 수 있습니다
-- **`refreshUserRatingProjection`** — 원본 `:392~405`. `user_rating_projections` 테이블이
-  선행 조건입니다
-
----
-
-## 7. 웹 라우트가 단수다
-
-**파일** `app/web/src/features/reviews/review.routes.tsx:9`·`:13`
-
-`/review` → `/reviews`. 계약 경로가 복수입니다.
-
-**applications 쪽과 같이 처리해 주세요.** applications의 「완료됨」 배지가 리뷰 화면으로
-링크할 때 이 경로를 씁니다
-([applications 이식 지시서](../../applications/review/teamlead-port-instructions-2026-09-09.md)
-3-3). 한쪽만 고치면 링크가 깨집니다.
+**웹 라우트 복수형** — `review.routes.tsx:9`·`:13`의 `/projects/${projectId}/review`를
+`/reviews`로. **applications 지시서 3-3과 짝입니다.** 프리랜서 「완료됨」 배지 CTA가
+`/projects/:projectId/reviews`로 가고 그것이 프리랜서의 유일한 리뷰 진입 경로입니다. 두
+곳이 어긋나면 CTA가 404입니다. `api/review.ts:29`의 `review-summary` 호출도 함께.
 
 ---
 
-## 8. 시안의 확인 모달·별점 radiogroup
+## 4. 14일 판정 기준 (CR-RV-002 승인 후)
 
-`app/`은 숫자 텍스트 입력 + 즉시 제출입니다(`ReviewPage.tsx:190~199`·`:236~239`). 원본은
-`role="dialog" aria-modal`(`prototype/web/ReviewPanel.tsx:100`)과
-`role="radiogroup"`(`:133`)을 씁니다. 리뷰도 제출 후 수정이 안 되므로 확인이 필요합니다.
+`review.service.ts:68~75`는 리뷰 행의 작성 시각(`row.createdAt`)에서 14일을 셉니다. 규칙 6의
+기준은 **프로젝트 최초 `completedAt`** 입니다. 원본은 `review_windows`에 `openedAt` =
+`completedAt`, `deadlineAt` = `openedAt + 14일`을 고정하고 `now >= deadlineAt`으로
+판정합니다(`prototype/mock/review.mock.ts:228~242`, 원본 `:62~75`).
 
----
+**차이가 드러나는 경우.** 한쪽이 완료 직후, 다른 쪽이 열흘 뒤에 썼다면 지금 구현은 두 행의
+공개 시점이 열흘 어긋납니다. window 기준이면 같은 `deadlineAt`에 함께 공개됩니다. 단독
+공개는 프로젝트 단위 사건이라 행마다 달라질 수 없습니다.
 
-## 손대지 않는 것
+함께 붙는 것:
 
-- **`publishDueSoloReviews` 배치** — `app/`에 스케줄러가 없어 이 Increment 밖으로 고정
-  (`index.md`). `isReviewPublic`이 조회마다 계산되므로 화면 공개 여부는 맞습니다
-- **`getPublishedRatingAggregate` HTTP** — 구독하는 기능이 없어 의도적으로 열지 않음
-  (`api-contract.md:105`·`:115`)
+- **`REVIEW_PERIOD_CLOSED`** — 기한 후 작성은 409(원본 `:218~221`). 지금 `app/`에는 이
+  판정이 없어 **14일이 지나도 리뷰를 계속 받습니다**
+- **`reviewDeadlineAt`** — `reviews/me` 응답 필드. window 없이는 줄 값이 없습니다
+- **`ensureWindow`는 `completedAt` 없이 부르면 예외**입니다. 원본은 `transactionStatus`가
+  `COMPLETED`일 때만 부릅니다(`:260`·`:284~286`) — 이 가드를 같이 옮기셔야 합니다
 
-## 제가 회신을 기다리는 것
+**선행조건.** `review_windows`·`user_rating_projections`가 ERD·`schema.prisma`에 없습니다.
+`CR-RV-002` 승인 후 시작하시고, 그전까지 `createdAt` 기준으로 두셔도 1~3번과 충돌하지
+않습니다. `getUserRating`은 projection이 있으면 그 값을, 없으면 실시간 합계를 쓰므로(원본
+`:345~347`) projection 없이도 정확한 값이 나옵니다.
 
-- **14일 확정** — `spec.md:54` 규칙 6이 아직 `(ASSUMPTION)`입니다.
-  `../../contracts-payments/review/external-wait-2026-08-31.md` §2의 T1·T2가 8/26 요청 이후
-  지금도 빈칸입니다. 다른 일수로 정하시면 `SOLO_PUBLIC_AFTER_DAYS` 한 값만 바꾸면 됩니다
-- **`REVIEW_REQUESTED` 발송** — 규칙 12대로 저는 발행만 합니다. 어댑터가 큐에 쌓기만 해
-  거래 완료 후 리뷰 요청 알림이 당사자에게 가지 않습니다
+## 확인이 필요한 것
+
+| # | 질문 | 예 | 아니오 | 메모 |
+|---|---|---|---|---|
+| R1 | 1~3번을 `CR-RV-002` 승인과 무관하게 먼저 반영하시는가 | | | |
+| R2 | 405를 이번에 붙이시는가 | | | |
+| R3 | 웹 경로 복수형을 applications 「완료됨」 CTA와 같은 슬라이스에서 하시는가 | | | |
+| R4 | 태그 한글 라벨을 `app/web` 상수로 두시는가, 서버가 내려주시는가 | | | |
+
+R4만 부연합니다. 원본은 라벨을 화면에 두었습니다. 서버가 내려주는 방식으로 바꾸시려면
+계약에 필드가 늘어나므로 알려주세요 — `api-contract.md`를 고쳐야 합니다.
