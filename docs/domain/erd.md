@@ -333,6 +333,12 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 원본은 `ApplicationOperation.steps` 배열이지만 DB에서는 자식 테이블로 정규화했다 — 구조만
 바꿨고 데이터 의미는 원본과 동일하다(팀장 판단).
 
+**(v1.8, CR-AP-004 변경 1, 2026-09-09)** `UNIQUE(operation_id, seq)`에 더해
+`UNIQUE(operation_id, name)`을 추가했다 — 한 operation의 단계는 이름당 최대 1행이라는
+불변식(`queuedSteps` — ACCEPT는 3개, REJECT는 1개로 고정)을 리포지토리 구현 방식과
+무관하게 스키마가 직접 방어한다. 결함 수정은 아니다 — 현재 이식본(전량 삭제 후 재삽입)은
+이미 이 불변식을 지키고 있었다.
+
 ##### `application_state_events`
 
 | 컬럼 | 타입 | 제약 | 의미 |
@@ -358,7 +364,7 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 | `closure_event_id` | varchar(30) | PK | 모집 마감 사건 id — project-management가 발급 |
 | `rejected_count` | integer | NOT NULL | — |
 | `already_processed` | boolean | NOT NULL | — |
-| `result` | jsonb | NOT NULL | exact replay용 최초 응답 사본 |
+| `result` | varchar(20) | NOT NULL | `PostActionResult`(`"DONE"｜"NOT_NEEDED"｜"FAILED"`) — **(v1.7, CR-AP-004 변경 2, 2026-09-09)** 원래 `jsonb`였다가 스칼라 리터럴 유니온이라 `varchar`로 바꿨다(`type`·`status` 컬럼과 같은 원칙). 이식 코드가 `Json` 컬럼에 결과 객체 전체를 넣는 결함(`setClosure`)이 있었고, 팀장이 함께 고쳤다 — 이 문서 표만 갱신되지 않고 있었다(2026-09-09 정정) |
 
 
 ### 조준영 담당
@@ -441,6 +447,9 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 | `payment_amount` | integer | NOT NULL | 결제 총액 |
 | `platform_fee_amount` | integer | NOT NULL | 플랫폼 수수료 (금액으로 저장, 비율 아님 — 원본 원칙 6) |
 | `settlement_amount` | integer | NOT NULL | 정산액 = 결제액 − 수수료 (금액으로 저장 — 원본 원칙 6) |
+| `platform_fee_rate_bps` | smallint | NOT NULL, DEFAULT 1000 | **(v1.8 신설, CR-CP-002, 2026-09-09)** 결제 생성 시점 요율 스냅샷(bps). 정책이 바뀌어도 과거 행은 불변(spec.md 규칙 24). 이전엔 저장 컬럼이 없어 `platform_fee_amount÷payment_amount`로 역산했다 — 고정 요율 하나만 쓰는 동안은 우연히 정확했다(Fact, 조준영 요청) |
+| `fee_policy_version` | varchar(30) | NOT NULL, DEFAULT `fee-policy-v1` | **(v1.8 신설, CR-CP-002)** 어느 수수료 정책으로 계산했는지 감사용. 결제 생성 시 1회 기록·불변(Fact, 조준영 요청) |
+| `pg_cost_amount` | integer | NOT NULL, DEFAULT 0 | **(v1.8 신설, CR-CP-002)** PG 비용 — 정산액에서 빼지 않고 별도 기록만 한다(spec.md 규칙 24)(Fact, 조준영 요청) |
 | `status` | payment_status | NOT NULL | 결제 상태 (`payment_status`) |
 | `pg_provider` | varchar(20) | NOT NULL | PG사 |
 | `pg_order_id` | varchar(64) | NOT NULL | 가맹점측 주문 ID |
@@ -489,6 +498,22 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 **(Assumption)** 프로젝트 취소 시 계약 무효화 최종 결과. 원본(조준영 mock)엔 결과값 자체는
 있으나 별도 영속 테이블로 만든 건 팀장 판단이다 — spec.md 규칙 25(취소 시 GET으로 마지막 무효화
 결과 조회) 근거. 조준영 확인 필요.
+
+#### `payment_idempotency_records` (v1.8 신설 — E-49, CR-CP-002, 2026-09-09)
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `idempotency_key` | varchar(120) | PK | 합의·서명·납품·취소 4개 흐름 공용 |
+| `scope` | varchar(40) | NOT NULL | 어느 흐름의 키인지 |
+| `body_hash` | varchar(64) | NOT NULL | 같은 키·다른 본문 409 판정용 |
+| `created_at` | timestamptz | NOT NULL | 생성 시각 |
+
+**(Fact, 조준영 요청)** `getIdempotent`/`setIdempotent`(`PrismaContractsPaymentsRepository`)가
+응답 전체를 담는 범용 캐시라 여전히 in-memory Map으로만 남아 있다 — 재시작하면 응답
+재사용은 안 되지만 CAS·유니크 제약으로 데이터 정합성은 지켜진다. 받아들일 수 없는 것은
+"같은 키·다른 본문인데 409를 못 던지는 것"(spec.md 규칙 23·25)이다 — 이 테이블은 몸통
+해시만 남겨 그 판정만 재시작 후에도 복구한다. 2026-09-09 시점에는 스키마만 추가했다 —
+`getIdempotent`/`setIdempotent`를 이 테이블로 옮겨 붙이는 배선은 별도 작업으로 남아 있다.
 
 #### `reviews`
 
