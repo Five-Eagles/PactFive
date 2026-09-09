@@ -53,3 +53,4 @@
 | 2026-09-07 | 실서비스 검토 F06·F07·F12 Mock. window·Projection·displayAverageRating. CR-0002 |
 | 2026-09-07 | 규칙 11: 프리랜서 CTA = 내 지원 현황 ACCEPTED∧COMPLETED. PM 규칙 9 유지 |
 | 2026-09-08 | feedback 항목 2 반영완료. 배치·내부합계 HTTP·app CTA는 이 Increment 밖. |
+| 2026-09-09 | 9/8 feedback 항목 1 반영완료. E-39·E-40 원본 일치. isPublic 주석 위치만 요청 |

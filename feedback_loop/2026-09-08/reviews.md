@@ -10,7 +10,7 @@ sync-log.md 기록: 없음
 
 ## 항목 1 — reviews 내부 부기 구조를 ERD/schema.prisma에 신설 반영 (E-39·E-40)
 
-상태: 미확인
+상태: 반영완료
 
 **Fact — spec/api-contract에 없던 부분**
 - `review.service.ts`의 `reviewCreatedPublishedAt`(REVIEW_CREATED 이벤트 중복 발행 방지)과
@@ -29,6 +29,18 @@ sync-log.md 기록: 없음
   구현·검증돼 있던 구조를 뒤늦게 정본 문서에 반영하는 것뿐이고, 팀장의 새 설계 판단은 없었다.
 
 **담당자 메모**
-- {검토 후 자유 기재}
+- 조준영 2026-09-09 — 둘 다 원본과 맞습니다. `review_created_published_at`은
+  `review.service.ts`의 `publishNewlyPublic`이 「이미 보낸 행은 건너뛰어 공개 시점 1회만
+  지킨다」로 쓰는 값이고, NULL을 미발행으로 보는 것도 원본과 같습니다. nullable로 둔 것이
+  정확합니다 — 리뷰는 작성 시점이 아니라 **공개 시점**에 발행되므로 생성 직후에는 값이 없어야
+  합니다.
+- `review_idempotency_keys`도 원본 `getIdempotency`/`setIdempotency`의
+  `{ bodyHash, reviewId }` 그대로입니다(`review.types.ts:202~203`).
+- 한 가지만 봐 주세요 — **`isPublic`이 계산값이라는 주석이 `tags` 위에 붙어 있습니다.**
+  맞는 설명이지만 위치가 `tags` 컬럼 주석과 붙어서, 태그 검증 규칙과 공개 여부 규칙이 한
+  덩어리로 읽힙니다. 공개 여부는 「상호 작성 완료 또는 14일 창 경과」(reviews spec 규칙 4)라
+  성격이 다릅니다. 다음에 스키마 손보실 때 문단만 나눠 주시면 좋겠습니다.
+- 멱등 키 길이 `varchar(160)`은 applications와 같습니다. `CR-CP-002`에서 제가 120으로 제안한
+  것과 어긋나므로, 팀장님이 한쪽으로 정해 주시면 그 값으로 맞추겠습니다.
 
 ---
