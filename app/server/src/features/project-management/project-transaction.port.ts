@@ -173,6 +173,29 @@ export interface ProjectTransactionPort {
   getProjectNegotiationContext(projectId: string): Promise<NegotiationContext>;
 
   /**
+   * 지원 건수 갱신 (CR-AP-001).
+   *
+   * applications 가 **지원을 만들 때**와 **개별 거절할 때** 부른다.
+   *
+   *   지원 생성  `{ applicationCount: +1, pendingApplicationCount: +1 }`
+   *   개별 거절  `{ pendingApplicationCount: -1 }`
+   *
+   * `applicationCount` 는 올라가기만 한다 — "지금까지 몇 명이 지원했나" 이므로
+   * 거절해도 내려가지 않는다. 오르내리는 것은 대기 수뿐이다.
+   *
+   * **수락·마감·취소 때는 부르지 않는다.** 그 셋은 이 서비스가 같은 트랜잭션 안에서
+   * 0 으로 놓는다(대기 지원이 전부 정리되는 시점이라 하나씩 빼는 것보다 안 어긋난다).
+   * 밖에서 또 빼면 두 번 빠진다.
+   *
+   * 결과는 **음수가 되지 않는다** — 바닥이 0 이다. 음수는 "대기 지원 없음"으로 읽혀
+   * 잠겨 있어야 할 예산이 풀린다.
+   */
+  bumpApplicationCounts(
+    projectId: string,
+    delta: { applicationCount?: number; pendingApplicationCount?: number },
+  ): Promise<{ applicationCount: number; pendingApplicationCount: number }>;
+
+  /**
    * 지원 수락. OPEN + NONE → CLOSED + CONTRACT_PENDING (규칙 36)
    * **"같은 지원서인가"를 상태 조건보다 먼저 본다** (규칙 55).
    */
