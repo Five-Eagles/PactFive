@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { PREVIEW_ROUTES } from '../preview/preview.paths';
 import { INFO_ROUTES } from '../info/info.paths';
@@ -29,9 +30,16 @@ export type HomeHeaderProps = {
   /** 로그인 상태일 때 "이름" 링크가 갈 곳 — 의뢰인은 내 프로젝트, 프리랜서는 내 북마크 */
   myActivityHref: string;
   onLogout: () => void;
+  /**
+   * `.hdr__act` 안에 끼울 부가 요소 — notifications의 `NotificationBell`을 위해 2026-09-09에
+   * 추가했다(api-contract.md "AppShell 밖의 HomeHeader에도 같은 상태를 내려야 한다"). 이
+   * 폴더는 notifications를 import하지 않으므로(app/web/AGENTS.md "폴더 간 접점") 실제
+   * 컴포넌트는 App.tsx가 `project.routes.tsx`의 `homeHeaderExtra` 슬롯을 통해 넣어 준다.
+   */
+  headerExtra?: ReactNode;
 };
 
-export function HomeHeader({ viewer, myActivityHref, onLogout }: HomeHeaderProps) {
+export function HomeHeader({ viewer, myActivityHref, onLogout, headerExtra }: HomeHeaderProps) {
   return (
     <header className="home-hdr">
       <div className="home-hdr__in">
@@ -45,6 +53,7 @@ export function HomeHeader({ viewer, myActivityHref, onLogout }: HomeHeaderProps
           <NavLink to={INFO_ROUTES.safety}>안전한 거래</NavLink>
         </nav>
         <div className="home-hdr__act">
+          {headerExtra}
           {viewer ? (
             <>
               <Link to={myActivityHref} className="login">

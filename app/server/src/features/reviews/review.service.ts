@@ -42,6 +42,16 @@ export type ReviewServiceDeps = {
   projectContext: ProjectReviewContextPort;
   userExistsPort: UserExistsPort;
   events: ReviewEventPort;
+  /**
+   * 2026-09-09 — user-management PR #89(오민혁)의 `createReviewCreatedConsumer`를 조립 지점
+   * (express-app.ts)에서 이 필드로 주입한다. `ReviewEventPort`와 이벤트 5필드 계약이 같아
+   * 타입을 새로 만들지 않고 재사용한다 — reviews는 user-management를 import하지 않는다
+   * (app/web/AGENTS.md "폴더 간 접점"과 같은 원칙). 사용자 평점 캐시(`users.rating_average`/
+   * `review_count`)를 최신화한다. 실패 시 `publishNewlyPublic`과 같은 방식으로(현재 try/catch
+   * 없음) 상위로 전파된다 — `deps.events.publishReviewCreated`가 이미 그렇게 동작했던 것과
+   * 같은 기존 한계이며, 새로 만든 회귀는 아니다(feedback_loop/2026-09-09/user-management.md).
+   */
+  ratingConsumer: ReviewEventPort;
   now: () => string;
 };
 
@@ -166,13 +176,16 @@ async function publishNewlyPublic(deps: ReviewServiceDeps, projectId: string): P
   for (const row of siblings) {
     // 이미 보낸 행은 건너뛰어 공개 시점 1회만 지킨다.
     if (!isReviewPublic(row, siblings, nowIso, window) || row.reviewCreatedPublishedAt) continue;
-    await deps.events.publishReviewCreated({
+    const event = {
       reviewId: row.reviewId,
       projectId: row.projectId,
       revieweeId: row.revieweeId,
       rating: row.rating,
       publishedAt: nowIso,
-    });
+    };
+    await deps.events.publishReviewCreated(event);
+    // users.rating_average/review_count 캐시 최신화 — user-management PR #89 소비기.
+    await deps.ratingConsumer.publishReviewCreated(event);
     await deps.repository.markReviewCreatedPublished(row.reviewId, nowIso);
   }
 }
@@ -346,7 +359,12 @@ export async function getMyProjectReview(
 }
 
 export async function getPublishedRatingAggregate(
-  deps: ReviewServiceDeps,
+  // 2026-09-09 — 조립 지점(express-app.ts)이 `ratingConsumer`를 만들 때 이 함수를 감싼
+  // reader를 넘겨야 하는데, 그 reader는 아직 `ratingConsumer` 필드가 없는 부분 deps로도
+  // 계산 가능하다. 전체 `ReviewServiceDeps`를 요구하면 "ratingConsumer를 만들려면
+  // ReviewServiceDeps가 있어야 하고, ReviewServiceDeps는 ratingConsumer가 있어야 한다"는
+  // 순환이 생겨 `Pick`으로 필요한 두 필드만 받는다.
+  deps: Pick<ReviewServiceDeps, 'repository' | 'now'>,
   revieweeId: string,
 ): Promise<PublishedRatingAggregate> {
   // 공개 리뷰만 합산하고 반올림하지 않는다.

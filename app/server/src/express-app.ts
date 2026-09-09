@@ -63,6 +63,14 @@ import { PrismaReviewRepository } from './features/reviews/prisma-review.reposit
 import { InMemoryReviewEventPort } from './features/reviews/in-memory-review-event';
 import { createProjectReviewContextAdapter } from './features/reviews/project-review-context.adapter';
 import { createReviewRouter } from './features/reviews/review.router';
+import { getPublishedRatingAggregate } from './features/reviews/review.service';
+import { createReviewCreatedConsumer } from './features/user-management/user-rating.service';
+import { InMemoryUserRatingRepository } from './features/user-management/in-memory-user-rating.repository';
+import { PrismaUserRatingRepository } from './features/user-management/prisma-user-rating.repository';
+import { createNotificationModule } from './features/notifications/notification.module';
+import type { NotificationAuthResolver } from './features/notifications/notification.routes';
+import { InMemoryNotificationRepository } from './features/notifications/in-memory-notification.repository';
+import { PrismaNotificationRepository } from './features/notifications/prisma-notification.repository';
 
 /**
  * Express 앱 — 순수 모듈. 여기서 `app.listen()`을 호출하지 않는다.
@@ -110,6 +118,51 @@ app.use(
   }),
 );
 
+const isProduction = process.env.NODE_ENV === 'production';
+// 기본값: 배포 환경이면 supabase, 그 외(로컬 개발)는 mock.
+const authProviderMode = process.env.AUTH_PROVIDER_MODE ?? (isProduction ? 'supabase' : 'mock');
+
+// ---------------------------------------------------------------------------
+// notifications — 조회·읽음 4종(목록·안읽음 수·개별 읽음·전체 읽음). PR #90(오민혁).
+//
+// 이 라우터는 전역 `express.json()`보다 먼저 마운트해야 한다 — 자체 JSON 파서를 갖고 있어
+// (notification.routes.ts) "인증 우선 401, 인증 후 400" 순서를 스스로 보장하는데, 전역
+// express.json()이 먼저 돌면 잘못된 JSON이 인증 전에 걸려 이 순서가 깨진다
+// (api-contract.md "통합 조립 계약"). 그래서 이 블록 전체가 아래 `app.use(express.json())`보다
+// 위에 있다. `resolveNotificationAuth`는 뒤에서 선언되는 `verifyAccessToken`을 클로저로
+// 참조한다 — 실제로 호출되는 시점(요청이 들어올 때)에는 이미 초기화가 끝나 있으므로 문제
+// 없다(모듈 최상단 코드가 전부 실행된 뒤에야 서버가 요청을 받기 시작한다).
+//
+// applications/project-management/contracts-payments가 정규화된 eventId·수신자 스냅샷을 아직
+// 만들지 않아(change-requests/CR-0001-notifications-integration.md §3·§4) `notifications.delivery`
+// (원천 사건 생성 접점)는 이번 반영에서 아무 곳에도 연결하지 않는다 — router만 마운트한다.
+// feedback_loop/2026-09-09/notifications.md 참고.
+// ---------------------------------------------------------------------------
+
+const resolveNotificationAuth: NotificationAuthResolver = async (request) => {
+  const authorization = request.header('authorization');
+  const accessToken =
+    authorization?.startsWith('Bearer ') && authorization.length > 7 ? authorization.slice(7) : undefined;
+  if (!accessToken) return null;
+  try {
+    const verified = await verifyAccessToken(accessToken);
+    return { userId: verified.userId, isActive: true };
+  } catch {
+    return null;
+  }
+};
+
+const notificationRepository = isPrismaConfigured(authProviderMode)
+  ? new PrismaNotificationRepository(getPrismaClient())
+  : new InMemoryNotificationRepository();
+
+const notifications = createNotificationModule({
+  repository: notificationRepository,
+  resolveAuth: resolveNotificationAuth,
+});
+
+app.use(notifications.router);
+
 app.use(express.json());
 
 app.get('/health', (_req: Request, res: Response) => {
@@ -121,10 +174,6 @@ app.get('/health', (_req: Request, res: Response) => {
 // (app/server/AGENTS.md "외부 벤더 연동", ADR-0009). 기능별 라우터 등록도 여기서 한다
 // (app/web의 App.tsx와 대칭).
 // ---------------------------------------------------------------------------
-
-const isProduction = process.env.NODE_ENV === 'production';
-// 기본값: 배포 환경이면 supabase, 그 외(로컬 개발)는 mock.
-const authProviderMode = process.env.AUTH_PROVIDER_MODE ?? (isProduction ? 'supabase' : 'mock');
 
 // user-management의 auth_sessions 암복호화·HMAC에 쓰는 앱 자체 대칭키다. Supabase/토스페이먼츠/
 // OpenAI 같은 "벤더" 비밀이 아니라 이 서버가 스스로 만드는 키이므로 로컬 개발 fallback을 둔다.
@@ -567,9 +616,9 @@ if (!isProduction) {
 // (review.types.ts UserExistsPort 주석).
 //
 // `getPublishedRatingAggregate`(내부 함수, api-contract.md)는 review.service.ts에 그대로
-// 있지만 이번 반영에서는 HTTP 어댑터를 만들지 않는다 — 아직 이 값을 구독하는 다른 기능이
-// app/에 없다(notifications 담당 미정). 필요해지면 그때 라우트를 연다
-// (feedback_loop/2026-09-05/reviews.md).
+// 있고, 2026-09-09부터 HTTP 어댑터 없이도 아래 `reviewRatingConsumer`가 in-process로 부른다
+// — user-management PR #89가 준 `createReviewCreatedConsumer`가 그 구독자다(notifications는
+// 여전히 미정이라 REVIEW_CREATED 발행 자체는 InMemoryReviewEventPort만 받는다).
 // ---------------------------------------------------------------------------
 
 // 2026-09-08: 다른 기능과 같은 isPrismaConfigured(authProviderMode) 게이트 — mock 인증이면
@@ -579,6 +628,20 @@ const reviewRepository = isPrismaConfigured(authProviderMode)
   : new InMemoryReviewRepository();
 const reviewEvents = new InMemoryReviewEventPort();
 const reviewProjectContext = createProjectReviewContextAdapter(projectContractService, contractsPaymentsRepository);
+
+// 2026-09-09 — user-management PR #89(오민혁) 후속(CR-0002): REVIEW_CREATED 공개 시점마다
+// users.rating_average/review_count 캐시를 갱신한다. reader는 review.service.ts의
+// `getPublishedRatingAggregate`를 그대로 감싼다(위 순환 회피 주석 참고) — reviews 자신의
+// 공개 판정 로직과 항상 같은 결과를 본다. userRatingRepository도 다른 기능과 같은
+// isPrismaConfigured 게이트를 쓴다 — mock 인증은 in-process 잠금(InMemory), 그 외는
+// pg_advisory_xact_lock(Prisma adapter).
+const userRatingRepository = isPrismaConfigured(authProviderMode)
+  ? new PrismaUserRatingRepository(getPrismaClient())
+  : new InMemoryUserRatingRepository();
+const reviewRatingConsumer = createReviewCreatedConsumer(userRatingRepository, {
+  getPublishedRatingAggregate: (revieweeId) =>
+    getPublishedRatingAggregate({ repository: reviewRepository, now: projectNow }, revieweeId),
+});
 
 app.use(
   createReviewRouter(
@@ -591,6 +654,7 @@ app.use(
         },
       },
       events: reviewEvents,
+      ratingConsumer: reviewRatingConsumer,
       now: projectNow,
     },
     { requireAuth },
