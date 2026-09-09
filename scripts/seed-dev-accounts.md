@@ -25,11 +25,6 @@ npm run seed:dev-accounts
 실행할 때마다 계정이 늘어나지 않는다 — 이메일이 고정이라, 이미 있으면 그 계정을 그대로
 재사용한다(idempotent). 서버를 재시작한 뒤에도 다시 돌려도 안전하다.
 
-이 스크립트와 `scripts/seed-contractable-project.js`(매번 새 계정 1쌍 + CONTRACT_PENDING
-프로젝트 1개를 추가로 만드는 non-idempotent 스크립트)를 한 번에 순서대로 실행하려면
-`npm run seed:all`(`scripts/seed-all.js`)을 쓴다. 대부분은 이 문서의 10개 계정만으로
-충분하니 평소엔 `npm run seed:dev-accounts`만 돌리면 된다.
-
 ## 3. 만들어지는 계정 10개
 
 | 계정 | 역할 | 상태 | 어떤 화면 테스트용 |
@@ -62,14 +57,11 @@ CLOSED 상태로 만들려면 `POST /internal/v1/projects/sweep-deadlines`(마�
 `INTERNAL_SERVICE_TOKEN`을 채우고 `npm run seed:dev-accounts`를 다시 돌리면 그때
 마저 만들어진다(멱등이라 이미 만든 다른 8개는 건드리지 않는다).
 
-동작 방식(2026-09-10 수정): 프로젝트는 project.service.ts의 실제 검증(마감은 최소 1일
-뒤여야 함, `DEADLINE_BELOW_MINIMUM`)을 만족하는 정상 마감 시각으로 등록한다.
-`freelancer-auto-rejected`가 지원(PENDING)한 뒤, `scripts/lib/backdate-project-deadline.ts`가
-DB의 마감 시각만 직접 과거로 되돌리고(Prisma 직접 UPDATE — API 생성 시점 검증은
-그대로 지켰으므로 규칙 우회가 아니다), 그 다음 스윕 엔드포인트를 호출한다 — 프로젝트는
-CLOSED로, 대기 중이던 지원은 AUTO_REJECTED로 바뀐다. 예전에는 실제로 몇 초 기다렸지만
-(등록 직후 마감되도록 아주 짧게 잡았었다), 그 방식은 "마감은 최소 1일 뒤" 규칙에
-걸려서 더 이상 못 쓴다 — 지금은 기다리지 않는다.
+동작 방식: 등록 직후(6초 뒤) 마감되도록 짧은 마감 시각으로 프로젝트를 만들고,
+`freelancer-auto-rejected`가 지원(PENDING)한 뒤, 마감 시각이 지나길 실제로 기다렸다가
+스윕 엔드포인트를 호출한다 — 그러면 프로젝트는 CLOSED로, 대기 중이던 지원은
+AUTO_REJECTED로 바뀐다. 스크립트 실행 시간이 몇 초 더 걸리는 것은 이 대기 때문이다
+(정상 동작).
 
 ## 4. `payment-ready` 계정의 한계 — 결제 확정부터는 수동이다 (Fact)
 
@@ -111,21 +103,9 @@ CLOSED로, 대기 중이던 지원은 AUTO_REJECTED로 바뀐다. 예전에는 �
 
 ## 6. 안전 관련 참고 (Fact)
 
-- 10개 계정 모두 `SEED_EMAIL_DOMAIN`(기본 `@pactfive-dev-seed.com`, `.env`로 바꿀 수 있음)
-  가짜 이메일, 고정 비밀번호(`PactFiveSeedDev!1`)를 쓴다 — 원래 `@example.com`이었지만
-  Supabase Auth가 signUp 단계에서 `email_address_invalid`로 거부해서(2026-09-10) 바꿨다.
+- 10개 계정 모두 `@example.com` 가짜 이메일, 고정 비밀번호(`PactFiveSeedDev!1`)를 쓴다 —
   전부 코드에 그대로 있지만, 실제 사람에게 영향을 주는 값이 아니다(auth.mock.ts의 고정
   mock 토큰과 같은 성격).
-- **2026-09-10 변경 — 계정 생성이 더는 서버의 공개 회원가입(signUp) API를 거치지 않는다.**
-  `scripts/lib/bootstrap-seed-user.ts`가 Supabase Admin API(`auth.admin.createUser`, 확인
-  이메일을 보내지 않는 경로)로 Auth 계정을 만들고, 로컬 `users` 테이블 행도 Prisma로 직접
-  INSERT한다. 이전엔 공개 signUp을 썼는데, Confirm Email이 켜져 있으면 그 호출마다
-  Supabase가 실제 이메일을 보내려 시도해 시간당 2통 제한에 걸렸고, 꺼져 있으면 서버가 그
-  상태를 설정 오류로 보고 막아버렸다 — 계정 10개를 한 번에 만들 방법이 없었다. 그래서
-  이제는 **Supabase 대시보드의 Confirm Email 설정과 무관하게** 10개 계정이 전부 만들어진다.
-  대신 `DATABASE_URL`이 새로 필수 환경변수가 됐다(§2 준비물, 이미 있었으면 손댈 것 없음).
-  프로젝트/지원/계약/결제 등 나머지 데이터는 여전히 손대지 않는다 — 실제 서버 API를 그대로
-  호출해 감사·멱등성 기록까지 정상적으로 남긴다.
 - 결과 파일 `.dev-accounts.local.json`(리포 루트)은 `.gitignore`에 있어 커밋되지 않는다.
 - `GET /api/internal/dev/test-accounts`·`POST /api/internal/dev/simulate-settlement`
   두 엔드포인트는 서버가 `NODE_ENV=production`이면 아예 등록되지 않는다
