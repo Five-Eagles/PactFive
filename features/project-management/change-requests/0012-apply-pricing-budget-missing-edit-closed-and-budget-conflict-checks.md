@@ -4,8 +4,24 @@
 |---|---|
 | 제기 | 팀장 · 2026-09-04 (ai-pricing app/ 통합 중 발견) |
 | 확인 필요 | 유동우 (project-management) |
-| 상태 | 제안 |
+| 상태 | **반영 완료 (2026-09-09, 유동우).** 두 검증 모두 넣었다 — 아래 참고 |
 | 관련 | `project-contract.service.ts` `applyPricingAnalysisBudget` · CR-0003 · features/ai-pricing/api-contract.md · `app/server/src/features/ai-pricing/project-budget-application.adapter.ts` |
+
+> **닫음 (2026-09-09).** 확인 필요 항목이던 두 검증을 prototype·app 양쪽에 넣었다.
+>
+> `PROJECT_EDIT_CLOSED` — `updateProject`(규칙 16)와 **같은 판정**을 쓴다. 일반 수정으로
+> 못 바꾸는 예산을 이 경로로는 바꿀 수 있으면 안 된다.
+>
+> `PROJECT_BUDGET_CONFLICT` — `expectedBudgetAmount` 를 **선택 입력**으로 받는다. 보내지
+> 않으면 검사하지 않으므로 기존 호출자는 깨지지 않는다. ai-pricing 쪽에서 이 값을 보내기
+> 시작하면 그때부터 보호된다.
+>
+> 곁들여: 규칙 14 판정이 두 파일에 복사돼 있었는데 여기까지 세 번째 사본이 될 상황이라
+> `recruitment-status.ts` 로 뺐다. 셋이 되면 언젠가 하나만 고쳐진다.
+>
+> 확인 — prototype PASS 335(+4) · app tsc 통과 · 서버 테스트 8/8
+>
+> 아래는 제기 당시 기록이다.
 
 ## 요약
 

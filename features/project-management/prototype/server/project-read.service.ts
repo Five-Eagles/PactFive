@@ -21,6 +21,7 @@
 import type { ProjectRepository } from "../mock/project.mock";
 import { toCategoryRef, toSkillRefs } from "../mock/project.mock";
 import type { ProjectRecord, RecruitmentStatus } from "./project.types";
+import { effectiveRecruitmentStatus } from "./recruitment-status";
 
 /**
  * 카드 한 장에 필요한 것.
@@ -57,26 +58,6 @@ export type ProjectReadDeps = {
 export function createProjectReadService(deps: ProjectReadDeps) {
   const { repo, now } = deps;
 
-  /**
-   * 규칙 14 — 저장값이 아니라 조회 시점 기준으로 판정한다.
-   *
-   * `project.service.ts` 에도 같은 계산이 있다. 한쪽으로 모으면 좋지만,
-   * 지금 옮기면 두 파일의 의존 방향이 생겨 통합 때 더 번거로워진다.
-   * **둘이 어긋나지 않는지는 `run.tsx` 가 대조한다.**
-   */
-  function effectiveRecruitmentStatus(p: ProjectRecord, at: string): RecruitmentStatus {
-    const t = new Date(at).getTime();
-    if (p.recruitmentStatus === "SCHEDULED" && p.recruitmentStartAt !== null) {
-      if (new Date(p.recruitmentStartAt).getTime() <= t) {
-        return new Date(p.recruitmentDeadlineAt).getTime() <= t ? "CLOSED" : "OPEN";
-      }
-      return "SCHEDULED";
-    }
-    if (p.recruitmentStatus === "OPEN" && new Date(p.recruitmentDeadlineAt).getTime() <= t) {
-      return "CLOSED";
-    }
-    return p.recruitmentStatus;
-  }
 
   function toCard(p: ProjectRecord, at: string): ProjectCardData {
     return {

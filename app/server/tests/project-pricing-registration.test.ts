@@ -110,7 +110,7 @@ test('registration payload claims the selected analysis and records the server r
   assert.equal(created.budgetAmount, 4_800_000, 'the submitted display amount must not override the analysis');
   assert.equal(created.budgetSource, 'AI_ANALYSIS');
   assert.equal(created.budgetSourceAt, NOW);
-  assert.equal(projects.findById(created.projectId)?.budgetSource, 'AI_ANALYSIS');
+  assert.equal((await projects.findById(created.projectId))?.budgetSource, 'AI_ANALYSIS');
   const claimed = await pricing.findById(ANALYSIS_ID);
   assert.equal(claimed?.projectId, created.projectId);
   assert.ok(claimed?.appliedAt && Number.isFinite(Date.parse(claimed.appliedAt)));
@@ -141,10 +141,10 @@ test('another client cannot claim the analysis and the attempted project is excl
   );
   assert.equal(response.status, 409);
   assert.equal((response.body as ErrorBody).error.code, 'PRICING_ANALYSIS_NOT_APPLICABLE');
-  assert.equal(projects.findAll().length, 0);
-  assert.equal(projects.findById('prj_registration_1'), null);
+  assert.equal((await projects.findAll()).length, 0);
+  assert.equal(await projects.findById('prj_registration_1'), null);
   // Current app rollback is soft deletion until the Prisma transaction is connected.
-  assert.equal(projects.findByIdIncludingDeleted('prj_registration_1')?.deletedAt, NOW);
+  assert.equal((await projects.findByIdIncludingDeleted('prj_registration_1'))?.deletedAt, NOW);
   assert.deepEqual(await pricing.findById(ANALYSIS_ID), before);
 });
 
@@ -159,8 +159,8 @@ for (const reviewStatus of ['PENDING', 'REJECTED'] as const) {
     const response = await postProject(registration({ pricingAnalysisId: ANALYSIS_ID }));
     assert.equal(response.status, 409);
     assert.equal((response.body as ErrorBody).error.code, 'PRICING_ANALYSIS_NOT_APPLICABLE');
-    assert.equal(projects.findAll().length, 0);
-    assert.equal(projects.findByIdIncludingDeleted('prj_registration_1')?.deletedAt, NOW);
+    assert.equal((await projects.findAll()).length, 0);
+    assert.equal((await projects.findByIdIncludingDeleted('prj_registration_1'))?.deletedAt, NOW);
     assert.deepEqual(await pricing.findById(ANALYSIS_ID), before);
   });
 }
@@ -174,8 +174,9 @@ test('reusing a claimed analysis rejects the second project while preserving the
   const duplicate = await postProject(registration({ pricingAnalysisId: ANALYSIS_ID }));
   assert.equal(duplicate.status, 409);
   assert.equal((duplicate.body as ErrorBody).error.code, 'PRICING_ANALYSIS_NOT_APPLICABLE');
-  assert.deepEqual(projects.findAll().map((project) => project.projectId), [original.projectId]);
-  assert.equal(projects.findByIdIncludingDeleted('prj_registration_2')?.deletedAt, NOW);
+  assert.deepEqual(
+    (await projects.findAll()).map((project) => project.projectId), [original.projectId]);
+  assert.equal((await projects.findByIdIncludingDeleted('prj_registration_2'))?.deletedAt, NOW);
   assert.deepEqual(await pricing.findById(ANALYSIS_ID), originalClaim);
 });
 
@@ -185,7 +186,7 @@ test('an unknown analysis rolls back registration without changing another analy
   const response = await postProject(registration({ pricingAnalysisId: 'pra_missing' }));
   assert.equal(response.status, 409);
   assert.equal((response.body as ErrorBody).error.code, 'PRICING_ANALYSIS_NOT_APPLICABLE');
-  assert.equal(projects.findAll().length, 0);
-  assert.equal(projects.findByIdIncludingDeleted('prj_registration_1')?.deletedAt, NOW);
+  assert.equal((await projects.findAll()).length, 0);
+  assert.equal((await projects.findByIdIncludingDeleted('prj_registration_1'))?.deletedAt, NOW);
   assert.deepEqual(await pricing.findById(ANALYSIS_ID), before);
 });
