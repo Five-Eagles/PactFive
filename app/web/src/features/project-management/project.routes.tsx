@@ -51,6 +51,9 @@ export type ProjectRouteSlots = {
   homeViewer: { email: string; role: 'CLIENT' | 'FREELANCER'; userId: string } | null;
   homeMyActivityHref: string;
   onHomeLogout: () => void;
+  /** notifications 소유 — 대표 페이지 헤더의 NotificationBell 슬롯. 위와 같은 슬롯 원칙
+   * (2026-09-09, api-contract.md "AppShell 밖의 HomeHeader에도 같은 상태를 내려야 한다"). */
+  homeHeaderExtra?: ReactNode;
 };
 
 export function projectRoutes({
@@ -64,6 +67,7 @@ export function projectRoutes({
   homeViewer,
   homeMyActivityHref,
   onHomeLogout,
+  homeHeaderExtra,
 }: ProjectRouteSlots) {
   return (
     <>
@@ -76,6 +80,7 @@ export function projectRoutes({
             myActivityHref={homeMyActivityHref}
             onLogout={onHomeLogout}
             renderBookmark={renderBookmark}
+            headerExtra={homeHeaderExtra}
           />
         }
       />

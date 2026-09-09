@@ -40,6 +40,14 @@ affected_features: [notifications, applications, project-management, contracts-p
 > 근거: `features/notifications/spec.md:3` "담당자: 오민혁 · 2026-09-07 사용자 인수 요청
 > 기준", task #185·#186(notifications #90 정독·반영, 이미 완료).
 
+> **§1 상태 정정 (2026-09-09, 팀장).** 위 "이미 완료"는 부정확했다 — task #185·#186이 만든
+> 커밋(`2e84aec`)은 `feature/user-management-notifications-ai-pricing-integration` 로컬
+> 브랜치에만 있었고 `develop`에 merge되지 않아, 오늘까지 `app/`의 notifications는
+> `.gitkeep`뿐이었다(사용자 문의로 발견). 오늘 그 커밋을 `feat/notifications-user-management-
+> integration` 브랜치로 `origin/develop`에 cherry-pick·검증했다 — §1(조회/자기알림 관리 API
+> 4종 + 웹 벨·목록 화면)은 이제 실제로 반영됐다(브랜치는 준비 완료, develop merge는 아직).
+> §2~4(수신자 정책·원천 이벤트·자연 마감 게이트)는 이 커밋에도 없다 — 그대로 열려 있다.
+
 | 담당 | 회의상 일정·몫 | 통합 인계 조건 |
 |---|---|---|
 | 오민혁 | 09-08 API 4종, 09-09 마감 연동 지원 | 인증된 API·저장/전달 포트·검증 결과 제공. 원천 상태·운영 scheduler를 대신 구현하지 않음 |
