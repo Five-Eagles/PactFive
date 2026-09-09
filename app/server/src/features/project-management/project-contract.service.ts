@@ -123,6 +123,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       recruitmentDeadlineAt: p.recruitmentDeadlineAt,
       canceledAt: p.canceledAt,
       paymentPendingAt: p.paymentPendingAt,
+      completedAt: p.completedAt,
       projectVersion: p.projectVersion,
     };
   }
@@ -332,8 +333,12 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     checkVersion(input, p.projectVersion);
 
     const at = now();
+    // completedAt — CR-RV-002(조준영, 2026-09-07). 이 함수 앞부분의 이른 return(라인 314)이
+    // COMPLETED 재진입을 이미 막고 있어, 여기서 한 번만 쓰면 이후로는 절대 덮어써지지 않는다.
+    // reviews의 review_windows.opened_at이 이 값을 그대로 쓴다.
     const next = await repo.update(projectId, {
       transactionStatus: 'COMPLETED',
+      completedAt: at,
       projectVersion: p.projectVersion + 1,
     });
 

@@ -569,6 +569,7 @@ Table projects {
   pending_application_count integer [not null, default: 0, note: '[C2] E-23(PRD D-65 반영): 대기(PENDING) 지원 수. 예산·일정 잠금 판정용 캐시(§0.2 #22). 원본은 applications']
   accepted_application_id   varchar(30) [null, note: '[C2] E-23: 수락된 지원서 id. C-01 수락 멱등 판정(D-41)의 근거 값']
   payment_pending_at        timestamptz [null, note: '[C2] E-23: markPaymentPending(조준영 → 유동우) 통보 시각. 결제 확정 전 취소 가능 구간의 경계(D-40)']
+  completed_at              timestamptz [null, note: '[F] CR-RV-002(조준영, 2026-09-07), 2026-09-09 팀장 추가: transaction_status가 COMPLETED로 바뀐 시각. completeProjectTransaction 한 곳에서만 쓰고 그 이후로는 갱신하지 않는다. reviews.review_windows.opened_at의 소스 — payment_pending_at과 같은 원칙으로 신설(CR 자체는 이 컬럼을 명시하지 않았지만, "프로젝트 최초 completedAt"을 요구해 이 컬럼 없이는 구현 불가능했다)']
   project_version            integer     [not null, default: 1, note: '[C2][C4] E-23: 낙관적 잠금 버전(D-53). 상태가 실제로 전이됐을 때만 +1 — 계약 호출 자체가 기준이 아니다(E-26). 클라이언트가 기대 버전을 함께 보내면 충돌 시 409']
 
   created_at            timestamptz [not null, default: `now()`]
@@ -1212,6 +1213,33 @@ Table review_idempotency_keys {
   '''
 }
 
+Table review_windows {
+  project_id     varchar(30) [pk, note: 'projects 1:1']
+  opened_at      timestamptz [not null, note: '프로젝트 최초 completedAt (projects.completed_at)']
+  deadline_at    timestamptz [not null, note: 'opened_at + 14일(SOLO_PUBLIC_AFTER_DAYS)']
+  policy_version integer     [not null, default: 1]
+  created_at     timestamptz [not null, default: `now()`]
+
+  note: '''
+  리뷰 작성 창. (v1.9 신설, E-50, CR-RV-002 조준영/2026-09-07, 2026-09-09 팀장 반영)
+  [F] 양쪽 리뷰가 다 있으면 즉시 공개, 한쪽뿐이면 deadline_at이 지나야 단독 공개된다
+      (review.service.ts isReviewPublic). POST /reviews가 deadline_at 이후면
+      409 REVIEW_PERIOD_CLOSED를 던지는 데도 같은 값을 쓴다.
+  [F] ensureWindow가 프로젝트당 최초 1행만 만든다 — project_id가 기본키라 Prisma
+      upsert(create/update no-op)가 원자적이다. 원본(조준영, review.mock.ts)은 in-memory
+      Map + withKeyedLock으로 동시 생성을 막았다 — app/에는 그 락 인프라가 없어 upsert로
+      같은 보장을 얻는다(팀장, 2026-09-09).
+  [A] opened_at의 소스인 projects.completed_at은 이 CR 배포 시점 이전에 이미 COMPLETED였던
+      프로젝트에는 NULL이다 — 그런 프로젝트는 window가 생기지 않고, 단독 리뷰가 영원히
+      비공개로 남으며 POST /reviews도 REVIEW_PERIOD_CLOSED로 막힌다. 배포 시 백필이
+      필요한지 팀장이 실제 데이터로 확인해야 한다(마이그레이션 SQL 주석 참고, ASSUMPTION).
+  [C] user_rating_projections(CR-RV-002의 다른 절반, 평점 캐시 테이블)는 신설하지 않는다
+      (2026-09-09 팀장) — getUserRating이 공개 리뷰 실시간 합산으로 이미 정상 동작하고
+      (review.service.ts getPublishedRatingAggregate), 캐시를 얹을 이유가 아직 없다는
+      판단을 이전 세션에서 조준영과 확인했다.
+  '''
+}
+
 
 // ═════════════════════════════════════════════════════════════════════
 // 축 5. AI 단가 분석 (오민혁)
@@ -1430,6 +1458,7 @@ Ref: reviews.contract_id             > contracts.id        // N:1
 Ref: reviews.reviewer_id             > users.id            // N:1
 Ref: reviews.reviewee_id             > users.id            // N:1
 Ref: review_idempotency_keys.review_id > reviews.id        // N:1 [F] E-40 신설
+Ref: review_windows.project_id       - projects.id         // 1:1 [F] E-50 신설, CR-RV-002
 
 // --- AI 분석 축 ---
 Ref: pricing_analyses.requester_id   > users.id            // N:1

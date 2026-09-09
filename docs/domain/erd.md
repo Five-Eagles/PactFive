@@ -19,7 +19,7 @@ SQL 제약, 확장 지점은 원본 HTML을 직접 엽니다.
 | 오민혁 | `users`, `auth_sessions`, `registration_intents`, `client_profiles`, `freelancer_profiles`, `skills`, `freelancer_skills` |
 | 유동우 | `projects`, `project_skills`, `bookmarks`, `project_contract_idempotency_records` |
 | 최윤석 | `applications`, `notifications`, `application_idempotency_keys`, `application_operations`, `application_operation_steps`, `application_state_events`, `application_closures` |
-| 조준영 | `agreements`, `negotiation_offer`, `contracts`, `contract_signature_audits`, `payments`, `deliveries`, `reviews`, `invalidations`, `review_idempotency_keys` |
+| 조준영 | `agreements`, `negotiation_offer`, `contracts`, `contract_signature_audits`, `payments`, `deliveries`, `reviews`, `invalidations`, `review_idempotency_keys`, `review_windows` |
 | 오민혁 | `pricing_analyses`, `pricing_application_receipts` |
 
 `auth_sessions`(E-22)와 `negotiation_offer`(E-25)는 v1.3~v1.4에서, `registration_intents`(E-30,
@@ -225,6 +225,7 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 | `pending_application_count` | integer | NOT NULL | **(v1.3 신설, E-23)** 대기(PENDING) 지원 수 캐시. 예산·일정 잠금 판정용. 갱신 주체는 applications 도메인(최윤석) — 원본(`applications.status='PENDING'` 카운트)과 어긋나면 원본이 옳음 |
 | `accepted_application_id` | varchar(30) | NULL | **(v1.3 신설, E-23)** 수락된 지원서 id. 수락 멱등 판정(C-01, D-41)의 근거 값 |
 | `payment_pending_at` | timestamptz | NULL | **(v1.3 신설, E-23)** `markPaymentPending`(조준영 → 유동우) 통보 시각. 결제 확정 전 취소 가능 구간의 경계 |
+| `completed_at` | timestamptz | NULL | **(v1.9 신설, E-50, 2026-09-09 팀장)** `transaction_status`가 `COMPLETED`로 바뀐 시각. `completeProjectTransaction` 한 곳에서만 쓰고 그 이후로는 갱신하지 않는다. reviews의 `review_windows.opened_at` 소스 — CR-RV-002(조준영)가 "프로젝트 최초 completedAt"을 요구했는데 이 컬럼 없이는 구현할 방법이 없어 `payment_pending_at`과 같은 원칙으로 추가했다 (Fact, 조준영 요청 근거의 팀장 구현) |
 | `project_version` | integer | NOT NULL | **(v1.3 신설, E-23)** 낙관적 잠금 버전(D-53). **상태가 실제로 전이됐을 때만 +1** — 계약 호출 자체가 기준이 아니다. 멱등 재호출로 200을 돌려주거나 전이 조건 미충족으로 거부된 경우에는 올리지 않는다 (2026-08-26 정정, E-26 · 질의 Q-09) |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 | `updated_at` | timestamptz | NOT NULL | 수정 시각 |
@@ -541,6 +542,35 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 
 **(Fact)** 원본(조준영, `review.service.ts`의 `getIdempotency`/`setIdempotency`) 그대로.
+
+#### `review_windows` (v1.9 신설 — E-50, CR-RV-002, 조준영 요청 · 2026-09-09 팀장 반영)
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `project_id` | varchar(30) | PK | `projects` 1:1 |
+| `opened_at` | timestamptz | NOT NULL | 프로젝트 최초 `completedAt`(`projects.completed_at`) |
+| `deadline_at` | timestamptz | NOT NULL | `opened_at` + 14일(`SOLO_PUBLIC_AFTER_DAYS`) |
+| `policy_version` | integer | NOT NULL, DEFAULT 1 | — |
+| `created_at` | timestamptz | NOT NULL | 생성 시각 |
+
+**(Fact)** 양쪽 리뷰가 다 있으면 즉시 공개, 한쪽뿐이면 `deadline_at`이 지나야 단독 공개된다
+(`review.service.ts` `isReviewPublic`). `POST /reviews`가 `deadline_at` 이후면 409
+`REVIEW_PERIOD_CLOSED`를 던지는 데도 같은 값을 쓴다.
+
+**(Fact)** `ensureWindow`가 프로젝트당 최초 1행만 만든다 — `project_id`가 기본키라 Prisma
+upsert(create/update no-op)가 원자적이다. 원본(조준영, `review.mock.ts`)은 in-memory Map +
+`withKeyedLock`으로 동시 생성을 막았다. app/에는 그 락 인프라가 없어 upsert로 같은 보장을
+얻는다(팀장, 2026-09-09).
+
+**(Assumption)** `opened_at`의 소스인 `projects.completed_at`은 이 CR 배포 시점 이전에 이미
+`COMPLETED`였던 프로젝트에는 NULL이다 — 그런 프로젝트는 window가 생기지 않고, 단독 리뷰가
+영원히 비공개로 남으며 `POST /reviews`도 `REVIEW_PERIOD_CLOSED`로 막힌다. 배포 시 백필이
+필요한지 팀장이 실제 데이터로 확인해야 한다(마이그레이션 SQL 주석에 확인 조회 포함).
+
+**(Opinion/Decision, 2026-09-09 팀장)** `user_rating_projections`(CR-RV-002의 다른 절반,
+평점 캐시 테이블)는 신설하지 않는다 — `getUserRating`이 공개 리뷰 실시간 합산으로 이미
+정상 동작하고(`review.service.ts` `getPublishedRatingAggregate`), 캐시를 얹을 이유가
+아직 없다는 판단을 이전 세션에서 조준영과 확인했다.
 
 
 ### 오민혁 담당

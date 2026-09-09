@@ -1,4 +1,4 @@
-import { SOLO_PUBLIC_AFTER_DAYS, DAY_MS, tagsForDirection } from './review.constants';
+import { tagsForDirection } from './review.constants';
 import { displayAverageRating } from './display-average';
 import {
   ReviewApiError,
@@ -10,6 +10,7 @@ import {
   type ListProjectReviewsResponse,
   type ListUserReviewsResponse,
   type MyProjectReviewReason,
+  type ProjectReviewContext,
   type ProjectReviewContextPort,
   type PublishedRatingAggregate,
   type ReviewDirection,
@@ -18,6 +19,7 @@ import {
   type ReviewRepository,
   type ReviewRow,
   type ReviewVisibility,
+  type ReviewWindow,
   type UserExistsPort,
 } from './review.types';
 
@@ -27,6 +29,12 @@ import {
  * `deps.projectContext.getProjectContext`(비동기)로, `deps.store.userExists`를
  * `deps.userExists.userExists`(비동기)로 바꿨다. 그 외 검증 순서·409/422 판정·공개 규칙은
  * 원본 그대로다(테스트 40건이 이미 이 순서를 검증했다).
+ *
+ * 2026-09-09 반영(CR-RV-002, #203): review_windows 포팅. 원본은 in-memory Map +
+ * `withKeyedLock`으로 createReview 전체를 감쌌다 — app/에는 그 락 인프라가 없어(review.types.ts
+ * ReviewRepository 주석 참고), 대신 `ensureWindow`가 DB upsert로 원자성을 보장한다.
+ * `user_rating_projections`(평점 캐시)는 포팅하지 않는다 — getUserRating이 이미 공개 리뷰
+ * 실시간 합산으로 정상 동작해 캐시가 필요 없다는 판단을 이전 세션에서 확인했다.
  */
 
 export type ReviewServiceDeps = {
@@ -74,13 +82,48 @@ function visibilityOf(isPublic: boolean): ReviewVisibility {
   return isPublic ? 'PUBLISHED' : 'BLINDED';
 }
 
-export function isReviewPublic(row: ReviewRow, siblings: ReviewRow[], nowIso: string): boolean {
-  // 양쪽이 있으면 즉시 공개하고, 아니면 14일이 지난 단독 건만 공개한다.
+export function isReviewPublic(
+  _row: ReviewRow,
+  siblings: ReviewRow[],
+  nowIso: string,
+  window: ReviewWindow | undefined,
+): boolean {
+  // 양쪽이 있으면 즉시 공개하고, 아니면 window 기한 이후 단독 공개한다. 원본
+  // (조준영, prototype/server/review.service.ts:63~76)과 같다 — window가 없으면(=아직
+  // ensureWindow가 만들어지지 않았으면, 실무에서는 COMPLETED인데 completedAt이 없는
+  // 경우뿐이다) 단독 건은 절대 공개되지 않는다.
   const directions = new Set(siblings.map((item) => item.direction));
   if (directions.has('CLIENT_TO_FREELANCER') && directions.has('FREELANCER_TO_CLIENT')) {
     return true;
   }
-  return Date.parse(nowIso) - Date.parse(row.createdAt) >= SOLO_PUBLIC_AFTER_DAYS * DAY_MS;
+  if (!window) return false;
+  return Date.parse(nowIso) >= Date.parse(window.deadlineAt);
+}
+
+function reviewDeadlineAt(window: ReviewWindow | undefined): string | null {
+  return window?.deadlineAt ?? null;
+}
+
+function isPeriodClosed(window: ReviewWindow | undefined, nowIso: string): boolean {
+  if (!window) return true;
+  return Date.parse(nowIso) >= Date.parse(window.deadlineAt);
+}
+
+/** window가 있으면 그대로, 없고 COMPLETED면 만들어서 돌려준다. COMPLETED인데 completedAt이
+ * 없으면(이 CR 배포 전에 이미 COMPLETED였던 프로젝트 — 마이그레이션 SQL 주석 참고) 만들
+ * 방법이 없어 undefined를 돌려준다 — 그 프로젝트는 이 CR이 배포되고 백필되기 전까지 단독
+ * 리뷰가 공개되지 않고, `POST /reviews`도 REVIEW_PERIOD_CLOSED로 막힌다(isPeriodClosed가
+ * window undefined를 "닫힘"으로 본다). 원본은 이 경우를 아예 상정하지 않았다(Mock은 항상
+ * completedAt이 있었다) — 실 배포에서만 일어날 수 있는 간극이라 팀장이 이 함수에서
+ * 명시적으로 처리한다. */
+async function ensureWindowIfCompleted(
+  deps: ReviewServiceDeps,
+  project: Pick<ProjectReviewContext, 'projectId' | 'transactionStatus' | 'completedAt'>,
+): Promise<ReviewWindow | undefined> {
+  const existing = await deps.repository.getWindow(project.projectId);
+  if (existing) return existing;
+  if (project.transactionStatus !== 'COMPLETED' || !project.completedAt) return undefined;
+  return deps.repository.ensureWindow(project.projectId, project.completedAt);
 }
 
 function toItem(row: ReviewRow, isPublic: boolean): ReviewItem {
@@ -119,9 +162,10 @@ async function requireProject(deps: ReviewServiceDeps, projectId: string) {
 async function publishNewlyPublic(deps: ReviewServiceDeps, projectId: string): Promise<void> {
   const siblings = await deps.repository.getReviewsByProject(projectId);
   const nowIso = deps.now();
+  const window = await deps.repository.getWindow(projectId);
   for (const row of siblings) {
     // 이미 보낸 행은 건너뛰어 공개 시점 1회만 지킨다.
-    if (!isReviewPublic(row, siblings, nowIso) || row.reviewCreatedPublishedAt) continue;
+    if (!isReviewPublic(row, siblings, nowIso, window) || row.reviewCreatedPublishedAt) continue;
     await deps.events.publishReviewCreated({
       reviewId: row.reviewId,
       projectId: row.projectId,
@@ -156,6 +200,10 @@ export async function createReview(
   if (project.transactionStatus !== 'COMPLETED' || project.contractStatus === 'CANCELED') {
     throw new ReviewApiError('PROJECT_NOT_COMPLETED', '거래가 완료되지 않았습니다.');
   }
+  // CR-RV-002 — 여기 도달하면 transactionStatus는 이미 COMPLETED로 확정이다. 원본
+  // (조준영, prototype/server/review.service.ts:193)의 ensureWindow(fresh) 호출 위치와
+  // 같다.
+  const window = await ensureWindowIfCompleted(deps, project);
 
   const direction: ReviewDirection =
     actor === project.clientId ? 'CLIENT_TO_FREELANCER' : 'FREELANCER_TO_CLIENT';
@@ -194,12 +242,19 @@ export async function createReview(
     }
     return {
       httpStatus: 200,
-      body: toCreateBody(row, isReviewPublic(row, siblings, nowIso)),
+      body: toCreateBody(row, isReviewPublic(row, siblings, nowIso, window)),
     };
   }
 
   if (siblings.some((row) => row.direction === direction)) {
     throw new ReviewApiError('REVIEW_ALREADY_SUBMITTED', '이미 작성한 리뷰입니다.');
+  }
+  // CR-RV-002 — 원본(:216~219)과 같은 순서: 멱등·중복 판정 다음, 실제 삽입 전에 기간을 본다.
+  // window는 방금 ensureWindowIfCompleted가 만들었으므로 openedAt이 미래일 일은 없지만,
+  // 원본 그대로 방어적으로 남겨 둔다.
+  const nowMs = Date.parse(nowIso);
+  if (!window || nowMs < Date.parse(window.openedAt) || isPeriodClosed(window, nowIso)) {
+    throw new ReviewApiError('REVIEW_PERIOD_CLOSED', '리뷰 작성 기간이 끝났습니다.');
   }
 
   const row: ReviewRow = {
@@ -223,7 +278,7 @@ export async function createReview(
   const stored = (await deps.repository.getReview(row.reviewId)) ?? row;
   return {
     httpStatus: 201,
-    body: toCreateBody(stored, isReviewPublic(stored, after, deps.now())),
+    body: toCreateBody(stored, isReviewPublic(stored, after, deps.now(), window)),
   };
 }
 
@@ -237,10 +292,11 @@ export async function listProjectReviews(
   // 비당사자는 공개분만, 당사자는 본인 미공개 행도 본다.
   const siblings = await deps.repository.getReviewsByProject(projectId);
   const nowIso = deps.now();
+  const window = await ensureWindowIfCompleted(deps, project);
   const isParty = actor === project.clientId || actor === project.freelancerId;
   const items = siblings
     .map((row) => {
-      const isPublic = isReviewPublic(row, siblings, nowIso);
+      const isPublic = isReviewPublic(row, siblings, nowIso, window);
       return { row, isPublic };
     })
     .filter(({ row, isPublic }) => isPublic || (isParty && row.reviewerId === actor))
@@ -249,10 +305,9 @@ export async function listProjectReviews(
 }
 
 /**
- * `GET /reviews/me` — 원본 features/reviews/prototype/server/review.service.ts:272~315의
- * window 없는 버전이다. `review_windows`가 아직 없어(CR-RV-002 대기, #203) `reviewDeadlineAt`은
- * 항상 null이고 `REVIEW_PERIOD_CLOSED` 사유도 아직 안 걸린다 — 이식 지시서 §4가 명시적으로
- * 허용한 축소판이다("그전까지 createdAt 기준으로 두셔도 1~3번과 충돌하지 않습니다").
+ * `GET /reviews/me` — 원본 features/reviews/prototype/server/review.service.ts:272~315와
+ * 같다(CR-RV-002, #203). window가 있으면(COMPLETED고 completedAt이 있으면) 그 deadlineAt을
+ * 돌려주고, 지났는데 아직 내 리뷰가 없으면 REVIEW_PERIOD_CLOSED다.
  */
 export async function getMyProjectReview(
   deps: ReviewServiceDeps,
@@ -263,6 +318,7 @@ export async function getMyProjectReview(
   const project = await requireProject(deps, projectId);
   const siblings = await deps.repository.getReviewsByProject(projectId);
   const nowIso = deps.now();
+  const window = await ensureWindowIfCompleted(deps, project);
   const isParty = actor === project.clientId || actor === project.freelancerId;
   const direction: ReviewDirection | null = !isParty
     ? null
@@ -271,19 +327,20 @@ export async function getMyProjectReview(
       : 'FREELANCER_TO_CLIENT';
   const mine = direction ? siblings.find((row) => row.direction === direction) : undefined;
   const counterpart = direction ? siblings.find((row) => row.direction !== direction) : undefined;
-  const counterpartPublic = counterpart ? isReviewPublic(counterpart, siblings, nowIso) : false;
+  const counterpartPublic = counterpart ? isReviewPublic(counterpart, siblings, nowIso, window) : false;
 
   let reason: MyProjectReviewReason | null = null;
   if (!isParty) reason = 'REVIEW_FORBIDDEN';
   else if (project.transactionStatus !== 'COMPLETED' || project.contractStatus === 'CANCELED') {
     reason = 'PROJECT_NOT_COMPLETED';
   } else if (mine) reason = 'REVIEW_ALREADY_SUBMITTED';
+  else if (isPeriodClosed(window, nowIso)) reason = 'REVIEW_PERIOD_CLOSED';
 
   return {
     canReview: reason === null,
     reason,
-    reviewDeadlineAt: null,
-    myReview: mine ? toCreateBody(mine, isReviewPublic(mine, siblings, nowIso)) : null,
+    reviewDeadlineAt: reviewDeadlineAt(window),
+    myReview: mine ? toCreateBody(mine, isReviewPublic(mine, siblings, nowIso, window)) : null,
     counterpartyReviewVisibility: counterpartPublic ? 'PUBLISHED' : 'NOT_AVAILABLE',
   };
 }
@@ -299,7 +356,10 @@ export async function getPublishedRatingAggregate(
   for (const row of await deps.repository.getAllReviews()) {
     if (row.revieweeId !== revieweeId) continue;
     const siblings = await deps.repository.getReviewsByProject(row.projectId);
-    if (!isReviewPublic(row, siblings, nowIso)) continue;
+    // 여기서는 ensure하지 않고 getWindow만 본다 — 원본(:301~309)과 같다. 합산은 읽기
+    // 전용이라 window를 새로 만들 이유가 없다(어차피 없으면 그 리뷰는 비공개로 본다).
+    const window = await deps.repository.getWindow(row.projectId);
+    if (!isReviewPublic(row, siblings, nowIso, window)) continue;
     ratingSum += row.rating;
     reviewCount += 1;
   }
@@ -332,8 +392,7 @@ export const getUserRatingSummary = getUserRating;
 
 /**
  * `GET /users/:userId/reviews` — `PUBLISHED`만, `publishedAt DESC, reviewId DESC`.
- * 원본 features/reviews/prototype/server/review.service.ts:357~390과 같되 window가 없어
- * `isReviewPublic`은 여전히 `createdAt` 기준(2단계 산출물)이다.
+ * 원본 features/reviews/prototype/server/review.service.ts:357~390과 같다(CR-RV-002, #203).
  */
 export async function listUserReviews(
   deps: ReviewServiceDeps,
@@ -354,7 +413,8 @@ export async function listUserReviews(
   for (const row of await deps.repository.getAllReviews()) {
     if (row.revieweeId !== userId) continue;
     const siblings = await deps.repository.getReviewsByProject(row.projectId);
-    if (!isReviewPublic(row, siblings, nowIso)) continue;
+    const window = await deps.repository.getWindow(row.projectId);
+    if (!isReviewPublic(row, siblings, nowIso, window)) continue;
     published.push(row);
   }
   published.sort((a, b) => {

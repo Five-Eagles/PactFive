@@ -339,6 +339,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       deadlineNotifiedAt: null,
       acceptedApplicationId: null,
       paymentPendingAt: null,
+      completedAt: null,
       projectVersion: 1,
       skillIds: [...input.skillIds],
       createdAt: at,

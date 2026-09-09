@@ -68,6 +68,9 @@ export type NegotiationContext = {
   recruitmentDeadlineAt: string;
   canceledAt: string | null;
   paymentPendingAt: string | null;
+  /** transactionStatus가 COMPLETED로 바뀐 시각 (CR-RV-002, reviews의 review_windows.opened_at
+   * 소스). COMPLETED가 아니면 항상 null이다. */
+  completedAt: string | null;
   projectVersion: number;
 };
 

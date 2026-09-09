@@ -13,7 +13,11 @@
  *      engagement의 `UserReadPort.getUserRole`과 같은 임시 연결(express-app.ts의 `roleByUserId`
  *      캐시)을 재사용한다 — `UserExistsPort`로 분리했다(feedback_loop 2026-09-05 기록).
  *
- * `ReviewRepository`는 리뷰(`reviews`) 자기 자신의 행만 갖는다.
+ * `ReviewRepository`는 리뷰(`reviews`) 자기 자신의 행만 갖는다 — 단, review_windows는
+ * 예외로 여기 포함했다(CR-RV-002, #203) — 리뷰 하나가 공개되는지 판정하려면 매번 같이
+ * 읽어야 해서 별도 포트로 쪼개는 비용이 이득보다 크다고 판단했다. `user_rating_projections`
+ * (원본에 있던 평점 캐시)는 신설하지 않는다 — getUserRating이 공개 리뷰 실시간 합산으로
+ * 이미 정상 동작한다(review.service.ts getPublishedRatingAggregate).
  */
 
 export type ReviewDirection = 'CLIENT_TO_FREELANCER' | 'FREELANCER_TO_CLIENT';
@@ -87,7 +91,8 @@ export type GetUserRatingResponse = {
 };
 
 /** `reviews/me`가 「작성할 수 없는 이유」로 주는 코드. `REVIEW_PERIOD_CLOSED`는 review_windows가
- * 생기는 CR-RV-002 이후(#203)에 추가한다 — 그전까지 이 사유로는 절대 안 걸린다. */
+ * 생긴 CR-RV-002(#203) 이후 실제로 걸린다 — window가 있고 그 deadlineAt이 지났는데
+ * 아직 내 리뷰가 없을 때다. */
 export type MyProjectReviewReason =
   | 'PROJECT_NOT_COMPLETED'
   | 'REVIEW_FORBIDDEN'
@@ -97,7 +102,7 @@ export type MyProjectReviewReason =
 export type GetMyProjectReviewResponse = {
   canReview: boolean;
   reason: MyProjectReviewReason | null;
-  /** review_windows 없이는 줄 값이 없다 — CR-RV-002 전까지 항상 null(이식 지시서 §4). */
+  /** window가 없으면(프로젝트가 아직 COMPLETED가 아니면) null. 있으면 그 deadlineAt. */
   reviewDeadlineAt: string | null;
   myReview: CreateReviewResponse | null;
   counterpartyReviewVisibility: 'NOT_AVAILABLE' | 'PUBLISHED';
@@ -133,6 +138,20 @@ export type ProjectReviewContext = {
   transactionStatus: ProjectTransactionStatus;
   contractStatus: ContractStatus;
   contractId: string;
+  /** transactionStatus가 COMPLETED로 바뀐 시각(project-management 정본). CR-RV-002 —
+   * review_windows.openedAt의 소스. COMPLETED가 아니면 null이고, ensureWindow는 그때
+   * 호출하지 않는다. */
+  completedAt: string | null;
+};
+
+/** 리뷰 작성 창. project_id 1:1. CR-RV-002(조준영, 2026-09-07) — 원본
+ * features/reviews/prototype/server/review.types.ts:113~118과 같되 policyVersion을
+ * 리터럴 1이 아니라 Int로 뒀다(DB 컬럼이 Int라 그대로 읽고 쓴다). */
+export type ReviewWindow = {
+  projectId: string;
+  openedAt: string;
+  deadlineAt: string;
+  policyVersion: number;
 };
 
 // 에러 코드 v2.0 (조준영, 2026-09-09 이식 지시서 §2-2) — api-contract.md 계약과 맞춘다.
@@ -141,6 +160,8 @@ export type ProjectReviewContext = {
 // IDEMPOTENCY_KEY_REUSED(같은 키·다른 본문)·REVIEW_ALREADY_SUBMITTED(같은 방향 재작성)로 분리,
 // rating/tags 검증을 VALIDATION_ERROR에서 INVALID_REVIEW_RATING/REVIEW_TAG_INVALID로 분리,
 // REVIEW_CONTENT_INVALID 신설. idempotencyKey 누락은 원본대로 VALIDATION_ERROR 유지.
+// REVIEW_PERIOD_CLOSED(CR-RV-002, #203 추가) — window.deadlineAt이 지난 뒤 새 리뷰를
+// 시도하면 409. 원본(조준영, prototype/server/review.service.ts)과 같은 코드명·같은 409다.
 export type ReviewApiErrorCode =
   | 'AUTH_REQUIRED'
   | 'REVIEW_FORBIDDEN'
@@ -152,6 +173,7 @@ export type ReviewApiErrorCode =
   | 'INVALID_REVIEW_RATING'
   | 'REVIEW_TAG_INVALID'
   | 'REVIEW_CONTENT_INVALID'
+  | 'REVIEW_PERIOD_CLOSED'
   | 'VALIDATION_ERROR'
   | 'METHOD_NOT_ALLOWED';
 
@@ -172,6 +194,7 @@ const HTTP_BY_CODE: Record<ReviewApiErrorCode, 400 | 401 | 403 | 404 | 405 | 409
   IDEMPOTENCY_KEY_REUSED: 409,
   REVIEW_ALREADY_SUBMITTED: 409,
   PROJECT_NOT_COMPLETED: 409,
+  REVIEW_PERIOD_CLOSED: 409,
   INVALID_REVIEW_RATING: 400,
   REVIEW_TAG_INVALID: 422,
   REVIEW_CONTENT_INVALID: 422,
@@ -235,6 +258,15 @@ export type ReviewRepository = {
   getIdempotency(key: string): Promise<{ bodyHash: string; reviewId: string } | undefined>;
   setIdempotency(key: string, bodyHash: string, reviewId: string): Promise<void>;
   nextReviewId(): Promise<string>;
+  /** 있으면 그대로 돌려주고, 없으면 `opened=completedAt`·`deadline=opened+14일`로 만들어
+   * 저장한 뒤 돌려준다 — CR-RV-002. 프로젝트당 최초 1행만 만든다. `completedAt`이 null이면
+   * (아직 COMPLETED가 아니면) 호출하지 않는다(호출부가 지킨다, review.service.ts). 원본
+   * (조준영, review.mock.ts ensureWindow)은 in-memory Map + `withKeyedLock`으로 동시
+   * 생성을 막았다 — Prisma 구현은 `project_id` 기본키에 대한 upsert(create/update no-op)로
+   * 같은 원자성을 얻는다(app/에 그 락 인프라가 없다).
+   */
+  ensureWindow(projectId: string, completedAt: string): Promise<ReviewWindow>;
+  getWindow(projectId: string): Promise<ReviewWindow | undefined>;
 };
 
 /** 프로젝트 조각 읽기 — project-management + contracts-payments delegate 합성
