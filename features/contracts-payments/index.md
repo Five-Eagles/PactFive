@@ -133,3 +133,5 @@
 | 2026-09-08 | feedback 항목 3 반영완료. 무효화 inbound만. A-07 포트 연결은 팀장. |
 | 2026-09-08 | feedback 항목 4 반영완료. 납품·정산·취소 high-fi 시안 있음. |
 | 2026-09-08 | feedback 항목 5 반영완료. 정산 URL은 contractId. preparePayment로 id. |
+| 2026-09-09 | 9/8 feedback 항목 1·2 반영완료. deliveries 7컬럼·invalidations 동의(규칙 23·25 근거) |
+| 2026-09-09 | CR-CP-002 제안. 수수료 스냅샷 3컬럼·멱등 bodyHash. 역산 제거 요청 |
