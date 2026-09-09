@@ -2,6 +2,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
 import { config as loadEnvFile } from 'dotenv';
 import cors from 'cors';
 import { createAuthRouter } from './features/user-management/auth.routes';
@@ -22,13 +23,16 @@ import { createProjectService } from './features/project-management/project.serv
 import { createProjectContractService } from './features/project-management/project-contract.service';
 import { createProjectReadService } from './features/project-management/project-read.service';
 import { InMemoryProjectRepository } from './features/project-management/in-memory-project.repository';
+import { PrismaProjectRepository } from './features/project-management/prisma-project.repository';
 import { createInMemoryExternalPorts } from './features/project-management/in-memory-external.adapter';
 import { createEngagementRouter } from './features/engagement/bookmark.routes';
 import { createEngagementService } from './features/engagement/bookmark.service';
 import { InMemoryBookmarkRepository } from './features/engagement/in-memory-bookmark.repository';
+import { PrismaBookmarkRepository } from './features/engagement/prisma-bookmark.repository';
 import { InMemoryProjectTransactionCallLogRepository } from './features/contracts-payments/in-memory-project-transaction-call-log.repository';
 import { createProjectManagementAdapter } from './features/contracts-payments/project-management.adapter';
 import { InMemoryContractsPaymentsRepository } from './features/contracts-payments/in-memory-contracts-payments.repository';
+import { PrismaContractsPaymentsRepository } from './features/contracts-payments/prisma-contracts-payments.repository';
 import {
   createContractsPaymentsSnapshotReader,
   createPublicApiService,
@@ -39,18 +43,21 @@ import { createTransactionLifecycleCoordinator } from './features/contracts-paym
 import { hasPgSecretKey, createTossPaymentsAdapter } from './features/contracts-payments/toss-payments.adapter';
 import type { PaymentGateway } from './features/contracts-payments/payment.port';
 import { InMemoryPricingAnalysisRepository } from './features/ai-pricing/in-memory-pricing-analysis.repository';
+import { PrismaPricingAnalysisRepository } from './features/ai-pricing/prisma-pricing-analysis.repository';
 import { InMemoryPricingAnalysisRateLimit } from './features/ai-pricing/in-memory-pricing-analysis-rate-limit';
 import { createPricingAnalysisClaimPort } from './features/ai-pricing/pricing-analysis-claim.adapter';
 import { ProjectBudgetApplicationAdapter } from './features/ai-pricing/project-budget-application.adapter';
 import { OpenAIPricingAnalyzer } from './features/ai-pricing/openai.adapter';
 import { createPricingAnalysisRouter } from './features/ai-pricing/pricing-analysis.router';
 import { InMemoryApplicationRepository } from './features/applications/in-memory-application.repository';
+import { PrismaApplicationRepository } from './features/applications/prisma-application.repository';
 import { InMemoryApplicationNotificationPort } from './features/applications/in-memory-application-notification';
 import { createApplicationsPortAdapter } from './features/applications/applications-port.adapter';
 import { createProjectApplicationContextAdapter } from './features/applications/project-application-context.adapter';
 import { createAcceptProjectApplicationAdapter } from './features/applications/accept-project-application.adapter';
 import { createApplicationRouter } from './features/applications/application.router';
 import { InMemoryReviewRepository } from './features/reviews/in-memory-review.repository';
+import { PrismaReviewRepository } from './features/reviews/prisma-review.repository';
 import { InMemoryReviewEventPort } from './features/reviews/in-memory-review-event';
 import { createProjectReviewContextAdapter } from './features/reviews/project-review-context.adapter';
 import { createReviewRouter } from './features/reviews/review.router';
@@ -151,7 +158,10 @@ try {
   // 값이 없어도 서버는 그대로 동작한다(.env.example 공통 규칙 1) — 로컬/아직 마이그레이션
   // 안 한 배포 환경은 지금처럼 인메모리로 계속 굴러간다. auth만 우선 전환한다 — 다른
   // 기능(project-management 등)의 인메모리 저장소는 이 트랙 범위 밖이다.
-  authRepositories = isPrismaConfigured()
+  // 2026-09-08: authProviderMode도 같이 본다 — mock 인증 상태에서는 DATABASE_URL이 있어도
+  // 강제로 InMemory로 묶는다(shared/prisma-client.ts의 isPrismaConfigured 주석 참고 —
+  // mock 인증의 가짜 userId가 실제 users 테이블에 없어 FK가 깨지는 걸 막는 정합성 요구사항).
+  authRepositories = isPrismaConfigured(authProviderMode)
     ? new PrismaAuthRepository(getPrismaClient())
     : new InMemoryAuthRepository();
 } catch (error) {
@@ -237,14 +247,20 @@ const requireServiceToken = createRequireServiceToken(process.env.INTERNAL_SERVI
 // contracts-payments는 순수 호출자가 됐다 (feedback_loop/2026-08-28/project-management.md 항목 1).
 // ---------------------------------------------------------------------------
 
-const projectRepository = new InMemoryProjectRepository();
+// 2026-09-08: 다른 기능과 같은 isPrismaConfigured(authProviderMode) 게이트.
+const projectRepository = isPrismaConfigured(authProviderMode)
+  ? new PrismaProjectRepository(getPrismaClient())
+  : new InMemoryProjectRepository();
 const projectPorts = createInMemoryExternalPorts();
 const projectNow = () => new Date().toISOString();
 
 // ai-pricing의 저장소는 project-management보다 먼저 만든다 — 아래 CR-0003 회신(연결 포트)이
 // project.service.ts/project-contract.service.ts 구성 전에 준비돼야 하기 때문이다.
 // PricingAnalysisRateLimit 은 무제한(In-memory-first, 실제 창 기반 제한은 Prisma 도입 이후).
-const pricingAnalysisRepository = new InMemoryPricingAnalysisRepository();
+// 2026-09-08: 다른 기능과 같은 isPrismaConfigured(authProviderMode) 게이트.
+const pricingAnalysisRepository = isPrismaConfigured(authProviderMode)
+  ? new PrismaPricingAnalysisRepository(getPrismaClient())
+  : new InMemoryPricingAnalysisRepository();
 const pricingAnalysisRateLimit = new InMemoryPricingAnalysisRateLimit();
 
 // CR-0003(유동우, 2026-08-26) 회신 — project-management가 등록·예산반영 시점에 부르는
@@ -256,7 +272,10 @@ projectPorts.pricing = createPricingAnalysisClaimPort(pricingAnalysisRepository)
 // project-management가 부르는 ApplicationsPort.rejectPendingApplications를 여기서 실제로
 // 연결한다. 등록 전에는 fail-closed 스텁이었다(in-memory-external.adapter.ts의
 // createUnavailableApplicationsPort) — applications가 app/에 붙은 오늘부터 실제로 처리한다.
-const applicationRepository = new InMemoryApplicationRepository();
+// 2026-09-08: 다른 기능과 같은 isPrismaConfigured(authProviderMode) 게이트.
+const applicationRepository = isPrismaConfigured(authProviderMode)
+  ? new PrismaApplicationRepository(getPrismaClient())
+  : new InMemoryApplicationRepository();
 const applicationNotifications = new InMemoryApplicationNotificationPort();
 projectPorts.applications = createApplicationsPortAdapter(applicationRepository, applicationNotifications);
 
@@ -367,8 +386,11 @@ app.use(
 // "폴더 간 접점"과 같은 원칙 — 기능 간 연결은 조립 지점에서만 한다).
 // ---------------------------------------------------------------------------
 
+// 2026-09-08: 다른 기능과 같은 isPrismaConfigured(authProviderMode) 게이트.
 const engagementService = createEngagementService({
-  repo: new InMemoryBookmarkRepository(),
+  repo: isPrismaConfigured(authProviderMode)
+    ? new PrismaBookmarkRepository(getPrismaClient())
+    : new InMemoryBookmarkRepository(),
   ports: {
     projectRead: projectReadService,
     userRead: {
@@ -419,7 +441,10 @@ if (paymentGatewayConfigured) {
   }
 }
 
-const contractsPaymentsRepository = new InMemoryContractsPaymentsRepository();
+// 2026-09-08: 다른 기능과 같은 isPrismaConfigured(authProviderMode) 게이트.
+const contractsPaymentsRepository = isPrismaConfigured(authProviderMode)
+  ? new PrismaContractsPaymentsRepository(getPrismaClient())
+  : new InMemoryContractsPaymentsRepository();
 
 function contractsPaymentsRandomId(prefix: string): string {
   return `${prefix}_${randomId()}`;
@@ -456,6 +481,59 @@ app.use(
 );
 
 // ---------------------------------------------------------------------------
+// 로컬 개발 전용 — DevAuthToggle(app/web)의 "기능별 시드 계정 피커" 지원용 2종.
+// `!isProduction` 밖에서는 이 블록 자체가 실행되지 않는다 — 라우트가 아예 등록되지 않으므로
+// 배포 환경에는 존재하지 않는다(이중 방어 없이 단순 조건 분기). `/api/` 접두사를 붙인 건
+// (다른 `/internal/v1/...`와 달리) app/web의 vite proxy가 `/api`만 넘겨주기 때문이다
+// (app/web/vite.config.ts) — 브라우저에서 직접 부를 수 있어야 하는 이 두 엔드포인트만 예외다.
+if (!isProduction) {
+  // scripts/seed-dev-accounts.js가 리포 루트에 쓰는 파일 — 이메일/비밀번호를 그대로 담고
+  // 있지만 전부 @example.com 가짜 계정이고, 이 파일 자체가 .gitignore에 있어 커밋되지 않는다.
+  const devAccountsFilePath = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../.dev-accounts.local.json',
+  );
+
+  app.get('/api/internal/dev/test-accounts', (_req: Request, res: Response) => {
+    if (!existsSync(devAccountsFilePath)) {
+      res.status(200).json({ accounts: [] });
+      return;
+    }
+    try {
+      res.status(200).json(JSON.parse(readFileSync(devAccountsFilePath, 'utf8')));
+    } catch {
+      // 파일이 깨져 있어도(수동 편집 중이었다든가) 위젯은 "계정 없음"으로만 보이면 된다 —
+      // 로컬 개발 편의 기능이 500으로 화면을 막을 이유가 없다.
+      res.status(200).json({ accounts: [] });
+    }
+  });
+
+  // 정산 RELEASED 전이는 실제 지급 버튼이 없어(public-api.service.ts의
+  // simulateSettlementResult 주석 — "Sandbox 정산 실행은 지급 버튼이 없어, 이 함수를
+  // 직접 호출해야만") 사용자 API로는 절대 도달할 수 없다. scripts/seed-dev-accounts.js의
+  // "결제 완료" 시나리오가 실제 토스 결제(브라우저, 이건 대신할 수 없다)까지 마친 뒤 이
+  // 엔드포인트로 그 다음 단계만 이어 부른다 — 같은 publicApiService 인스턴스를 그대로
+  // 호출할 뿐, 별도 로직이나 DB 우회가 없다.
+  app.post('/api/internal/dev/simulate-settlement', async (req: Request, res: Response) => {
+    const paymentId = String((req.body as Record<string, unknown> | undefined)?.paymentId ?? '');
+    if (!paymentId) {
+      res.status(422).json({
+        error: { code: 'VALIDATION_ERROR', message: 'paymentId가 필요합니다.', details: null },
+      });
+      return;
+    }
+    try {
+      await publicApiService.simulateSettlementResult(paymentId, 'SUCCESS');
+      res.status(200).json({ ok: true });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ error: { code: 'INTERNAL_ERROR', message: String(error), details: null } });
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // reviews — 공개 API 3종(작성·목록·요약). features/reviews/api-contract.md.
 //
 // 이 기능이 필요로 하는 프로젝트 조각은 project-management(clientId·transactionStatus)와
@@ -471,7 +549,11 @@ app.use(
 // (feedback_loop/2026-09-05/reviews.md).
 // ---------------------------------------------------------------------------
 
-const reviewRepository = new InMemoryReviewRepository();
+// 2026-09-08: 다른 기능과 같은 isPrismaConfigured(authProviderMode) 게이트 — mock 인증이면
+// InMemory, 그 외(supabase)면 Prisma. 6기능 Prisma 이식 트랙(팀장 작업).
+const reviewRepository = isPrismaConfigured(authProviderMode)
+  ? new PrismaReviewRepository(getPrismaClient())
+  : new InMemoryReviewRepository();
 const reviewEvents = new InMemoryReviewEventPort();
 const reviewProjectContext = createProjectReviewContextAdapter(projectContractService, contractsPaymentsRepository);
 

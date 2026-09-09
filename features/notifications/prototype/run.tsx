@@ -26,10 +26,14 @@ async function main() {
   const { runNotificationServerBoundaryTests } = await import("./tests/notification-server-boundary.test");
   const { runNotificationClientTests } = await import("./tests/notification-client.test");
   const { runNotificationUiTests } = await import("./tests/notification-ui.test");
+  const { runNotificationIntegrationTests } = await import("./tests/notification-integration.test");
+  const { runNotificationTransportTests } = await import("./tests/notification-transport.test");
   await runNotificationServerTests(check);
   await runNotificationServerBoundaryTests(check);
   await runNotificationClientTests(check);
   await runNotificationUiTests(check);
+  await runNotificationIntegrationTests(check);
+  await runNotificationTransportTests(check);
   console.log(`notifications: ${passed} PASS / ${failed} FAIL`);
   if (failed) process.exitCode = 1;
 }

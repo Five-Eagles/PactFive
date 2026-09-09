@@ -210,7 +210,9 @@
     전이·FAILED·조회는 규칙 19·21.
 
 15. **프로젝트 취소 경로**는 `invalidateAgreementAndContract`다. restore와 반대 방향이다
-    (규칙 5). 실행 불변식은 규칙 25.
+    (규칙 5). 실행 불변식은 규칙 25. 공개 `POST /api/v1/projects/:projectId/cancel`(A-07)은
+    유동우. 이 폴더는 inbound만. app/ `ContractsPort`가 이 함수에 붙기 전에는 무효화가
+    `FAILED`다.
 
 16. **공개 API 경로 (함수명이 정본).** Increment 1 REST:
     `POST /api/v1/projects/:projectId/negotiation-offers` (`proposeNegotiationOffer`),
@@ -229,13 +231,15 @@
     프론트 설계서 `/agreements` 5종은 **폐기**한다. 내부 4함수는 `/internal/v1/...` (규칙 1).
     무효화 inbound는 `POST /internal/v1/projects/:projectId/invalidate-agreement` (규칙 22).
 
-17. **프론트 라우트.** 통합된 3화면은 app 경로가 정본이다.
+17. **프론트 라우트.** 통합된 화면은 app 경로가 정본이다.
     `/projects/:projectId/agreements` (합의),
     `/contracts/:contractId/sign` (서명),
-    `/contracts/:contractId/payment` (결제, `paymentId`는 URL에 넣지 않는다).
-    아직 app 없는 초안: `/projects/:projectId/contracts/:contractId/delivery` (DLV-01),
-    `/projects/:projectId/payments/:paymentId/settlement` (SET-01),
-    `/projects/:projectId/cancellation` (CAN-01).
+    `/contracts/:contractId/payment` (결제, `paymentId`는 URL에 넣지 않는다),
+    `/contracts/:contractId/delivery` (납품),
+    `/contracts/:contractId/settlement` (정산, `paymentId`는 URL에 넣지 않는다),
+    `/projects/:projectId/cancellation` (취소).
+    시안: `design/agreement.html` · `contract-sign.html` · `payment.html` ·
+    `delivery.html` · `settlement.html` · `cancellation.html`. 각 low-fi 짝 있음.
     Toss `orderId`는 `pg_order_id`이며 화면 경로에 쓰지 않는다.
     UX: 로딩, 빈 생성 모드, `LOAD_FAILED` 재시도, `STALE`/409 후 재조회, 프로젝트 취소 시
     변경 버튼 숨김 (프론트 v2.0). 서명·결제도 같은 패턴. 취소된 프로젝트 서명은
@@ -260,6 +264,8 @@
 20. **수락 시 계약 필드.** `acceptNegotiationOffer`가 ERD NOT NULL을 채운다.
     `agreement_id`·`project_id`·`client_id`·`freelancer_id` = 수락 컨텍스트.
     `agreed_amount` = 최신 offer `offered_amount`. `project_title_snapshot` = `projects.title`.
+    `getProjectNegotiationContext`에 title이 없으면 스냅샷·공개 `projectTitle`은 `''`.
+    화면은 「프로젝트」. 정본 제목은 PM이 포트에 넣을 때 채운다 (`CR-CP-001`).
     `work_start_date` = 수락일 UTC date. `work_end_date` = `recruitment_deadline_at`의 date
     (start보다 이르면 start와 같게, CHECK). `terms_snapshot` =
     `{ schemaVersion: 1, amount, currency: "KRW", projectTitle }` (E-18). PDF 없음.
@@ -302,11 +308,14 @@
     `IN_PROGRESS`+(`PAID`|`RELEASED`). `RELEASED`를 `PAYMENT_NOT_PAID`로 막지 않는다.
     PG 비용은 정산액에서 빼지 않는다. `APPROVED` 전 `RELEASED` 불가. Payment당 실행
     원장 1건. 성공과 `RELEASED`는 같이 기록. 사용자 API는 GET only. 승인 후 evaluate만.
-    Sandbox 결과는 Mock `simulateSettlementResult`. 실패는 `PAID` 유지. UNKNOWN은
+    app/도 공개 HTTP·지급 버튼 없음. QA는 `simulateSettlementResult`를 직접 호출한다.
+    다음 Increment는 웹훅·배치다. Sandbox 결과는 Mock `simulateSettlementResult`. 실패는 `PAID` 유지. UNKNOWN은
     PROCESSING, 새 지급 없음. 같은 멱등 키·같은 본문 재사용, 다른 본문 409. C-03은
     `APPROVED ∧ RELEASED`만, 호출 전 조회. 409면 재조회: `COMPLETED` 성공, `CANCELED` 자동
     복구 금지. 오류는 규칙 8 5종. `SETTLEMENT_*` 코드·지급 버튼·운영 화면 없음. 화면은
-    「정산 시뮬레이션」.
+    「정산 시뮬레이션」. 화면 URL은 `/contracts/:contractId/settlement`. paymentId는
+    계약당 1행이라 `preparePayment`(READY|PAID 멱등)로 얻은 뒤 GET한다. 새 공개 GET은
+    이 Increment에서 안 연다.
 
 25. **합의·계약 무효화 (CAN-01 v2).** 정본은 취소·합의·계약 설계서 v2.0 (2026-09-04).
     의뢰인 즉시 취소 가능 구간은 `NONE`·결제 전 `CONTRACT_PENDING`.

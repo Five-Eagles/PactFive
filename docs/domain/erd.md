@@ -2,30 +2,35 @@
 
 | 항목 | 내용 |
 |---|---|
-| 원본 | `docs/domain/reference/erd-v1.4.html` (DBML: `docs/domain/reference/erd-v1.4.dbml`, 파일명은 v1.4 유지·내용은 v1.6) |
+| 원본 | `docs/domain/reference/erd-v1.4.html` (DBML: `docs/domain/reference/erd-v1.4.dbml`, 파일명은 v1.4 유지·내용은 v1.7) |
 | 작성 | 김락원 (팀장) |
-| 버전 | v1.6 |
+| 버전 | v1.7 |
 | 근거 | `docs/domain/prd.md` §6 데이터 모델 (PRD v6.5 대조 완료) |
-| 반영일 | 2026-08-25 (v1.5 개정: 2026-09-04, v1.6 개정: 2026-09-04) |
+| 반영일 | 2026-08-25 (v1.5 개정: 2026-09-04, v1.6 개정: 2026-09-04, v1.7 개정: 2026-09-08) |
 | 상태 | **구현 초안 확정** — 엔티티 수 고정 원칙은 폐기되었다(D-62·D-70·D-78 종결). 새 엔티티는 담당자를 명시하고 §6.10 검증 범위에 추가하는 방식으로 계속 확장될 수 있다 |
 
 이 문서는 원본을 요약한 포인터입니다. 필드 단위 상세, 불변식 30개 매핑, DBML로 표현 못하는
 SQL 제약, 확장 지점은 원본 HTML을 직접 엽니다.
 
-## 엔티티 21종 (담당자별)
+## 엔티티 29종 (담당자별)
 
 | 담당자 | 엔티티 |
 |---|---|
 | 오민혁 | `users`, `auth_sessions`, `registration_intents`, `client_profiles`, `freelancer_profiles`, `skills`, `freelancer_skills` |
-| 유동우 | `projects`, `project_skills`, `bookmarks` |
-| 최윤석 | `applications`, `notifications` |
-| 조준영 | `agreements`, `negotiation_offer`, `contracts`, `contract_signature_audits`, `payments`, `deliveries`, `reviews` |
+| 유동우 | `projects`, `project_skills`, `bookmarks`, `project_contract_idempotency_records` |
+| 최윤석 | `applications`, `notifications`, `application_idempotency_keys`, `application_operations`, `application_operation_steps`, `application_state_events`, `application_closures` |
+| 조준영 | `agreements`, `negotiation_offer`, `contracts`, `contract_signature_audits`, `payments`, `deliveries`, `reviews`, `invalidations`, `review_idempotency_keys` |
 | 오민혁 | `pricing_analyses`, `pricing_application_receipts` |
 
 `auth_sessions`(E-22)와 `negotiation_offer`(E-25)는 v1.3~v1.4에서, `registration_intents`(E-30,
-v1.5)와 `pricing_application_receipts`(E-36, v1.6)는 2026-09-04에 신설된 엔티티다 — 과거 v1.2의
-"17종 고정" 원칙(구 E-01)은 PRD §6.1 D-62에서 이미 폐기된 것으로 확인되어 철회됐다 (아래 "최근
-확정 사항" 참고). 담당자는 자기 담당 절만 확인하면 된다 (원본 §6.10 검증 범위).
+v1.5)와 `pricing_application_receipts`(E-36, v1.6)는 2026-09-04에 신설된 엔티티다. 8종
+(`review_idempotency_keys`·`application_idempotency_keys`·`application_operations`·
+`application_operation_steps`·`application_state_events`·`application_closures`·
+`project_contract_idempotency_records`·`invalidations`)은 E-39~E-48로 2026-09-08에 신설됐다 —
+4개 기능(reviews·applications·project-management·contracts-payments)이 InMemory 저장소에만
+갖고 있던 멱등 캐시·outbox·상태 이력·무효화 결과 구조를 뒤늦게 ERD에 반영한 것이다(아래 "최근
+확정 사항" [v1.7] 참고). 과거 v1.2의 "17종 고정" 원칙(구 E-01)은 PRD §6.1 D-62에서 이미
+폐기된 것으로 확인되어 철회됐다. 담당자는 자기 담당 절만 확인하면 된다 (원본 §6.10 검증 범위).
 
 ## enum 값 목록 (저장 enum 12종)
 
@@ -242,6 +247,19 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 | `project_id` | varchar(30) | NOT NULL | `projects` 참조 |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 
+#### `project_contract_idempotency_records` (v1.7 신설 — E-46, 유동우 담당)
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `idempotency_key` | varchar(100) | PK | — |
+| `processed_at` | timestamptz | NOT NULL | 최초 처리 완료 시각 |
+| `result` | jsonb | NOT NULL | exact replay용 최초 응답 사본 |
+| `project_version` | integer | NOT NULL | 처리 시점의 `projects.project_version` 스냅샷 |
+
+**(Fact)** 원본(유동우, `features/project-management/prototype/server/project-contract.service.ts`의
+`findProcessed`/`markProcessed`)을 그대로 반영했다 — 팀장의 새 설계 판단이 아니다. 계약 함수(수락·
+거절·취소 등) 호출의 멱등 결과를 저장한다.
+
 
 ### 최윤석 담당
 
@@ -276,6 +294,71 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 | `dedupe_key` | varchar(120) | NOT NULL | 중복 알림 방지 키 |
 | `read_at` | timestamptz | NULL | 읽음 처리 시각 |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
+
+#### applications 내부 부기 테이블 4종 (v1.7 신설 — E-41~E-45, 최윤석 담당)
+
+**(Fact)** 아래 4종 전부 PR #83(최윤석, `feat(applications): 지원 Mock에 eligibility·202/outbox와
+건수 분담을 넣는다`, develop 커밋 `6202e16`)의 원본 구조를 그대로 옮긴 것이다 — 팀장의 새 설계
+판단이 아니다. 지원 수락/거절 후 잔여 처리(다른 지원 자동거절·알림 발행)를 outbox 패턴으로
+큐잉·드레인한다. app/ 서버는 같은 요청 안에서 즉시 드레인하므로 실제로는 거의 항상 동기적으로
+끝나고, 202는 드레인 도중 실패했을 때만 나온다.
+
+##### `application_operations`
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `id` | varchar(30) | PK | `aop_...` |
+| `application_id` | varchar(30) | NOT NULL | `applications` 참조 |
+| `project_id` | varchar(30) | NOT NULL | — |
+| `client_id` | varchar(30) | NOT NULL | `users` 참조 — 요청 주체(의뢰인) |
+| `type` | varchar(10) | NOT NULL | `ACCEPT` \| `REJECT` |
+| `status` | varchar(10) | NOT NULL, DEFAULT `QUEUED` | `QUEUED` \| `RUNNING` \| `SUCCEEDED` \| `FAILED` |
+| `updated_at` | timestamptz | NOT NULL | — |
+| `retry_after_seconds` | integer | NOT NULL, DEFAULT 0 | — |
+| `requires_operator_action` | boolean | NOT NULL, DEFAULT false | — |
+| `lease_until` | timestamptz | NULL | 드레인 작업자 리스(중복 실행 방지) |
+| `attempts` | smallint | NOT NULL, DEFAULT 0 | — |
+
+##### `application_operation_steps`
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `id` | varchar(30) | PK | — |
+| `operation_id` | varchar(30) | NOT NULL | `application_operations` 참조 |
+| `seq` | smallint | NOT NULL | 단계 순서 |
+| `name` | varchar(30) | NOT NULL | `REJECT_OTHERS` \| `CREATE_NOTIFICATIONS` \| `ENSURE_NEGOTIATION_CONTEXT` |
+| `status` | varchar(10) | NOT NULL | `QUEUED` \| `RUNNING` \| `SUCCEEDED` \| `FAILED` \| `SKIPPED` |
+| `reason` | varchar(200) | NULL | — |
+
+원본은 `ApplicationOperation.steps` 배열이지만 DB에서는 자식 테이블로 정규화했다 — 구조만
+바꿨고 데이터 의미는 원본과 동일하다(팀장 판단).
+
+##### `application_state_events`
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `id` | varchar(30) | PK | — |
+| `application_id` | varchar(30) | NOT NULL | `applications` 참조 |
+| `from_status` | application_status | NULL | 최초 생성이면 NULL |
+| `to_status` | application_status | NOT NULL | — |
+| `rejection_type` | application_rejection_type | NULL | — |
+| `occurred_at` | timestamptz | NOT NULL | — |
+
+##### `application_idempotency_keys` / `application_closures`
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `key` | varchar(160) | PK | 지원 생성/수락/거절 요청의 멱등키 |
+| `body_hash` | varchar(64) | NOT NULL | — |
+| `application_id` | varchar(30) | NOT NULL | `applications` 참조 |
+| `operation_id` | varchar(30) | NULL | `application_operations` 참조(수락/거절 요청일 때만) |
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `closure_event_id` | varchar(30) | PK | 모집 마감 사건 id — project-management가 발급 |
+| `rejected_count` | integer | NOT NULL | — |
+| `already_processed` | boolean | NOT NULL | — |
+| `result` | jsonb | NOT NULL | exact replay용 최초 응답 사본 |
 
 
 ### 조준영 담당
@@ -384,8 +467,28 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 | `attachment_url` | text | NULL | — (원본 §3 해당 절 참고) |
 | `requested_at` | timestamptz | NULL | 납품(검수 요청) 시각 |
 | `approved_at` | timestamptz | NULL | 검수 승인 시각 |
+| `version` | integer | NOT NULL, DEFAULT 0 | **(v1.7 신설, E-47)** 재요청마다 +1. 원본 mock 그대로(Fact) |
+| `object_key` | varchar(300) | NULL | **(v1.7 신설, E-47)** 스토리지 객체 키. 원본 mock 그대로(Fact) |
+| `file_name` | varchar(255) | NULL | **(v1.7 신설, E-47)** 원본 mock 그대로(Fact) |
+| `mime_type` | varchar(100) | NULL | **(v1.7 신설, E-47)** 원본 mock 그대로(Fact) |
+| `size_bytes` | integer | NULL | **(v1.7 신설, E-47)** 원본 mock 그대로(Fact) |
+| `file_sha256` | varchar(64) | NULL | **(v1.7 신설, E-47)** 업로드 파일 무결성 해시. 원본 mock엔 없던 필드 — 팀장이 spec.md 규칙 23 근거로 추가(Assumption, 조준영 확인 필요) |
+| `requested_by` | varchar(30) | NULL | **(v1.7 신설, E-47)** `users` 참조, 납품 요청자. 원본 mock엔 없던 필드 — 팀장이 spec.md 규칙 23 근거로 추가(Assumption, 조준영 확인 필요) |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 | `updated_at` | timestamptz | NOT NULL | 수정 시각 |
+
+#### `invalidations` (v1.7 신설 — E-48, 조준영 담당)
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `cancellation_id` | varchar(30) | PK | `inv_...` |
+| `project_id` | varchar(30) | NOT NULL | `projects` 참조 |
+| `contract_invalidation` | varchar(20) | NOT NULL | `PostActionResult` — `NOT_NEEDED`\|`SUCCEEDED`\|`FAILED` 등 |
+| `created_at` | timestamptz | NOT NULL | 생성 시각 |
+
+**(Assumption)** 프로젝트 취소 시 계약 무효화 최종 결과. 원본(조준영 mock)엔 결과값 자체는
+있으나 별도 영속 테이블로 만든 건 팀장 판단이다 — spec.md 규칙 25(취소 시 GET으로 마지막 무효화
+결과 조회) 근거. 조준영 확인 필요.
 
 #### `reviews`
 
@@ -400,7 +503,19 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 | `rating` | smallint | NOT NULL | 평점 |
 | `comment` | text | NULL | — (원본 §3 해당 절 참고) |
 | `tags` | jsonb | NOT NULL | 평가 태그 배열 (jsonb) — 태그 목록 미확정 상태로도 진행 가능하게 스키마리스로 둠 (원본 참고) |
+| `review_created_published_at` | timestamptz | NULL | **(v1.7 신설, E-39)** `REVIEW_CREATED` 이벤트 발행 시각. NULL이면 아직 미발행 — 공개 시점에 1회만 발행하기 위한 표시. 원본(조준영) 그대로(Fact) |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
+
+#### `review_idempotency_keys` (v1.7 신설 — E-40, 조준영 담당)
+
+| 컬럼 | 타입 | 제약 | 의미 |
+|---|---|---|---|
+| `key` | varchar(160) | PK | `{project_id}:{actor_user_id}:{idempotency_key}` 합성 키 |
+| `body_hash` | varchar(64) | NOT NULL | 요청 본문 해시 |
+| `review_id` | varchar(30) | NOT NULL | `reviews` 참조 |
+| `created_at` | timestamptz | NOT NULL | 생성 시각 |
+
+**(Fact)** 원본(조준영, `review.service.ts`의 `getIdempotency`/`setIdempotency`) 그대로.
 
 
 ### 오민혁 담당
@@ -528,6 +643,23 @@ rollback된다 — ai-pricing과 project-management가 같은 Postgres DB를 쓰
     develop에 머지되기 전까지 ERD(신규 코드)와 app/(구 코드)가 서로 다른 상태로 남는다 —
     다음 통합 때 함께 반영할 것
   - CR 원문: `features/reviews/change-requests/0001-review-tag-codes-v2.md`
+- **(v1.7, 2026-09-08)** 6개 기능을 InMemory에서 Prisma로 이식하려고 저장소 인터페이스를 조사하던
+  중, reviews·applications·project-management·contracts-payments 4개 기능이 멱등 캐시·outbox·
+  상태 이력·무효화 결과 같은 내부 부기 구조를 InMemory에만 갖고 있고 ERD엔 전혀 없다는 것을
+  발견했다(E-39~E-48, 8개 엔티티 신설 + 2개 테이블 컬럼 추가, 22~29번째 엔티티):
+  - 팀장이 "이 컬럼들이 담당자가 선언한 것이 맞냐"는 질문을 받고 출처를 git 이력으로 하나씩
+    확인했다. reviews(`review_created_published_at`, `review_idempotency_keys`)·
+    applications(`application_operations`·`application_operation_steps`·
+    `application_state_events`·`application_idempotency_keys`·`application_closures`)·
+    project-management(`project_contract_idempotency_records`) 7개 항목은 각 담당자의 원본
+    프로토타입 커밋에 이미 있던 구조였다(조준영 PR #79, 최윤석 PR #83/develop `6202e16`,
+    유동우 "계약 함수 7종 구현") — 팀장의 해석이 아니라 뒤늦게 ERD에 반영하는 것(Fact)
+  - contracts-payments의 `deliveries` 컬럼 7종 중 5종(`version`·`object_key`·`file_name`·
+    `mime_type`·`size_bytes`)과 `invalidations`의 결과값 개념은 조준영의 원본 mock에 있었지만,
+    `file_sha256`·`requested_by` 컬럼과 `invalidations`를 별도 테이블로 만든 구조 자체는
+    팀장이 spec.md 규칙 23·25를 근거로 판단해 추가했다(Assumption, 조준영 확인 필요)
+  - 사용자 승인(2026-09-08, "그대로 진행 + 담당자에 사후 공유")에 따라 9개 항목 전부 반영했다.
+    DBML 원본 [C7] 항목, `schema.prisma` PRISMA-GAP-9~17 참고
 
 엔티티 수 고정 원칙 폐기(D-62·D-70)에 따라 앞으로도 새 엔티티는 담당자 명시 + §6.10 검증 범위
 추가만으로 계속 신설될 수 있다. 전체 Decision Log는 원본 §9(Decision Log), PRD 부록 E 참고.

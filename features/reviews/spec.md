@@ -99,3 +99,7 @@
 
 규칙 6의 14일은 **ASSUMPTION**이다. 외부 대기 정본은
 `features/contracts-payments/review/external-wait-2026-08-31.md`.
+app/에는 스케줄러가 없다. 공개 여부는 조회 때 계산한다. `publishDueSoloReviews`와
+`REVIEW_CREATED` 정시 발행은 배치가 생긴 뒤다.
+`getPublishedRatingAggregate` HTTP는 열지 않는다. 오민혁이 함수로 호출한다.
+프리랜서 CTA의 app/ 링크는 팀장 이식. 계약은 규칙 11.

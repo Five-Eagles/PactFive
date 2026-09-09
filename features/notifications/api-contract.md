@@ -1,7 +1,7 @@
 # notifications — API 계약
 
-상태: 2026-09-07 담당자 구현안. 공유 API 정본 및 `app/` 반영 전 팀장 검토 필요.
-관련 규칙: `spec.md` 1–18. Base path `/api/v1/notifications`.
+상태: 2026-09-08 회의상 API 4종 진행 승인. 공유 API 정본 및 `app/` 실제 반영은 별도.
+관련 규칙: `spec.md` 1–20. Base path `/api/v1/notifications`.
 
 ## 공통
 
@@ -107,3 +107,72 @@ REVIEW_CREATED는 평점 cache 구독이며 알림 enum이 아니다.
 그 이벤트에 무조건 연결하지 말고 CR-0001의 normalized event/ACK 계약을 먼저 반영한다.
 Mock은 프로세스 재시작 시 사라진다. 운영 중복 방지는 DB unique insert,
 실패 복구는 durable outbox/worker, 10분 보장은 능동 scheduler 통합 검증이 필요하다.
+
+## 통합 조립 계약 (2026-09-08)
+
+### 서버: 같은 저장소에 조회와 생성 연결
+
+`prototype/server/notification.module.ts`의 `createNotificationModule`은 다음 두 접점을 반환한다.
+
+```ts
+const notifications = createNotificationModule({
+  repository: notificationRepository, // 팀장 구현 DB adapter. Mock 자동 선택 없음
+  resolveAuth: resolveNotificationAuth, // 기존 authService가 검증한 users.id와 활성 여부
+});
+app.use(notifications.router); // 전체 /api/v1/notifications 경로 포함, prefix를 더 붙이지 않음
+// 원천 도메인 커밋 후, 저장해 둔 정규화 사건을 내부 worker가 전달한다.
+const delivery = await notifications.delivery.deliverNotificationEventSafely(savedEvent);
+// delivered만 ACK. retry_required이면 원천 사건/수신자를 보존한 채 후속 재시도 대상 유지.
+```
+
+위 이름 중 repository/resolver/savedEvent는 **통합자가 제공할 의존성**이며 이 PR에서 실제 DB나
+worker를 제공하는 것이 아니다. 토큰에서 userId를 직접 decode하거나 임의 헤더를 인증으로
+사용하지 않는다. 앱의 현재 전역 `express.json()`보다 알림 라우터를 먼저 배치해야 잘못된
+JSON에서도 인증 우선 401과 인증 후 400을 유지한다. 다른 경로의 parser 순서는 보존한다.
+유효하지 않은 원천 사건도 retry_required다. 무한 재시도 대신 원천 검증·시도 상한·실패 보관은
+worker 책임이다. 생성 API는 HTTP로 노출하지 않는다.
+
+### 웹: 공용 HTTP 계층에 JSON request 주입
+
+`prototype/web/api/notifications.ts`의 `createNotificationApi({ request })`는 네 경로와 DTO
+검증만 담당한다. request는 `(path, { method }) => Promise<unknown>`이며 성공 JSON을 반환하고
+실패 시 공용 오류를 던진다. 별도 토큰 공급자나 fetch를 앱 기능에 새로 만들 필요가 없다.
+
+```ts
+// 팀장이 app/web 기능 API에 적용할 조립 예시. prototype에서 app 파일을 import하지 않는다.
+const notificationApi = createNotificationApi({
+  request: (path, { method }) => {
+    const relativePath = path.slice('/api'.length); // /api/v1/... → /v1/...
+    return method === 'GET'
+      ? http.get<unknown>(relativePath)
+      : http.post<unknown>(relativePath);
+  },
+});
+```
+
+현재 `shared/http.ts`는 base URL에 `/api`를 포함한다. 전체 `/api/v1/...`를 그대로 넘겨
+`/api/api/v1/...`로 만들지 않는다. 배포 VITE_API_BASE_URL 설정도 기존 앱과 같은 기준이다.
+인증 헤더/쿠키/전역 401 처리/CORS는 공용 계층을 유지한다. 숫자 status가 있는 외부 오류는
+알림 오류로 정규화하고 raw message/body는 화면에 전달하지 않는다. 401은 store의 세션 만료
+처리로 목록·개수를 제거한다. 공용 request는 응답 status를 숨기므로 **정확한 200 확인은
+주입 transport의 책임**이다. 기존 공용 http는 모든 2xx를 허용한다는 차이가 남아 있으므로
+앱 통합 QA에서 201/202 응답이 성공으로 수용되지 않는지 확인하거나 공용 계층에 status 검증을
+추가해야 한다. 독립 preview/test용 `createNotificationHttpApi`는 계속 정확한 200을 검증한다.
+
+### 웹 상태와 화면 연결
+
+- 인증 bootstrap 중/비로그인은 sessionKey null. 활성 세션은 access token이 아닌
+  `user.id + sessionId`에 기반한 안정적인 키를 사용한다. 같은 계정 재로그인도 새 키여야 한다.
+- 토큰 갱신 때마다 API 객체를 새로 만들지 않는다. 계정 변경 시 hook이 새 store를 선택하고
+  이전 요청 결과를 무시한다. 기존 공용 401 handler를 덮어쓰지 않는다.
+- 공통 조립 지점에서 `useNotifications(api, sessionKey)` **한 번** 호출하고 반환 snapshot을
+  헤더 `NotificationBell`과 `/notifications`의 `NotificationListView`에 같이 전달한다.
+  `NotificationListPage`를 별도로 마운트하면 독립 store가 생기므로 이 조립에서는 쓰지 않는다.
+- 헤더 Bell에는 `href="/notifications"`를 명시한다. 기본 href는 페이지 내부 heading용이다.
+  AppShell 밖의 HomeHeader에도 같은 상태를 내려야 한다. 알림 CSS도 페이지 진입 전부터
+  헤더에 적용되어야 하며 `prototype/web/index.tsx`의 Mock preview는 app으로 옮기지 않는다.
+- `/notifications` placeholder/ComingSoonOverlay를 기능 라우트로 교체하고 등록 정본 및
+  로그인 returnTo 허용 경로는 팀장이 검토한다. 화면 표현 재설계는 이번 변경 범위가 아니다.
+
+원천별 최신 조립 위치, ID 36자/30자 충돌, 아직 승인되지 않은 마감 수신자 정책과 운영 ACK는
+`change-requests/CR-0001-notifications-integration.md`를 따른다.

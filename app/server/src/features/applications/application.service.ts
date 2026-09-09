@@ -208,13 +208,13 @@ function toDetail(row: ApplicationRow, project: ProjectApplicationContext | null
   };
 }
 
-function recordTransition(
+async function recordTransition(
   repository: ApplicationRepository,
   row: ApplicationRow,
   fromStatus: ApplicationStatus | null,
   at: string,
-): void {
-  repository.appendStateEvent({
+): Promise<void> {
+  await repository.appendStateEvent({
     applicationId: row.applicationId,
     fromStatus,
     toStatus: row.status,
@@ -267,7 +267,7 @@ async function drainIfReady(deps: ApplicationServiceDeps): Promise<void> {
 }
 
 export async function processOutbox(deps: ApplicationServiceDeps): Promise<void> {
-  for (const queued of deps.repository.listQueuedOperations()) {
+  for (const queued of await deps.repository.listQueuedOperations()) {
     await runOperation(deps, queued);
   }
 }
@@ -296,11 +296,11 @@ async function runOperation(deps: ApplicationServiceDeps, operation: Application
     attempts: operation.attempts + 1,
     leaseUntil: leaseUntilIso(nowIso),
   };
-  deps.repository.saveOperation(running);
-  const row = deps.repository.getApplication(operation.applicationId);
+  await deps.repository.saveOperation(running);
+  const row = await deps.repository.getApplication(operation.applicationId);
   const project = await deps.projectContext.getProjectContext(operation.projectId);
   if (!row) {
-    deps.repository.saveOperation({
+    await deps.repository.saveOperation({
       ...running,
       status: 'FAILED',
       leaseUntil: null,
@@ -314,7 +314,7 @@ async function runOperation(deps: ApplicationServiceDeps, operation: Application
     const rejectStep = steps.find((step) => step.name === 'REJECT_OTHERS');
     if (rejectStep) {
       const autoRejectedIds: string[] = [];
-      for (const other of deps.repository.getByProject(row.projectId)) {
+      for (const other of await deps.repository.getByProject(row.projectId)) {
         if (other.applicationId === row.applicationId || other.status !== 'PENDING') continue;
         const rejected: ApplicationRow = {
           ...other,
@@ -322,8 +322,8 @@ async function runOperation(deps: ApplicationServiceDeps, operation: Application
           rejectionType: 'AUTO_OTHER_ACCEPTED',
           decidedAt: nowIso,
         };
-        deps.repository.saveApplication(rejected);
-        recordTransition(deps.repository, rejected, 'PENDING', nowIso);
+        await deps.repository.saveApplication(rejected);
+        await recordTransition(deps.repository, rejected, 'PENDING', nowIso);
         autoRejectedIds.push(other.applicationId);
       }
       rejectStep.status = 'SUCCEEDED';
@@ -367,7 +367,7 @@ async function runOperation(deps: ApplicationServiceDeps, operation: Application
   }
 
   const failed = steps.some((step) => step.status === 'FAILED');
-  deps.repository.saveOperation({
+  await deps.repository.saveOperation({
     ...running,
     steps,
     status: failed ? 'FAILED' : 'SUCCEEDED',
@@ -392,7 +392,7 @@ export async function getApplicationEligibility(
     throw new ApplicationApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
   }
   const blockedReasons: EligibilityBlockedReason[] = [];
-  const existing = deps.repository.findByProjectFreelancer(projectId, actor);
+  const existing = await deps.repository.findByProjectFreelancer(projectId, actor);
   if (existing) blockedReasons.push('ALREADY_APPLIED');
   if (project.transactionStatus === 'CANCELED') blockedReasons.push('PROJECT_CANCELED');
   if (project.recruitmentStatus !== 'OPEN') blockedReasons.push('RECRUITMENT_NOT_OPEN');
@@ -429,22 +429,22 @@ export async function createApplication(
     throw new ApplicationApiError('PROJECT_TRANSITION_CONFLICT', '모집이 마감되었습니다.');
   }
   if (idempotencyKey) {
-    const cached = deps.repository.getIdempotency(idempotencyKey);
+    const cached = await deps.repository.getIdempotency(idempotencyKey);
     if (cached) {
       if (cached.bodyHash !== bodyHash(parsed)) {
         throw new ApplicationApiError('APPLICATION_ALREADY_EXISTS', '이미 지원한 프로젝트입니다.');
       }
-      const existing = deps.repository.getApplication(cached.applicationId);
+      const existing = await deps.repository.getApplication(cached.applicationId);
       if (existing) return { httpStatus: 200, body: toItem(existing) };
     }
   }
-  const duplicate = deps.repository.findByProjectFreelancer(projectId, actor);
+  const duplicate = await deps.repository.findByProjectFreelancer(projectId, actor);
   if (duplicate) {
     throw new ApplicationApiError('APPLICATION_ALREADY_EXISTS', '이미 지원한 프로젝트입니다.');
   }
   const nowIso = deps.now();
   const row: ApplicationRow = {
-    applicationId: deps.repository.nextApplicationId(),
+    applicationId: await deps.repository.nextApplicationId(),
     projectId,
     freelancerId: actor,
     coverLetter: parsed.coverLetter,
@@ -455,11 +455,11 @@ export async function createApplication(
     decidedAt: null,
     createdAt: nowIso,
   };
-  deps.repository.insertApplication(row);
-  recordTransition(deps.repository, row, null, nowIso);
+  await deps.repository.insertApplication(row);
+  await recordTransition(deps.repository, row, null, nowIso);
   // 누적·대기 카운트 증가는 이번 반영에서 빠졌다 — application.types.ts 헤더 주석 1번 항목
   // (CR-AP-001 승인 대기, project-management 쪽 쓰기 포트 미존재).
-  if (idempotencyKey) deps.repository.setIdempotency(idempotencyKey, bodyHash(parsed), row.applicationId);
+  if (idempotencyKey) await deps.repository.setIdempotency(idempotencyKey, bodyHash(parsed), row.applicationId);
   await publish(deps, {
     type: 'APPLICATION_SUBMITTED',
     projectId,
@@ -480,7 +480,7 @@ export async function listProjectApplications(
   if (actor !== project.clientId) {
     throw new ApplicationApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
   }
-  const filtered = sortNewest(deps.repository.getByProject(projectId)).filter((row) =>
+  const filtered = sortNewest(await deps.repository.getByProject(projectId)).filter((row) =>
     query?.status ? row.status === query.status : true,
   );
   const page = paginate(filtered, query);
@@ -500,7 +500,7 @@ export async function listMyApplications(
   query?: ListQuery,
 ): Promise<ListMyApplicationsResponse> {
   const actor = requireActor(actorUserId);
-  const filtered = sortNewest(deps.repository.getByFreelancer(actor)).filter((row) =>
+  const filtered = sortNewest(await deps.repository.getByFreelancer(actor)).filter((row) =>
     query?.status ? row.status === query.status : true,
   );
   const page = paginate(filtered, query);
@@ -533,7 +533,7 @@ export async function getApplication(
   actorUserId: string | undefined,
 ): Promise<ApplicationDetail> {
   const actor = requireActor(actorUserId);
-  const row = deps.repository.getApplication(applicationId);
+  const row = await deps.repository.getApplication(applicationId);
   if (!row) {
     throw new ApplicationApiError('APPLICATION_NOT_FOUND', '지원을 찾을 수 없습니다.');
   }
@@ -552,7 +552,7 @@ export async function getApplicationOperation(
   actorUserId: string | undefined,
 ): Promise<ApplicationOperation> {
   const actor = requireActor(actorUserId);
-  const operation = deps.repository.getOperation(operationId);
+  const operation = await deps.repository.getOperation(operationId);
   if (!operation || operation.clientId !== actor) {
     throw new ApplicationApiError('OPERATION_NOT_FOUND', '후속 작업을 찾을 수 없습니다.');
   }
@@ -566,7 +566,7 @@ export async function acceptApplication(
   idempotencyKey: string | undefined,
 ): Promise<AcceptApplicationResponse> {
   const actor = requireActor(actorUserId);
-  const row = deps.repository.getApplication(applicationId);
+  const row = await deps.repository.getApplication(applicationId);
   if (!row) {
     throw new ApplicationApiError('APPLICATION_NOT_FOUND', '지원을 찾을 수 없습니다.');
   }
@@ -577,13 +577,12 @@ export async function acceptApplication(
   const acceptKey = idempotencyKey ?? `${ACCEPT_IDEMPOTENCY_PREFIX}${applicationId}`;
 
   // 같은 지원인지 먼저 보고, 그다음 OPEN·NONE을 본다 (D-41 — 원본과 같은 순서).
-  const cached = deps.repository.getIdempotency(acceptKey);
-  const existingOp = deps.repository
-    .getOperations()
-    .find((item) => item.applicationId === applicationId && item.type === 'ACCEPT');
+  const cached = await deps.repository.getIdempotency(acceptKey);
+  const operations = await deps.repository.getOperations();
+  const existingOp = operations.find((item) => item.applicationId === applicationId && item.type === 'ACCEPT');
   if (project.acceptedApplicationId === applicationId && (cached?.applicationId === applicationId || existingOp)) {
     const operation =
-      (cached?.operationId ? deps.repository.getOperation(cached.operationId) : undefined) ?? existingOp;
+      (cached?.operationId ? await deps.repository.getOperation(cached.operationId) : undefined) ?? existingOp;
     if (operation) {
       return toAcceptBody(200, applicationId, row.projectId, row.decidedAt ?? deps.now(), operation, true);
     }
@@ -606,11 +605,11 @@ export async function acceptApplication(
 
   const nowIso = deps.now();
   const accepted: ApplicationRow = { ...row, status: 'ACCEPTED', rejectionType: null, decidedAt: nowIso };
-  deps.repository.saveApplication(accepted);
-  recordTransition(deps.repository, accepted, 'PENDING', nowIso);
+  await deps.repository.saveApplication(accepted);
+  await recordTransition(deps.repository, accepted, 'PENDING', nowIso);
 
   const operation: ApplicationOperation = {
-    operationId: deps.repository.nextOperationId(),
+    operationId: await deps.repository.nextOperationId(),
     applicationId,
     projectId: row.projectId,
     clientId: actor,
@@ -623,12 +622,12 @@ export async function acceptApplication(
     leaseUntil: null,
     attempts: 0,
   };
-  deps.repository.saveOperation(operation);
-  deps.repository.setIdempotency(acceptKey, applicationId, applicationId, operation.operationId);
+  await deps.repository.saveOperation(operation);
+  await deps.repository.setIdempotency(acceptKey, applicationId, applicationId, operation.operationId);
 
   // ③ 잔여 거절·알림·손잡이 확인은 outbox가 드레인하며 처리한다(processOutbox/runOperation).
   await drainIfReady(deps);
-  const finalOp = deps.repository.getOperation(operation.operationId) ?? operation;
+  const finalOp = (await deps.repository.getOperation(operation.operationId)) ?? operation;
   const httpStatus: 200 | 202 = finalOp.status === 'SUCCEEDED' ? 200 : 202;
   return toAcceptBody(httpStatus, applicationId, row.projectId, nowIso, finalOp, false);
 }
@@ -639,7 +638,7 @@ export async function rejectApplication(
   actorUserId: string | undefined,
 ): Promise<RejectApplicationResponse> {
   const actor = requireActor(actorUserId);
-  const row = deps.repository.getApplication(applicationId);
+  const row = await deps.repository.getApplication(applicationId);
   if (!row) {
     throw new ApplicationApiError('APPLICATION_NOT_FOUND', '지원을 찾을 수 없습니다.');
   }
@@ -665,12 +664,12 @@ export async function rejectApplication(
   }
   const nowIso = deps.now();
   const rejected: ApplicationRow = { ...row, status: 'REJECTED', rejectionType: 'DIRECT', decidedAt: nowIso };
-  deps.repository.saveApplication(rejected);
-  recordTransition(deps.repository, rejected, 'PENDING', nowIso);
+  await deps.repository.saveApplication(rejected);
+  await recordTransition(deps.repository, rejected, 'PENDING', nowIso);
   // 대기 카운트 감소는 이번 반영에서 빠졌다 — application.types.ts 헤더 주석 1번 항목.
 
   const operation: ApplicationOperation = {
-    operationId: deps.repository.nextOperationId(),
+    operationId: await deps.repository.nextOperationId(),
     applicationId,
     projectId: row.projectId,
     clientId: actor,
@@ -683,9 +682,9 @@ export async function rejectApplication(
     leaseUntil: null,
     attempts: 0,
   };
-  deps.repository.saveOperation(operation);
+  await deps.repository.saveOperation(operation);
   await drainIfReady(deps);
-  const finalOp = deps.repository.getOperation(operation.operationId) ?? operation;
+  const finalOp = (await deps.repository.getOperation(operation.operationId)) ?? operation;
   const httpStatus: 200 | 202 = finalOp.status === 'SUCCEEDED' ? 200 : 202;
   return {
     httpStatus,

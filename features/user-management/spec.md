@@ -2,8 +2,8 @@
 
 ## 문서 상태
 
-- 작성 기준일: 2026-09-04
-- 작업 단계: Step 4 — 가입·이메일 확인·가입 복구 high-fi와 기능 prototype 검증 + 회원 탈퇴 비활성 UI 검토
+- 작성 기준일: 2026-09-08 (프로필 포트 이후 사용자 평점 캐시 소비·인증 식별자 정합성 증분)
+- 작업 단계: Step 4 — 인증 high-fi·회원 탈퇴 비활성 UI 및 프로필 완성도 조회 포트 prototype 검증
 - 상태 표기:
   - **FACT**: 저장소 정본이나 확인 작업으로 검증된 내용
   - **DECISION**: 이 기능의 구현 기준으로 선택한 정책. 팀 공유 정본 반영은 팀장 통합 단계에서 수행
@@ -23,6 +23,11 @@ PactFive 사용자가 이메일 또는 Google/Kakao 계정으로 가입·로그�
 
 ### 포함
 
+- **FACT (ERD E-12·reviews 담당 경계)**: 공개 REVIEW_CREATED 소비, 공개 합계 재조회,
+  사용자 평점 캐시 원자적 교체 포트·Mock·테스트(UR-01~UR-06), 기존 prefixed ULID 규격에 맞춘
+  사용자·세션 신규 ID 생성기(ID-01~ID-02). 이벤트 전달/DB adapter는 팀장 통합 후속이다.
+- **FACT (2026-09-08 회의·담당자 착수 요청)**: 서버 내부 프로필 완성도 조회 포트,
+  역할별 필수 항목 판정, 저장소 인터페이스와 Mock 검증(아래 PC-01~PC-08).
 - **FACT (상위 요구사항)**: 이메일+비밀번호 회원가입과 로그인
 - **DECISION**: 가입 확인 메일, 확인 화면의 명시적 POST 검증, 확인 메일 재전송
 - **FACT (상위 요구사항)**: Supabase Auth를 통한 Google·Kakao OAuth 가입과 로그인
@@ -37,13 +42,56 @@ PactFive 사용자가 이메일 또는 Google/Kakao 계정으로 가입·로그�
 
 ### 제외
 
-- 프로필 상세 입력·수정, 프로필 완성도 게이트
+- 프로필 상세 입력·수정 화면과 저장 API, 프로필 저장 시 `completed_at` 갱신의 실제 DB 구현,
+  applications/project-management의 게이트 연결 및 `app/` 통합
 - 비밀번호 찾기·재설정·변경
 - 회원 탈퇴 API client·서버 구현·DB migration, 타 도메인 eligibility adapter, 공급자 정리 worker의 실제 구현
 - 기기/세션 목록 화면, 특정 기기 강제 로그아웃, 전체 기기 로그아웃 UI
 - 관리자 기능과 역할 변경 기능
 - `app/` 통합 코드, 실제 Supabase/Google/Kakao 대시보드 설정, 배포 환경 변수 주입
 - user-management 이외 기능(특히 ai-pricing)의 설계와 구현
+
+## 사용자 평점 캐시·인증 식별자 규칙 (2026-09-08 후속)
+
+근거: ERD 원본 `users` E-12, `users.id` prefixed ULID 및 `auth_sessions.id` varchar(30),
+reviews의 `review-event.port.ts`·`published-rating.port.ts`. 기존 책임을 구현하며 새 HTTP,
+공유 테이블, 알림 enum, reviews 직접 import, UI/인증 정책 변경은 추가하지 않는다.
+
+| 규칙 | 판정 및 경계 |
+|---|---|
+| UR-01 | `createReviewCreatedConsumer(repository, ratings).publishReviewCreated(event)`는 신뢰된 reviews 공개 이벤트의 기존 5필드를 받는다. ID는 공백·제어문자 없는 불투명 문자열, rating은 1~5 정수, publishedAt은 실제 UTC ISO 시각이다. 잘못된 이벤트는 저장소 접근 전에 INVALID_REVIEW_EVENT로 reject한다. 이벤트 값은 외부 인증/공개 여부 증거가 아니므로 공개 HTTP에 연결하지 않는다. |
+| UR-02 | 사용자의 직렬화 잠금을 획득한 뒤 `getPublishedRatingAggregate(revieweeId)`의 공개 합계/건수를 새로 읽어 rating_average와 review_count를 같은 transaction으로 교체한다. 0건은 NULL/0, 양수는 numeric(3,2)에 맞는 소수 둘째 자리 half-up이다. 표시 한 자리 평균은 reviews가 합계/건수에서 직접 계산하며 캐시를 다시 반올림하지 않는다. |
+| UR-03 | 중복·지연·역순 이벤트도 당시 공개 합계를 재조회한다. event.rating 누적이나 publishedAt 순서로 최신 집계를 생략하지 않는다. 동일 사용자에 대한 여러 consumer는 같은 저장소 잠금을 공유하고 집계 조회~commit 전체가 직렬화된다. 다른 사용자는 독립적으로 실행된다. |
+| UR-04 | 잠금 안에서 PactFive 사용자 존재·소유 ID 일치·deleted_at=NULL을 확인한다. 없거나 탈퇴/불일치면 USER_UNAVAILABLE로 reject하고 사용자 생성·부활·집계 조회·캐시 쓰기를 하지 않는다. 탈퇴 mutation도 같은 DB 사용자 잠금을 사용해야 한다. |
+| UR-05 | 공개 집계는 안전한 정수이며 review_count 0~2147483647, count <= sum <= 5*count여야 한다. 불량 집계는 INVALID_RATING_AGGREGATE, 저장소/집계/commit 예외는 DEPENDENCY_UNAVAILABLE로 reject하며 retryable=true다. 모든 실패는 두 필드 rollback; commit 결과 불명은 재집계 재시도로 수렴한다. 이벤트 오류·사용자 불가는 retryable=false로 운영자가 격리/조사하며 성공으로 ACK하지 않는다. |
+| UR-06 | Mock은 명시된 사용자만 보관하고 입력·반환·예약 쓰기를 복제한다. transaction은 callback 밖에서 재사용 불가, callback 실패도 rollback한다. 실제 DB row/advisory lock·동일 snapshot/primary 읽기·공개 이후 durable 전달·재시도/격리는 팀장이 adapter/worker에서 구현해야 한다. 인메모리 잠금을 다중 프로세스 보장으로 간주하지 않는다. |
+| ID-01 | 신규 사용자/세션 기본 ID는 usr_/ses_ + ULID 26자(총 30자)다. 48비트 밀리초 시각과 node:crypto 80비트 보안 난수를 Crockford Base32로 인코딩한다. 범위 밖 입력은 실패하며 UUID를 잘라 쓰지 않는다. 같은 밀리초 내 단조 증가 순서는 보장하지 않으며 ID는 정렬/비밀 토큰 계약이 아니다. |
+| ID-02 | 실제 기본 생성기를 가입 확인·세션 생성에서 사용한다. 기존 IDs, Supabase authUserId, nonce, Refresh/Access Token은 변환하지 않는다. 기존 주입형 nextUserId/nextSessionId도 유지한다. 운영 app 생성기 반영과 기존 36자 데이터 영향 점검은 별도 통합이며 기존 ID를 일괄 축약/재키잉하지 않는다. |
+
+이번 소비기는 사용자 캐시만 소유한다. reviews의 공개 정책/14일, 리뷰 projection 스키마,
+producer outbox·전달 완료 기록은 변경하지 않는다. 운영 준비 조건은
+`change-requests/0002-user-rating-and-auth-id-integration.md`를 따른다.
+
+## 프로필 완성도 조회 규칙 (2026-09-08)
+
+이번 증분은 내부 조회 포트다. HTTP 엔드포인트·화면·DB 스키마는 추가하지 않는다.
+근거: PRD v6.4 §5.5 D-58, ERD E-14/E-15, 현재 Prisma ClientProfile/FreelancerProfile/Skill,
+applications `profile-completion.port.ts`. 포트 계약은 `api-contract.md`의 해당 절이 정본이다.
+
+| 규칙 | 판정 및 경계 |
+|---|---|
+| PC-01 | `getProfileCompletion(userId)`는 서버가 확인한 사용자 ID로 호출한다. 한 번의 저장소 snapshot에서 사용자 역할·탈퇴 여부·본인 프로필·연결 기술을 읽는다. 조회 자체는 인증이나 권한 검사를 대신하지 않는다. |
+| PC-02 | CLIENT 필수는 공백이 아닌 1~100자 `company_name`, 현재 `business_field` enum이다. 현 enum은 WEB_DEVELOPMENT/MOBILE_APP/DESIGN/DATA_AI/PLANNING/MARKETING이며 `business_field_etc`는 NULL이어야 한다. 웹사이트·사진·소개는 필수가 아니다. |
+| PC-03 | FREELANCER 필수는 현 `project_category` enum, 0 이상 smallint 범위의 정수 `career_years`, 본인 `freelancer_skills`에 연결된 활성 `skills` 1개 이상이다. 경력 0은 유효하고 희망 시급·포트폴리오는 선택이다. |
+| PC-04 | 활성 사용자의 프로필 행이 없거나 필수 조건이 부족하면 INCOMPLETE, `completedAt: null`, 역할별 누락/유효하지 않은 필드 코드를 고정 순서로 반환한다. 오래된 완성 시각이 있어도 미완성 필드를 우선한다. |
+| PC-05 | 필수 조건과 저장된 정상 UTC 완성 시각이 모두 있으면 COMPLETE와 그 시각을 반환한다. 조회 시 now()를 만들거나 저장하지 않는다. 필드가 완성됐지만 시각이 NULL/잘못된 상태면 UNAVAILABLE로 처리해 저장 경로의 정합성 복구를 요구한다(담당자 DECISION). |
+| PC-06 | 잘못된 ID·사용자 없음·탈퇴·다른 사용자 snapshot/프로필·지원하지 않는 역할·저장소 예외/비정상 응답은 UNAVAILABLE, `completedAt: null`, `missingFields: []`다. 실패를 COMPLETE/INCOMPLETE로 위장하지 않고 내부 예외나 개인정보를 반환하지 않는다. |
+| PC-07 | 호출 간 캐시·공유 응답 객체를 두지 않는다. 다음 조회는 최신 snapshot을 사용하므로 마지막 기술 비활성화/연결 해제·계정 탈퇴를 재판정한다. 완성 시각 재계산은 프로필 저장/기술 변경 트랜잭션 책임이며 이 조회 포트는 DB를 수정하지 않는다. |
+| PC-08 | applications의 3상태 포트와 구조적으로 호환되고 UNAVAILABLE는 해당 소비자의 DEPENDENCY_UNAVAILABLE(503) 경로로 전달한다. 2상태만 지원하는 project-management에는 그대로 연결하지 않는다. 실제 DB snapshot/저장 시각 갱신/호출 시점 권한과 동시성은 팀장 통합 전 검증한다. |
+
+**OPEN — 정본의 남은 불일치:** ERD의 옛 ETC 조건 설명/CHECK와 현재 6종 enum이 다르다.
+ETC 값을 임의로 되살리지 않으며, 기타 입력 지원 여부는 팀 결정과 스키마 동기화가 선행돼야 한다.
+통합 경계와 요청은 `change-requests/0001-profile-completion-integration.md`에 기록한다.
 
 ## 근거와 제약
 

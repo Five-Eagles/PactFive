@@ -75,6 +75,26 @@ const PREVIEW_ANALYSIS: PricingAnalysisResponse = {
   appliedAt: null,
 };
 
+/** 실제 요청 상태가 오류여도 시안 데이터로 대체하지 않는다. 샘플은 명시적 프리뷰에서만 쓴다. */
+export function selectPricingAnalysisForDisplay(
+  analysis: PricingAnalysisResponse | null,
+  previewState?: PricingAnalysisUiStatus,
+): PricingAnalysisResponse | null {
+  if (analysis) return analysis;
+  if (
+    previewState !== "ready" &&
+    previewState !== "applying" &&
+    previewState !== "applied" &&
+    previewState !== "conflict" &&
+    previewState !== "error"
+  ) return null;
+
+  return {
+    ...structuredClone(PREVIEW_ANALYSIS),
+    appliedAt: previewState === "applied" ? "2026-09-04T09:05:00.000Z" : null,
+  };
+}
+
 function statusCopy(status: PricingAnalysisUiStatus): string {
   const copy: Record<PricingAnalysisUiStatus, string> = {
     idle: "프로젝트 정보를 입력하면 항목별 권장 금액을 분석합니다.",
@@ -124,16 +144,7 @@ export function PricingAnalysisPage({
   const [errors, setErrors] = useState<PricingAnalysisDraftErrors>({});
   const workflow = usePricingAnalysis(client);
   const status = previewState ?? workflow.status;
-  const previewNeedsResult =
-    status === "ready" ||
-    status === "applying" ||
-    status === "applied" ||
-    status === "conflict" ||
-    status === "error";
-  const analysis = workflow.analysis ?? (previewNeedsResult ? {
-    ...PREVIEW_ANALYSIS,
-    appliedAt: status === "applied" ? "2026-09-04T09:05:00.000Z" : null,
-  } : null);
+  const analysis = selectPricingAnalysisForDisplay(workflow.analysis, previewState);
 
   const liveMessage = useMemo(
     () => workflow.errorMessage ?? statusCopy(status),
