@@ -1,6 +1,6 @@
 ---
 title: "AI 분석과 프로젝트가 공유할 단일 카테고리 vocabulary 확정"
-status: "제안"
+status: "반영 완료"
 requested_by: "오민혁 (ai-pricing)"
 date: "2026-09-04"
 affected_docs: [docs/domain/reference/prd-v6.4.md, docs/domain/reference/erd-v1.4.dbml, docs/domain/erd.md]
@@ -8,6 +8,13 @@ affected_features: [ai-pricing, project-management, user-management]
 ---
 
 # 스펙 변경 신청
+
+> **닫음 (2026-09-09, 팀장, 문서 상태 정리).** 단일 vocabulary로 통일됐다 — 이 CR이 제안한
+> 정확한 값(`APP_DEVELOPMENT`·`ETC`)은 아니고, `ProjectCategory`(project-management)가
+> 실제 서버 검증값(`WEB_DEVELOPMENT`·`MOBILE_APP`·`DESIGN`·`DATA_AI`·`PLANNING`·`MARKETING`)을
+> 정본으로 채택했다(`schema.prisma` `PRISMA-GAP-1`, ERD E-27/D-91, #104·#105). ai-pricing의
+> `PricingAnalysisCategory`(`pricing-analysis.constants.ts`)가 이 6종과 정확히 같다 — 이
+> CR이 요구한 "단일 vocabulary"라는 목표는 달성됐다.
 
 ID: `CR-AP-002`
 

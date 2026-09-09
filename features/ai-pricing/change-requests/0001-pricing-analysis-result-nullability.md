@@ -1,6 +1,6 @@
 ---
 title: "pricing_analyses 결과 컬럼을 상태에 맞게 nullable로 변경"
-status: "제안"
+status: "반영 완료 (일부)"
 requested_by: "오민혁 (ai-pricing)"
 date: "2026-09-04"
 affected_docs: [docs/domain/reference/erd-v1.4.dbml, docs/domain/erd.md]
@@ -8,6 +8,12 @@ affected_features: [ai-pricing]
 ---
 
 # 스펙 변경 신청
+
+> **닫음 (2026-09-09, 팀장, 문서 상태 정리).** `recommendedAmount Int?`·`breakdown Json?`로
+> nullable 전환은 `schema.prisma`(`PRISMA-GAP-5`, E-32)에 이미 반영됐다(#119, 2026-09-04).
+> **CHECK 제약(review_status별 컬럼 조합 강제)은 넣지 않았다** — 실 DB 미연결 상태라 애플리케이션
+> 코드(`pricing-analysis.service.ts`)가 상태별 조합을 검증한다. 실 DB 연결 시점에 CHECK를
+> 마이그레이션에 추가할지는 별도 판단이 필요하다(이 CR을 완전히 닫지 않고 "일부"로 남기는 이유).
 
 ID: `CR-AP-001`
 

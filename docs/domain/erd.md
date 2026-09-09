@@ -16,9 +16,9 @@ SQL 제약, 확장 지점은 원본 HTML을 직접 엽니다.
 
 | 담당자 | 엔티티 |
 |---|---|
-| 오민혁 | `users`, `auth_sessions`, `registration_intents`, `client_profiles`, `freelancer_profiles`, `skills`, `freelancer_skills` |
+| 오민혁 | `users`, `auth_sessions`, `registration_intents`, `client_profiles`, `freelancer_profiles`, `skills`, `freelancer_skills`, `notifications` (CR-0001, 2026-09-07 — 최윤석에서 인수) |
 | 유동우 | `projects`, `project_skills`, `bookmarks`, `project_contract_idempotency_records` |
-| 최윤석 | `applications`, `notifications`, `application_idempotency_keys`, `application_operations`, `application_operation_steps`, `application_state_events`, `application_closures` |
+| 최윤석 | `applications`, `application_idempotency_keys`, `application_operations`, `application_operation_steps`, `application_state_events`, `application_closures` |
 | 조준영 | `agreements`, `negotiation_offer`, `contracts`, `contract_signature_audits`, `payments`, `deliveries`, `reviews`, `invalidations`, `review_idempotency_keys`, `review_windows` |
 | 오민혁 | `pricing_analyses`, `pricing_application_receipts` |
 

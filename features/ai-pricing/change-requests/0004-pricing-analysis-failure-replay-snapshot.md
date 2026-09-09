@@ -1,6 +1,6 @@
 ---
 title: "분석 실패 exact replay의 공개 응답 스냅샷 영속화"
-status: "제안"
+status: "반영 완료"
 requested_by: "오민혁 (ai-pricing)"
 date: "2026-09-04"
 affected_docs: [docs/domain/reference/erd-v1.4.dbml, docs/domain/erd.md]
@@ -8,6 +8,9 @@ affected_features: [ai-pricing]
 ---
 
 # 스펙 변경 신청
+
+> **닫음 (2026-09-09, 팀장, 문서 상태 정리).** `failure_snapshot Json?`이 `schema.prisma`
+> (`PRISMA-GAP-5`, E-34)에 이미 반영됐다(#119, 2026-09-04). REJECTED 전이 시 함께 기록한다.
 
 ID: `CR-AP-004`
 
