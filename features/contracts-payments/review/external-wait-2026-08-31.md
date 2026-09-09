@@ -5,7 +5,8 @@
 | 보내는 사람 | 조준영 · contracts-payments · reviews |
 | 날짜 | 2026-08-31 |
 | 범위 | 이번 Increment 밖. Mock·reviews 규칙 13은 닫힘 |
-| 정본 | 이 파일. 키 질문 원문은 [teamlead-pg-sandbox-keys.md](teamlead-pg-sandbox-keys.md) |
+| 정본 | 이 파일은 **Increment 밖 외부 대기**만 다룬다. 대기 전체는 [waiting-board-2026-09-09.md](waiting-board-2026-09-09.md) |
+| 참고 | 키 질문 원문은 [teamlead-pg-sandbox-keys.md](teamlead-pg-sandbox-keys.md) |
 
 답이 없어도 조준영 쪽 구현은 진행하지 않는다. 수신 후에만 이어서 한다.
 
