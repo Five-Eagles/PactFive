@@ -49,6 +49,8 @@ export type ProjectTransactionDelegate = {
   getProjectNegotiationContext(projectId: string): Promise<{
     projectId: string;
     clientId: string;
+    /** CR-CP-001 — project-management가 준다. 팀장이 2026-09-09 반영 */
+    title: string;
     recruitmentStatus: RecruitmentStatus;
     transactionStatus: ProjectTransactionStatus;
     acceptedApplicationId: string | null;

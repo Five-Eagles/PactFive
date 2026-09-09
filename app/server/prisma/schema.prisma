@@ -710,11 +710,17 @@ model ApplicationStateEvent {
 
 /// [PRISMA-GAP-15] E-45 신설. 모집 마감 시 대기 지원 일괄거절의 멱등 결과. closureEventId는
 /// project-management가 발급하는 사건 id라 FK를 걸지 않는다(원본과 동일).
+///
+/// CR-AP-004(조준영, 2026-09-09) — `result`는 도메인상 3값 리터럴(`PostActionResult`:
+/// "DONE"|"NOT_NEEDED"|"FAILED")이라 스칼라여야 하는데 최초 반영 시 `Json`으로 잘못
+/// 잡았다. 이식 코드가 `as unknown as`로 우회해 객체 전체를 넣는 결함(setClosure)이
+/// 생겼던 원인이기도 하다 — `type`·`status`처럼 다른 리터럴 유니온 컬럼과 같은 원칙으로
+/// varchar를 쓴다.
 model ApplicationClosure {
   closureEventId   String   @id @map("closure_event_id") @db.VarChar(30)
   rejectedCount    Int      @map("rejected_count")
   alreadyProcessed Boolean  @map("already_processed")
-  result           Json
+  result           String   @db.VarChar(20)
   createdAt        DateTime @default(now()) @map("created_at")
 
   @@map("application_closures")

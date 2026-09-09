@@ -59,9 +59,11 @@ import {
  * 사용자(프리랜서)의 지원인지는 이 서비스가 조회할 방법이 없다 — applications 기능이 수락
  * 지원서의 프리랜서 id를 이 컨텍스트에 아직 주지 않는다. 그래서 `acceptNegotiationOffer`를
  * 처음 호출한 의뢰인이 아닌 사용자를 그 거래의 프리랜서로 확정해 계약 행에 기록한다.
- * 마찬가지로 `projects.title`을 이 서비스가 조회할 방법이 없어 `projectTitleSnapshot`/
- * `projectTitle` 필드는 계속 빈 문자열이다 — negotiation-context 응답에 필드가 추가되면 채운다.
- * feedback_loop/2026-09-07/contracts-payments.md 참고.
+ *
+ * **2026-09-09 해소 (CR-CP-001, 조준영)**: `projects.title`을 이 서비스가 조회할 방법이 없어
+ * `projectTitleSnapshot`/`projectTitle` 필드가 계속 빈 문자열이던 문제는 negotiation-context
+ * 응답에 `title` 필드가 추가되면서 해소했다 — feedback_loop/2026-09-07/contracts-payments.md
+ * 참고. 계약 생성 시점(`acceptNegotiationOffer`)의 `ctx.title`을 스냅샷으로 찍는다.
  *
  * 2026-09-08 팀장 반영: `ContractsPaymentsRepository`가 Promise 반환으로 바뀌면서(6기능 Prisma
  * 이식 트랙) 이 파일의 모든 `repo.*` 호출부에 `await`를 추가했다 — `toCurrent`/
@@ -370,17 +372,17 @@ export function createPublicApiService({
         clientId: ctx.clientId,
         freelancerId,
         agreedAmount: offer.amount,
-        // project-management이 아직 프로젝트 제목을 이 컨텍스트에 주지 않는다 — 계약 열람
-        // 시 항상 project-management API로 다시 읽어야 하는 부담을 피하려고 지금은 자리표시자를
-        // 둔다. 실제 제목이 필요해지면 negotiation-context 응답에 필드 추가를 요청한다.
-        projectTitleSnapshot: '',
+        // CR-CP-001(조준영, 2026-09-08) — negotiation-context의 title을 그대로 스냅샷으로
+        // 찍는다. 계약 열람 시 매번 project-management API를 다시 부르지 않기 위한 스냅샷
+        // 설계는 그대로 두고, 빈 문자열 자리표시자만 없앤다.
+        projectTitleSnapshot: ctx.title,
         workStartDate,
         workEndDate,
         termsSnapshot: {
           schemaVersion: 1,
           amount: offer.amount,
           currency: 'KRW',
-          projectTitle: '',
+          projectTitle: ctx.title,
         },
         status: 'DRAFT',
         clientSignedAt: null,

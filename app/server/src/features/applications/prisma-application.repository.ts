@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import type {
-  Prisma,
   PrismaClient,
   Application as ApplicationRowModel,
   ApplicationOperation as ApplicationOperationModel,
@@ -111,23 +110,28 @@ export class PrismaApplicationRepository implements ApplicationRepository {
     return {
       rejectedCount: row.rejectedCount,
       alreadyProcessed: row.alreadyProcessed,
+      // row.result는 이미 스칼라 문자열이다 — 도메인 리터럴로 좁히는 캐스팅만 남긴다.
       result: row.result as RejectPendingApplicationsResult['result'],
     };
   }
 
   async setClosure(closureEventId: string, result: RejectPendingApplicationsResult): Promise<void> {
+    // CR-AP-004(조준영, 2026-09-09) — `result` 컬럼은 스칼라(varchar)인데 이전 코드가
+    // `result` 객체 전체를 넣었다(`as unknown as Prisma.InputJsonValue` 이중 캐스팅으로
+    // 타입 검사를 우회). 마감·취소 멱등 재진입(getClosure로 다시 읽을 때)에서만 깨진 값이
+    // 나가 지금까지 드러나지 않았다. `result.result`(3값 리터럴)만 저장한다.
     await this.prisma.applicationClosure.upsert({
       where: { closureEventId },
       create: {
         closureEventId,
         rejectedCount: result.rejectedCount,
         alreadyProcessed: result.alreadyProcessed,
-        result: result as unknown as Prisma.InputJsonValue,
+        result: result.result,
       },
       update: {
         rejectedCount: result.rejectedCount,
         alreadyProcessed: result.alreadyProcessed,
-        result: result as unknown as Prisma.InputJsonValue,
+        result: result.result,
       },
     });
   }

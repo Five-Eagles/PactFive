@@ -46,6 +46,21 @@ export type ContractResult = {
 export type NegotiationContext = {
   projectId: string;
   clientId: string;
+  /**
+   * 프로젝트 제목 (CR-CP-001, 조준영/2026-09-08).
+   *
+   * contracts-payments가 계약 스냅샷(`project_title_snapshot`, 규칙 20)과 공개 GET
+   * 4곳(`projectTitle`)을 채우는 데 쓴다. 빈 값이면 화면이 「프로젝트」로 가린다.
+   */
+  title: string;
+  /**
+   * 규칙 14 보정값 (CR-AP-003, 조준영/2026-09-08).
+   *
+   * **저장값이 아니라 조회 시점 기준 상태다** — `effectiveRecruitmentStatus`를 그대로
+   * 돌려준다. applications 생성·수락(규칙 1·36)과 contracts-payments 협상 진입이 화면과
+   * 같은 값을 보게 하기 위함이다. `SCHEDULED → OPEN` 전환 배치가 없는 이 프로젝트에서는
+   * 저장값이 "아직 반영되지 않은 값"이고 이 보정값이 정본이다.
+   */
   recruitmentStatus: RecruitmentStatus;
   transactionStatus: ProjectTransactionStatus;
   /** 합의 대상이 실제로 수락된 지원자인지 대조하는 데 쓴다 */
