@@ -597,6 +597,36 @@ export function createPublicApiService({
       const row = await repo.findPaymentById(paymentId);
       if (!row) throw new DomainContractError('PROJECT_NOT_FOUND', '결제를 찾을 수 없습니다.');
       const contract = await requireContractParty(row.contractId, auth);
+      // 2026-09-09 팀장 반영(이식 지시서 §3) — 승인 리다이렉트가 유실되면 결제가 PENDING에
+      // 갇히고 자동 복구가 없었다. retrievePayment 어댑터 구현은 있었는데(toss-payments.adapter.ts)
+      // 부르는 곳이 없었다 — 원본(prototype/mock/payment-record.mock.ts:303~314)의
+      // reconcilePendingPayments와 같은 재조회를, 사용자가 결제 화면을 다시 열 때(=이 GET을
+      // 부를 때) 수행한다. 재조회 자체가 실패해도(PG 장애 등) 조회 응답은 그대로 나가야 하므로
+      // 여기서 예외를 삼킨다 — 다음에 화면을 다시 열면 또 시도한다.
+      if (row.status === 'PENDING' && paymentGateway) {
+        try {
+          const retrieved = await paymentGateway.retrievePayment(row.orderId);
+          if (retrieved.status === 'PAID') {
+            row.status = 'PAID';
+            row.paymentKey = retrieved.paymentKey ?? row.paymentKey;
+            row.failedAt = null;
+            row.failureCode = null;
+            await repo.savePayment(row);
+            await coordinator.onPaymentPaid({
+              eventId: randomId('evt_paid_reconciled'),
+              projectId: contract.projectId,
+              occurredAt: now(),
+            });
+          } else if (retrieved.status === 'FAILED') {
+            row.status = 'FAILED';
+            row.failedAt = now();
+            await repo.savePayment(row);
+          }
+          // READY·PENDING 그대로면 아직 결론이 안 났다는 뜻이라 손대지 않는다.
+        } catch {
+          // PG 재조회 실패는 조용히 넘어간다 — 사용자는 여전히 현재 상태(PENDING)를 본다.
+        }
+      }
       const ctx = await projectPort.getProjectNegotiationContext(contract.projectId);
       const projectTransactionStatus =
         ctx.transactionStatus === 'IN_PROGRESS' || ctx.transactionStatus === 'CANCELED'
@@ -786,8 +816,22 @@ export function createPublicApiService({
         ]);
       }
       const idemKey = `invalidate-${cancellationId}`;
-      const cached = await repo.getIdempotent<InvalidateAgreementResponse>('invalidate', idemKey);
-      if (cached) return { ...cached, alreadyProcessed: true, changed: false };
+      // 2026-09-09 팀장 반영(이식 지시서 §4) — requestDelivery처럼 캐시된 입력과 새 입력을
+      // 비교한다. 이전에는 캐시가 있으면 본문을 보지 않고 그대로 돌려줘 규칙 25("같은 키·다른
+      // 본문은 409")를 어겼다.
+      const cached = await repo.getIdempotent<{
+        input: InvalidateAgreementInput;
+        response: InvalidateAgreementResponse;
+      }>('invalidate', idemKey);
+      if (cached) {
+        if (JSON.stringify(cached.input) !== JSON.stringify(input)) {
+          throw new DomainContractError(
+            'PROJECT_TRANSITION_CONFLICT',
+            '같은 취소 사건으로 다른 요청을 보낼 수 없습니다.',
+          );
+        }
+        return { ...cached.response, alreadyProcessed: true, changed: false };
+      }
 
       return withActiveProjectGuard(projectId, async () => {
         const ctx = await projectPort.getProjectNegotiationContext(projectId);
@@ -842,7 +886,7 @@ export function createPublicApiService({
           signaturesPreserved: true,
           changed,
         };
-        await repo.setIdempotent('invalidate', idemKey, response);
+        await repo.setIdempotent('invalidate', idemKey, { input, response });
         await repo.saveInvalidation({
           cancellationId,
           projectId,
@@ -978,13 +1022,27 @@ export function createPublicApiService({
       if (auth!.userId !== contract.clientId) {
         throw new PublicApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
       }
-      const cached = await repo.getIdempotent<GetDeliveryResponse>('delivery-approve', input.idempotencyKey);
-      if (cached) return { ...cached, alreadyProcessed: true };
+      // 2026-09-09 팀장 반영(이식 지시서 §4) — requestDelivery처럼 캐시된 입력과 새 입력을
+      // 비교한다. 이전에는 캐시가 있으면 본문을 보지 않고 그대로 돌려줘 규칙 23("같은 키·다른
+      // 본문은 409")을 어겼다.
+      const cached = await repo.getIdempotent<{
+        input: ApproveDeliveryInput;
+        response: GetDeliveryResponse;
+      }>('delivery-approve', input.idempotencyKey);
+      if (cached) {
+        if (JSON.stringify(cached.input) !== JSON.stringify(input)) {
+          throw new DomainContractError(
+            'PROJECT_TRANSITION_CONFLICT',
+            '같은 Idempotency-Key로 다른 요청을 보낼 수 없습니다.',
+          );
+        }
+        return { ...cached.response, alreadyProcessed: true };
+      }
 
       const delivery = await ensureDeliveryForContract(contractId);
       if (delivery.status === 'APPROVED') {
         const response = await assembleDeliveryResponse(contractId, contract, auth!);
-        await repo.setIdempotent('delivery-approve', input.idempotencyKey, response);
+        await repo.setIdempotent('delivery-approve', input.idempotencyKey, { input, response });
         return { ...response, alreadyProcessed: true };
       }
       if (delivery.status !== 'DELIVERY_REQUESTED') {
@@ -1019,7 +1077,7 @@ export function createPublicApiService({
       });
 
       const response = await assembleDeliveryResponse(contractId, contract, auth!);
-      await repo.setIdempotent('delivery-approve', input.idempotencyKey, response);
+      await repo.setIdempotent('delivery-approve', input.idempotencyKey, { input, response });
       return { ...response, alreadyProcessed: false };
     },
   };
