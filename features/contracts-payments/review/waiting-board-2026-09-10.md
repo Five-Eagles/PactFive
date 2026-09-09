@@ -16,7 +16,7 @@ contracts-payments 347. 아래는 **오늘 기준으로 아직 열린 것만** �
 | # | 증상 / 항목 | 원인 | 담당 | 다음 행동 |
 |---|---|---|---|---|
 | 1 | 지원 건수 항상 0 · 예산·일정 잠금 안 걸림 | PM `bumpApplicationCounts`는 있음. **`application.service`가 호출 안 함** (CR-AP-001) | 팀장 | [지시서 09-10](../../applications/review/teamlead-port-instructions-2026-09-10-application-count.md) |
-| 2 | 프로필 미완성인데 지원 통과 | UM에 포트 코드는 생김. applications는 여전히 `profileCompletion: null` | 팀장 · 오민혁 | 배선 요청 (CR-AP-002 잔여) |
+| 2 | 프로필 미완성인데 지원 통과 (게이트 꺼짐) | **의도적 보류(RW).** 포트 코드는 UM에 있음. 프로필 입력 화면이 없어 게이트를 켜면 전 프리랜서 지원이 막힘 | 오민혁(화면) → 그다음 팀장(배선) | 화면 생긴 뒤 express·applications 연결. 지금은 **켜지 말 것** |
 | 3 | 결제 멱등 — 재시작 후 판정 소실 | `payment_idempotency_records` 테이블은 있음. 런타임은 메모리 `Map` (CR-CP-002 잔여) | 팀장 | 필요 시 새 CR |
 | 4 | 리뷰 작성 화면 — 방향 무관 태그 목록 · `PROFESSIONAL_ATTITUDE` 라벨 고정 | `ReviewPage`가 역할을 모름 (R4, 확인 완료) | 팀장 (후속) | `/reviews/me`로 `allowedTags` 축소. **차단 아님**(서버 422) |
 
