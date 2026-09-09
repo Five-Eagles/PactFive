@@ -135,3 +135,5 @@
 | 2026-09-08 | feedback 항목 5 반영완료. 정산 URL은 contractId. preparePayment로 id. |
 | 2026-09-09 | 9/8 feedback 항목 1·2 반영완료. deliveries 7컬럼·invalidations 동의(규칙 23·25 근거) |
 | 2026-09-09 | CR-CP-002 제안. 수수료 스냅샷 3컬럼·멱등 bodyHash. 역산 제거 요청 |
+| 2026-09-09 | Toss 키 수신 확인 — `app/`은 실 sandbox 연동. `prototype/`은 Mock 스텁 유지 |
+| 2026-09-09 | 이식 지시서 발행. 파일 메타·다운로드 404·복구 경로·멱등 2경로·포트 배선 |
