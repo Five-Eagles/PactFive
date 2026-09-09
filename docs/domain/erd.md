@@ -18,8 +18,7 @@ SQL 제약, 확장 지점은 원본 HTML을 직접 엽니다.
 |---|---|
 | 오민혁 | `users`, `auth_sessions`, `registration_intents`, `client_profiles`, `freelancer_profiles`, `skills`, `freelancer_skills`, `notifications` (CR-0001, 2026-09-07 — 최윤석에서 인수) |
 | 유동우 | `projects`, `project_skills`, `bookmarks`, `project_contract_idempotency_records` |
-| 최윤석 | `applications`, `application_idempotency_keys`, `application_operations`, `application_operation_steps`, `application_state_events`, `application_closures` |
-| 조준영 | `agreements`, `negotiation_offer`, `contracts`, `contract_signature_audits`, `payments`, `deliveries`, `reviews`, `invalidations`, `review_idempotency_keys`, `review_windows` |
+| 조준영 | `agreements`, `negotiation_offer`, `contracts`, `contract_signature_audits`, `payments`, `deliveries`, `reviews`, `invalidations`, `review_idempotency_keys`, `review_windows`, `applications`, `application_idempotency_keys`, `application_operations`, `application_operation_steps`, `application_state_events`, `application_closures` (2026-09-03 — 최윤석에서 재배정) |
 | 오민혁 | `pricing_analyses`, `pricing_application_receipts` |
 
 `auth_sessions`(E-22)와 `negotiation_offer`(E-25)는 v1.3~v1.4에서, `registration_intents`(E-30,
