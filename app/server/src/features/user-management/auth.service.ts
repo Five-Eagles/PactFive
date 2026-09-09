@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { AuthProvider } from "./auth.port";
 import { ProviderAuthError } from "./auth.port";
+import { createAuthRecordId } from "./auth-record-id";
 import type { AuthRepositories } from "./auth.repository";
 import { safeReturnToOrRoot, validateReturnTo } from "./return-to";
 import type {
@@ -240,8 +241,12 @@ export class AuthSessionService {
     this.oauthCallbackUrl = options.oauthCallbackUrl;
     this.now = options.now ?? (() => new Date());
     this.nonce = options.nonce ?? (() => randomUUID());
-    this.nextUserId = options.nextUserId ?? (() => `usr_${randomUUID().replace(/-/g, "")}`);
-    this.nextSessionId = options.nextSessionId ?? (() => `ses_${randomUUID().replace(/-/g, "")}`);
+    // 2026-09-09 PR #89 후속(CR-0002) — 기존 36자(usr_/ses_ + UUID32) 기본값은
+    // schema.prisma users.id/auth_sessions.id의 varchar(30)을 넘겼다. ERD 접두어 + ULID26 =
+    // 30자로 고친다. 이미 저장된 36자 데이터·외부 주입 nextUserId/nextSessionId는 건드리지
+    // 않는다(auth-record-id.ts 헤더 주석, CR-0002 "미완료 조건").
+    this.nextUserId = options.nextUserId ?? (() => createAuthRecordId("usr"));
+    this.nextSessionId = options.nextSessionId ?? (() => createAuthRecordId("ses"));
     this.oauthIntentCodec = new OAuthIntentCodec(options.oauthIntentEncryptionKey);
     this.registrationRecoveryCodec = new RegistrationRecoveryCodec(options.registrationRecoveryEncryptionKey);
   }

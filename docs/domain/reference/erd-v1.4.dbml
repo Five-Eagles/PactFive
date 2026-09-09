@@ -291,7 +291,7 @@ Enum review_direction {
 // ═════════════════════════════════════════════════════════════════════
 
 Table users {
-  id                 varchar(30)  [pk, note: 'prefixed ULID. 예: usr_01H8X... (§13.1 식별자=문자열)']
+  id                 varchar(40)  [pk, note: 'prefixed ULID. 예: usr_01H8X... (§13.1 식별자=문자열)']
   // [C5] E-29 (v1.5 신설, 2026-09-04): Supabase Auth의 auth.users UUID. PactFive 자체 id(위 컬럼)와는
   // 별개 값이다. app/server/src/features/user-management/auth.service.ts의 createUser() 호출부가
   // 이미 이 값을 id와 분리해서 저장하고 있었는데(ADR-0008 Supabase Auth 채택의 자연스러운 귀결),
@@ -373,8 +373,8 @@ Table users {
 // [C2] E-22 (v1.3 신설): auth_sessions — 다중기기 로그인 세션. 구 E-11(jsonb 절충)을
 // 철회하고 정규화 테이블로 전환. 사유는 users 테이블 note 참조.
 Table auth_sessions {
-  id                   varchar(30)  [pk, note: 'ses_...']
-  user_id              varchar(30)  [not null]
+  id                   varchar(40)  [pk, note: 'ses_...']
+  user_id              varchar(40)  [not null]
   refresh_token_hash   varchar(255) [not null, unique, note: '원문은 저장하지 않음(HttpOnly 쿠키로만 전달)']
   previous_token_hash  varchar(255) [null, note: 'rotation 시 직전 해시. 재사용 감지 판정 기준']
   device_label         varchar(100) [null, note: '사용자에게 보여줄 기기 표시용. 예: Chrome on macOS']
@@ -445,8 +445,8 @@ Table registration_intents {
 }
 
 Table client_profiles {
-  id                 varchar(30)    [pk, note: 'clp_...']
-  user_id            varchar(30)    [not null, unique, note: '1:1']
+  id                 varchar(40)    [pk, note: 'clp_...']
+  user_id            varchar(40)    [not null, unique, note: '1:1']
   company_name       varchar(100)   [not null, note: 'RFP §3.1.3 의뢰인 필수']
   business_field     business_field [not null, note: '[C] E-14: 명칭은 "회사 업종"이 아니라 "주요 의뢰 분야". project_skills.category 와 같은 6종 재사용']
   business_field_etc varchar(100)   [null, note: 'business_field=ETC 일 때만 사용 (RFP 자유 입력). [C] E-14 CHECK로 페어링 강제(부록)']
@@ -469,8 +469,8 @@ Table client_profiles {
 }
 
 Table freelancer_profiles {
-  id                varchar(30)      [pk, note: 'flp_...']
-  user_id           varchar(30)      [not null, unique, note: '1:1']
+  id                varchar(40)      [pk, note: 'flp_...']
+  user_id           varchar(40)      [not null, unique, note: '1:1']
   primary_category  project_category [not null, note: 'RFP §3.1.3 주요 활동 카테고리']
   career_years      smallint         [not null, default: 0, note: '경력(년수). 0 이상']
   hourly_rate_amount integer         [null, note: '시간당 단가 (원 단위 정수, KRW)']
@@ -494,7 +494,7 @@ Table skills {
   group_code   skill_group [not null, note: '[A] 필터 UI 그룹핑']
   display_order smallint   [not null, default: 0]
   is_custom    boolean     [not null, default: false, note: 'RFP §3.1.3 프리랜서 프로필만 커스텀 추가 허용']
-  created_by_user_id varchar(30) [null, note: 'is_custom=true 일 때 작성자']
+  created_by_user_id varchar(40) [null, note: 'is_custom=true 일 때 작성자']
   is_active    boolean     [not null, default: true, note: '[R] 폐기해도 과거 데이터가 깨지지 않도록 삭제 대신 비활성화 [X]']
   created_at   timestamptz [not null, default: `now()`]
   updated_at   timestamptz [not null, default: `now()`]
@@ -524,7 +524,7 @@ Table skills {
 }
 
 Table freelancer_skills {
-  freelancer_profile_id varchar(30) [not null]
+  freelancer_profile_id varchar(40) [not null]
   skill_id              varchar(40) [not null]
   created_at            timestamptz [not null, default: `now()`]
 
@@ -541,8 +541,8 @@ Table freelancer_skills {
 // ═════════════════════════════════════════════════════════════════════
 
 Table projects {
-  id                    varchar(30)      [pk, note: 'prj_...']
-  client_id             varchar(30)      [not null, note: '등록 의뢰인. 등록 후 변경 불가']
+  id                    varchar(40)      [pk, note: 'prj_...']
+  client_id             varchar(40)      [not null, note: '등록 의뢰인. 등록 후 변경 불가']
   title                 varchar(100)     [not null, note: '5~100자 (D-19)']
   description           text             [not null, note: '20~5000자 (D-19). AI 단가 분석 입력이기도 함']
   category              project_category [not null]
@@ -567,7 +567,7 @@ Table projects {
   deadline_notified_at  timestamptz [null, note: '[R] I-22 마감 알림 중복 발송 방지 + 지연 10분 SLA 추적']
 
   pending_application_count integer [not null, default: 0, note: '[C2] E-23(PRD D-65 반영): 대기(PENDING) 지원 수. 예산·일정 잠금 판정용 캐시(§0.2 #22). 원본은 applications']
-  accepted_application_id   varchar(30) [null, note: '[C2] E-23: 수락된 지원서 id. C-01 수락 멱등 판정(D-41)의 근거 값']
+  accepted_application_id   varchar(40) [null, note: '[C2] E-23: 수락된 지원서 id. C-01 수락 멱등 판정(D-41)의 근거 값']
   payment_pending_at        timestamptz [null, note: '[C2] E-23: markPaymentPending(조준영 → 유동우) 통보 시각. 결제 확정 전 취소 가능 구간의 경계(D-40)']
   completed_at              timestamptz [null, note: '[F] CR-RV-002(조준영, 2026-09-07), 2026-09-09 팀장 추가: transaction_status가 COMPLETED로 바뀐 시각. completeProjectTransaction 한 곳에서만 쓰고 그 이후로는 갱신하지 않는다. reviews.review_windows.opened_at의 소스 — payment_pending_at과 같은 원칙으로 신설(CR 자체는 이 컬럼을 명시하지 않았지만, "프로젝트 최초 completedAt"을 요구해 이 컬럼 없이는 구현 불가능했다)']
   project_version            integer     [not null, default: 1, note: '[C2][C4] E-23: 낙관적 잠금 버전(D-53). 상태가 실제로 전이됐을 때만 +1 — 계약 호출 자체가 기준이 아니다(E-26). 클라이언트가 기대 버전을 함께 보내면 충돌 시 409']
@@ -629,7 +629,7 @@ Table projects {
 }
 
 Table project_skills {
-  project_id varchar(30) [not null]
+  project_id varchar(40) [not null]
   skill_id   varchar(40) [not null]
   created_at timestamptz [not null, default: `now()`]
 
@@ -646,9 +646,9 @@ Table project_skills {
 }
 
 Table bookmarks {
-  id            varchar(30) [pk, note: 'bkm_...']
-  freelancer_id varchar(30) [not null, note: 'I-13 프리랜서만 (users.role = FREELANCER)']
-  project_id    varchar(30) [not null]
+  id            varchar(40) [pk, note: 'bkm_...']
+  freelancer_id varchar(40) [not null, note: 'I-13 프리랜서만 (users.role = FREELANCER)']
+  project_id    varchar(40) [not null]
   created_at    timestamptz [not null, default: `now()`]
 
   indexes {
@@ -685,9 +685,9 @@ Table project_contract_idempotency_records {
 // ═════════════════════════════════════════════════════════════════════
 
 Table applications {
-  id                    varchar(30)        [pk, note: 'app_...']
-  project_id            varchar(30)        [not null]
-  freelancer_id         varchar(30)        [not null]
+  id                    varchar(40)        [pk, note: 'app_...']
+  project_id            varchar(40)        [not null]
+  freelancer_id         varchar(40)        [not null]
   cover_letter          text               [not null, note: '자기소개 (RFP §3.2.4)']
   expected_amount       integer            [not null, note: '예상 단가. 원 단위 정수']
   expected_duration_days smallint          [not null, note: '예상 기간(일)']
@@ -729,8 +729,8 @@ Table applications {
 Table application_idempotency_keys {
   key           varchar(160) [pk, note: '지원 생성/수락/거절 요청의 멱등키(컨텍스트별 합성)']
   body_hash     varchar(64)  [not null]
-  application_id varchar(30) [not null, note: 'applications 참조']
-  operation_id  varchar(30)  [null, note: 'application_operations 참조 (수락/거절 요청일 때만)']
+  application_id varchar(40) [not null, note: 'applications 참조']
+  operation_id  varchar(40)  [null, note: 'application_operations 참조 (수락/거절 요청일 때만)']
   created_at    timestamptz  [not null, default: `now()`]
 
   note: '''
@@ -740,10 +740,10 @@ Table application_idempotency_keys {
 }
 
 Table application_operations {
-  id                        varchar(30) [pk, note: 'aop_...']
-  application_id            varchar(30) [not null, note: 'applications 참조']
-  project_id                varchar(30) [not null]
-  client_id                 varchar(30) [not null, note: 'users 참조 — 요청 주체(의뢰인)']
+  id                        varchar(40) [pk, note: 'aop_...']
+  application_id            varchar(40) [not null, note: 'applications 참조']
+  project_id                varchar(40) [not null]
+  client_id                 varchar(40) [not null, note: 'users 참조 — 요청 주체(의뢰인)']
   type                      varchar(10) [not null, note: 'ACCEPT | REJECT']
   status                    varchar(10) [not null, default: 'QUEUED', note: 'QUEUED | RUNNING | SUCCEEDED | FAILED']
   updated_at                timestamptz [not null, default: `now()`]
@@ -763,8 +763,8 @@ Table application_operations {
 }
 
 Table application_operation_steps {
-  id           varchar(30) [pk]
-  operation_id varchar(30) [not null, note: 'application_operations 참조']
+  id           varchar(40) [pk]
+  operation_id varchar(40) [not null, note: 'application_operations 참조']
   seq          smallint    [not null, note: '단계 순서 — steps 배열의 인덱스']
   name         varchar(30) [not null, note: 'REJECT_OTHERS | CREATE_NOTIFICATIONS | ENSURE_NEGOTIATION_CONTEXT']
   status       varchar(10) [not null, note: 'QUEUED | RUNNING | SUCCEEDED | FAILED | SKIPPED']
@@ -789,8 +789,8 @@ Table application_operation_steps {
 }
 
 Table application_state_events {
-  id             varchar(30) [pk]
-  application_id varchar(30) [not null, note: 'applications 참조']
+  id             varchar(40) [pk]
+  application_id varchar(40) [not null, note: 'applications 참조']
   from_status    application_status [null, note: '최초 생성이면 NULL']
   to_status      application_status [not null]
   rejection_type application_rejection_type [null]
@@ -806,7 +806,7 @@ Table application_state_events {
 }
 
 Table application_closures {
-  closure_event_id varchar(30) [pk, note: '모집 마감 사건 id — project-management가 발급']
+  closure_event_id varchar(160) [pk, note: '모집 마감 사건 id — project-management가 발급']
   rejected_count    integer    [not null]
   already_processed boolean    [not null]
   result            varchar(20) [not null, note: 'PostActionResult("DONE"|"NOT_NEEDED"|"FAILED") — 스칼라 리터럴 유니온']
@@ -825,14 +825,14 @@ Table application_closures {
 }
 
 Table notifications {
-  id            varchar(30)       [pk, note: 'ntf_...']
-  recipient_id  varchar(30)       [not null]
+  id            varchar(40)       [pk, note: 'ntf_...']
+  recipient_id  varchar(40)       [not null]
   type          notification_type [not null]
   title         varchar(100)      [not null]
   body          varchar(500)      [not null]
   link_url      text              [not null, note: 'RFP §3.3.1 클릭 시 이동할 경로']
   resource_type varchar(30)       [null, note: '[R] PROJECT | APPLICATION | CONTRACT | PAYMENT ...']
-  resource_id   varchar(30)       [null, note: '[R] 다형성 참조. FK 제약 없음']
+  resource_id   varchar(40)       [null, note: '[R] 다형성 참조. FK 제약 없음']
   dedupe_key    varchar(120)      [not null, unique, note: 'I-22 같은 사건 1회. 예: APPLICATION_ACCEPTED:app_01H8X']
   read_at       timestamptz       [null]
   created_at    timestamptz       [not null, default: `now()`]
@@ -874,9 +874,9 @@ Table notifications {
 // ═════════════════════════════════════════════════════════════════════
 
 Table agreements {
-  id                  varchar(30)      [pk, note: 'agr_...']
-  application_id      varchar(30)      [not null, unique, note: 'I-15 한 지원서에 합의 최대 1건']
-  proposed_by_user_id varchar(30)      [not null, note: '제안자(의뢰인). RFP §3.6.1 권장 흐름']
+  id                  varchar(40)      [pk, note: 'agr_...']
+  application_id      varchar(40)      [not null, unique, note: 'I-15 한 지원서에 합의 최대 1건']
+  proposed_by_user_id varchar(40)      [not null, note: '제안자(의뢰인). RFP §3.6.1 권장 흐름']
   agreed_amount       integer          [not null, note: '실제 합의 금액. 원 단위 정수']
   status              agreement_status [not null, default: 'PROPOSED']
   responded_at        timestamptz      [null, note: '프리랜서 동의/거부 시각']
@@ -905,10 +905,10 @@ Table agreements {
 // 개별 offer의 상태는 agreement_status(PROPOSED/ACCEPTED/REJECTED)를 재사용한다.
 // NegotiationStatus는 DB enum이 아니라 application_id 기준 최신 라운드와 응답 여부로 계산하는 API 파생 상태다.
 Table negotiation_offer {
-  id                   varchar(30)      [pk, note: 'ngo_...']
-  application_id       varchar(30)      [not null, note: '협상 스레드 단위 — 한 지원서에 여러 라운드 허용']
+  id                   varchar(40)      [pk, note: 'ngo_...']
+  application_id       varchar(40)      [not null, note: '협상 스레드 단위 — 한 지원서에 여러 라운드 허용']
   round                smallint         [not null, default: 1, note: '1부터 시작. 재제안마다 +1']
-  proposed_by_user_id  varchar(30)      [not null, note: '이번 라운드 제안자 — 의뢰인/프리랜서 양측 가능(2차 설계 특징)']
+  proposed_by_user_id  varchar(40)      [not null, note: '이번 라운드 제안자 — 의뢰인/프리랜서 양측 가능(2차 설계 특징)']
   offered_amount       integer          [not null]
   status               agreement_status [not null, default: 'PROPOSED', note: '[C3] 개별 제안 상태. NegotiationStatus 물리 enum은 두지 않음']
   responded_at         timestamptz      [null]
@@ -939,11 +939,11 @@ Table negotiation_offer {
 // 언제, 왜 남기는지)를 알려주면 다음 개정에서 반영한다.
 
 Table contracts {
-  id                varchar(30)     [pk, note: 'ctr_...']
-  agreement_id      varchar(30)     [not null, unique, note: 'I-16 한 합의에 계약 최대 1건']
-  project_id        varchar(30)     [not null, note: '[R] agreement->application 을 거치지 않고 조회하기 위한 비정규화 FK']
-  client_id         varchar(30)     [not null]
-  freelancer_id     varchar(30)     [not null]
+  id                varchar(40)     [pk, note: 'ctr_...']
+  agreement_id      varchar(40)     [not null, unique, note: 'I-16 한 합의에 계약 최대 1건']
+  project_id        varchar(40)     [not null, note: '[R] agreement->application 을 거치지 않고 조회하기 위한 비정규화 FK']
+  client_id         varchar(40)     [not null]
+  freelancer_id     varchar(40)     [not null]
 
   project_title_snapshot varchar(100) [not null, note: '[R] 계약 시점의 프로젝트명 박제']
   agreed_amount     integer         [not null, note: '계약서에 들어가는 금액 = agreements.agreed_amount']
@@ -994,9 +994,9 @@ Table contracts {
 }
 
 Table contract_signature_audits {
-  id          varchar(30)  [pk, note: 'sig_...']
-  contract_id varchar(30)  [not null]
-  signer_id   varchar(30)  [not null]
+  id          varchar(40)  [pk, note: 'sig_...']
+  contract_id varchar(40)  [not null]
+  signer_id   varchar(40)  [not null]
   signer_role user_role    [not null, note: '서명 당시의 역할을 박제']
   signed_at   timestamptz  [not null, note: 'I-19 재서명해도 이 값을 덮어쓰지 않는다']
   ip_address  varchar(45)  [null, note: 'IPv6 최대 길이']
@@ -1022,10 +1022,10 @@ Table contract_signature_audits {
 }
 
 Table payments {
-  id                  varchar(30)    [pk, note: 'pay_...']
-  contract_id         varchar(30)    [not null, unique, note: 'I-17 한 계약에 결제 최대 1건']
-  client_id           varchar(30)    [not null, note: '[C] E-17: payer_id → client_id (PM 승인요청서 A1). 의뢰인']
-  freelancer_id       varchar(30)    [not null, note: '[C] E-17: payee_id → freelancer_id (A1). 프리랜서']
+  id                  varchar(40)    [pk, note: 'pay_...']
+  contract_id         varchar(40)    [not null, unique, note: 'I-17 한 계약에 결제 최대 1건']
+  client_id           varchar(40)    [not null, note: '[C] E-17: payer_id → client_id (PM 승인요청서 A1). 의뢰인']
+  freelancer_id       varchar(40)    [not null, note: '[C] E-17: payee_id → freelancer_id (A1). 프리랜서']
 
   currency            char(3)        [not null, default: 'KRW', note: '[R] MVP는 KRW 고정. 다통화 확장 대비 [X]']
   payment_amount      integer        [not null, note: '= agreed_amount. [A8-C2] contracts.agreed_amount 와 일치해야 함(App 검증)']
@@ -1076,8 +1076,8 @@ Table payments {
 }
 
 Table deliveries {
-  id           varchar(30)     [pk, note: 'dlv_...']
-  contract_id  varchar(30)     [not null, unique, note: 'I-18 한 계약에 납품 최대 1건 (MVP)']
+  id           varchar(40)     [pk, note: 'dlv_...']
+  contract_id  varchar(40)     [not null, unique, note: 'I-18 한 계약에 납품 최대 1건 (MVP)']
   status       delivery_status [not null, default: 'IN_PROGRESS']
   message      text            [null, note: '납품 메모']
   attachment_url text          [null, note: '클라우드 스토리지 URL (RFP §5)']
@@ -1089,7 +1089,7 @@ Table deliveries {
   mime_type    varchar(100)    [null, note: '[C] E-47 신설']
   size_bytes   integer         [null, note: '[C] E-47 신설']
   file_sha256  varchar(64)     [null, note: '[C][F] E-47 신설. 업로드 파일 무결성 해시 — 원본 mock엔 없던 필드였으나 2026-09-09 조준영 이식 지시서(§1)가 이 컬럼을 채우도록 요청하며 확인됐다. prepareDeliveryUpload가 실제로 저장한다']
-  requested_by varchar(30)     [null, note: '[C][A] E-47 신설. users 참조 — 납품 요청자. 원본 mock엔 없던 필드, 팀장이 spec.md 규칙 23 근거로 추가. 조준영 확인 필요']
+  requested_by varchar(40)     [null, note: '[C][A] E-47 신설. users 참조 — 납품 요청자. 원본 mock엔 없던 필드, 팀장이 spec.md 규칙 23 근거로 추가. 조준영 확인 필요']
   created_at   timestamptz     [not null, default: `now()`]
   updated_at   timestamptz     [not null, default: `now()`]
 
@@ -1113,8 +1113,8 @@ Table deliveries {
 }
 
 Table invalidations {
-  cancellation_id       varchar(30) [pk, note: 'inv_...']
-  project_id            varchar(30) [not null, note: 'projects 참조']
+  cancellation_id       varchar(160) [pk, note: 'inv_...']
+  project_id            varchar(40) [not null, note: 'projects 참조']
   contract_invalidation varchar(20) [not null, note: 'PostActionResult — NOT_NEEDED | SUCCEEDED | FAILED 등']
   created_at            timestamptz [not null, default: `now()`]
 
@@ -1148,11 +1148,11 @@ Table payment_idempotency_records {
 }
 
 Table reviews {
-  id          varchar(30)      [pk, note: 'rvw_...']
-  project_id  varchar(30)      [not null]
-  contract_id varchar(30)      [not null, note: '[R] 어떤 거래에 대한 평가인지 명시']
-  reviewer_id varchar(30)      [not null]
-  reviewee_id varchar(30)      [not null]
+  id          varchar(40)      [pk, note: 'rvw_...']
+  project_id  varchar(40)      [not null]
+  contract_id varchar(40)      [not null, note: '[R] 어떤 거래에 대한 평가인지 명시']
+  reviewer_id varchar(40)      [not null]
+  reviewee_id varchar(40)      [not null]
   direction   review_direction [not null]
   rating      smallint         [not null, note: '1~5 (RFP §3.7.1)']
   comment     text             [null, note: '텍스트 리뷰']
@@ -1203,7 +1203,7 @@ Table reviews {
 Table review_idempotency_keys {
   key         varchar(160) [pk, note: '`{project_id}:{actor_user_id}:{idempotency_key}` 합성 키']
   body_hash   varchar(64)  [not null, note: '요청 본문(rating·comment·tags 정렬) 해시 — 같은 키에 다른 본문이 오면 409']
-  review_id   varchar(30)  [not null, note: 'reviews 참조']
+  review_id   varchar(40)  [not null, note: 'reviews 참조']
   created_at  timestamptz  [not null, default: `now()`]
 
   note: '''
@@ -1214,7 +1214,7 @@ Table review_idempotency_keys {
 }
 
 Table review_windows {
-  project_id     varchar(30) [pk, note: 'projects 1:1']
+  project_id     varchar(40) [pk, note: 'projects 1:1']
   opened_at      timestamptz [not null, note: '프로젝트 최초 completedAt (projects.completed_at)']
   deadline_at    timestamptz [not null, note: 'opened_at + 14일(SOLO_PUBLIC_AFTER_DAYS)']
   policy_version integer     [not null, default: 1]
@@ -1246,9 +1246,9 @@ Table review_windows {
 // ═════════════════════════════════════════════════════════════════════
 
 Table pricing_analyses {
-  id                 varchar(30) [pk, note: 'pra_...']
-  requester_id       varchar(30) [not null, note: '분석을 요청한 의뢰인']
-  project_id         varchar(30) [null, note: 'I-25 프로젝트 연결은 비어 있을 수 있다(등록 전 분석)']
+  id                 varchar(40) [pk, note: 'pra_...']
+  requester_id       varchar(40) [not null, note: '분석을 요청한 의뢰인']
+  project_id         varchar(40) [null, note: 'I-25 프로젝트 연결은 비어 있을 수 있다(등록 전 분석)']
 
   input_snapshot     jsonb       [not null, note: '[C] E-20: input_description(text) 대체. {title, description, category} 스냅샷']
   recommended_amount integer     [null, note: '[C6] E-32: APPROVED 에서만 NOT NULL. AI가 추천한 전체 예상 총 단가. CHECK > 0 (부록)']
@@ -1370,12 +1370,12 @@ Table pricing_analyses {
 
 
 Table pricing_application_receipts {
-  id                  varchar(30) [pk, note: 'par_...']
+  id                  varchar(40) [pk, note: 'par_...']
   operation           varchar(30) [not null, note: '[C6] E-36: 현재 값은 APPLY_PRICING_ANALYSIS 하나뿐']
-  actor_user_id        varchar(30) [not null, note: '요청자. users 참조']
+  actor_user_id        varchar(40) [not null, note: '요청자. users 참조']
   idempotency_key      varchar(100) [not null, note: '적용 요청 Idempotency-Key. pricing_analyses.idempotency_key(생성용)와 별개 범위']
-  pricing_analysis_id  varchar(30) [not null, note: 'pricing_analyses 참조']
-  project_id           varchar(30) [not null, note: 'projects 참조']
+  pricing_analysis_id  varchar(40) [not null, note: 'pricing_analyses 참조']
+  project_id           varchar(40) [not null, note: 'projects 참조']
   request_fingerprint  varchar(64) [not null, note: '같은 키·다른 fingerprint 재요청을 409로 구분하기 위한 해시']
   http_status          smallint    [not null, note: '최초 응답 HTTP 상태 (200 성공 | 409 충돌)']
   response_body        jsonb       [not null, note: 'exact replay용 최초 공개 응답 사본']

@@ -4,8 +4,41 @@
 |---|---|
 | 제기 | 유동우 (project-management) · 2026-09-09 |
 | 대상 | 김락원 (팀장 · `docs/domain/` · `app/server/prisma/schema.prisma`) |
-| 상태 | 제안 — **배포 차단 건.** `DATABASE_URL` 을 붙이는 순간 등록이 실패한다 |
+| 상태 | **반영 완료 (2026-09-09, 팀장 — 컬럼 늘리기 채택, B안).** |
 | 관련 | notifications CR-0001 §5 (같은 문제를 `User.id` 에서 지적) · `app/server/src/express-app.ts:196` |
+
+> **닫음 (2026-09-09, 팀장).** 제안대로 컬럼을 늘렸다 — id 줄이기는 하지 않았다.
+>
+> **전수 조사 결과, 세 곳이 아니라 훨씬 넓었다.** `express-app.ts`의 `randomId()`뿐 아니라
+> `contractsPaymentsRandomId(prefix)`(agr_·ctr_·dlv_·ofr_·pay_)와 각 기능의
+> `prisma-*.repository.ts`에 흩어진 개별 `randomUUID()` 호출(app_·appop_·aos_·apse_·rvw_·
+> nof_·csa_·usr_·ses_)까지 전부 같은 "접두어 + UUID32" 패턴을 쓴다. 가장 긴 값은
+> `ApplicationOperation.id`의 `appop_` + 32자 = **38자**다. 그래서 36이 아니라
+> **40자**로 넉넉히 잡았다 — PK뿐 아니라 그 id를 받는 모든 FK 컬럼(`project_id`,
+> `application_id` 등)도 같은 폭으로 함께 늘렸다. 총 70개 컬럼, 30개 테이블 전부.
+>
+> **컬럼 폭을 지정하지 않은 예외 2건.** `application_closures.closure_event_id`는
+> project-management가 `close-${projectId}-${at}`로 직접 조립하는 합성 문자열이고,
+> `invalidations.cancellation_id`는 클라이언트가 그대로 넘기는 값이라 길이를 예측할 수
+> 없다 — 둘 다 40자가 아니라 이 스키마의 다른 이벤트/멱등 키 컬럼과 같은 **160자**로
+> 늘렸다.
+>
+> **enum으로 이미 승격된 항목은 건드리지 않았다.** `auth_sessions.revoked_reason`은
+> ERD 문서에는 여전히 `varchar(30)`으로 남아 있지만 `schema.prisma`에서는 이미
+> `SessionRevokedReason` enum이다 — 실제 타입 불일치가 없어 스키마는 그대로 두고 ERD
+> 주석만 참고용이라고 표시했다.
+>
+> **반영한 파일**: `app/server/prisma/schema.prisma`(70컬럼) ·
+> `app/server/prisma/migrations/20260909150000_widen_generated_id_columns_cr_0013/` ·
+> `docs/domain/reference/erd-v1.4.dbml`(70) · `docs/domain/erd.md`(70, `##`/`####`/`#####`
+> 세 단계 헤딩에 흩어져 있어 스크립트 1차 통과 후 수동으로 12곳 보완) ·
+> `prisma-review.repository.ts` 주석 1곳.
+>
+> **아직 안 한 것.** 이 마이그레이션은 `ALTER COLUMN ... TYPE VARCHAR(n)`로 넓히기만
+> 해서 기존 행을 다시 쓰지 않는 안전한 방향이지만, 실제 Postgres에 아직 적용해보지
+> 않았다 — 배포 전 스테이징에서 프로젝트 등록 1건이 실제로 성공하는지 스모크 테스트가
+> 필요하다(팀 회의 자료의 "D-2 액션" 항목). `npx prisma generate`도 이 샌드박스에서
+> 네트워크 제약으로 못 돌렸다 — 로컬에서 한 번 돌리면 타입이 이 변경과 맞물린다.
 
 ## 요약
 

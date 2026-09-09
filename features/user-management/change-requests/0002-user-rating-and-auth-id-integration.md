@@ -38,6 +38,18 @@ affected_features: [user-management, reviews, notifications]
 >   집을 때는 4개를 한 세트로 봐야 한다: ① durable outbox(생산자) ② user-management
 >   consumer/repository(소비자) ③ project-management Prisma 외부 어댑터(읽는 쪽) ④ 인증
 >   기본 생성기 30자화. 넷 중 하나만 하면 캐시가 반쪽짜리로 남는다.
+>
+> **추가 재검토 (2026-09-09 같은 날 후속, 팀장).** 이 재검토 당시 "그 어디에도 없다"고 쓴
+> 근거(grep 0건)는 `develop` 기준으로는 맞았지만, 실제로는 `feature/user-management-
+> notifications-ai-pricing-integration`이라는 로컬 브랜치에 ②·④가 이미 구현돼 있었다 —
+> 그 브랜치가 push도 merge도 안 된 채 남아 있어 grep에 잡히지 않았을 뿐이다(사용자 문의로
+> 발견). 오늘 그 커밋을 `feat/notifications-user-management-integration`으로
+> `origin/develop`에 cherry-pick·검증했다 — ②(consumer/repository, `pg_advisory_xact_lock`
+> 기반)·④(`createAuthRecordId`, 접두어+ULID26=30자)는 이제 채워졌다(브랜치 준비 완료,
+> develop merge는 아직). ①(durable outbox 생산자)·③(project-management가 이 캐시를 읽는
+> Prisma 외부 어댑터 — `in-memory-external.adapter.ts`의 `toClientProfile`은 여전히
+> `averageRating: 0` 하드코딩)은 그대로 비어 있다. 넷 중 둘만 채워진 상태이므로 "반영 완료"로
+> 바꾸지 않는다.
 
 # 통합 요청
 

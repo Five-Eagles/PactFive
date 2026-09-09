@@ -21,6 +21,14 @@ import { reviewRoutes } from './features/reviews/review.routes';
 import { BookmarkButton } from './features/engagement/BookmarkButton';
 import { RecommendationSection } from './features/engagement/RecommendationSection';
 import { useBookmarkedIds } from './features/engagement/useBookmark';
+import { notificationRoutes } from './features/notifications/notifications.routes';
+import { createNotificationApi } from './features/notifications/api/notifications';
+import { useNotifications } from './features/notifications/useNotifications';
+import { NotificationBell } from './features/notifications/NotificationBell';
+
+// createNotificationApi()는 shared/http.ts만 감싸는 상태 없는 팩토리라 모듈 스코프에서 한 번만
+// 만든다 — 매 렌더 재생성을 피한다 (2026-09-09).
+const notificationApi = createNotificationApi();
 
 // Clean the confirmation URL before BrowserRouter captures its initial location.
 // auth.routes only reads the captured value when its page renders, after this call.
@@ -43,10 +51,11 @@ setUnauthorizedHandler(() => {
  * 2026-09-04: `ComingSoonOverlay`로 감싸기 시작했다 — 경로·기능 폴더는 있는데 화면이 아직
  * 안 붙은 상태(Case 2)라 `NotYetDialog`(화면 자체가 없는 Case 1)가 아니라 이쪽이다
  * (app/web/AGENTS.md "시안에는 있지만 아직 없는 화면" 절).
+ *
+ * 2026-09-09: `/notifications`는 notifications #90 반영으로 실제 화면이 붙어 이 배열에서
+ * 빠졌다 — 아래 `notificationRoutes(...)`로 옮겼다.
  */
-const NOT_INTEGRATED_ROUTES: Array<{ path: string; featureName: NotYetScreenKey }> = [
-  { path: '/notifications', featureName: 'notifications' },
-];
+const NOT_INTEGRATED_ROUTES: Array<{ path: string; featureName: NotYetScreenKey }> = [];
 
 function NotFoundPage() {
   return (
@@ -90,6 +99,17 @@ function AppRoutes() {
   }, [restore]);
 
   const viewer = state.status === 'authenticated' ? state.session.user : null;
+
+  // notifications — AppShell·HomeHeader 두 헤더 모두 같은 상태를 보여줘야 해서
+  // (api-contract.md) 여기 한 곳에서만 훅을 부르고 결과를 두 슬롯에 내려준다.
+  // sessionKey: 세션이 아니라 사용자 단위로만 구분한다 — useAuth.ts가 sessionId를 노출하지
+  // 않기 때문이다(프로토타입 제안과의 의도적 차이, feedback_loop/2026-09-09/notifications.md).
+  const { snapshot: notificationSnapshot } = useNotifications(notificationApi, viewer?.userId ?? null);
+  const notificationBell = viewer ? (
+    <NotificationBell
+      unreadCount={notificationSnapshot.status === 'session-expired' ? null : notificationSnapshot.unreadCount}
+    />
+  ) : null;
 
   // 카드마다 북마크 초기 상태를 넘긴다 (CR-0008) — `PublicProjectItem` 에는
   // `isBookmarked` 가 없어 engagement 의 `GET /bookmarks/ids` 로 화면이 직접 대조한다.
@@ -154,6 +174,7 @@ function AppRoutes() {
         applyHref,
         applicantsHref,
         pricingAnalysisHref,
+        homeHeaderExtra: notificationBell,
       })}
 
       {engagementRoutes({
@@ -169,6 +190,8 @@ function AppRoutes() {
       {applicationRoutes()}
 
       {reviewRoutes()}
+
+      {notificationRoutes({ api: notificationApi, sessionKey: viewer?.userId ?? null })}
 
       {NOT_INTEGRATED_ROUTES.map(({ path, featureName }) => (
         <Route
@@ -192,7 +215,7 @@ function AppRoutes() {
     location.pathname === APP_ROUTES.home ? (
       routes
     ) : (
-      <AppShell items={navItems} homeHref={APP_ROUTES.home}>
+      <AppShell items={navItems} homeHref={APP_ROUTES.home} headerExtra={notificationBell}>
         {routes}
       </AppShell>
     );

@@ -12,7 +12,8 @@ import type { ReviewRepository, ReviewRow, ReviewWindow } from './review.types';
  *
  * nextReviewId()는 in-memory처럼 프로세스 내 카운터를 쓸 수 없다(여러 서버리스 인스턴스가
  * 동시에 돌 수 있어 충돌한다) — DB가 보장하는 유일성이 필요해 UUID 기반 접두 ID로 바꿨다.
- * 형식만 다르고(`rvw_숫자` → `rvw_UUID`) 의미는 같다(reviews.id, varchar(30) 안에 들어간다).
+ * 형식만 다르고(`rvw_숫자` → `rvw_UUID`) 의미는 같다(reviews.id, varchar(40) 안에 들어간다 —
+ * CR-0013로 30→40 확장, 2026-09-09).
  */
 export class PrismaReviewRepository implements ReviewRepository {
   constructor(private readonly prisma: PrismaClient) {}
