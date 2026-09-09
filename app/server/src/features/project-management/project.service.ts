@@ -17,6 +17,7 @@
  */
 
 import type { ProjectRepository } from './project.repository';
+import { effectiveRecruitmentStatus } from './recruitment-status';
 import {
   ProjectContractError,
   type CancelProjectResponse,
@@ -33,7 +34,6 @@ import {
   type ProjectRecord,
   type PublicProjectDetail,
   type PublicProjectItem,
-  type RecruitmentStatus,
   type ReopenRecruitmentInput,
   type ReopenRecruitmentResponse,
   type UpdateProjectInput,
@@ -122,23 +122,6 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
   }
 
-  /**
-   * 규칙 14 — 저장된 값이 아니라 **조회 시점 기준**으로 보이는 모집 상태.
-   * 시각이 지났는데 배치가 아직 안 돈 프로젝트가 잘못된 상태로 보이지 않게 한다.
-   */
-  function effectiveRecruitmentStatus(p: ProjectRecord, at: string): RecruitmentStatus {
-    const t = new Date(at).getTime();
-    if (p.recruitmentStatus === 'SCHEDULED' && p.recruitmentStartAt !== null) {
-      if (new Date(p.recruitmentStartAt).getTime() <= t) {
-        return new Date(p.recruitmentDeadlineAt).getTime() <= t ? 'CLOSED' : 'OPEN';
-      }
-      return 'SCHEDULED';
-    }
-    if (p.recruitmentStatus === 'OPEN' && new Date(p.recruitmentDeadlineAt).getTime() <= t) {
-      return 'CLOSED';
-    }
-    return p.recruitmentStatus;
-  }
 
   /* ═══════════ 검증 ═══════════ */
 
@@ -614,6 +597,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
       recruitmentStatus: 'CLOSED',
       recruitmentClosedAt: at,
       deadlineNotifiedAt: project.deadlineNotifiedAt ?? at,
+      // CR-AP-001 — 마감하면 대기 지원이 전부 거절된다(아래 rejectPendingApplications).
+      // 하나씩 빼지 않고 0 으로 놓는다.
+      pendingApplicationCount: 0,
       projectVersion: project.projectVersion + 1,
     });
 
@@ -682,6 +668,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
       recruitmentStatus: 'CLOSED',
       transactionStatus: 'CANCELED',
       canceledAt: at,
+      // CR-AP-001 — 취소도 대기 지원을 전부 거절한다. 마감과 같은 이유로 0 이다.
+      pendingApplicationCount: 0,
       projectVersion: project.projectVersion + 1,
     });
 

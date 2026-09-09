@@ -103,6 +103,16 @@ export type AcceptApplicationResult = ContractResult & {
 export type ApplyPricingBudgetInput = ContractEnvelope & {
   pricingAnalysisId: string;
   actorUserId: string;
+  /**
+   * 호출자가 알고 있던 현재 예산 (CR-0012).
+   *
+   * 화면이 "현재 예산 500만원"을 보여준 뒤 사용자가 반영을 누르기까지 사이에 예산이
+   * 바뀌었으면 막는다. 버전 검사로는 못 잡는다 — 예산 변경은 `projectVersion` 을
+   * 올리지 않기 때문이다(규칙 44).
+   *
+   * **선택값이다.** 보내지 않으면 검사하지 않는다 — 기존 호출자를 깨지 않기 위해서다.
+   */
+  expectedBudgetAmount?: number;
 };
 
 export type ApplyPricingBudgetResult = ContractResult & {
@@ -143,6 +153,29 @@ export type RestorePreContractResult = ContractResult & {
 export interface ProjectTransactionPort {
   /** start·complete·markPaymentPending 호출 전 조회 (PRD D-44) */
   getProjectNegotiationContext(projectId: string): Promise<NegotiationContext>;
+
+  /**
+   * 지원 건수 갱신 (CR-AP-001).
+   *
+   * applications 가 **지원을 만들 때**와 **개별 거절할 때** 부른다.
+   *
+   *   지원 생성  `{ applicationCount: +1, pendingApplicationCount: +1 }`
+   *   개별 거절  `{ pendingApplicationCount: -1 }`
+   *
+   * `applicationCount` 는 올라가기만 한다 — "지금까지 몇 명이 지원했나" 이므로
+   * 거절해도 내려가지 않는다. 오르내리는 것은 대기 수뿐이다.
+   *
+   * **수락·마감·취소 때는 부르지 않는다.** 그 셋은 이 서비스가 같은 트랜잭션 안에서
+   * 0 으로 놓는다(대기 지원이 전부 정리되는 시점이라 하나씩 빼는 것보다 안 어긋난다).
+   * 밖에서 또 빼면 두 번 빠진다.
+   *
+   * 결과는 **음수가 되지 않는다** — 바닥이 0 이다. 음수는 "대기 지원 없음"으로 읽혀
+   * 잠겨 있어야 할 예산이 풀린다.
+   */
+  bumpApplicationCounts(
+    projectId: string,
+    delta: { applicationCount?: number; pendingApplicationCount?: number },
+  ): Promise<{ applicationCount: number; pendingApplicationCount: number }>;
 
   /**
    * 지원 수락. OPEN + NONE → CLOSED + CONTRACT_PENDING (규칙 36)
