@@ -2,9 +2,9 @@
 
 담당자: 오민혁
 
-상태: Step 1 계약 보존 · Step 2 동기식 MVP 프로토타입 구현 · app/DB 통합 대기
+상태: Step 1 계약 보존 · Step 2 기능 원본 구현 · 앱 연결 반영 확인 · 실제 DB/벤더 E2E 미검증
 
-기준일: 2026-09-04
+기준일: 2026-09-08
 
 ## 목적
 
@@ -32,7 +32,22 @@
 - DB migration, `docs/domain/`, `app/`, 다른 기능 원본의 직접 수정
 - 추천 금액을 계약 합의 금액으로 자동 전파하는 동작
 
-## 선행 블로커와 작업 가설
+## 2026-09-08 통합 현황 확인
+
+- `develop ec1c01f` 기준 앱에 분석 서버 route·화면과 프로젝트 등록 왕복 연결이 있다.
+  9/7에는 추천 금액과 분석 ID의 초안 보존, 수동 예산 변경 시 ID 해제, 최종 등록 요청 handoff가
+  반영됐다. 근거는 `feedback_loop/2026-09-07/ai-pricing.md`와 같은 날짜 앱 회귀 테스트다.
+- PRD D-91·D-92·D-93, ERD E-32~E-37에 CR 6건의 채택이 기록돼 있다. 카테고리 통일과 단일 DB
+  transaction 결정은 다시 설계하지 않는다. CR-AP-002·003 상태 정리는 9/8 회의의 팀장 담당이다.
+- 문서 채택·앱 코드 존재는 실제 DB migration·운영 모델 호출 검증과 다르다. 실제 DB/벤더 E2E,
+  project-management CR-0012, 상세 화면 진입 연결은 이번 feature-only 오류 수정 범위가 아니다.
+- 이번 수정은 실제 결과 없는 오류 화면이 시안 견적을 노출하던 경계만 복구한다. API·도메인 소유권·
+  화면 레이아웃을 변경하지 않고 `app/`, 다른 기능, CR 및 피드백 상태는 수정하지 않는다.
+
+## 2026-09-04 선행 블로커와 작업 가설 (요청 당시 이력)
+
+아래 표는 원래 CR의 배경을 보존한 이력이다. 현재 승인 대기 목록으로 읽지 않는다. 최신 채택 근거는
+위 통합 현황을 따르며, 실제 저장소 구현·운영 검증이 남은 항목과 구분한다.
 
 | ID | 충돌 | 이 문서의 작업 가설 | 해소 조건 |
 |---|---|---|---|
@@ -43,8 +58,8 @@
 | CR-AP-005 | ERD는 생성 멱등 키를 global unique로 두지만 API 범위는 요청자별임 | repository와 rate-limit은 요청자·키·최초 fingerprint를 함께 묶는다 | `change-requests/0005-pricing-analysis-idempotency-scope.md` 승인 및 migration |
 | CR-AP-006 | ERD에는 저장된 create fingerprint를 어떤 입력 스키마 버전으로 계산했는지 보존할 컬럼이 없음 | 분석 행에 `input_fingerprint_schema_version`을 저장하고 snapshot binding 검증에 사용한다 | `change-requests/0006-pricing-input-fingerprint-schema-version.md` 승인 및 원자 backfill migration |
 
-위 가설은 임의로 충돌을 덮는 최종 결정이 아니다. 특히 기존 프로젝트 적용 API는 원자 구현이 준비될
-때까지 fail-closed 상태다.
+위 표 자체가 최종 결정을 대신하지 않는다. 기존 프로젝트 적용 API에 원자 capability가 없을 때
+fail-closed하는 업무 규칙은 유지한다.
 
 ## 소유 엔티티와 값 의미
 
@@ -350,6 +365,9 @@ getPricingAnalysisRecommendation({ analysisId, projectId, requesterId })
     다른 프로젝트, 다른 fingerprint, 이미 등록 claim으로 소비된 분석은 409다.
 13. breakdown은 항목 수·문자열 길이·금액·합계 상한을 모두 통과해야 하며, 사용자별 요청 제한과
     공급자 출력 토큰 상한 없이 운영 route를 활성화하지 않는다.
+14. 실제 분석 결과가 없으면 실패·충돌 상태여도 시안 금액·분석 ID·추천 채택 행동을 만들지 않는다.
+    샘플 보고서는 명시적 `previewState`에서만 사용한다. 실제 승인·대기·거절 응답은 샘플보다 우선하며,
+    적용 실패 후 보존된 실제 승인 보고서를 삭제하거나 다른 분석으로 바꾸지 않는다.
 
 ## 실패와 공개 정보 원칙
 

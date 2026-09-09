@@ -2,6 +2,69 @@
 
 담당자: 오민혁
 
+## 2026-09-08 사용자 평점 캐시·인증 식별자 후속
+
+검증 범위는 `features/user-management/**`다. 기존 77개에 평점 소비 18개와 ID 생성 6개를
+추가했다. app·DB·worker·공급자 실연동은 검증하지 않았고 피드백 상태도 임의 종결하지 않았다.
+
+- [x] `npx tsx features/user-management/prototype/run.tsx` — **101 PASS / 0 FAIL**
+- [x] `npx tsc -p features/user-management/prototype/tsconfig.json` — strict PASS
+- [x] `npm run preview:build` — PASS (102 modules, 기존 화면 회귀 빌드)
+- [x] `git diff --check` — PASS
+
+| 규칙 | 확인 방법 | 결과 |
+|---|---|---|
+| UR-01 | 이벤트 불량 ID/별점/날짜 차단, 윤년 UTC, 기존 긴 ID, reader에 대상 전달 | PASS |
+| UR-02 | 공개 합계 대체, 0건 초기화, 2자리 정확 반올림과 count 상한 | PASS |
+| UR-03 | 중복·역순 재집계, 소비자 2개 동시/지연 집계, 다른 사용자 병렬 실행 | PASS |
+| UR-04 | unknown/탈퇴/owner mismatch 차단, 같은 잠금의 탈퇴 후 재수신 거부 | PASS |
+| UR-05 | 비정상 sum/count, reader·잠금·commit 실패, rollback/재전달 성공, 내부 오류 비노출 | PASS |
+| UR-06 | 입력·조회 복제, transaction 재사용 금지, callback 실패 rollback, 전달 객체 변경 격리 | PASS |
+| ID-01 | prefix/30자/alphabet, 48bit 시각·80bit 난수 왕복, 경계 오류, 동일 밀리초 2048건 중복 없음 | PASS |
+| ID-02 | 기본 생성기로 가입 확인·세션 발급, 기존 36자 사용자 ID 보존 | PASS |
+
+신규 테스트: `prototype/tests/user-rating.test.ts`, `prototype/tests/auth-record-id.test.ts`.
+ULID 중복 표본 검사는 무충돌의 수학적/운영 보장이 아니며 DB PK 제약은 유지한다. Mock 직렬화는
+공유 인스턴스 내부 보장뿐이다. 실제 DB row lock/최신 snapshot, reviews 공개 후 durable 전달,
+worker retry/dead-letter, app 생성기 변경/기존 데이터 영향은 통합 후 검증해야 한다.
+새 UI가 없어 신규 디자인/브라우저 QA는 해당 없음이며 기존 SSR 계약은 회귀 검사에 포함했다.
+
+## 2026-09-08 프로필 완성도 포트 증분
+
+기준: `origin/develop ec1c01f`를 동기화한 `feature/user-management` 작업 트리.
+변경 범위는 user-management의 내부 조회 포트·Mock·문서·테스트이며 기존 인증/화면은 변경하지 않았다.
+
+- [x] `npx tsx features/user-management/prototype/run.tsx` — **77 PASS / 0 FAIL**
+  (기존 인증·UI 53개 + 신규 프로필 24개; 아래 규칙별 값 조합을 포함한 테스트 묶음 수)
+- [x] `npx tsc -p features/user-management/prototype/tsconfig.json` — strict PASS
+- [x] `npm run preview:build` — PASS
+- [x] applications 실제 prototype Mock에 새 포트를 주입한 별도 로컬 계약 smoke — 6개 시나리오 PASS
+  (완성 eligibility, 미완성 eligibility/누락 코드, 미완성 POST 409, 복구 뒤 POST 201,
+  저장소 장애의 eligibility 503, 저장소 장애의 POST 503). 네트워크·외부 저장 없이 메모리로 실행했다.
+
+| 규칙 | 확인 방법 | 결과 |
+|---|---|---|
+| PC-01 | 전달 ID/36자 호환, 한 호출당 snapshot 1회, 사용자·프로필 소유자 일치, 계정별 격리 | PASS |
+| PC-02 | 회사명 1~100자/공백, enum 6종/폐기 값, 기타 잔존값, 선택 필드 없는 완성 프로필 | PASS |
+| PC-03 | 카테고리·경력 0/32767 및 범위·비유한 수, 활성 기술/빈 연결/40자 ID/비활성 | PASS |
+| PC-04 | 두 역할 프로필 없음, 복수 누락 코드 순서, 오래된 완성 시각이 있어도 미완성 | PASS |
+| PC-05 | 기존 UTC 시각/초 정규화/윤년, NULL·잘못된 날짜·UTC 아닌 값·자동 날짜 보정 거부 | PASS |
+| PC-06 | unknown/탈퇴/잘못된 역할·ID, 저장소 동기/비동기 실패, 불량 snapshot·혼합 기술/희소 배열 | PASS |
+| PC-07 | 동결 snapshot 무변경, seed/조회 중첩 복제, 응답 비공유, 기술 제거·복구·탈퇴 최신 조회 | PASS |
+| PC-08 | applications `createApplicationApiMock(at, { profiles: createProfileCompletionPort(repository) })` 주입 및 409/503/201 smoke | 로컬 PASS; app/실DB는 미검증 |
+
+새 테스트 원본: `prototype/tests/profile-completion.test.ts`.
+이번 변경은 서버 내부 포트이므로 신규 화면·디자인·브라우저 레이아웃 QA는 해당 없음이다.
+기존 화면의 SSR/디자인 계약 테스트는 53개 회귀 검사에서 유지했다.
+
+**미완료/통합 조건:** 운영 DB snapshot adapter, 프로필 저장과 completed_at 갱신/백필,
+실제 지원 트랜잭션 동시성, profile 화면/복귀 동선, app 연결은 이번에 구현·검증하지 않았다.
+project-management의 2상태 실패 매핑, ETC 잔존 문서, 기존 인증 ID 36자와 DB varchar(30) 차이는
+`change-requests/0001-profile-completion-integration.md`에서 별도로 요청한다. 기존 인증 피드백의
+상태를 이번 작업에서 임의로 닫지 않았으며, 통합/배포 완료를 의미하지 않는다.
+
+## 2026-09-04 인증·UI 검증 (이전 기록)
+
 테스트 날짜: 2026-09-04
 
 테스트 기준: `origin/develop` eeb255e 기반 `feature/user-management` 작업 트리

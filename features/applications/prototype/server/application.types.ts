@@ -274,6 +274,7 @@ export type IdempotencyRecord = {
   operationId?: string;
 };
 
+/** Mock 단일 프로세스 저장소. app/은 프로젝트 조각을 `ProjectApplicationContextPort`로 읽는다. */
 export type ApplicationStore = {
   getProject(projectId: string): ProjectApplicationContext | undefined;
   getApplication(applicationId: string): ApplicationRow | undefined;

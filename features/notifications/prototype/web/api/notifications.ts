@@ -70,27 +70,34 @@ export type NotificationHttpApiOptions = {
   /** Full collection endpoint, e.g. /api/v1/notifications. */
   baseUrl?: string;
 };
-export function createNotificationHttpApi(options: NotificationHttpApiOptions): NotificationApi {
-  const endpoint = (options.baseUrl ?? "/api/v1/notifications").replace(/\/$/, "");
-  const fetcher = options.fetch ?? globalThis.fetch;
+
+/** Successful JSON only. The application transport owns authentication, base URL and HTTP policy. */
+export type NotificationJsonRequest = (
+  path: string, options: { method: "GET" | "POST" },
+) => Promise<unknown>;
+
+const NOTIFICATION_COLLECTION_PATH = "/api/v1/notifications";
+
+function normalizeTransportError(error: unknown): NotificationApiError {
+  if (error instanceof NotificationApiError) return error;
+  // Shared HTTP clients have their own error class. Inspect only the numeric status;
+  // never expose their raw body, message, code or tokens to notification state.
+  const status = error !== null && typeof error === "object" && "status" in error ? error.status : undefined;
+  if (typeof status === "number" && Number.isInteger(status) && status >= 400 && status <= 599) {
+    if (status === 401) return new NotificationApiError(401, "UNAUTHORIZED", "세션이 만료되었습니다. 다시 로그인해 주세요.");
+    if (status === 404) return new NotificationApiError(404, "NOTIFICATION_NOT_FOUND", "알림을 찾을 수 없습니다. 목록을 새로고침해 주세요.");
+    return new NotificationApiError(status, status === 400 ? "VALIDATION_ERROR" : "INTERNAL_ERROR", "알림을 처리하지 못했습니다. 다시 시도해 주세요.");
+  }
+  return new NotificationApiError(0, "NETWORK_ERROR", "연결을 확인한 후 다시 시도해 주세요.");
+}
+
+/** App integration seam: full /api/v1 paths, no direct fetch or bearer-token handling. */
+export function createNotificationApi(options: { request: NotificationJsonRequest }): NotificationApi {
   async function request(suffix: string, method: "GET" | "POST"): Promise<unknown> {
     try {
-      const token = await options.getAccessToken();
-      if (!token?.trim()) throw new NotificationApiError(401, "UNAUTHORIZED", "로그인이 필요합니다. 다시 로그인해 주세요.");
-      const response = await fetcher(`${endpoint}${suffix}`, {
-        method, headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        cache: "no-store", credentials: "include",
-      });
-      if (!response.ok) {
-        if (response.status === 401) throw new NotificationApiError(401, "UNAUTHORIZED", "세션이 만료되었습니다. 다시 로그인해 주세요.");
-        if (response.status === 404) throw new NotificationApiError(404, "NOTIFICATION_NOT_FOUND", "알림을 찾을 수 없습니다. 목록을 새로고침해 주세요.");
-        throw new NotificationApiError(response.status, response.status === 400 ? "VALIDATION_ERROR" : "INTERNAL_ERROR", "알림을 처리하지 못했습니다. 다시 시도해 주세요.");
-      }
-      if (response.status !== 200) return invalidResponse();
-      try { return await response.json(); } catch { return invalidResponse(); }
+      return await options.request(`${NOTIFICATION_COLLECTION_PATH}${suffix}`, { method });
     } catch (error) {
-      if (error instanceof NotificationApiError) throw error;
-      throw new NotificationApiError(0, "NETWORK_ERROR", "연결을 확인한 후 다시 시도해 주세요.");
+      throw normalizeTransportError(error);
     }
   }
   return {
@@ -105,7 +112,28 @@ export function createNotificationHttpApi(options: NotificationHttpApiOptions): 
     },
     async markAllNotificationsRead() {
       const dto = record(await request("/read-all", "POST"));
-      return { updatedCount: count(dto.updatedCount), unreadCount: count(dto.unreadCount) };
+      const unreadCount = count(dto.unreadCount);
+      if (unreadCount !== 0) return invalidResponse();
+      return { updatedCount: count(dto.updatedCount), unreadCount };
     },
   };
+}
+
+/** Standalone preview/HTTP adapter. App integration uses its shared JSON transport instead. */
+export function createNotificationHttpApi(options: NotificationHttpApiOptions): NotificationApi {
+  const endpoint = (options.baseUrl ?? NOTIFICATION_COLLECTION_PATH).replace(/\/$/, "");
+  const fetcher = options.fetch ?? globalThis.fetch;
+  return createNotificationApi({
+    async request(path, { method }) {
+      const token = await options.getAccessToken();
+      if (!token?.trim()) throw new NotificationApiError(401, "UNAUTHORIZED", "로그인이 필요합니다. 다시 로그인해 주세요.");
+      const response = await fetcher(`${endpoint}${path.slice(NOTIFICATION_COLLECTION_PATH.length)}`, {
+        method, headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        cache: "no-store", credentials: "include",
+      });
+      if (!response.ok) throw { status: response.status };
+      if (response.status !== 200) return invalidResponse();
+      try { return await response.json(); } catch { return invalidResponse(); }
+    },
+  });
 }

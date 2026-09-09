@@ -5,14 +5,18 @@ import type { BookmarkRecord } from './bookmark.types';
  *
  * 원본에서는 `prototype/mock/bookmark.mock.ts` 안에 Mock 구현과 같이 있었다.
  * app/ 에서는 인터페이스와 구현을 분리한다 (project-management 와 같은 배치).
+ *
+ * 2026-09-08 팀장 반영: Prisma 백엔드 추가를 위해 전 메서드를 Promise 반환으로 바꿨다 —
+ * InMemory 구현은 계산한 값을 Promise.resolve로 감싸기만 하면 되고, bookmark.service.ts
+ * 호출부는 전부 이미 async 함수 안이라 await만 추가하면 된다.
  */
 export interface BookmarkRepository {
-  find(freelancerId: string, projectId: string): BookmarkRecord | null;
+  find(freelancerId: string, projectId: string): Promise<BookmarkRecord | null>;
   /** 이미 있으면 BookmarkAlreadyExistsError 를 던진다 (규칙 32 의 UNIQUE) */
-  insert(record: BookmarkRecord): BookmarkRecord;
+  insert(record: BookmarkRecord): Promise<BookmarkRecord>;
   /** 지운 건수. 없었으면 0 — 오류가 아니다 (규칙 2) */
-  remove(freelancerId: string, projectId: string): number;
+  remove(freelancerId: string, projectId: string): Promise<number>;
   /** 최근 저장순 (규칙 10) */
-  findByFreelancer(freelancerId: string): BookmarkRecord[];
-  countByFreelancer(freelancerId: string): number;
+  findByFreelancer(freelancerId: string): Promise<BookmarkRecord[]>;
+  countByFreelancer(freelancerId: string): Promise<number>;
 }

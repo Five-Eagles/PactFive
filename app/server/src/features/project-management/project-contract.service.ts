@@ -53,8 +53,8 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
   /* ─────────────── 공통 ─────────────── */
 
   /** 삭제된 프로젝트는 없는 것으로 본다 (규칙 11) */
-  function mustFind(projectId: string) {
-    const project = repo.findById(projectId);
+  async function mustFind(projectId: string) {
+    const project = await repo.findById(projectId);
     if (!project) {
       throw new ProjectContractError(404, 'PROJECT_NOT_FOUND', '프로젝트를 찾을 수 없습니다.', {
         projectId,
@@ -109,7 +109,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
   /* ─────────────── 1. getProjectNegotiationContext (규칙 42) ─────────────── */
 
   async function getProjectNegotiationContext(projectId: string): Promise<NegotiationContext> {
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
     return {
       projectId: p.projectId,
       clientId: p.clientId,
@@ -130,7 +130,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     input: AcceptApplicationInput,
   ): Promise<AcceptApplicationResult> {
     requireField(input.applicationId, 'applicationId');
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
 
     // 규칙 55 — "같은 지원서인가"를 상태 조건보다 **먼저** 본다.
     // 순서를 바꾸면 이미 수락된 지원서로 재시도했을 때
@@ -148,7 +148,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       };
     }
 
-    const stored = repo.findProcessed(input.idempotencyKey);
+    const stored = await repo.findProcessed(input.idempotencyKey);
     if (stored) return replay<AcceptApplicationResult>(stored.result);
 
     // 규칙 47 — 한 프로젝트에서 수락된 지원은 최대 1건
@@ -166,7 +166,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     checkVersion(input, p.projectVersion);
 
     const at = now();
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       recruitmentStatus: 'CLOSED',
       transactionStatus: 'CONTRACT_PENDING',
       acceptedApplicationId: input.applicationId,
@@ -184,7 +184,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       changed: true,
       projectVersion: next.projectVersion,
     };
-    repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
+    await repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
     return result;
   }
 
@@ -195,9 +195,9 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     input: MarkPaymentPendingInput,
   ): Promise<MarkPaymentPendingResult> {
     requireField(input.contractId, 'contractId');
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
 
-    const stored = repo.findProcessed(input.idempotencyKey);
+    const stored = await repo.findProcessed(input.idempotencyKey);
     if (stored) return replay<MarkPaymentPendingResult>(stored.result);
 
     if (p.transactionStatus !== 'CONTRACT_PENDING' || p.canceledAt !== null) {
@@ -216,7 +216,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
 
     if (!alreadyMarked) {
       // 규칙 41 — 두 상태 축을 바꾸지 않으므로 projectVersion 도 올리지 않는다.
-      repo.update(projectId, { paymentPendingAt });
+      await repo.update(projectId, { paymentPendingAt });
     }
 
     const result: MarkPaymentPendingResult = {
@@ -228,7 +228,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       changed: !alreadyMarked,
       projectVersion: p.projectVersion,
     };
-    repo.markProcessed(input.idempotencyKey, result, p.projectVersion);
+    await repo.markProcessed(input.idempotencyKey, result, p.projectVersion);
     return result;
   }
 
@@ -242,9 +242,9 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     requireExpectedVersion(input);
 
     // 판정 순서: 존재 → 중복 방지 키 → 이미 IN_PROGRESS → 그 외 상태 → 버전 → 전이
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
 
-    const stored = repo.findProcessed(input.idempotencyKey);
+    const stored = await repo.findProcessed(input.idempotencyKey);
     if (stored) return replay<StartTransactionResult>(stored.result);
 
     if (p.transactionStatus === 'IN_PROGRESS') {
@@ -271,7 +271,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     checkVersion(input, p.projectVersion);
 
     const at = now();
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       transactionStatus: 'IN_PROGRESS',
       projectVersion: p.projectVersion + 1,
     });
@@ -285,7 +285,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       changed: true,
       projectVersion: next.projectVersion,
     };
-    repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
+    await repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
     return result;
   }
 
@@ -298,9 +298,9 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     requireField(input.contractId, 'contractId');
     requireExpectedVersion(input);
 
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
 
-    const stored = repo.findProcessed(input.idempotencyKey);
+    const stored = await repo.findProcessed(input.idempotencyKey);
     if (stored) return replay<CompleteTransactionResult>(stored.result);
 
     if (p.transactionStatus === 'COMPLETED') {
@@ -324,7 +324,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     checkVersion(input, p.projectVersion);
 
     const at = now();
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       transactionStatus: 'COMPLETED',
       projectVersion: p.projectVersion + 1,
     });
@@ -338,7 +338,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       changed: true,
       projectVersion: next.projectVersion,
     };
-    repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
+    await repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
     return result;
   }
 
@@ -349,9 +349,9 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     input: RestorePreContractInput,
   ): Promise<RestorePreContractResult> {
     requireField(input.negotiationId, 'negotiationId');
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
 
-    const stored = repo.findProcessed(input.idempotencyKey);
+    const stored = await repo.findProcessed(input.idempotencyKey);
     if (stored) return replay<RestorePreContractResult>(stored.result);
 
     if (p.transactionStatus === 'NONE') {
@@ -393,7 +393,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     if (reopened) restoredFields.unshift('recruitmentStatus');
     if (p.paymentPendingAt !== null) restoredFields.push('paymentPendingAt');
 
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       recruitmentStatus: reopened ? 'OPEN' : p.recruitmentStatus,
       transactionStatus: 'NONE',
       acceptedApplicationId: null,
@@ -415,7 +415,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       changed: true,
       projectVersion: next.projectVersion,
     };
-    repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
+    await repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
     return result;
   }
 
@@ -427,9 +427,9 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
   ): Promise<ApplyPricingBudgetResult> {
     requireField(input.pricingAnalysisId, 'pricingAnalysisId');
     const actorUserId = requireField(input.actorUserId, 'actorUserId');
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
 
-    const stored = repo.findProcessed(input.idempotencyKey);
+    const stored = await repo.findProcessed(input.idempotencyKey);
     if (stored) return replay<ApplyPricingBudgetResult>(stored.result);
 
     if (p.clientId !== actorUserId) {
@@ -470,7 +470,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
 
     const at = now();
     // 상태 축이 아니라 예산만 바뀐다 → projectVersion 을 올리지 않는다 (규칙 44).
-    repo.update(projectId, { budgetAmount: recommendedAmount });
+    await repo.update(projectId, { budgetAmount: recommendedAmount });
 
     const result: ApplyPricingBudgetResult = {
       projectId,
@@ -480,7 +480,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       changed: recommendedAmount !== p.budgetAmount,
       projectVersion: p.projectVersion,
     };
-    repo.markProcessed(input.idempotencyKey, result, p.projectVersion);
+    await repo.markProcessed(input.idempotencyKey, result, p.projectVersion);
     return result;
   }
 

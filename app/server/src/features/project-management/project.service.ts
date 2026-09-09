@@ -108,8 +108,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return auth;
   }
 
-  function mustFind(projectId: string): ProjectRecord {
-    const project = repo.findById(projectId);
+  async function mustFind(projectId: string): Promise<ProjectRecord> {
+    const project = await repo.findById(projectId);
     if (!project) fail(404, 'PROJECT_NOT_FOUND', '프로젝트를 찾을 수 없습니다.', { projectId });
     return project;
   }
@@ -335,7 +335,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       new Date(input.recruitmentStartAt).getTime() > new Date(at).getTime();
 
     const projectId = newProjectId();
-    const created = repo.insert({
+    const created = await repo.insert({
       projectId,
       clientId: me.userId,
       title: input.title,
@@ -376,7 +376,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
         //
         // **덮어썼다는 사실도 함께 남긴다** (CR-0006 결함 2).
         // 남기지 않으면 의뢰인이 자기 화면의 숫자가 어디서 왔는지 알 수 없다.
-        repo.update(projectId, {
+        await repo.update(projectId, {
           budgetAmount: claimed.recommendedAmount,
           budgetSource: 'AI_ANALYSIS',
           budgetSourceAt: at,
@@ -384,20 +384,20 @@ export function createProjectService(deps: ProjectServiceDeps) {
       } catch {
         // 연결 실패면 프로젝트 생성까지 되돌린다. Prisma 트랜잭션이 아직 없어
         // 소프트 삭제로 대신한다 — 트랜잭션이 생기면 이 줄이 rollback 으로 바뀐다.
-        repo.update(projectId, { deletedAt: at });
+        await repo.update(projectId, { deletedAt: at });
         fail(409, 'PRICING_ANALYSIS_NOT_APPLICABLE', '이 프로젝트에 연결할 수 없는 분석입니다.', {
           pricingAnalysisId: input.pricingAnalysisId,
         });
       }
     }
 
-    const final = repo.findById(projectId) ?? created;
+    const final = (await repo.findById(projectId)) ?? created;
     return { status: 201, body: toClientDetail(final, at) };
   }
 
   /* ═══════════ A-02. 목록 · 검색 ═══════════ */
 
-  function listProjects(query: ProjectListQuery): Responded<ProjectListResponse> {
+  async function listProjects(query: ProjectListQuery): Promise<Responded<ProjectListResponse>> {
     const at = now();
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
@@ -421,7 +421,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
 
     // findAll 이 이미 삭제분을 뺀다 (규칙 11).
-    let rows = repo.findAll();
+    let rows = await repo.findAll();
 
     // 규칙 10 — 마감된 것은 기본으로 뺀다. 명시했을 때만 넣는다.
     // 판정은 저장값이 아니라 조회 시점 기준이다 (규칙 14).
@@ -482,12 +482,12 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
   /* ═══════════ A-03. 상세 ═══════════ */
 
-  function getProject(
+  async function getProject(
     auth: AuthContext | null,
     projectId: string,
-  ): Responded<PublicProjectDetail | ClientProjectDetail> {
+  ): Promise<Responded<PublicProjectDetail | ClientProjectDetail>> {
     const at = now();
-    const project = mustFind(projectId);
+    const project = await mustFind(projectId);
     // 등록 의뢰인에게만 거래 상태가 나간다. 그 외에는 키 자체가 없다 (규칙 9).
     if (auth && project.clientId === auth.userId) {
       return { status: 200, body: toClientDetail(project, at) };
@@ -497,14 +497,14 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
   /* ═══════════ A-04. 수정 ═══════════ */
 
-  function updateProject(
+  async function updateProject(
     auth: AuthContext | null,
     projectId: string,
     input: UpdateProjectInput,
-  ): Responded<ClientProjectDetail> {
+  ): Promise<Responded<ClientProjectDetail>> {
     const me = requireAuth(auth);
     const at = now();
-    const project = mustFind(projectId);
+    const project = await mustFind(projectId);
     mustOwn(project, me);
 
     // 규칙 16 — 마감됐거나 거래가 시작되면 어떤 필드도 못 고친다.
@@ -536,7 +536,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
     // 규칙 18 — 일반 필드 수정으로는 projectVersion 이 올라가지 않는다.
     // 상태 축이 안 바뀌었는데 올리면 다른 도메인의 낙관적 잠금이 헛돈다.
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       ...(input.title !== undefined && { title: input.title }),
       ...(input.description !== undefined && { description: input.description }),
       ...(input.category !== undefined && { category: input.category }),
@@ -554,12 +554,12 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
   /* ═══════════ A-05. 삭제 ═══════════ */
 
-  function deleteProject(auth: AuthContext | null, projectId: string): Responded<null> {
+  async function deleteProject(auth: AuthContext | null, projectId: string): Promise<Responded<null>> {
     const me = requireAuth(auth);
     const at = now();
 
     // 규칙 21 — 이미 삭제된 것을 다시 지워도 204 다. 재시도가 오류로 보이면 안 된다.
-    const project = repo.findByIdIncludingDeleted(projectId);
+    const project = await repo.findByIdIncludingDeleted(projectId);
     if (!project) fail(404, 'PROJECT_NOT_FOUND', '프로젝트를 찾을 수 없습니다.', { projectId });
     mustOwn(project, me);
     if (project.deletedAt !== null) return { status: 204, body: null };
@@ -576,7 +576,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
 
     // 규칙 19 — 행을 지우지 않는다. 지원·계약·정산이 이 행을 참조한다.
-    repo.update(projectId, { deletedAt: at });
+    await repo.update(projectId, { deletedAt: at });
     return { status: 204, body: null };
   }
 
@@ -588,7 +588,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
   ): Promise<Responded<CloseRecruitmentResponse>> {
     const me = requireAuth(auth);
     const at = now();
-    const project = mustFind(projectId);
+    const project = await mustFind(projectId);
     mustOwn(project, me);
 
     if (project.transactionStatus === 'CANCELED') {
@@ -610,7 +610,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
 
     // 규칙 22 — OPEN 과 SCHEDULED 둘 다 CLOSED 가 된다.
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       recruitmentStatus: 'CLOSED',
       recruitmentClosedAt: at,
       deadlineNotifiedAt: project.deadlineNotifiedAt ?? at,
@@ -649,7 +649,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
   ): Promise<Responded<CancelProjectResponse>> {
     const me = requireAuth(auth);
     const at = now();
-    const project = mustFind(projectId);
+    const project = await mustFind(projectId);
     mustOwn(project, me);
 
     // 규칙 30 — 이미 취소면 성공 처리.
@@ -678,7 +678,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       });
     }
 
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       recruitmentStatus: 'CLOSED',
       transactionStatus: 'CANCELED',
       canceledAt: at,
@@ -725,11 +725,11 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
   /* ═══════════ A-08. 내 프로젝트 ═══════════ */
 
-  function listMyProjects(
+  async function listMyProjects(
     auth: AuthContext | null,
     clientId: string,
     query: MyProjectListQuery,
-  ): Responded<ClientProjectListResponse> {
+  ): Promise<Responded<ClientProjectListResponse>> {
     const me = requireAuth(auth);
     if (me.userId !== clientId) {
       fail(403, 'PROJECT_FORBIDDEN', '본인의 목록만 조회할 수 있습니다.', { clientId });
@@ -741,7 +741,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       fail(422, 'VALIDATION_ERROR', 'page 는 1~1000, pageSize 는 1~50 입니다.');
     }
 
-    let rows = repo.findByClientId(clientId);
+    let rows = await repo.findByClientId(clientId);
     if (query.recruitmentStatus) {
       rows = rows.filter((p) => effectiveRecruitmentStatus(p, at) === query.recruitmentStatus);
     }
@@ -765,14 +765,14 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
   /* ═══════════ A-13. 재모집 ═══════════ */
 
-  function reopenRecruitment(
+  async function reopenRecruitment(
     auth: AuthContext | null,
     projectId: string,
     input: ReopenRecruitmentInput,
-  ): Responded<ReopenRecruitmentResponse> {
+  ): Promise<Responded<ReopenRecruitmentResponse>> {
     const me = requireAuth(auth);
     const at = now();
-    const project = mustFind(projectId);
+    const project = await mustFind(projectId);
     mustOwn(project, me);
 
     // 규칙 35 — 이미 OPEN 이면 아무것도 바꾸지 않는다.
@@ -821,7 +821,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     const recruitmentStartAt = at;
     validateDeadline(input.recruitmentDeadlineAt, recruitmentStartAt, at);
 
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       recruitmentStatus: 'OPEN',
       recruitmentStartAt,
       recruitmentDeadlineAt: input.recruitmentDeadlineAt,

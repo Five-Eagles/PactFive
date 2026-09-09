@@ -128,3 +128,8 @@
 | 2026-09-07 | 교차 생명주기 Coordinator Mock. SIGNED∧PAID start, APPROVED∧RELEASED complete. HTTP·`ORCH_*` 없음 |
 | 2026-09-07 | 오케스트레이션 리뷰 교차(OR-I11·REVIEW_REQUESTED·getUserRatingSummary 별칭). 발송은 팀장 |
 | 2026-09-07 | 실서비스 검토 F01~F05·F09·F11 Mock. F08은 PRD 전 미구현 |
+| 2026-09-08 | feedback 항목 1 반영완료. RELEASED는 웹훅·배치. 지급 버튼 없음. |
+| 2026-09-08 | feedback 항목 2 반영완료. 빈 제목은 「프로젝트」. 정본은 CR-CP-001. |
+| 2026-09-08 | feedback 항목 3 반영완료. 무효화 inbound만. A-07 포트 연결은 팀장. |
+| 2026-09-08 | feedback 항목 4 반영완료. 납품·정산·취소 high-fi 시안 있음. |
+| 2026-09-08 | feedback 항목 5 반영완료. 정산 URL은 contractId. preparePayment로 id. |
