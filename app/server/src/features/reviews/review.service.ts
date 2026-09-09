@@ -5,8 +5,11 @@ import {
   type CreateReviewInput,
   type CreateReviewResponse,
   type CreateReviewResult,
-  type GetReviewSummaryResponse,
+  type GetMyProjectReviewResponse,
+  type GetUserRatingResponse,
   type ListProjectReviewsResponse,
+  type ListUserReviewsResponse,
+  type MyProjectReviewReason,
   type ProjectReviewContextPort,
   type PublishedRatingAggregate,
   type ReviewDirection,
@@ -245,6 +248,46 @@ export async function listProjectReviews(
   return { projectId, items };
 }
 
+/**
+ * `GET /reviews/me` — 원본 features/reviews/prototype/server/review.service.ts:272~315의
+ * window 없는 버전이다. `review_windows`가 아직 없어(CR-RV-002 대기, #203) `reviewDeadlineAt`은
+ * 항상 null이고 `REVIEW_PERIOD_CLOSED` 사유도 아직 안 걸린다 — 이식 지시서 §4가 명시적으로
+ * 허용한 축소판이다("그전까지 createdAt 기준으로 두셔도 1~3번과 충돌하지 않습니다").
+ */
+export async function getMyProjectReview(
+  deps: ReviewServiceDeps,
+  projectId: string,
+  actorUserId: string | undefined,
+): Promise<GetMyProjectReviewResponse> {
+  const actor = requireActor(actorUserId);
+  const project = await requireProject(deps, projectId);
+  const siblings = await deps.repository.getReviewsByProject(projectId);
+  const nowIso = deps.now();
+  const isParty = actor === project.clientId || actor === project.freelancerId;
+  const direction: ReviewDirection | null = !isParty
+    ? null
+    : actor === project.clientId
+      ? 'CLIENT_TO_FREELANCER'
+      : 'FREELANCER_TO_CLIENT';
+  const mine = direction ? siblings.find((row) => row.direction === direction) : undefined;
+  const counterpart = direction ? siblings.find((row) => row.direction !== direction) : undefined;
+  const counterpartPublic = counterpart ? isReviewPublic(counterpart, siblings, nowIso) : false;
+
+  let reason: MyProjectReviewReason | null = null;
+  if (!isParty) reason = 'REVIEW_FORBIDDEN';
+  else if (project.transactionStatus !== 'COMPLETED' || project.contractStatus === 'CANCELED') {
+    reason = 'PROJECT_NOT_COMPLETED';
+  } else if (mine) reason = 'REVIEW_ALREADY_SUBMITTED';
+
+  return {
+    canReview: reason === null,
+    reason,
+    reviewDeadlineAt: null,
+    myReview: mine ? toCreateBody(mine, isReviewPublic(mine, siblings, nowIso)) : null,
+    counterpartyReviewVisibility: counterpartPublic ? 'PUBLISHED' : 'NOT_AVAILABLE',
+  };
+}
+
 export async function getPublishedRatingAggregate(
   deps: ReviewServiceDeps,
   revieweeId: string,
@@ -263,11 +306,13 @@ export async function getPublishedRatingAggregate(
   return { ratingSum, reviewCount };
 }
 
-export async function getReviewSummary(
+// `getReviewSummary`에서 이름을 바꿨다 — `review-summary` 경로가 `rating`으로 바뀐 것과 짝이다
+// (이식 지시서 §3).
+export async function getUserRating(
   deps: ReviewServiceDeps,
   userId: string,
   actorUserId: string | undefined,
-): Promise<GetReviewSummaryResponse> {
+): Promise<GetUserRatingResponse> {
   requireActor(actorUserId);
   if (!(await deps.userExistsPort.userExists(userId))) {
     throw new ReviewApiError('USER_NOT_FOUND', '사용자를 찾을 수 없습니다.');
@@ -280,4 +325,48 @@ export async function getReviewSummary(
   // displayAverageRating — 이식 지시서 §2-1. 합계/건수에서 한 번에 반올림한다(두 번 반올림하면
   // 489/110=4.4454…가 4.4 대신 4.5로 나가는 결함이 있었다).
   return { userId, averageRating: displayAverageRating(ratingSum, reviewCount), reviewCount };
+}
+
+/** 오케스트레이션 조회 이름. HTTP는 getUserRating과 같다(api-contract.md :86). */
+export const getUserRatingSummary = getUserRating;
+
+/**
+ * `GET /users/:userId/reviews` — `PUBLISHED`만, `publishedAt DESC, reviewId DESC`.
+ * 원본 features/reviews/prototype/server/review.service.ts:357~390과 같되 window가 없어
+ * `isReviewPublic`은 여전히 `createdAt` 기준(2단계 산출물)이다.
+ */
+export async function listUserReviews(
+  deps: ReviewServiceDeps,
+  userId: string,
+  actorUserId: string | undefined,
+  page = 1,
+  pageSize = 20,
+): Promise<ListUserReviewsResponse> {
+  requireActor(actorUserId);
+  if (!(await deps.userExistsPort.userExists(userId))) {
+    throw new ReviewApiError('USER_NOT_FOUND', '사용자를 찾을 수 없습니다.');
+  }
+  const safePage = Math.min(1000, Math.max(1, Math.floor(page) || 1));
+  const safeSize = Math.min(50, Math.max(1, Math.floor(pageSize) || 20));
+  const nowIso = deps.now();
+
+  const published: ReviewRow[] = [];
+  for (const row of await deps.repository.getAllReviews()) {
+    if (row.revieweeId !== userId) continue;
+    const siblings = await deps.repository.getReviewsByProject(row.projectId);
+    if (!isReviewPublic(row, siblings, nowIso)) continue;
+    published.push(row);
+  }
+  published.sort((a, b) => {
+    const publishedA = a.reviewCreatedPublishedAt ?? a.createdAt;
+    const publishedB = b.reviewCreatedPublishedAt ?? b.createdAt;
+    const byTime = Date.parse(publishedB) - Date.parse(publishedA);
+    return byTime !== 0 ? byTime : b.reviewId.localeCompare(a.reviewId);
+  });
+
+  const totalCount = published.length;
+  const totalPages = totalCount === 0 ? 0 : Math.ceil(totalCount / safeSize);
+  const start = (safePage - 1) * safeSize;
+  const items = published.slice(start, start + safeSize).map((row) => toItem(row, true));
+  return { items, page: safePage, pageSize: safeSize, totalCount, totalPages };
 }

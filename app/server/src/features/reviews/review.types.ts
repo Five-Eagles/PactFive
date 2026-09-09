@@ -78,10 +78,37 @@ export type ListProjectReviewsResponse = {
   items: ReviewItem[];
 };
 
-export type GetReviewSummaryResponse = {
+/** `getReviewSummary`에서 이름을 바꿨다(이식 지시서 §3) — `review-summary` 경로가 `rating`으로
+ * 바뀐 것과 짝이다. 오케스트레이션 조회 이름 `getUserRatingSummary`는 이 타입의 별칭이다. */
+export type GetUserRatingResponse = {
   userId: string;
   averageRating: number | null;
   reviewCount: number;
+};
+
+/** `reviews/me`가 「작성할 수 없는 이유」로 주는 코드. `REVIEW_PERIOD_CLOSED`는 review_windows가
+ * 생기는 CR-RV-002 이후(#203)에 추가한다 — 그전까지 이 사유로는 절대 안 걸린다. */
+export type MyProjectReviewReason =
+  | 'PROJECT_NOT_COMPLETED'
+  | 'REVIEW_FORBIDDEN'
+  | 'REVIEW_ALREADY_SUBMITTED'
+  | 'REVIEW_PERIOD_CLOSED';
+
+export type GetMyProjectReviewResponse = {
+  canReview: boolean;
+  reason: MyProjectReviewReason | null;
+  /** review_windows 없이는 줄 값이 없다 — CR-RV-002 전까지 항상 null(이식 지시서 §4). */
+  reviewDeadlineAt: string | null;
+  myReview: CreateReviewResponse | null;
+  counterpartyReviewVisibility: 'NOT_AVAILABLE' | 'PUBLISHED';
+};
+
+export type ListUserReviewsResponse = {
+  items: ReviewItem[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
 };
 
 export type ReviewRow = {

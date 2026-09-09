@@ -68,7 +68,8 @@ export type ListProjectReviewsResponse = {
   items: ReviewItem[];
 };
 
-export type GetReviewSummaryResponse = {
+/** `review-summary`→`rating` 경로 변경과 짝인 타입 이름 변경 (이식 지시서 §3). */
+export type GetUserRatingResponse = {
   userId: string;
   averageRating: number | null;
   reviewCount: number;

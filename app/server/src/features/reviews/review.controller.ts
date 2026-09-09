@@ -1,7 +1,9 @@
 import {
   createReview,
-  getReviewSummary,
+  getMyProjectReview,
+  getUserRating,
   listProjectReviews,
+  listUserReviews,
   type ReviewServiceDeps,
 } from './review.service';
 import { isReviewApiError, type CreateReviewInput } from './review.types';
@@ -36,9 +38,31 @@ export function createReviewController(deps: ReviewServiceDeps) {
         return toHttp(err);
       }
     },
-    async getReviewSummary(userId: string, actorUserId: string | undefined): Promise<ReviewHttpResult> {
+    async getMyProjectReview(projectId: string, actorUserId: string | undefined): Promise<ReviewHttpResult> {
       try {
-        return { httpStatus: 200, body: await getReviewSummary(deps, userId, actorUserId) };
+        return { httpStatus: 200, body: await getMyProjectReview(deps, projectId, actorUserId) };
+      } catch (err) {
+        return toHttp(err);
+      }
+    },
+    async getUserRating(userId: string, actorUserId: string | undefined): Promise<ReviewHttpResult> {
+      try {
+        return { httpStatus: 200, body: await getUserRating(deps, userId, actorUserId) };
+      } catch (err) {
+        return toHttp(err);
+      }
+    },
+    async listUserReviews(
+      userId: string,
+      actorUserId: string | undefined,
+      page: number | undefined,
+      pageSize: number | undefined,
+    ): Promise<ReviewHttpResult> {
+      try {
+        return {
+          httpStatus: 200,
+          body: await listUserReviews(deps, userId, actorUserId, page, pageSize),
+        };
       } catch (err) {
         return toHttp(err);
       }
