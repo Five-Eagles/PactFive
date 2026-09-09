@@ -233,6 +233,7 @@ export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepos
         fileName: row.fileName,
         mimeType: row.mimeType,
         sizeBytes: row.sizeBytes,
+        fileSha256: row.fileSha256,
       },
       update: {
         status: row.status,
@@ -244,6 +245,7 @@ export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepos
         fileName: row.fileName,
         mimeType: row.mimeType,
         sizeBytes: row.sizeBytes,
+        fileSha256: row.fileSha256,
       },
     });
   }
@@ -359,6 +361,7 @@ function toDeliveryRow(row: DeliveryModel): DeliveryRow {
     fileName: row.fileName,
     mimeType: row.mimeType,
     sizeBytes: row.sizeBytes,
+    fileSha256: row.fileSha256,
   };
 }
 

@@ -115,6 +115,14 @@ function laterDate(start: string, end: string): string {
 }
 
 /**
+ * 2026-09-09 팀장 반영(이식 지시서 §1) — 원본(`prototype/mock/public-api.mock.ts:76`)과
+ * 같은 값. `prepareDeliveryUpload`의 size 상한 검증에 쓴다.
+ */
+const MAX_DELIVERY_FILE_BYTES = 100 * 1024 * 1024;
+
+const SHA256_RE = /^[0-9a-f]{64}$/;
+
+/**
  * 교차 생명주기 Coordinator용 스냅샷 리더. `snapshots.read(projectId)`가 호출될 때마다
  * 계약·결제·납품을 이 저장소에서 다시 읽는다(Coordinator는 복사본을 저장하지 않는다).
  */
@@ -211,6 +219,7 @@ export function createPublicApiService({
       fileName: null,
       mimeType: null,
       sizeBytes: null,
+      fileSha256: null,
     };
     await repo.saveDelivery(row);
     return row;
@@ -852,6 +861,12 @@ export function createPublicApiService({
       return assembleDeliveryResponse(contractId, contract, auth!);
     },
 
+    /**
+     * 2026-09-09 팀장 반영(이식 지시서 §1) — 원본(`prototype/mock/public-api.mock.ts:1365~1392`)과
+     * 같은 검증을 붙이고, `fileName`·`contentType`·`size`·`sha256`을 delivery 행에 저장한다.
+     * 이전에는 sha256만 검증하고 나머지 3개를 받지도 저장하지도 않아 `requestDelivery`의
+     * `??` fallback이 항상 걸려 모든 납품이 `delivery.zip`·0 bytes로 보였다.
+     */
     async prepareDeliveryUpload(
       contractId: string,
       auth: AuthContext | null,
@@ -861,13 +876,28 @@ export function createPublicApiService({
       if (auth!.userId !== contract.freelancerId) {
         throw new PublicApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
       }
-      if (!/^[0-9a-f]{64}$/.test(input.sha256)) {
+      if (!input.fileName?.trim() || !input.contentType?.trim()) {
         throw new DomainContractError('VALIDATION_ERROR', '요청 값이 올바르지 않습니다.', [
-          { field: 'sha256', reason: 'INVALID_FORMAT' },
+          { field: input.fileName?.trim() ? 'contentType' : 'fileName', reason: 'required' },
         ]);
       }
-      await ensureDeliveryForContract(contractId);
+      if (!input.size || input.size <= 0 || input.size > MAX_DELIVERY_FILE_BYTES) {
+        throw new DomainContractError('VALIDATION_ERROR', '요청 값이 올바르지 않습니다.', [
+          { field: 'size', reason: 'invalid' },
+        ]);
+      }
+      if (!SHA256_RE.test(input.sha256 ?? '')) {
+        throw new DomainContractError('VALIDATION_ERROR', '요청 값이 올바르지 않습니다.', [
+          { field: 'sha256', reason: 'invalid' },
+        ]);
+      }
+      const delivery = await ensureDeliveryForContract(contractId);
       const objectKey = `deliveries/${contractId}/${randomId('obj')}`;
+      delivery.fileName = input.fileName.trim();
+      delivery.mimeType = input.contentType;
+      delivery.sizeBytes = input.size;
+      delivery.fileSha256 = input.sha256;
+      await repo.saveDelivery(delivery);
       return {
         uploadId: randomId('upl'),
         // 실저장소·실AV는 스텁이다(spec.md 규칙 23) — PactFive API가 직접 서빙하지 않는 자리표시자.
@@ -916,9 +946,8 @@ export function createPublicApiService({
       delivery.message = input.message;
       delivery.requestedAt = now();
       delivery.objectKey = input.objectKey;
-      delivery.fileName = delivery.fileName ?? 'delivery.zip';
-      delivery.mimeType = delivery.mimeType ?? 'application/octet-stream';
-      delivery.sizeBytes = delivery.sizeBytes ?? 0;
+      // fileName·mimeType·sizeBytes·fileSha256은 prepareDeliveryUpload에서 이미 채워졌다
+      // (이식 지시서 §1) — 여기서 fallback으로 덮어쓰지 않는다.
       delivery.version += 1;
       await repo.saveDelivery(delivery);
 
@@ -1027,10 +1056,14 @@ export function createPublicApiService({
             : null,
       },
       paymentStatus: payment?.status ?? 'READY',
-      downloadUrl: delivery.status === 'APPROVED' && isClient ? `/api/v1/contracts/${contractId}/delivery/download` : null,
+      // 2026-09-09 팀장 반영(이식 지시서 §2, 조준영 권고안) — 이 경로는 public-api.routes.ts에
+      // 등록된 적이 없어 항상 404였다. 실저장소가 이 Increment 밖(spec.md 규칙 23)이라 리다이렉트할
+      // 대상이 없으므로, 없는 라우트를 가리키는 대신 null로 둔다 — canDownload도 false가 되어
+      // 웹의 다운로드 버튼이 비활성화된다("승인됐는데 받을 수 없다"가 드러나지만, 그게 사실이다).
+      downloadUrl: null,
       canRequestDelivery: isFreelancer && delivery.status === 'IN_PROGRESS',
       canApprove: isClient && delivery.status === 'DELIVERY_REQUESTED',
-      canDownload: delivery.status === 'APPROVED' && (isClient || isFreelancer),
+      canDownload: false,
       canReview: ctx.transactionStatus === 'COMPLETED',
     };
   }

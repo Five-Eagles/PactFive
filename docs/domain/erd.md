@@ -472,7 +472,7 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 | `file_name` | varchar(255) | NULL | **(v1.7 신설, E-47)** 원본 mock 그대로(Fact) |
 | `mime_type` | varchar(100) | NULL | **(v1.7 신설, E-47)** 원본 mock 그대로(Fact) |
 | `size_bytes` | integer | NULL | **(v1.7 신설, E-47)** 원본 mock 그대로(Fact) |
-| `file_sha256` | varchar(64) | NULL | **(v1.7 신설, E-47)** 업로드 파일 무결성 해시. 원본 mock엔 없던 필드 — 팀장이 spec.md 규칙 23 근거로 추가(Assumption, 조준영 확인 필요) |
+| `file_sha256` | varchar(64) | NULL | **(v1.7 신설, E-47)** 업로드 파일 무결성 해시. 원본 mock엔 없던 필드 — 팀장이 spec.md 규칙 23 근거로 추가했고, 2026-09-09 조준영 이식 지시서(§1)가 이 컬럼을 실제로 채우도록 요청하면서 확인됐다(Fact — `prepareDeliveryUpload`가 검증 후 저장한다) |
 | `requested_by` | varchar(30) | NULL | **(v1.7 신설, E-47)** `users` 참조, 납품 요청자. 원본 mock엔 없던 필드 — 팀장이 spec.md 규칙 23 근거로 추가(Assumption, 조준영 확인 필요) |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 | `updated_at` | timestamptz | NOT NULL | 수정 시각 |
