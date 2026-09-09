@@ -21,7 +21,7 @@
 
 import type { ProjectRepository } from './project.repository';
 import { ProjectContractError } from './project.types';
-import { isEditClosed } from './recruitment-status';
+import { effectiveRecruitmentStatus, isEditClosed } from './recruitment-status';
 import type { ExternalPorts } from './project.port';
 import type {
   AcceptApplicationInput,
@@ -114,12 +114,16 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     return {
       projectId: p.projectId,
       clientId: p.clientId,
-      recruitmentStatus: p.recruitmentStatus,
+      title: p.title,
+      // CR-AP-003(조준영, 2026-09-08) — 저장값이 아니라 규칙 14 보정값을 준다. 배치 없이도
+      // 화면(공개 목록·상세)과 같은 값을 보게 하기 위해서다. 자세한 근거는 recruitment-status.ts.
+      recruitmentStatus: effectiveRecruitmentStatus(p, now()),
       transactionStatus: p.transactionStatus,
       acceptedApplicationId: p.acceptedApplicationId,
       recruitmentDeadlineAt: p.recruitmentDeadlineAt,
       canceledAt: p.canceledAt,
       paymentPendingAt: p.paymentPendingAt,
+      completedAt: p.completedAt,
       projectVersion: p.projectVersion,
     };
   }
@@ -158,9 +162,13 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
         acceptedApplicationId: p.acceptedApplicationId,
       });
     }
-    if (p.recruitmentStatus !== 'OPEN' || p.transactionStatus !== 'NONE') {
+    // CR-AP-003(조준영, 2026-09-08) — 저장값이 아니라 규칙 14 보정값으로 OPEN을 판정한다.
+    // 예약 모집(SCHEDULED) 프로젝트가 모집 시작 시각을 지났는데도 저장값이 그대로 남아
+    // 지원 수락이 막히는 문제(getProjectNegotiationContext와 같은 결함)가 함께 닫힌다.
+    const currentRecruitmentStatus = effectiveRecruitmentStatus(p, now());
+    if (currentRecruitmentStatus !== 'OPEN' || p.transactionStatus !== 'NONE') {
       conflict('모집 중인 프로젝트만 지원을 수락할 수 있습니다.', {
-        recruitmentStatus: p.recruitmentStatus,
+        recruitmentStatus: currentRecruitmentStatus,
         transactionStatus: p.transactionStatus,
       });
     }
@@ -329,8 +337,12 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     checkVersion(input, p.projectVersion);
 
     const at = now();
+    // completedAt — CR-RV-002(조준영, 2026-09-07). 이 함수 앞부분의 이른 return(라인 314)이
+    // COMPLETED 재진입을 이미 막고 있어, 여기서 한 번만 쓰면 이후로는 절대 덮어써지지 않는다.
+    // reviews의 review_windows.opened_at이 이 값을 그대로 쓴다.
     const next = await repo.update(projectId, {
       transactionStatus: 'COMPLETED',
+      completedAt: at,
       projectVersion: p.projectVersion + 1,
     });
 

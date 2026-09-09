@@ -1,4 +1,4 @@
-import { toIsoOrEmpty } from '../../shared/date';
+import { toIsoDeadlineOrEmpty, toIsoStartOfDayOrEmpty } from '../../shared/date';
 import type { CreateProjectRequest } from './project.types';
 
 export type RegisterDraft = {
@@ -62,8 +62,8 @@ export function buildProjectRegistrationRequest(draft: RegisterDraft): CreatePro
     title: draft.title,
     description: draft.description,
     category: draft.category,
-    recruitmentStartAt: toIsoOrEmpty(draft.recruitmentStartAt) || null,
-    recruitmentDeadlineAt: toIsoOrEmpty(draft.recruitmentDeadlineAt),
+    recruitmentStartAt: toIsoStartOfDayOrEmpty(draft.recruitmentStartAt) || null,
+    recruitmentDeadlineAt: toIsoDeadlineOrEmpty(draft.recruitmentDeadlineAt),
     budgetAmount: toAmount(draft.budgetAmount),
     skillIds: [...draft.skillIds],
     // ai-pricing spec: only an unchanged, accepted recommendation is handed off at registration.

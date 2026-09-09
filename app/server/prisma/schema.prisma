@@ -539,6 +539,13 @@ model Project {
   pendingApplicationCount Int       @default(0) @map("pending_application_count")
   acceptedApplicationId   String?   @map("accepted_application_id") @db.VarChar(30)
   paymentPendingAt        DateTime? @map("payment_pending_at")
+  /// CR-RV-002(조준영, 2026-09-07) — reviews가 review_windows.opened_at("프로젝트 최초
+  /// completedAt")을 채우려면 이 시각이 필요한데, 6기능 Prisma 이식 트랙(2026-09-08)까지는
+  /// COMPLETED 전이 시각을 어디에도 저장하지 않았다(paymentPendingAt과 같은 원칙으로
+  /// 팀장이 추가). completeProjectTransaction(project-contract.service.ts)이 transactionStatus를
+  /// COMPLETED로 바꾸는 그 한 번의 호출에서만 쓴다 — 그 함수는 이미 COMPLETED 재진입을
+  /// 멱등 early-return으로 막고 있어(#203) 재작성 위험이 없다.
+  completedAt             DateTime? @map("completed_at")
   projectVersion          Int       @default(1) @map("project_version")
 
   createdAt DateTime  @default(now()) @map("created_at")
@@ -555,6 +562,8 @@ model Project {
   pricingApplicationReceipts PricingApplicationReceipt[]
   /// [PRISMA-GAP-17] E-48 역참조.
   invalidations              Invalidation[]
+  /// CR-RV-002(조준영, 2026-09-07) 역참조 — projectId 1:1.
+  reviewWindow               ReviewWindow?
 
   @@index([recruitmentStatus, recruitmentDeadlineAt], name: "ix_projects_recruit")
   @@index([clientId, createdAt])
@@ -679,6 +688,13 @@ model ApplicationOperation {
 
 /// [PRISMA-GAP-13] E-42 신설. operation 하위 단계별 진행 이력 — 원본은 operation JSON 안의
 /// steps 배열이지만, 팀장이 자식 테이블로 정규화했다(데이터 의미는 원본과 동일).
+///
+/// CR-AP-004(조준영, 2026-09-09) 변경 1 — 한 operation의 단계는 이름당 최대 1행이어야
+/// 하는 불변식(`application.service.ts` `queuedSteps` — ACCEPT는 3개, REJECT는 1개로
+/// 고정)이 지금은 리포지토리 구현(전량 삭제 후 재삽입)에만 의존한다. `(operationId, name)`
+/// 유니크를 추가해 스키마 차원의 방어를 더한다 — 결함은 아니다(현재 구현은 이미 이 제약
+/// 아래에서 그대로 동작한다), 다음 사람이 구현 방식을 바꿀 때를 위한 방어다. `seq` 유니크는
+/// 순서 보존용으로 그대로 둔다.
 model ApplicationOperationStep {
   id          String  @id @db.VarChar(30)
   operationId String  @map("operation_id") @db.VarChar(30)
@@ -690,6 +706,7 @@ model ApplicationOperationStep {
   operation ApplicationOperation @relation(fields: [operationId], references: [id])
 
   @@unique([operationId, seq], name: "uq_operation_step_seq")
+  @@unique([operationId, name], name: "uq_operation_step_name")
   @@map("application_operation_steps")
 }
 
@@ -710,11 +727,17 @@ model ApplicationStateEvent {
 
 /// [PRISMA-GAP-15] E-45 신설. 모집 마감 시 대기 지원 일괄거절의 멱등 결과. closureEventId는
 /// project-management가 발급하는 사건 id라 FK를 걸지 않는다(원본과 동일).
+///
+/// CR-AP-004(조준영, 2026-09-09) — `result`는 도메인상 3값 리터럴(`PostActionResult`:
+/// "DONE"|"NOT_NEEDED"|"FAILED")이라 스칼라여야 하는데 최초 반영 시 `Json`으로 잘못
+/// 잡았다. 이식 코드가 `as unknown as`로 우회해 객체 전체를 넣는 결함(setClosure)이
+/// 생겼던 원인이기도 하다 — `type`·`status`처럼 다른 리터럴 유니온 컬럼과 같은 원칙으로
+/// varchar를 쓴다.
 model ApplicationClosure {
   closureEventId   String   @id @map("closure_event_id") @db.VarChar(30)
   rejectedCount    Int      @map("rejected_count")
   alreadyProcessed Boolean  @map("already_processed")
-  result           Json
+  result           String   @db.VarChar(20)
   createdAt        DateTime @default(now()) @map("created_at")
 
   @@map("application_closures")
@@ -851,6 +874,18 @@ model Payment {
   platformFeeAmount Int    @map("platform_fee_amount")
   settlementAmount  Int    @map("settlement_amount")
 
+  /// CR-CP-002(조준영, 2026-09-09) — 결제 생성 시점의 수수료 정책 스냅샷 3종. spec.md
+  /// 규칙 24("결제 생성 시 스냅샷", "과거 결제는 정책이 바뀌어도 다시 나누지 않는다")를
+  /// 지키려면 저장 컬럼이 있어야 하는데, 6기능 Prisma 이식 트랙(2026-09-08)에서 저장 컬럼이
+  /// 없어 platformFeeRateBps를 platformFeeAmount÷paymentAmount로 역산했다 — 고정 요율
+  /// 하나만 쓰는 동안은 우연히 정확했지만 요율이 실제로 달라지면 조용히 틀린다. 결제
+  /// 생성 시 한 번 쓰고 그 뒤로는 다시 쓰지 않는다(불변) — 정책이 바뀌어도 과거 행은
+  /// 그대로 둔다. 기본값이 있어 기존 행 백필이 필요 없다(지금까지의 결제는 전부
+  /// fee-policy-v1·1000bps다).
+  platformFeeRateBps Int    @default(1000) @map("platform_fee_rate_bps") @db.SmallInt
+  feePolicyVersion   String @default("fee-policy-v1") @map("fee_policy_version") @db.VarChar(30)
+  pgCostAmount       Int    @default(0) @map("pg_cost_amount")
+
   status        PaymentStatus @default(READY)
   pgProvider    String        @default("TOSS_PAYMENTS") @map("pg_provider") @db.VarChar(20)
   pgOrderId     String        @unique @map("pg_order_id") @db.VarChar(64)
@@ -919,6 +954,22 @@ model Invalidation {
   @@map("invalidations")
 }
 
+/// [PRISMA-GAP-18] E-49 신설, 2026-09-09. CR-CP-002(조준영) — 합의·서명·납품·취소 4개
+/// 흐름이 공용으로 쓰는 멱등 캐시의 "같은 키·다른 본문 409" 판정(spec.md 규칙 23·25)을
+/// 위한 몸통 해시만 저장한다. `getIdempotent`/`setIdempotent`(PrismaContractsPaymentsRepository)
+/// 자체는 응답 전체를 담는 범용 캐시라 여전히 in-memory Map으로 남아 있다 — 재시작하면
+/// 응답 재사용은 안 되지만(CAS·유니크 제약으로 데이터 정합성은 지켜진다), 이 테이블이 있으면
+/// 재시작 후에도 같은 키·다른 본문 거부는 계속 동작한다. 응답 모양은 흐름마다 달라 컬럼
+/// 계약이 흐려지므로 해시만 남긴다(CR-CP-002 "대안으로 검토했던 것").
+model PaymentIdempotencyRecord {
+  idempotencyKey String   @id @map("idempotency_key") @db.VarChar(120)
+  scope          String   @map("scope") @db.VarChar(40)
+  bodyHash       String   @map("body_hash") @db.VarChar(64)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("payment_idempotency_records")
+}
+
 model Review {
   id                       String          @id @db.VarChar(30)
   projectId                String          @map("project_id") @db.VarChar(30)
@@ -956,6 +1007,34 @@ model ReviewIdempotencyKey {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("review_idempotency_keys")
+}
+
+/// CR-RV-002(조준영, 2026-09-07) — 리뷰 작성 창(project_id 1:1). `opened_at`은 프로젝트가
+/// COMPLETED로 전이된 시각(`projects.completed_at`)을 최초 접근 시 한 번만 굳힌 값,
+/// `deadline_at` = opened_at + 14일(SOLO_PUBLIC_AFTER_DAYS, review.constants.ts). 양쪽
+/// 리뷰가 다 있으면 즉시 공개, 한쪽뿐이면 deadline_at이 지나야 단독 공개된다(규칙과
+/// review.service.ts isReviewPublic 그대로). `POST /reviews`가 deadline_at 이후면
+/// 409 REVIEW_PERIOD_CLOSED를 던지는 데도 같은 값을 쓴다.
+///
+/// 원본(조준영, review.mock.ts)은 in-memory Map + `withKeyedLock`으로 최초 생성을
+/// 동시성으로부터 지켰다 — app/은 그 락 인프라가 없다. 대신 `(project_id)` 자체가
+/// 기본키라 Prisma upsert(create/update no-op)가 원자적으로 같은 보장을 준다(락 인프라
+/// 없이도 두 번째 호출이 첫 번째가 만든 행을 그대로 돌려받는다).
+///
+/// `user_rating_projections`(원본에 있던 평점 캐시 테이블)는 이 CR의 다른 절반이지만
+/// 신설하지 않는다 — getUserRating이 이미 공개 리뷰 실시간 합산으로 정상 동작하고
+/// (review.service.ts getPublishedRatingAggregate), 그 위에 캐시를 얹을 이유가 아직
+/// 없다는 판단을 이전 세션에서 조준영과 확인했다(#203 피드백 참고).
+model ReviewWindow {
+  projectId     String   @id @map("project_id") @db.VarChar(30)
+  openedAt      DateTime @map("opened_at")
+  deadlineAt    DateTime @map("deadline_at")
+  policyVersion Int      @default(1) @map("policy_version")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@map("review_windows")
 }
 
 // ═════════════════════════════════════════════════════════════════════

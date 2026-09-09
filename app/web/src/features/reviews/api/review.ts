@@ -2,7 +2,7 @@ import { http } from '../../../shared/http';
 import type {
   CreateReviewInput,
   CreateReviewResponse,
-  GetReviewSummaryResponse,
+  GetUserRatingResponse,
   ListProjectReviewsResponse,
 } from '../review.types';
 
@@ -25,6 +25,7 @@ export function fetchProjectReviews(projectId: string): Promise<ListProjectRevie
   return http.get<ListProjectReviewsResponse>(`/v1/projects/${encodeURIComponent(projectId)}/reviews`);
 }
 
-export function fetchReviewSummary(userId: string): Promise<GetReviewSummaryResponse> {
-  return http.get<GetReviewSummaryResponse>(`/v1/users/${encodeURIComponent(userId)}/review-summary`);
+// review-summary → rating 경로 변경 (이식 지시서 §3).
+export function fetchUserRating(userId: string): Promise<GetUserRatingResponse> {
+  return http.get<GetUserRatingResponse>(`/v1/users/${encodeURIComponent(userId)}/rating`);
 }

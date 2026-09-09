@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
 import { Button, EmptyState, Field, Notice } from '../../shared/ui/primitives';
 import { ApiError } from '../../shared/http';
-import { toIsoOrEmpty } from '../../shared/date';
+import { toIsoDeadlineOrEmpty, toIsoStartOfDayOrEmpty, toKstDateOnly } from '../../shared/date';
 import { updateProject } from './api/project';
 import { useProject, isClientDetail } from './useProject';
 import { PROJECT_ROUTES } from './project.routes';
@@ -56,8 +56,10 @@ export function ProjectEditPage() {
       setTitle(project.title);
       setDescription(project.description);
       setBudgetAmount(String(project.budgetAmount));
-      setStartAt(project.recruitmentStartAt ? project.recruitmentStartAt.slice(0, 10) : '');
-      setDeadlineAt(project.recruitmentDeadlineAt.slice(0, 10));
+      // toKstDateOnly를 쓴다 — recruitmentStartAt은 이제 KST 자정을 UTC로 저장하므로(전날
+      // 15:00) 문자열 앞 10자리만 자르면 하루 전 날짜가 나온다 (shared/date.ts 참고).
+      setStartAt(project.recruitmentStartAt ? toKstDateOnly(project.recruitmentStartAt) : '');
+      setDeadlineAt(toKstDateOnly(project.recruitmentDeadlineAt));
     }
   }, [project]);
 
@@ -107,10 +109,10 @@ export function ProjectEditPage() {
       patch.budgetAmount = Number(budgetAmount.replace(/,/g, '').trim());
     }
     if (canEdit('recruitmentStartAt')) {
-      patch.recruitmentStartAt = toIsoOrEmpty(startAt) || null;
+      patch.recruitmentStartAt = toIsoStartOfDayOrEmpty(startAt) || null;
     }
     if (canEdit('recruitmentDeadlineAt')) {
-      patch.recruitmentDeadlineAt = toIsoOrEmpty(deadlineAt);
+      patch.recruitmentDeadlineAt = toIsoDeadlineOrEmpty(deadlineAt);
     }
 
     try {

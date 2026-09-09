@@ -1,11 +1,43 @@
 ---
 title: "사용자 평점 캐시 소비와 인증 ULID 생성기 app 통합"
-status: "제안"
+status: "제안 — 유효함, 두 항목 모두 미구현 (2026-09-09 재검토)"
 requested_by: "오민혁"
 date: "2026-09-08"
 affected_docs: [docs/domain/erd.md]
 affected_features: [user-management, reviews, notifications]
 ---
+
+> **재검토 (2026-09-09, 팀장).** CR-RV-002가 `user_rating_projections`를 만들지 않기로
+> 한 것과 이 CR은 **다른 캐시를 가리킨다** — 폐기되지 않았다.
+>
+> - **(Fact)** CR-RV-002가 거부한 것은 reviews가 자체 소유하려던 별도 테이블
+>   `user_rating_projections`다. 이유는 `getPublishedRatingAggregate`(reviews 자체
+>   화면용)가 매번 실시간 합산으로 이미 잘 동작해서였다
+>   (`features/reviews/change-requests/0002-...md` 닫음 노트).
+> - **(Fact)** 이 CR이 요청하는 `users.rating_average`/`review_count`는 **다른 테이블,
+>   다른 소유자**다 — ERD E-13(`docs/domain/erd.md:86`)에서 이미 별도로 결정된 캐시이고,
+>   `schema.prisma:354-355`에 `ratingAverage Decimal?`·`reviewCount Int` 컬럼도 이미 있다.
+>   project-management 같은 **다른 기능**이 리뷰 테이블을 직접 조회하지 않고 사용자
+>   평점을 읽을 수 있어야 해서 필요한 캐시다 — reviews 자체 화면 문제와는 목적이 다르다.
+> - **(Fact)** 생산자 쪽은 있다 — `review.service.ts:169`가
+>   `events.publishReviewCreated(...)`를 호출하고, `:275` 주석대로 **공개된 행에만**
+>   보낸다. 다만 `in-memory-review-event.ts` 뿐이라 durable outbox는 아니다(이 CR §"팀장 /
+>   reviews 연결 요청" 4·5번이 이미 지적한 그대로).
+> - **(Fact)** 소비자 쪽은 없다 — `app/server/src/features/user-management/`에
+>   `createReviewCreatedConsumer`·`UserRatingRepository` 어느 것도 없다(grep 0건). 이벤트를
+>   구독하는 코드 자체가 app/에 없으므로 `users.rating_average`는 항상 NULL로 남는다.
+> - **(Fact)** 소비 반대편의 소비자도 비어 있다 —
+>   `app/server/src/features/project-management/in-memory-external.adapter.ts:113`의
+>   `toClientProfile`은 `averageRating: 0`을 하드코딩한다. 캐시가 채워져도 지금 코드는
+>   그 값을 읽지 않는다. 이건 project-management의 Prisma 외부 어댑터 자체가 아직 없다는
+>   더 큰 갭이라 이 CR 범위 밖이다.
+> - **(Fact)** 인증 ULID 부분도 그대로 열려 있다 — `auth.service.ts:243-244`가 여전히
+>   `usr_`/`ses_` + UUID32(36자)를 기본값으로 쓴다. `auth-record-id.ts`는 app/에 없다.
+> - **(Opinion, 팀장)** 상태를 "반영 완료"나 "폐기"로 바꾸지 않는다 — 둘 다 사실이 아니다.
+>   생산자만 반쪽 있고 소비자·읽는 쪽·ULID 세 곳 모두 미구현인 채로 둔다. 다음에 이 CR을
+>   집을 때는 4개를 한 세트로 봐야 한다: ① durable outbox(생산자) ② user-management
+>   consumer/repository(소비자) ③ project-management Prisma 외부 어댑터(읽는 쪽) ④ 인증
+>   기본 생성기 30자화. 넷 중 하나만 하면 캐시가 반쪽짜리로 남는다.
 
 # 통합 요청
 

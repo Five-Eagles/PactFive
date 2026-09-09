@@ -26,6 +26,7 @@ import { createDeadlineSweepService } from './features/project-management/deadli
 import { InMemoryProjectRepository } from './features/project-management/in-memory-project.repository';
 import { PrismaProjectRepository } from './features/project-management/prisma-project.repository';
 import { createInMemoryExternalPorts } from './features/project-management/in-memory-external.adapter';
+import { createContractsPaymentsAdapter } from './features/project-management/contracts-payments.adapter';
 import { createEngagementRouter } from './features/engagement/bookmark.routes';
 import { createEngagementService } from './features/engagement/bookmark.service';
 import { InMemoryBookmarkRepository } from './features/engagement/in-memory-bookmark.repository';
@@ -494,6 +495,13 @@ app.use(
     paymentGatewayConfigured: paymentGateway !== null,
   }),
 );
+
+// 2026-09-09 팀장 반영(이식 지시서 §5, 조준영) — 프로젝트 취소 시 계약 무효화 포트를 실제
+// 구현으로 교체한다. 지금까지는 in-memory-external.adapter.ts의 createUnavailableContractsPort가
+// 무조건 FAILED를 반환해 취소해도 합의·계약이 REJECTED/CANCELED로 바뀌지 않았다. projectPorts는
+// project.service.ts/project-contract.service.ts가 참조로 붙잡고 있으므로(위 pricing·applications와
+// 같은 패턴) publicApiService가 준비된 지금 늦게 채워도 된다.
+projectPorts.contracts = createContractsPaymentsAdapter(publicApiService);
 
 // ---------------------------------------------------------------------------
 // 로컬 개발 전용 — DevAuthToggle(app/web)의 "기능별 시드 계정 피커" 지원용 2종.

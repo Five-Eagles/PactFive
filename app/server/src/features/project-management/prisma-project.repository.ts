@@ -72,6 +72,7 @@ export class PrismaProjectRepository implements ProjectRepository {
         deadlineNotifiedAt: record.deadlineNotifiedAt ? new Date(record.deadlineNotifiedAt) : null,
         acceptedApplicationId: record.acceptedApplicationId,
         paymentPendingAt: record.paymentPendingAt ? new Date(record.paymentPendingAt) : null,
+        completedAt: record.completedAt ? new Date(record.completedAt) : null,
         projectVersion: record.projectVersion,
         createdAt: new Date(record.createdAt),
         deletedAt: record.deletedAt ? new Date(record.deletedAt) : null,
@@ -162,6 +163,9 @@ function toScalarData(patch: Partial<ProjectRecord>): Record<string, unknown> {
   if (patch.paymentPendingAt !== undefined) {
     data.paymentPendingAt = patch.paymentPendingAt ? new Date(patch.paymentPendingAt) : null;
   }
+  if (patch.completedAt !== undefined) {
+    data.completedAt = patch.completedAt ? new Date(patch.completedAt) : null;
+  }
   if (patch.projectVersion !== undefined) data.projectVersion = patch.projectVersion;
   if (patch.createdAt !== undefined) data.createdAt = new Date(patch.createdAt);
   if (patch.deletedAt !== undefined) data.deletedAt = patch.deletedAt ? new Date(patch.deletedAt) : null;
@@ -190,6 +194,7 @@ function toProjectRecord(row: ProjectWithSkills): ProjectRecord {
     deadlineNotifiedAt: row.deadlineNotifiedAt ? row.deadlineNotifiedAt.toISOString() : null,
     acceptedApplicationId: row.acceptedApplicationId,
     paymentPendingAt: row.paymentPendingAt ? row.paymentPendingAt.toISOString() : null,
+    completedAt: row.completedAt ? row.completedAt.toISOString() : null,
     projectVersion: row.projectVersion,
     skillIds: row.projectSkills.map((s) => s.skillId),
     createdAt: row.createdAt.toISOString(),

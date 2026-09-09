@@ -22,7 +22,23 @@ affected_features: [notifications, applications, project-management, contracts-p
 
 - 부분 승인: 오민혁의 notifications API 4종(목록·안읽음 수·개별 읽음·전체 읽음) 진행.
 - 진행 중: 수신자·이벤트 통합. 자연 마감 수신자 정책, 영속 재시도, 운영 배포 검증까지 승인·완료된
-  것은 아니므로 이 CR 전체 상태는 `제안`으로 유지한다. 공유 담당표/계약 사본 갱신도 팀장 후속이다.
+  것은 아니므로 이 CR 전체 상태는 `제안`으로 유지한다.
+
+> **공유 담당표 갱신 완료 (2026-09-09, 팀장).** 나머지 항목(§2~5)은 여전히 열려 있다 —
+> 아래는 이 CR이 명시적으로 요청한 "공유 담당표/계약 사본 갱신"(위 문단, line 25)만
+> 반영한 것이다.
+>
+> - `docs/domain/erd.md` 담당자 표: `notifications`를 최윤석 → 오민혁으로 이동
+> - `docs/domain/reference/erd-v1.4.dbml`: "축 3" 섹션 주석과 `notifications` 테이블
+>   `[R]` 확인 요청자를 오민혁으로 갱신
+> - `docs/domain/reference/prd-v6.4.md` §5.6, §11.4(§3.3.1·§3.3.2 행): "최윤석이
+>   만듭니다" → 오민혁으로 정정 (§11.4의 §3.2.4 applications 행 4개는 최윤석 그대로 — 이건
+>   notifications가 아니라 applications라서 건드리지 않았다)
+> - `.github/CODEOWNERS`: `/features/notifications/` → `@dhalsgur13`(오민혁)
+> - `docs/domain/api-spec/applications-notifications.md`는 이 저장소에 없어 대상 없음
+>
+> 근거: `features/notifications/spec.md:3` "담당자: 오민혁 · 2026-09-07 사용자 인수 요청
+> 기준", task #185·#186(notifications #90 정독·반영, 이미 완료).
 
 | 담당 | 회의상 일정·몫 | 통합 인계 조건 |
 |---|---|---|

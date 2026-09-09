@@ -60,6 +60,10 @@ export type ProjectRecord = {
   acceptedApplicationId: string | null;
   /** 결제 시작 통보 시각. 있으면 취소 불가 (규칙 27) */
   paymentPendingAt: string | null;
+  /** transactionStatus가 COMPLETED로 바뀐 시각. reviews의 review_windows.opened_at
+   * 소스(CR-RV-002, 팀장이 paymentPendingAt과 같은 원칙으로 추가) — completeProjectTransaction
+   * 한 곳에서만 쓰고 그 이후로는 갱신하지 않는다. */
+  completedAt: string | null;
   /** 낙관적 잠금. 상태 축이 실제로 바뀔 때만 +1 (규칙 44) */
   projectVersion: number;
   skillIds: string[];

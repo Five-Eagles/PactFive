@@ -4,8 +4,12 @@
 |---|---|
 | 제기 | 유동우 (project-management) · 2026-08-26 |
 | 확인 필요 | 김락원 (팀장 · 디자인 시스템·ERD) |
-| 상태 | 제안 — 카드에서 제외하고 진행 |
+| 상태 | **반영 완료 (2026-09-09, 팀장, 문서 상태 정리).** |
 | 관련 | `design-system/design-tokens.md` §3 `ProjectCardProps` · `docs/domain/erd.md` |
+
+> **닫음 (2026-09-09, 팀장).** 카드·등록 폼에서 뺀 채로 진행했다 — `app/web/src`에
+> `workMode`/`work_mode` 참조가 없다. ERD에 컬럼을 추가하는 쪽으로 다시 열지 않는 한
+> 이 CR은 여기서 닫는다.
 
 ## 요약
 
