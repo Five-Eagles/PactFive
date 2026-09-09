@@ -41,6 +41,12 @@ export type DomainContractEnvelopeResponse = {
 export type ProjectNegotiationContextResponse = {
   projectId: string;
   clientId: string;
+  /**
+   * 프로젝트 제목 (CR-CP-001, 조준영/2026-09-08).
+   * 계약 스냅샷(`projectTitleSnapshot`, 규칙 20)·공개 GET `projectTitle` 필드를 채우는 데 쓴다.
+   * project-management가 규칙 14 보정을 거쳐 준다 — 팀장이 2026-09-09 반영.
+   */
+  title: string;
   recruitmentStatus: RecruitmentStatus;
   transactionStatus: ProjectTransactionStatus;
   acceptedApplicationId: string | null;

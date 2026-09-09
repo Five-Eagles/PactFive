@@ -22,7 +22,31 @@ affected_features: [notifications, applications, project-management, contracts-p
 
 - 부분 승인: 오민혁의 notifications API 4종(목록·안읽음 수·개별 읽음·전체 읽음) 진행.
 - 진행 중: 수신자·이벤트 통합. 자연 마감 수신자 정책, 영속 재시도, 운영 배포 검증까지 승인·완료된
-  것은 아니므로 이 CR 전체 상태는 `제안`으로 유지한다. 공유 담당표/계약 사본 갱신도 팀장 후속이다.
+  것은 아니므로 이 CR 전체 상태는 `제안`으로 유지한다.
+
+> **공유 담당표 갱신 완료 (2026-09-09, 팀장).** 나머지 항목(§2~5)은 여전히 열려 있다 —
+> 아래는 이 CR이 명시적으로 요청한 "공유 담당표/계약 사본 갱신"(위 문단, line 25)만
+> 반영한 것이다.
+>
+> - `docs/domain/erd.md` 담당자 표: `notifications`를 최윤석 → 오민혁으로 이동
+> - `docs/domain/reference/erd-v1.4.dbml`: "축 3" 섹션 주석과 `notifications` 테이블
+>   `[R]` 확인 요청자를 오민혁으로 갱신
+> - `docs/domain/reference/prd-v6.4.md` §5.6, §11.4(§3.3.1·§3.3.2 행): "최윤석이
+>   만듭니다" → 오민혁으로 정정 (§11.4의 §3.2.4 applications 행 4개는 최윤석 그대로 — 이건
+>   notifications가 아니라 applications라서 건드리지 않았다)
+> - `.github/CODEOWNERS`: `/features/notifications/` → `@dhalsgur13`(오민혁)
+> - `docs/domain/api-spec/applications-notifications.md`는 이 저장소에 없어 대상 없음
+>
+> 근거: `features/notifications/spec.md:3` "담당자: 오민혁 · 2026-09-07 사용자 인수 요청
+> 기준", task #185·#186(notifications #90 정독·반영, 이미 완료).
+
+> **§1 상태 정정 (2026-09-09, 팀장).** 위 "이미 완료"는 부정확했다 — task #185·#186이 만든
+> 커밋(`2e84aec`)은 `feature/user-management-notifications-ai-pricing-integration` 로컬
+> 브랜치에만 있었고 `develop`에 merge되지 않아, 오늘까지 `app/`의 notifications는
+> `.gitkeep`뿐이었다(사용자 문의로 발견). 오늘 그 커밋을 `feat/notifications-user-management-
+> integration` 브랜치로 `origin/develop`에 cherry-pick·검증했다 — §1(조회/자기알림 관리 API
+> 4종 + 웹 벨·목록 화면)은 이제 실제로 반영됐다(브랜치는 준비 완료, develop merge는 아직).
+> §2~4(수신자 정책·원천 이벤트·자연 마감 게이트)는 이 커밋에도 없다 — 그대로 열려 있다.
 
 | 담당 | 회의상 일정·몫 | 통합 인계 조건 |
 |---|---|---|

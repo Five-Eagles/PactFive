@@ -1,6 +1,6 @@
 ---
 title: "getProjectNegotiationContext에 title을 넣는다"
-status: "제안"
+status: "반영 완료"
 requested_by: "조준영 (contracts-payments)"
 date: "2026-09-08"
 affected_docs: [features/project-management/spec.md, features/project-management/api-contract.md]
@@ -14,9 +14,17 @@ affected_features: [project-management, contracts-payments]
 | 받는 사람 | 유동우 (project-management) |
 | 보내는 사람 | 조준영 (contracts-payments) |
 | 날짜 | 2026-09-08 |
-| 상태 | 제안 |
+| 상태 | **반영 완료 (2026-09-09, 팀장)** |
 | ID | `CR-CP-001` |
 | 근거 | spec 규칙 20 `project_title_snapshot = projects.title` · feedback 2026-09-07 항목 2 |
+
+> **닫음 (2026-09-09, 팀장).** 제안대로 `NegotiationContext`(project-management)와
+> `ProjectNegotiationContextResponse`(contracts-payments 쪽 구조적 타입)에 `title: string`을
+> 추가했다. `acceptNegotiationOffer`가 계약 생성 시점에 `ctx.title`을 `projectTitleSnapshot`·
+> `termsSnapshot.projectTitle`로 찍는다 — 자리표시자 빈 문자열은 없앴다. 조회 시 세기·별도
+> 프로젝트 GET은 그대로 안 쓴다(제안대로).
+>
+> 확인 — app/server tsc 통과 · 서버 테스트 8/8 (CR-0012·CR-AP-003과 같은 커밋 묶음)
 
 `app/`은 팀장만 수정한다.
 

@@ -1,6 +1,6 @@
 ---
 title: "AI 추천 예산 적용의 exact replay 저장과 교차 도메인 원자성 확정"
-status: "제안"
+status: "반영 완료 (단순화 채택)"
 requested_by: "오민혁 (ai-pricing)"
 date: "2026-09-04"
 affected_docs: [docs/domain/reference/prd-v6.4.md, docs/domain/reference/erd-v1.4.dbml, docs/domain/erd.md]
@@ -8,6 +8,13 @@ affected_features: [ai-pricing, project-management]
 ---
 
 # 스펙 변경 신청
+
+> **닫음 (2026-09-09, 팀장, 문서 상태 정리).** saga/보상 트랜잭션 대신 project-management의
+> 기존 계약 함수(`applyPricingAnalysisBudget`)를 재사용하는 delegate 패턴으로 단순화 채택했다
+> (`app/server/src/features/ai-pricing/project-budget-application.adapter.ts`, #119~#120,
+> feedback_loop/2026-09-04/ai-pricing.md 항목 1·3). ERD E-33·E-36, PRD D-93,
+> `schema.prisma` `PRISMA-GAP-6`에 근거를 남겼다. 5인·22일 규모에서 saga/outbox는
+> 과설계라는 판단(오민혁 확인 요청이 남아 있었으나 이후 통합에서 문제 제기 없었음).
 
 ID: `CR-AP-003`
 

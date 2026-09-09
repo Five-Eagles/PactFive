@@ -9,9 +9,14 @@ import type { ApplicationItem } from './application.types';
  * 지원자 관리(규칙 10, 의뢰인) — `features/applications/prototype/web/ApplicationPanel.tsx`의
  * "manage"/"manageEmpty"/"conflict" 뷰를 실제 목록·수락·거절로 재해석했다.
  *
- * 수락 확인 다이얼로그는 `ReopenRecruitmentDialog.tsx`(project-management)와 같은
+ * 수락·거절 확인 다이얼로그는 `ReopenRecruitmentDialog.tsx`(project-management)와 같은
  * `.overlay-backdrop`/`.dialog` + 마운트 다음 프레임 진입 애니메이션 패턴을 그대로 쓴다
- * (design-tokens.md §13). 거절은 시안대로 확인 없이 바로 진행한다.
+ * (design-tokens.md §13).
+ *
+ * 2026-09-09 팀장 반영(이식 지시서 §2-2) — 이전엔 이 파일 주석이 "거절은 시안대로 확인 없이
+ * 바로 진행한다"고 적혀 있었는데, 실제 시안(design/high-fi.html `#reject-overlay`)에는
+ * 거절 확인 다이얼로그가 있었다 — integration-workflow.md "시안과 다르면 시안이 옳다"
+ * 원칙에 따라 시안 쪽으로 맞췄다.
  *
  * 2026-09-07 PR #83 이식 — 수락 성공은 이제 잔여 거절·알림 발행을 outbox로 옮겨 즉시
  * 드레인한다(서버 application.service.ts). app/은 항상 즉시 드레인하므로 실제로는 거의 항상
@@ -20,10 +25,12 @@ import type { ApplicationItem } from './application.types';
  * 원본의 `acceptQueued` 뷰를 재해석).
  */
 
+// 2026-09-09 팀장 반영(이식 지시서 §3-1) — spec.md 규칙 10·시안(high-fi.html:168·185·202)은
+// 시스템 상태가 아니라 프리랜서 관점의 심사 진행 말을 쓴다.
 const STATUS_LABEL: Record<ApplicationItem['status'], string> = {
-  PENDING: '대기',
-  ACCEPTED: '수락됨',
-  REJECTED: '거절됨',
+  PENDING: '검토 중',
+  ACCEPTED: '선정됨',
+  REJECTED: '미선정',
 };
 
 export function ManageApplicantsPage() {
@@ -31,6 +38,7 @@ export function ManageApplicantsPage() {
   const { data, loading, error, reload } = useProjectApplications(projectId);
   const { pendingId, errorMessage, accept, reject } = useApplicationDecision();
   const [confirmTarget, setConfirmTarget] = useState<ApplicationItem | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<ApplicationItem | null>(null);
   const [conflict, setConflict] = useState(false);
   const [postActionsNotice, setPostActionsNotice] = useState<'pending' | 'failed' | null>(null);
 
@@ -52,8 +60,10 @@ export function ManageApplicantsPage() {
     }
   }
 
-  async function handleReject(applicationId: string) {
-    const result = await reject(applicationId);
+  async function handleRejectConfirmed() {
+    if (!rejectTarget) return;
+    const result = await reject(rejectTarget.applicationId);
+    setRejectTarget(null);
     if (result) reload();
   }
 
@@ -145,7 +155,7 @@ export function ManageApplicantsPage() {
                   <Button
                     variant="secondary"
                     loading={pendingId === item.applicationId}
-                    onClick={() => void handleReject(item.applicationId)}
+                    onClick={() => setRejectTarget(item)}
                   >
                     거절
                   </Button>
@@ -177,6 +187,13 @@ export function ManageApplicantsPage() {
           submitting={pendingId === confirmTarget.applicationId}
           onCancel={() => setConfirmTarget(null)}
           onConfirm={() => void handleAcceptConfirmed()}
+        />
+      )}
+      {rejectTarget && (
+        <RejectConfirmDialog
+          submitting={pendingId === rejectTarget.applicationId}
+          onCancel={() => setRejectTarget(null)}
+          onConfirm={() => void handleRejectConfirmed()}
         />
       )}
     </PageBody>
@@ -232,6 +249,61 @@ function AcceptConfirmDialog({
           </Button>
           <Button variant="primary" onClick={onConfirm} loading={submitting}>
             수락 확인
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 거절 확인 — 2026-09-09 팀장 반영(이식 지시서 §2-2). `AcceptConfirmDialog`와 같은 패턴을
+ * 그대로 쓴다. 마크업·문구는 `prototype/web/ApplicationPanel.tsx:467~488`을 옮겼다.
+ */
+function RejectConfirmDialog({
+  submitting,
+  onCancel,
+  onConfirm,
+}: {
+  submitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onCancel();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  return (
+    <div
+      className={`overlay-backdrop${visible ? ' open' : ''}`}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="reject-title">
+        <h2 className="title" id="reject-title">
+          이 지원을 거절할까요?
+        </h2>
+        <p className="status-copy">거절 후에는 되돌릴 수 없습니다. 자유 사유는 받지 않습니다.</p>
+        <div className="btn-row">
+          <Button variant="quiet" onClick={onCancel} disabled={submitting}>
+            그만두기
+          </Button>
+          <Button variant="primary" onClick={onConfirm} loading={submitting}>
+            거절 확인
           </Button>
         </div>
       </div>

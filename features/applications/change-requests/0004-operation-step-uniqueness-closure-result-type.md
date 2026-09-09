@@ -1,6 +1,6 @@
 ---
 title: "closure 결과 컬럼이 객체를 담고 있다 · operation 단계 유니크 (E-41~E-45 후속)"
-status: "제안"
+status: "반영 완료"
 requested_by: "조준영 (applications)"
 date: "2026-09-09"
 affected_docs: [docs/domain/erd.md, app/server/prisma/schema.prisma]
@@ -14,9 +14,39 @@ affected_features: [applications]
 | 받는 사람 | 팀장 |
 | 보내는 사람 | 조준영 (applications) |
 | 날짜 | 2026-09-09 |
-| 상태 | 제안 |
+| 상태 | **반영 완료 (2026-09-09, 팀장).** 변경 2는 #195(같은 날 앞선 단위)에서, 변경 1은
 | ID | `CR-AP-004` |
 | 근거 | 2026-09-08 feedback 항목 1 대조 결과 · applications 규칙 3 |
+
+> **닫음 (2026-09-09, 팀장).** A1~A5 확인 질문에 전부 답한다.
+>
+> - **A1(예)** — `setClosure`가 `result.result`를 넣도록 이미 고쳤다(#195,
+>   `prisma-application.repository.ts` create·update 두 분기).
+> - **A2(예)** — `application_closures.result`를 `varchar(20)`으로 바꿨다(#195,
+>   마이그레이션 `20260909090000_application_closures_result_scalar`). 기존 행에 객체가
+>   들어가 있을 수 있어 타입 변경 전 스칼라 추출 UPDATE를 먼저 실행하는 순서를 지켰다.
+> - **A3(예)** — `application_operation_steps`에 `UNIQUE(operation_id, name)`을
+>   추가했다(`uq_operation_step_name`, 마이그레이션
+>   `20260909130000_application_operation_step_name_unique`). 코드 변경은 없다 — CR 본문
+>   그대로 방어용 제약만 추가했다.
+> - **A4(예)** — `seq` 유니크(`uq_operation_step_seq`)는 순서 보존용으로 그대로 뒀다.
+> - **A5(아니오, 통일하지 않는다)** — `application_idempotency_keys.key`는 `varchar(160)`
+>   그대로 둔다. `CR-CP-002`가 제안한 `payment_idempotency_records.idempotency_key
+>   varchar(120)`는 별개 기능(contracts-payments)의 별개 테이블이다. 기존 스키마에도
+>   `project_contract_idempotency_records.idempotency_key varchar(100)`·
+>   `notifications.dedupe_key varchar(120)`처럼 테이블마다 길이가 다르다 — 이미 통일돼
+>   있지 않았고, 통일해야 할 기술적 이유(예: 같은 컬럼에 조인·비교)도 없다. 각 테이블은
+>   자신의 실제 키 생성 규칙에 맞는 길이만 지키면 된다.
+>
+> `application_operation_steps`·`application_closures` ERD 표(`docs/domain/erd.md`,
+> `erd-v1.4.dbml`)도 함께 갱신했다 — `result` 행이 그동안 `jsonb`로 남아 있었다(#195에서
+> 스키마는 고쳤지만 이 문서 표를 갱신하지 않았다).
+>
+> 확인 — `app/server` tsc는 새 스키마 컬럼·모델 반영 전이라 당장은 통과하지 않는다
+> (`prisma generate` 재실행 필요, 아래 CR-CP-002 닫음 메모와 같은 사유). `applications`
+> 코드 변경은 없으므로 그쪽 검증에는 영향이 없다.
+>
+> 아래는 제기 당시 기록이다.
 
 `app/`은 팀장만 수정한다. applications 쪽에는 고칠 것이 없다 — 원본은 이미 두 불변식을
 지키고 있고, 스키마로 옮기는 과정에서 빠진 것을 되돌려 달라는 요청이다.
@@ -165,11 +195,11 @@ result: result.result,
 
 | # | 질문 | 예 | 아니오 | 대안 메모 |
 |---|---|---|---|---|
-| A1 | `setClosure`가 `result.result`를 넣도록 고치는 것이 맞는가 (**결함, 우선**) | | | |
-| A2 | `application_closures.result`를 `varchar(20)`으로 바꾸는 것이 맞는가 | | | |
-| A3 | `(operation_id, name)` 유니크를 추가하는 것이 맞는가 (방어, 급하지 않음) | | | |
-| A4 | `seq` 유니크를 함께 남기는 것이 맞는가 (순서 보존) | | | |
-| A5 | 멱등 키 길이를 `varchar(160)`으로 통일하는가 (`CR-CP-002`는 120으로 제안) | | | |
+| A1 | `setClosure`가 `result.result`를 넣도록 고치는 것이 맞는가 (**결함, 우선**) | 예 | | #195에서 반영 |
+| A2 | `application_closures.result`를 `varchar(20)`으로 바꾸는 것이 맞는가 | 예 | | #195에서 반영 |
+| A3 | `(operation_id, name)` 유니크를 추가하는 것이 맞는가 (방어, 급하지 않음) | 예 | | #202에서 반영 |
+| A4 | `seq` 유니크를 함께 남기는 것이 맞는가 (순서 보존) | 예 | | 그대로 유지 |
+| A5 | 멱등 키 길이를 `varchar(160)`으로 통일하는가 (`CR-CP-002`는 120으로 제안) | | 아니오 | 서로 다른 테이블 — 통일 불필요 |
 
 ## 대안으로 검토했던 것
 

@@ -93,6 +93,12 @@ export type DeliveryRow = {
   fileName: string | null;
   mimeType: string | null;
   sizeBytes: number | null;
+  /**
+   * 2026-09-09 팀장 반영(이식 지시서 §1) — 지금까지 한 번도 쓰이지 않던 필드를 실제로
+   * 채운다. `prepareDeliveryUpload`가 검증한 sha256을 여기 저장하고, `schema.prisma`의
+   * `file_sha256` 컬럼과 짝을 맞춘다.
+   */
+  fileSha256: string | null;
 };
 
 /** GET cancellation의 "마지막 무효화 결과" 조립용(spec.md 규칙 25). */

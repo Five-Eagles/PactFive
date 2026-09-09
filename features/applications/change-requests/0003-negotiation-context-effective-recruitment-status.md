@@ -1,6 +1,6 @@
 ---
 title: "협상 컨텍스트도 조회 시점 모집 상태를 준다 (SCHEDULED 프로젝트에 지원 불가)"
-status: "제안"
+status: "반영 완료"
 requested_by: "조준영 (applications)"
 date: "2026-09-08"
 affected_docs: [features/project-management/spec.md, features/project-management/api-contract.md]
@@ -14,9 +14,36 @@ affected_features: [applications, project-management, contracts-payments]
 | 받는 사람 | 유동우 (project-management) · 팀장 |
 | 보내는 사람 | 조준영 (applications) |
 | 날짜 | 2026-09-08 |
-| 상태 | 제안 |
+| 상태 | **반영 완료 (2026-09-09, 팀장).** app/에 3가지 다 넣었다 — 아래 참고 |
 | ID | `CR-AP-003` |
 | 근거 | 실서비스 재현 2건 (2026-09-08) · PM 규칙 14 · applications 규칙 1 |
+
+> **닫음 (2026-09-09, 팀장).** A1~A4 전부 "예" 방향으로 반영했다.
+>
+> 1. `getProjectNegotiationContext`가 저장값 대신 `effectiveRecruitmentStatus(p, now())`를
+>    준다(`project-contract.service.ts`). `acceptProjectApplication`의 `OPEN` 판정도 같은
+>    보정값을 쓰도록 함께 고쳤다(A2) — 재현 경로 3(모집 시작된 예약 프로젝트의 지원 수락 불가)도
+>    같이 닫힌다.
+> 2. `updateProject`가 `recruitmentStartAt`·`recruitmentDeadlineAt` 중 하나라도 바뀌면
+>    등록과 같은 규칙(`startsLater ? SCHEDULED : OPEN`)으로 저장값 `recruitmentStatus`를
+>    다시 쓴다(A3). `projectVersion`은 올리지 않는다 — OPEN⇄SCHEDULED는 규칙 14가 조회
+>    시점에 보정하는 축이라 상태 축 취급을 하지 않는다.
+> 3. `app/web/src/shared/date.ts`를 시작일용 `toIsoStartOfDayOrEmpty`(KST 0시)와 마감일용
+>    `toIsoDeadlineOrEmpty`(KST 23:59:59)로 분리했다(A4). 원래 함수 하나(`T23:59:59Z` 리터럴)를
+>    시작일에도 그대로 썼던 게 원인이었다. **부수 발견**: PRD §13.1 시각 예시가
+>    `2026-08-31T14:59:59Z`인데(=KST 23:59:59) 원래 마감일 함수는 `T23:59:59Z`를 썼다 —
+>    마감일 쪽도 시각이 9시간 밀려 있었다(달력일 자체는 안 밀렸어서 안 드러났다). 이번에
+>    같이 바로잡았다. 역변환(`ProjectEditPage`가 기존 값을 폼에 다시 채울 때)용으로
+>    `toKstDateOnly`도 추가했다 — 안 하면 시작일은 하루 전으로 보인다.
+>
+> **applications 쪽에는 고칠 것이 없다** — CR 본문 예고대로 `ProjectApplicationContextPort`로
+> 받는 `recruitmentStatus` 값만 조용히 정확해졌다(`project-application-context.adapter.ts`는
+> 구조적 타입이라 코드 변경 없이 통과).
+>
+> 확인 — app/server·app/web tsc 통과 · app/web vite build 통과 · 서버 테스트 8/8
+> (CR-0012 회귀분, 이 CR과 같은 커밋 묶음)
+>
+> 아래는 제기 당시 기록이다.
 
 `app/`은 팀장만 수정한다. applications 쪽에는 고칠 것이 없다 — 판정 근거를 PM에서 받는다.
 

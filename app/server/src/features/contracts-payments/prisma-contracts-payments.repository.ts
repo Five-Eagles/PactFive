@@ -34,20 +34,28 @@ import type {
  * 2. `Payment.clientId`/`freelancerId`는 schema에서 NOT NULL이지만 도메인 `PaymentRow`는
  *    이 두 필드를 갖지 않는다(계약에 이미 있는 정보라 중복을 안 옮긴 것으로 보인다) —
  *    `savePayment`가 최초 삽입 시 `contractId`로 Contract를 찾아 채운다.
- * 3. `PaymentRow.clientKey`/`platformFeeRateBps`는 schema에 저장 컬럼이 없다.
- *    `clientKey`는 애초에 저장 대상이 아니다 — `process.env.PG_CLIENT_KEY`(서버 시크릿이
- *    아니다, public-api.service.ts 원본 주석)라 읽을 때마다 다시 채운다.
- *    `platformFeeRateBps`는 실제로는 결제 생성 시점의 스냅샷이어야 하지만(settlement-fee.ts
- *    주석 — "과거 결제는 요율이 바뀌어도 다시 나누지 않는다") 저장 컬럼이 없어
- *    `platformFeeAmount`/`paymentAmount`로 역산한다. 지금은 시스템 전체가 고정 요율
- *    하나만 쓰므로(public-api.service.ts `platformFeeRate = 0.1` 기본값) 정확히 일치하지만,
- *    요율이 실제로 결제마다 달라지는 기능이 생기면 이 역산은 부정확해진다 — 알려진 gap으로
- *    남긴다(조준영 확인 필요, feedback_loop 참고).
+ * 3. `PaymentRow.clientKey`는 여전히 schema에 저장 컬럼이 없다 — 애초에 저장 대상이
+ *    아니다. `process.env.PG_CLIENT_KEY`(서버 시크릿이 아니다, public-api.service.ts 원본
+ *    주석)라 읽을 때마다 다시 채운다.
+ *
+ *    **2026-09-09 CR-CP-002(조준영) 반영으로 해소** — `platformFeeRateBps`는 저장 컬럼이
+ *    없어 `platformFeeAmount`/`paymentAmount`로 역산했었다. 고정 요율 하나만 쓰는 동안은
+ *    우연히 정확했지만(버림 오차가 반올림에 덮인다), 요율이 결제마다 달라지면 조용히
+ *    틀렸을 것이다. `payments.platform_fee_rate_bps`(+`fee_policy_version`·`pg_cost_amount`)
+ *    컬럼을 추가해 `toPaymentRow`가 이제 저장된 값을 그대로 읽는다 — 역산 없음.
+ *    `feePolicyVersion`·`pgCostAmount`는 스키마 기본값(`fee-policy-v1`·`0`)만 쓴다 — 이
+ *    값을 실제로 바꿔 쓰는 흐름(정책 버전 교체·PG 비용 기록)은 아직 `app/`에 없어
+ *    도메인 `PaymentRow`에도 아직 없다(CR-CP-002 영향 범위 밖 — 그 흐름이 생기면 이
+ *    파일과 `PaymentRow`를 함께 넓힌다).
  *
  * `getIdempotent`/`setIdempotent`는 negotiation·서명·납품·취소 등 서로 다른 응답 모양을 담는
  * 범용 캐시라 대응하는 Prisma 모델이 없다 — ai-pricing의 ProjectBudgetApplicationAdapter와
  * 같은 성격의 known gap으로, 이 클래스 안에 in-memory Map으로만 남겨둔다(재시작하면 멱등
  * 캐시가 비어 재처리될 수 있다 — 결과 자체는 CAS/유니크 제약으로 여전히 안전하다).
+ * CR-CP-002가 이 gap을 더는 것을 인지해 `PaymentIdempotencyRecord`(`payment_idempotency_records`)
+ * 테이블을 함께 요청했다 — 몸통 해시만 저장해 재시작 후에도 "같은 키·다른 본문 409" 판정을
+ * 살리자는 것이다. 이번 반영은 스키마만 추가했다 — `getIdempotent`/`setIdempotent`를 이
+ * 테이블로 바꿔 붙이는 배선은 CR-CP-002의 "영향 범위"에 없어 다음 작업으로 남긴다.
  */
 export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepository {
   private readonly idempotency = new Map<string, unknown>();
@@ -196,6 +204,9 @@ export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepos
         paymentAmount: row.amount,
         platformFeeAmount: row.platformFeeAmount,
         settlementAmount: row.settlementAmount,
+        // CR-CP-002 — 결제 생성 시점의 요율 스냅샷. feePolicyVersion·pgCostAmount는 아직
+        // 도메인 PaymentRow에 없어(파일 헤더 주석 3번) 스키마 기본값을 그대로 쓴다.
+        platformFeeRateBps: row.platformFeeRateBps,
         status: row.status,
         pgOrderId: row.orderId,
         pgPaymentKey: row.paymentKey,
@@ -233,6 +244,7 @@ export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepos
         fileName: row.fileName,
         mimeType: row.mimeType,
         sizeBytes: row.sizeBytes,
+        fileSha256: row.fileSha256,
       },
       update: {
         status: row.status,
@@ -244,6 +256,7 @@ export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepos
         fileName: row.fileName,
         mimeType: row.mimeType,
         sizeBytes: row.sizeBytes,
+        fileSha256: row.fileSha256,
       },
     });
   }
@@ -325,15 +338,15 @@ function toContractRow(row: ContractModel): ContractRow {
 }
 
 function toPaymentRow(row: PaymentModel): PaymentRow {
-  // 파일 헤더 주석 3번 — platformFeeRateBps는 저장 컬럼이 없어 역산한다.
-  const platformFeeRateBps =
-    row.paymentAmount > 0 ? Math.round((row.platformFeeAmount / row.paymentAmount) * 10_000) : 0;
   return {
     paymentId: row.id,
     contractId: row.contractId,
     orderId: row.pgOrderId,
     amount: row.paymentAmount,
-    platformFeeRateBps,
+    // CR-CP-002 — 저장된 스냅샷을 그대로 읽는다. 이전엔 저장 컬럼이 없어 platformFeeAmount÷
+    // paymentAmount로 역산했다(파일 헤더 주석 3번 — 고정 요율 하나만 쓰는 동안은 우연히
+    // 정확했다).
+    platformFeeRateBps: row.platformFeeRateBps,
     platformFeeAmount: row.platformFeeAmount,
     settlementAmount: row.settlementAmount,
     status: row.status === 'REFUNDED' ? 'FAILED' : row.status,
@@ -359,6 +372,7 @@ function toDeliveryRow(row: DeliveryModel): DeliveryRow {
     fileName: row.fileName,
     mimeType: row.mimeType,
     sizeBytes: row.sizeBytes,
+    fileSha256: row.fileSha256,
   };
 }
 

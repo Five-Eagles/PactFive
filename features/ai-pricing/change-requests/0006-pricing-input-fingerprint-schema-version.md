@@ -1,6 +1,6 @@
 ---
 title: "분석 입력 fingerprint 스키마 버전 저장"
-status: "제안"
+status: "반영 완료"
 requested_by: "오민혁 (ai-pricing)"
 date: "2026-09-04"
 affected_docs: [docs/domain/reference/erd-v1.4.dbml, docs/domain/erd.md]
@@ -8,6 +8,10 @@ affected_features: [ai-pricing]
 ---
 
 # 스펙 변경 신청
+
+> **닫음 (2026-09-09, 팀장, 문서 상태 정리).** `inputFingerprintSchemaVersion String`
+> (NOT NULL, `schema.prisma` `PRISMA-GAP-5`, E-37)이 이미 반영됐다(#119, 2026-09-04). 매
+> 생성 시 항상 계산되므로 요청대로 NOT NULL로 뒀다.
 
 ID: `CR-AP-006`
 

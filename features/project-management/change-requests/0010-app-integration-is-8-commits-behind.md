@@ -4,8 +4,14 @@
 |---|---|
 | 제기 | 유동우 (project-management · engagement) · 2026-09-02 |
 | 대상 | 김락원 (팀장 · `app/` 통합) |
-| 상태 | 제안 — 이관 요청 |
+| 상태 | **반영 완료 (#71, 2026-09-09 문서 상태 정리).** |
 | 영향 | 배포 화면에 8/27 이후 고친 결함 6건이 반영돼 있지 않다 |
+
+> **닫음 (2026-09-09, 팀장).** task #71에서 이관 완료. 새 파일 3개
+> (`DestructiveActionSummary.tsx`, `MoneyBreakdown.tsx`, `useDraft.ts`) 모두
+> `app/web/src/features/project-management/`에 있고, 검색어 판정
+> (`matchesKeyword`)도 `app/server/src/.../project.service.ts`에 반영돼 있다.
+> `isBookmarked` 삭제는 CR-0008에서 별도 확인·종결.
 
 ## 무엇이
 
