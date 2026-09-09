@@ -19,6 +19,7 @@
  */
 
 import type { ProjectRepository } from './project.repository';
+import { effectiveRecruitmentStatus } from './recruitment-status';
 import type { ProjectCatalogPort } from './project.port';
 import type { ProjectRecord, RecruitmentStatus } from './project.types';
 
@@ -60,26 +61,6 @@ export type ProjectReadService = ReturnType<typeof createProjectReadService>;
 export function createProjectReadService(deps: ProjectReadDeps) {
   const { repo, catalog, now } = deps;
 
-  /**
-   * 규칙 14 — 저장값이 아니라 조회 시점 기준으로 판정한다.
-   *
-   * `project.service.ts` 에도 같은 계산이 있다. 원본이 두 곳에 둔 것을 그대로 옮겼다 —
-   * 한쪽으로 모으면 두 서비스 사이에 의존 방향이 생긴다. 두 구현이 어긋나지 않는지는
-   * 담당자 쪽 `prototype/run.tsx` 가 대조한다.
-   */
-  function effectiveRecruitmentStatus(p: ProjectRecord, at: string): RecruitmentStatus {
-    const t = new Date(at).getTime();
-    if (p.recruitmentStatus === 'SCHEDULED' && p.recruitmentStartAt !== null) {
-      if (new Date(p.recruitmentStartAt).getTime() <= t) {
-        return new Date(p.recruitmentDeadlineAt).getTime() <= t ? 'CLOSED' : 'OPEN';
-      }
-      return 'SCHEDULED';
-    }
-    if (p.recruitmentStatus === 'OPEN' && new Date(p.recruitmentDeadlineAt).getTime() <= t) {
-      return 'CLOSED';
-    }
-    return p.recruitmentStatus;
-  }
 
   function toCard(p: ProjectRecord, at: string): ProjectCardData {
     return {
