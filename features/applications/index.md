@@ -12,11 +12,14 @@
   `npx tsx prototype/run.tsx` → PASS 97.
 - design/: high-fi. 프로필 잠금 · 후속 처리 · 취소됨 포함.
 - review/: 팀장 통합 요청 `review/teamlead-public-api-panels-2026-09-03.md`.
-- change-requests/: `0001` 반영중. `0002` 반영중(Mock). `app/` 미이식.
+- change-requests/: `0001` applications 완료 · PM 포트 대기(2026-09-08 재요청).
+  `0002` applications 완료 · `app/`·ERD·프로필 포트 대기.
+  `0003` 제안(모집 상태 보정값). `app/` 미이식.
 
 ## 교차 담당
 - 유동우: `acceptProjectApplication`. 모집 상태 읽기. `rejectPendingApplications` 호출자.
   수락·마감·취소 때 `pendingApplicationCount: 0` (CR-AP-001).
+  `getProjectNegotiationContext`는 규칙 14 보정값 (CR-AP-003).
 - 알림 발송: notifications (팀장, 조건부). 조준영은 포트 발행만.
 - 합의 진입: contracts-payments가 손잡이 있을 때만 `proposeNegotiationOffer`.
 
@@ -35,3 +38,8 @@
 | 2026-09-07 | listMyApplications `transactionStatus`. 「완료됨」→ `/projects/:id/reviews` |
 | 2026-09-07 | 설계서 v2.0: 입력 범위·제출 확인·거절 문구. 후속은 CR-0002 |
 | 2026-09-07 | CR-0002 Mock: eligibility·202/outbox·GAP-01 NULL·페이지 |
+| 2026-09-08 | 2026-09-07 피드백 3건 반영완료. CR-AP-001 재요청(지원 건수 0 · 잠금 미작동) |
+| 2026-09-08 | CR-AP-003 제안. 협상 컨텍스트도 규칙 14 보정값. 시작일 UTC 변환 |
+| 2026-09-08 | CR-AP-002 applications 쪽 종료. 남은 항목·담당 표로 정리 |
+| 2026-09-08 | feedback 항목 1 반영완료. PM 프로젝트 조각은 읽기 포트. |
+| 2026-09-08 | feedback 항목 2 반영완료. CR-AP-001 쓰기 포트. Mock만. |

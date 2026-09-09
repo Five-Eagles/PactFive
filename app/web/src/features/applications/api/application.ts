@@ -3,15 +3,29 @@ import type {
   AcceptApplicationResponse,
   CreateApplicationInput,
   CreateApplicationResponse,
+  EligibilityResponse,
   ListMyApplicationsResponse,
   ListProjectApplicationsResponse,
   RejectApplicationResponse,
 } from '../application.types';
 
 /**
- * applications 공개 API 5종. 전부 `shared/http.ts`를 거친다(app/web/AGENTS.md "폴더 간 접점").
+ * applications 공개 API. 전부 `shared/http.ts`를 거친다(app/web/AGENTS.md "폴더 간 접점").
  * 경로는 `features/applications/api-contract.md`가 고정한 값 그대로다.
+ *
+ * 2026-09-07 PR #83 이식 — eligibility 신규, 목록 2종에 페이지네이션이 붙었다. 이 화면들은
+ * 아직 "더 보기" UI가 없으므로 `PAGE_SIZE_MAX`(서버 `LIST_PAGE_SIZE_MAX`와 같은 값)로 고정
+ * 요청해 기존처럼 한 번에 전부 보여준다 — 지원자가 50명을 넘는 프로젝트는 다음 반영에서
+ * 페이지네이션 UI를 붙여야 한다.
  */
+
+const PAGE_SIZE_MAX = 50;
+
+export function fetchApplicationEligibility(projectId: string): Promise<EligibilityResponse> {
+  return http.get<EligibilityResponse>(
+    `/v1/projects/${encodeURIComponent(projectId)}/application-eligibility`,
+  );
+}
 
 export function createApplication(
   projectId: string,
@@ -28,11 +42,12 @@ export function createApplication(
 export function fetchProjectApplications(projectId: string): Promise<ListProjectApplicationsResponse> {
   return http.get<ListProjectApplicationsResponse>(
     `/v1/projects/${encodeURIComponent(projectId)}/applications`,
+    { query: { pageSize: PAGE_SIZE_MAX } },
   );
 }
 
 export function fetchMyApplications(): Promise<ListMyApplicationsResponse> {
-  return http.get<ListMyApplicationsResponse>('/v1/applications/me');
+  return http.get<ListMyApplicationsResponse>('/v1/applications/me', { query: { pageSize: PAGE_SIZE_MAX } });
 }
 
 export function acceptApplication(applicationId: string): Promise<AcceptApplicationResponse> {

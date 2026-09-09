@@ -103,7 +103,7 @@ export function createProjectReadService(deps: ProjectReadDeps) {
      * 보여줘야 하기 때문이다 (engagement 규칙 7·13). 공개 목록과 다르다.
      */
     async getProjectCardData(projectId: string): Promise<ProjectCardData | null> {
-      const project = repo.findById(projectId);
+      const project = await repo.findById(projectId);
       return project ? toCard(project, now()) : null;
     },
 
@@ -117,7 +117,7 @@ export function createProjectReadService(deps: ProjectReadDeps) {
       const at = now();
       const found = new Map<string, ProjectCardData>();
       for (const id of projectIds) {
-        const project = repo.findById(id);
+        const project = await repo.findById(id);
         if (project) found.set(id, toCard(project, at));
       }
       return found;
@@ -133,8 +133,8 @@ export function createProjectReadService(deps: ProjectReadDeps) {
       query: RecommendationCandidateQuery,
     ): Promise<ProjectCardData[]> {
       const at = now();
-      return repo
-        .findAll()
+      const all = await repo.findAll();
+      return all
         .filter((p) => p.projectId !== query.excludeProjectId)
         // 모집 상태는 조회 시점 기준으로 본다. 저장값으로 걸러내면
         // 마감 시각이 지났는데 배치가 안 돈 프로젝트가 추천에 남는다.

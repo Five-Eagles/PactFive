@@ -3,6 +3,7 @@ import { ApiError } from '../../shared/http';
 import {
   acceptApplication as acceptApplicationRequest,
   createApplication as createApplicationRequest,
+  fetchApplicationEligibility,
   fetchMyApplications,
   fetchProjectApplications,
   rejectApplication as rejectApplicationRequest,
@@ -11,6 +12,8 @@ import type {
   ApplicationItem,
   CreateApplicationInput,
   CreateApplicationResponse,
+  EligibilityResponse,
+  MyApplicationItem,
 } from './application.types';
 
 /**
@@ -58,7 +61,7 @@ export function useProjectApplications(projectId: string) {
 
 /** 내 지원 현황(프리랜서) 목록. */
 export function useMyApplications() {
-  const [state, setState] = useState<AsyncState<ApplicationItem[]>>(IDLE);
+  const [state, setState] = useState<AsyncState<MyApplicationItem[]>>(IDLE);
 
   const reload = useCallback(() => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
@@ -68,6 +71,30 @@ export function useMyApplications() {
         setState({ data: null, loading: false, error: toMessage(error, '내 지원 현황을 불러오지 못했습니다.') }),
       );
   }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  return { ...state, reload };
+}
+
+/**
+ * 지원 가능 여부(신규, PR #83) — `ApplyPage`가 폼을 그리기 전에 먼저 부른다. 실패해도 폼
+ * 자체를 막지 않는다(가능 여부를 미리 못 보여줄 뿐, 최종 판정은 여전히 제출 시 서버가 한다) —
+ * `eligibility` 조회 실패와 "지원 불가"는 다른 상태라 구분한다.
+ */
+export function useApplicationEligibility(projectId: string) {
+  const [state, setState] = useState<AsyncState<EligibilityResponse>>(IDLE);
+
+  const reload = useCallback(() => {
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+    fetchApplicationEligibility(projectId)
+      .then((response) => setState({ data: response, loading: false, error: null }))
+      .catch((error: unknown) =>
+        setState({ data: null, loading: false, error: toMessage(error, '지원 가능 여부를 확인하지 못했습니다.') }),
+      );
+  }, [projectId]);
 
   useEffect(() => {
     reload();

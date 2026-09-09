@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { AuthProvider } from "./auth.port";
 import { ProviderAuthError } from "./auth.port";
+import { createAuthRecordId } from "./auth-record-id";
 import type { AuthRepositories } from "./auth.repository";
 import { safeReturnToOrRoot, validateReturnTo } from "../shared/return-to";
 import type {
@@ -240,8 +241,8 @@ export class AuthSessionService {
     this.oauthCallbackUrl = options.oauthCallbackUrl;
     this.now = options.now ?? (() => new Date());
     this.nonce = options.nonce ?? (() => randomUUID());
-    this.nextUserId = options.nextUserId ?? (() => `usr_${randomUUID().replace(/-/g, "")}`);
-    this.nextSessionId = options.nextSessionId ?? (() => `ses_${randomUUID().replace(/-/g, "")}`);
+    this.nextUserId = options.nextUserId ?? (() => createAuthRecordId("usr", this.now().getTime()));
+    this.nextSessionId = options.nextSessionId ?? (() => createAuthRecordId("ses", this.now().getTime()));
     this.oauthIntentCodec = new OAuthIntentCodec(options.oauthIntentEncryptionKey);
     this.registrationRecoveryCodec = new RegistrationRecoveryCodec(options.registrationRecoveryEncryptionKey);
   }

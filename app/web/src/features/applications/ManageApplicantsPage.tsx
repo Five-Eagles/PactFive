@@ -12,6 +12,12 @@ import type { ApplicationItem } from './application.types';
  * 수락 확인 다이얼로그는 `ReopenRecruitmentDialog.tsx`(project-management)와 같은
  * `.overlay-backdrop`/`.dialog` + 마운트 다음 프레임 진입 애니메이션 패턴을 그대로 쓴다
  * (design-tokens.md §13). 거절은 시안대로 확인 없이 바로 진행한다.
+ *
+ * 2026-09-07 PR #83 이식 — 수락 성공은 이제 잔여 거절·알림 발행을 outbox로 옮겨 즉시
+ * 드레인한다(서버 application.service.ts). app/은 항상 즉시 드레인하므로 실제로는 거의 항상
+ * `postActionsStatus: 'SUCCEEDED'`로 끝나지만, 드레인 중 문제가 생기면 `QUEUED`/`RUNNING`/
+ * `FAILED`로 돌아올 수 있어 그 경우만 별도 안내를 보여준다("후속 처리" 뷰, ApplicationPanel.tsx
+ * 원본의 `acceptQueued` 뷰를 재해석).
  */
 
 const STATUS_LABEL: Record<ApplicationItem['status'], string> = {
@@ -26,12 +32,20 @@ export function ManageApplicantsPage() {
   const { pendingId, errorMessage, accept, reject } = useApplicationDecision();
   const [confirmTarget, setConfirmTarget] = useState<ApplicationItem | null>(null);
   const [conflict, setConflict] = useState(false);
+  const [postActionsNotice, setPostActionsNotice] = useState<'pending' | 'failed' | null>(null);
 
   async function handleAcceptConfirmed() {
     if (!confirmTarget) return;
     const result = await accept(confirmTarget.applicationId);
     setConfirmTarget(null);
     if (result) {
+      // 수락 자체는 확정됐다 — 후속(잔여 거절·알림)이 드레인 중 걸렸을 때만 안내한다.
+      if (result.postActionsStatus === 'FAILED') setPostActionsNotice('failed');
+      else if (result.postActionsStatus === 'QUEUED' || result.postActionsStatus === 'RUNNING') {
+        setPostActionsNotice('pending');
+      } else {
+        setPostActionsNotice(null);
+      }
       reload();
     } else {
       setConflict(true);
@@ -89,6 +103,14 @@ export function ManageApplicantsPage() {
 
         {conflict && (
           <Notice tone="warning">다른 지원자가 먼저 수락되었습니다. 목록을 새로 고친 뒤 남은 지원만 확인하세요.</Notice>
+        )}
+        {postActionsNotice === 'pending' && (
+          <Notice tone="warning">선정은 완료되었으며 후속 처리를 진행 중입니다. 잠시 후 목록을 새로 고쳐 확인해 주세요.</Notice>
+        )}
+        {postActionsNotice === 'failed' && (
+          <Notice tone="danger">
+            선정은 완료됐지만 나머지 지원 거절·알림 처리 중 문제가 발생했습니다. 새로고침 후에도 남아 있으면 팀장에게 알려 주세요.
+          </Notice>
         )}
         {errorMessage && <Notice tone="danger">{errorMessage}</Notice>}
 

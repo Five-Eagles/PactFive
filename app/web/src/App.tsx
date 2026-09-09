@@ -80,7 +80,7 @@ function NotFoundPage() {
 function AppRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, restore, logout, devLoginAsMock, devLogoutMock } = useAuth();
+  const { state, restore, logout, login, devLoginAsMock, devLogoutMock } = useAuth();
 
   // 새로고침 후에도 로그인 상태를 이어간다 — Refresh Token은 HttpOnly 쿠키에 있고
   // Access Token은 메모리에만 있으므로, 앱이 뜰 때 한 번 복원해야 한다.
@@ -204,7 +204,12 @@ function AppRoutes() {
     <>
       {page}
       {import.meta.env.DEV && (
-        <DevAuthToggle viewer={viewer} onSelectRole={devLoginAsMock} onClear={devLogoutMock} />
+        <DevAuthToggle
+          viewer={viewer}
+          onSelectRole={devLoginAsMock}
+          onClear={devLogoutMock}
+          onLoginAsSeedAccount={(email, password) => login({ email, password, returnTo: '/' })}
+        />
       )}
     </>
   );
