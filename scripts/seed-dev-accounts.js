@@ -55,6 +55,10 @@ const SERVER_BASE_URL = process.env.SERVER_BASE_URL ?? 'http://localhost:3000';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const WEB_ORIGIN = (process.env.WEB_ORIGIN ?? '').split(',').map((s) => s.trim()).filter(Boolean)[0];
+// 2026-09-09 추가 — "마감 처리" 시나리오(아래 ensureRecruitmentClosed)에만 쓴다. 없으면
+// 그 시나리오 하나만 건너뛰고 나머지 8개 계정은 그대로 만든다(다른 필수 env처럼
+// requireEnv로 죽이지 않는다 — 이건 선택 기능이다, CR-0001 §4 운영 게이트와 같은 값).
+const INTERNAL_SERVICE_TOKEN = process.env.INTERNAL_SERVICE_TOKEN;
 
 function requireEnv(name, value) {
   if (!value) {
@@ -177,12 +181,30 @@ const ACCOUNTS = [
     feature: 'contracts-payments (결제~납품) / reviews',
     description: 'client-payment-ready와 짝.',
   },
+  {
+    key: 'client-recruitment-closed',
+    role: 'CLIENT',
+    email: 'seed.client.closed@example.com',
+    label: '의뢰인 · 마감 처리 완료(CLOSED)',
+    feature: 'project-management / applications',
+    description:
+      '등록 직후 마감되도록 짧은 마감 시각으로 만든 뒤 /internal/v1/projects/sweep-deadlines를 직접 호출해 실제로 CLOSED까지 밀어붙인 프로젝트. 대기 중이던 지원자는 자동거절(AUTO_REJECTED)된다 — "마감된 프로젝트" 화면, 지원자 자동거절 목록 테스트용. INTERNAL_SERVICE_TOKEN이 .env에 없으면 이 계정 쌍은 건너뛴다.',
+  },
+  {
+    key: 'freelancer-auto-rejected',
+    role: 'FREELANCER',
+    email: 'seed.freelancer.auto-rejected@example.com',
+    label: '프리랜서 · 마감으로 자동거절(AUTO_REJECTED)',
+    feature: 'applications',
+    description: 'client-recruitment-closed의 프로젝트에 PENDING으로 지원한 뒤 마감 스윕으로 자동거절된 상태. 내 지원 목록에서 AUTO_REJECTED 사유 표시 테스트용.',
+  },
 ];
 
 const MARKER = {
   recruiting: '[시드:project-management] 모집 중 테스트 프로젝트',
   contractPending: '[시드:contracts-payments] 계약대기 테스트 프로젝트',
   paymentReady: '[시드:contracts-payments] 결제준비 테스트 프로젝트',
+  closed: '[시드:project-management] 마감 처리 테스트 프로젝트',
 };
 
 async function ensureAccount(supabaseAdmin, persona) {
@@ -376,6 +398,82 @@ async function ensurePaymentReady(clientSession, freelancerSession, projectId) {
   return { contractId, ...payment.body };
 }
 
+/**
+ * 2026-09-09 추가 — "마감 처리" 시나리오. registerProject의 마감 검증(project.service.ts
+ * validateDeadline)이 `deadline <= now`를 거부하므로 처음부터 과거 시각으로는 못 만든다 —
+ * 대신 등록 직후 마감되도록 몇 초 뒤로만 잡고, 그 시각이 지나길 기다린 다음
+ * `/internal/v1/projects/sweep-deadlines`(서비스 토큰 필요)를 직접 호출해 실제로 마감시킨다.
+ * 마감 처리는 멱등이라(deadline-sweep.service.ts 주석) 재실행해도 안전하다.
+ */
+async function ensureRecruitmentClosed(clientSession, freelancerSession, markerTitle) {
+  if (!INTERNAL_SERVICE_TOKEN) {
+    console.log(
+      '[seed] INTERNAL_SERVICE_TOKEN이 .env에 없어 "마감 처리(CLOSED)" 시나리오는 건너뜁니다 — ' +
+        '값을 채우고 다시 실행하면 이 계정 쌍도 만들어집니다.',
+    );
+    return null;
+  }
+
+  const mine = await api(`/api/v1/clients/${clientSession.userId}/projects`, {
+    accessToken: clientSession.accessToken,
+  });
+  if (mine.status !== 200) throw new Error(`프로젝트 목록 조회 실패: ${JSON.stringify(mine.body)}`);
+  let project = mine.body.items.find((p) => p.title === markerTitle);
+
+  if (!project) {
+    const deadline = new Date(Date.now() + 6000).toISOString(); // 등록 직후(6초 뒤) 마감되도록 일부러 짧게 잡는다.
+    const created = await api('/api/v1/projects', {
+      method: 'POST',
+      accessToken: clientSession.accessToken,
+      body: {
+        title: markerTitle,
+        description:
+          '시드 스크립트(scripts/seed-dev-accounts.js)가 "마감 처리" 테스트용으로 자동 생성한 프로젝트입니다. 등록 직후 마감되도록 일부러 마감 시각을 짧게 잡았습니다.',
+        category: 'WEB_DEVELOPMENT',
+        recruitmentStartAt: null,
+        recruitmentDeadlineAt: deadline,
+        budgetAmount: 2_000_000,
+        skillIds: ['REACT'],
+        pricingAnalysisId: null,
+      },
+    });
+    if (created.status !== 201) throw new Error(`마감 테스트용 프로젝트 생성 실패: ${JSON.stringify(created.body)}`);
+    project = created.body;
+  }
+
+  if (project.recruitmentStatus === 'CLOSED') {
+    console.log('[seed] 마감 처리 시나리오: 이미 CLOSED 상태 — 재사용');
+    return project;
+  }
+
+  await ensureApplication(freelancerSession, project.projectId);
+
+  const waitMs = new Date(project.recruitmentDeadlineAt).getTime() - Date.now() + 1000; // 마감 + 1초 여유.
+  if (waitMs > 0) {
+    console.log(`[seed] 마감 처리 시나리오: 마감 시각까지 ${Math.ceil(waitMs / 1000)}초 대기 중...`);
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+
+  const swept = await api('/internal/v1/projects/sweep-deadlines', {
+    method: 'POST',
+    accessToken: INTERNAL_SERVICE_TOKEN,
+  });
+  if (swept.status !== 200) throw new Error(`마감 스윕 호출 실패 (status ${swept.status}): ${JSON.stringify(swept.body)}`);
+
+  const after = await api(`/api/v1/clients/${clientSession.userId}/projects`, {
+    accessToken: clientSession.accessToken,
+  });
+  const closed = (after.body.items ?? []).find((p) => p.projectId === project.projectId) ?? project;
+  if (closed.recruitmentStatus !== 'CLOSED') {
+    throw new Error(
+      `마감 스윕을 호출했지만 프로젝트가 아직 CLOSED가 아닙니다 (recruitmentStatus=${closed.recruitmentStatus}) — ` +
+        '마감 시각이 실제로 지났는지, 서버 시계가 맞는지 확인하세요.',
+    );
+  }
+  console.log('[seed] 마감 처리 시나리오: CLOSED 확인 완료');
+  return closed;
+}
+
 async function main() {
   const supabaseAdmin = await loadSupabaseAdminClient();
 
@@ -407,6 +505,13 @@ async function main() {
     paymentReadyProject.projectId,
   );
 
+  console.log('[seed] project-management 마감 처리(CLOSED) 상태 구성 중 (INTERNAL_SERVICE_TOKEN 필요)...');
+  const closedProject = await ensureRecruitmentClosed(
+    sessions['client-recruitment-closed'],
+    sessions['freelancer-auto-rejected'],
+    MARKER.closed,
+  );
+
   const extras = {
     'client-recruiting': { projectId: recruitingProject.projectId },
     'freelancer-applicant': { projectId: recruitingProject.projectId },
@@ -424,6 +529,14 @@ async function main() {
       projectId: paymentReadyProject.projectId,
       contractId: paymentReadyInfo.contractId,
     },
+    // closedProject는 INTERNAL_SERVICE_TOKEN이 없으면 null — 그 경우 이 두 계정은 로그인은
+    // 되지만 projectId가 비어 있다(note로 이유를 남긴다). accounts.map에서 처리.
+    'client-recruitment-closed': closedProject
+      ? { projectId: closedProject.projectId, recruitmentStatus: closedProject.recruitmentStatus }
+      : { note: 'INTERNAL_SERVICE_TOKEN 미설정 — 프로젝트 미생성. .env에 값을 채우고 재실행하세요.' },
+    'freelancer-auto-rejected': closedProject
+      ? { projectId: closedProject.projectId }
+      : { note: 'INTERNAL_SERVICE_TOKEN 미설정 — 프로젝트 미생성. .env에 값을 채우고 재실행하세요.' },
   };
 
   const accounts = ACCOUNTS.map((persona) => {
@@ -470,6 +583,14 @@ async function main() {
     `  curl -X POST ${SERVER_BASE_URL}/api/internal/dev/simulate-settlement -H "Content-Type: application/json" -d '{"paymentId":"${paymentReadyInfo.paymentId}"}'`,
   );
   console.log('자세한 설명은 scripts/seed-dev-accounts.md를 참고하세요.');
+
+  if (!closedProject) {
+    console.log(
+      '\n[안내] client-recruitment-closed / freelancer-auto-rejected 계정은 로그인은 가능하지만, ' +
+        'INTERNAL_SERVICE_TOKEN이 없어 "마감 처리" 프로젝트는 아직 만들지 않았습니다. ' +
+        '.env에 INTERNAL_SERVICE_TOKEN을 채운 뒤 npm run seed:dev-accounts를 다시 실행하세요.',
+    );
+  }
 }
 
 main().catch((error) => {

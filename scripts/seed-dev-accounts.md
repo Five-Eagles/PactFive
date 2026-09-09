@@ -25,7 +25,7 @@ npm run seed:dev-accounts
 실행할 때마다 계정이 늘어나지 않는다 — 이메일이 고정이라, 이미 있으면 그 계정을 그대로
 재사용한다(idempotent). 서버를 재시작한 뒤에도 다시 돌려도 안전하다.
 
-## 3. 만들어지는 계정 8개
+## 3. 만들어지는 계정 10개
 
 | 계정 | 역할 | 상태 | 어떤 화면 테스트용 |
 |---|---|---|---|
@@ -37,9 +37,31 @@ npm run seed:dev-accounts
 | `freelancer-contract-pending` | 프리랜서 | `client-contract-pending`과 짝 | contracts-payments 합의 수락 |
 | `client-payment-ready` | 의뢰인 | 합의·서명 완료, 결제 준비(clientKey 발급)까지 | contracts-payments 결제~납품, reviews(4절 참고) |
 | `freelancer-payment-ready` | 프리랜서 | `client-payment-ready`와 짝 | 위와 동일 |
+| `client-recruitment-closed` | 의뢰인 | 모집 마감(CLOSED) 처리 완료 | project-management(마감된 프로젝트 화면), applications(자동거절 목록) — 5-1절 참고 |
+| `freelancer-auto-rejected` | 프리랜서 | 마감으로 자동거절(AUTO_REJECTED) | applications(내 지원 목록의 AUTO_REJECTED 사유 표시) |
 
 각 계정의 정확한 설명·이메일은 화면의 DEV 위젯에 그대로 표시된다(호버하면 설명 툴팁도
 뜬다) — 이 표는 개요용이고, 실제 로그인은 위젯에서 클릭으로 한다.
+
+### 3-1. `client-recruitment-closed` / `freelancer-auto-rejected`는 조건부다 (Fact)
+
+이 두 계정은 `.env`에 `INTERNAL_SERVICE_TOKEN`이 있어야만 완전히 만들어진다. 이유:
+CLOSED 상태로 만들려면 `POST /internal/v1/projects/sweep-deadlines`(마감 스윕)를 직접
+호출해야 하는데, 이 경로는 서비스 간 호출 전용이라 `INTERNAL_SERVICE_TOKEN`을 Bearer
+토큰으로 요구한다(`app/server/src/shared/require-service-token.ts`, 값이 없으면 서버가
+503으로 거부).
+
+`.env`에 값이 없으면: 스크립트는 죽지 않는다. 이 시나리오 하나만 건너뛰고 나머지 8개
+계정은 그대로 만든다. 로그인 자체는 되지만(계정은 생성됨) 프로젝트가 없어
+`.dev-accounts.local.json`의 해당 두 항목에 `projectId` 대신 `note`가 남는다. `.env`에
+`INTERNAL_SERVICE_TOKEN`을 채우고 `npm run seed:dev-accounts`를 다시 돌리면 그때
+마저 만들어진다(멱등이라 이미 만든 다른 8개는 건드리지 않는다).
+
+동작 방식: 등록 직후(6초 뒤) 마감되도록 짧은 마감 시각으로 프로젝트를 만들고,
+`freelancer-auto-rejected`가 지원(PENDING)한 뒤, 마감 시각이 지나길 실제로 기다렸다가
+스윕 엔드포인트를 호출한다 — 그러면 프로젝트는 CLOSED로, 대기 중이던 지원은
+AUTO_REJECTED로 바뀐다. 스크립트 실행 시간이 몇 초 더 걸리는 것은 이 대기 때문이다
+(정상 동작).
 
 ## 4. `payment-ready` 계정의 한계 — 결제 확정부터는 수동이다 (Fact)
 
@@ -72,7 +94,8 @@ npm run seed:dev-accounts
   누르면 펼쳐진다.
 - 위젯 안에는 두 구역이 있다.
   - **mock 세션**: 기존 기능. 서버가 `AUTH_PROVIDER_MODE=mock`일 때만 통한다.
-  - **시드 계정**: 이 문서가 다루는 8개 계정. 기능별로 묶여서 나온다. 클릭하면 실제
+  - **시드 계정**: 이 문서가 다루는 최대 10개 계정(마감 처리 2개는 `INTERNAL_SERVICE_TOKEN`
+    설정 여부에 따라 8개일 수도 있다). 기능별로 묶여서 나온다. 클릭하면 실제
     `POST /api/v1/auth/sessions`(로그인)이 호출된다 — mock과 달리 서버가 진짜 세션으로
     인식한다.
 - 아직 `npm run seed:dev-accounts`를 안 돌렸으면 이 구역에 "시드 계정이 없습니다" 안내가
@@ -80,7 +103,7 @@ npm run seed:dev-accounts
 
 ## 6. 안전 관련 참고 (Fact)
 
-- 8개 계정 모두 `@example.com` 가짜 이메일, 고정 비밀번호(`PactFiveSeedDev!1`)를 쓴다 —
+- 10개 계정 모두 `@example.com` 가짜 이메일, 고정 비밀번호(`PactFiveSeedDev!1`)를 쓴다 —
   전부 코드에 그대로 있지만, 실제 사람에게 영향을 주는 값이 아니다(auth.mock.ts의 고정
   mock 토큰과 같은 성격).
 - 결과 파일 `.dev-accounts.local.json`(리포 루트)은 `.gitignore`에 있어 커밋되지 않는다.
@@ -89,6 +112,10 @@ npm run seed:dev-accounts
   (`app/server/src/express-app.ts`) — 배포 환경에서는 존재하지 않는 경로다.
 - 이 스크립트도 로컬 PC에서 실행해야 한다 — 샌드박스에는 Supabase/DB로 나가는 네트워크가
   없다(`scripts/seed-contractable-project.md` 참고).
+- `INTERNAL_SERVICE_TOKEN`은 다른 8개 계정과 무관한 서비스 간 인증 비밀값이다 — 각자
+  `.env`에 임의의 문자열을 채우면 되고(로컬 전용이므로 값 자체는 중요하지 않다, 서버와
+  스크립트가 같은 `.env`를 읽으므로 같은 값이기만 하면 된다), 커밋되는 코드에는 절대
+  들어가지 않는다.
 
 ---
 
