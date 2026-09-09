@@ -17,6 +17,7 @@
  */
 
 import type { ProjectRepository } from './project.repository';
+import { effectiveRecruitmentStatus } from './recruitment-status';
 import {
   ProjectContractError,
   type CancelProjectResponse,
@@ -33,7 +34,6 @@ import {
   type ProjectRecord,
   type PublicProjectDetail,
   type PublicProjectItem,
-  type RecruitmentStatus,
   type ReopenRecruitmentInput,
   type ReopenRecruitmentResponse,
   type UpdateProjectInput,
@@ -122,23 +122,6 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
   }
 
-  /**
-   * 규칙 14 — 저장된 값이 아니라 **조회 시점 기준**으로 보이는 모집 상태.
-   * 시각이 지났는데 배치가 아직 안 돈 프로젝트가 잘못된 상태로 보이지 않게 한다.
-   */
-  function effectiveRecruitmentStatus(p: ProjectRecord, at: string): RecruitmentStatus {
-    const t = new Date(at).getTime();
-    if (p.recruitmentStatus === 'SCHEDULED' && p.recruitmentStartAt !== null) {
-      if (new Date(p.recruitmentStartAt).getTime() <= t) {
-        return new Date(p.recruitmentDeadlineAt).getTime() <= t ? 'CLOSED' : 'OPEN';
-      }
-      return 'SCHEDULED';
-    }
-    if (p.recruitmentStatus === 'OPEN' && new Date(p.recruitmentDeadlineAt).getTime() <= t) {
-      return 'CLOSED';
-    }
-    return p.recruitmentStatus;
-  }
 
   /* ═══════════ 검증 ═══════════ */
 

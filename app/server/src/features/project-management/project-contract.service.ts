@@ -21,6 +21,7 @@
 
 import type { ProjectRepository } from './project.repository';
 import { ProjectContractError } from './project.types';
+import { isEditClosed } from './recruitment-status';
 import type { ExternalPorts } from './project.port';
 import type {
   AcceptApplicationInput,
@@ -437,6 +438,18 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
         projectId,
       });
     }
+    // CR-0012 ① 규칙 16 과 같은 잠금이다.
+    // 일반 수정(updateProject)으로는 못 바꾸는 예산을 이 경로로는 바꿀 수 있으면 안 된다.
+    // 모집이 끝났거나 거래가 시작된 뒤에 예산이 바뀌면 계약 금액의 근거가 흔들린다.
+    if (isEditClosed(p, now())) {
+      throw new ProjectContractError(
+        409,
+        'PROJECT_EDIT_CLOSED',
+        '마감되었거나 거래가 시작되어 예산을 변경할 수 없습니다.',
+        { projectId },
+      );
+    }
+
     // 규칙 15 와 같은 잠금이다. 지원자가 보고 지원한 예산이 뒤에서 바뀌면 안 된다.
     if (p.pendingApplicationCount > 0) {
       throw new ProjectContractError(
@@ -447,6 +460,21 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       );
     }
     checkVersion(input, p.projectVersion);
+
+    // CR-0012 ② 화면이 보여준 예산이 그 사이 바뀌었으면 덮어쓰지 않는다.
+    //
+    // 버전 검사(위 checkVersion)로는 이걸 못 잡는다 — 예산 변경은 상태 축이 아니라
+    // projectVersion 을 올리지 않기 때문이다(규칙 44). 그래서 예산 자체를 따로 본다.
+    //
+    // 보내지 않으면 검사하지 않는다. 기존 호출자를 깨지 않기 위해서다.
+    if (input.expectedBudgetAmount !== undefined && input.expectedBudgetAmount !== p.budgetAmount) {
+      throw new ProjectContractError(
+        409,
+        'PROJECT_BUDGET_CONFLICT',
+        '예산이 이미 변경되었습니다. 새로고침 후 다시 시도해 주세요.',
+        { expectedBudgetAmount: input.expectedBudgetAmount, currentBudgetAmount: p.budgetAmount },
+      );
+    }
 
     // 호출자가 보낸 금액을 받지 않는다. 분석에 저장된 값을 읽는다 (규칙 40).
     let recommendedAmount: number;

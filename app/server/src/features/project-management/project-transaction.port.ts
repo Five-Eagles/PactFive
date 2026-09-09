@@ -103,6 +103,16 @@ export type AcceptApplicationResult = ContractResult & {
 export type ApplyPricingBudgetInput = ContractEnvelope & {
   pricingAnalysisId: string;
   actorUserId: string;
+  /**
+   * 호출자가 알고 있던 현재 예산 (CR-0012).
+   *
+   * 화면이 "현재 예산 500만원"을 보여준 뒤 사용자가 반영을 누르기까지 사이에 예산이
+   * 바뀌었으면 막는다. 버전 검사로는 못 잡는다 — 예산 변경은 `projectVersion` 을
+   * 올리지 않기 때문이다(규칙 44).
+   *
+   * **선택값이다.** 보내지 않으면 검사하지 않는다 — 기존 호출자를 깨지 않기 위해서다.
+   */
+  expectedBudgetAmount?: number;
 };
 
 export type ApplyPricingBudgetResult = ContractResult & {

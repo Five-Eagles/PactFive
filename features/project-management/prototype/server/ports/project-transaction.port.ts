@@ -109,6 +109,11 @@ export type AcceptApplicationResult = ContractResult & {
 export type ApplyPricingBudgetInput = ContractEnvelope & {
   pricingAnalysisId: string;
   actorUserId: string;
+  /**
+   * 호출자가 알고 있던 현재 예산 (CR-0012). 선택값 — 보내지 않으면 검사하지 않는다.
+   * 버전 검사로는 못 잡는다: 예산 변경은 projectVersion 을 올리지 않는다 (규칙 44).
+   */
+  expectedBudgetAmount?: number;
 };
 
 export type ApplyPricingBudgetResult = ContractResult & {
