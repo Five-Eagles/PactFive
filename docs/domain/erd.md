@@ -75,7 +75,7 @@ ERD와 항상 같은 목록이어야 한다 (PRD D-76·D-86).
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | `usr_01H8X…` 형식. PactFive 자체 발급 ID |
+| `id` | varchar(40) | PK | `usr_01H8X…` 형식. PactFive 자체 발급 ID |
 | `auth_user_id` | varchar(64) | NOT NULL, UNIQUE | **(E-29 신설, v1.5)** Supabase `auth.users` UUID. `id`와 별개 값 — 매핑 키가 ERD에 없어 코드가 이미 쓰던 값을 뒤늦게 반영 |
 | `email` | varchar(255) | NOT NULL, 부분 UNIQUE(활성 사용자 범위) | 소셜 로그인 연동 키 |
 | `password_hash` | varchar(255) | NULL | **(E-28 정정, v1.5)** 실사용 안 함 — ADR-0008(Supabase Auth 채택)이 비밀번호 해싱·검증을 Supabase에 위임해, 서버 코드 어디서도 이 컬럼을 안 쓴다. 영구 NULL 예상. 오민혁 확인 후 제거 검토 |
@@ -98,8 +98,8 @@ ERD와 항상 같은 목록이어야 한다 (PRD D-76·D-86).
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | `ses_...` |
-| `user_id` | varchar(30) | NOT NULL | `users` 참조 |
+| `id` | varchar(40) | PK | `ses_...` |
+| `user_id` | varchar(40) | NOT NULL | `users` 참조 |
 | `refresh_token_hash` | varchar(255) | NOT NULL, UNIQUE | 원문은 저장하지 않음(HttpOnly 쿠키로만 전달) |
 | `previous_token_hash` | varchar(255) | NULL | rotation 시 직전 해시. 재사용 감지 판정 기준 |
 | `device_label` | varchar(100) | NULL | 사용자에게 보여줄 기기 표시용 (예: Chrome on macOS) |
@@ -152,8 +152,8 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `user_id` | varchar(30) | NOT NULL | `users` 참조 |
+| `id` | varchar(40) | PK | PK |
+| `user_id` | varchar(40) | NOT NULL | `users` 참조 |
 | `company_name` | varchar(100) | NOT NULL | — (원본 §3 해당 절 참고) |
 | `business_field` | business_field | NOT NULL | — (원본 §3 해당 절 참고) |
 | `business_field_etc` | varchar(100) | NULL | `business_field`가 기타일 때의 자유 입력 |
@@ -166,8 +166,8 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `user_id` | varchar(30) | NOT NULL | `users` 참조 |
+| `id` | varchar(40) | PK | PK |
+| `user_id` | varchar(40) | NOT NULL | `users` 참조 |
 | `primary_category` | project_category | NOT NULL | 주력 분야 (프로젝트 `category`와 같은 enum 공유 추정 — 원본 §3 확인) |
 | `career_years` | smallint | NOT NULL | — (원본 §3 해당 절 참고) |
 | `hourly_rate_amount` | integer | NULL | 희망 시급 |
@@ -186,7 +186,7 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 | `group_code` | skill_group | NOT NULL | 기술 분류 그룹 |
 | `display_order` | smallint | NOT NULL | — (원본 §3 해당 절 참고) |
 | `is_custom` | boolean | NOT NULL | 팀에서 미리 정의한 기술이 아니라 사용자가 직접 추가한 기술인지 |
-| `created_by_user_id` | varchar(30) | NULL | `users` 참조 |
+| `created_by_user_id` | varchar(40) | NULL | `users` 참조 |
 | `is_active` | boolean | NOT NULL | 비활성화 플래그 — 지우지 않고 끈다 (원본 원칙 5: 과거 참조 데이터 보존) |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 | `updated_at` | timestamptz | NOT NULL | 수정 시각 |
@@ -195,7 +195,7 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `freelancer_profile_id` | varchar(30) | NOT NULL | `freelancer_profiles` 참조 |
+| `freelancer_profile_id` | varchar(40) | NOT NULL | `freelancer_profiles` 참조 |
 | `skill_id` | varchar(40) | NOT NULL | `skills` 참조 |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 
@@ -206,8 +206,8 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `client_id` | varchar(30) | NOT NULL | `users` 참조 (role=CLIENT) |
+| `id` | varchar(40) | PK | PK |
+| `client_id` | varchar(40) | NOT NULL | `users` 참조 (role=CLIENT) |
 | `title` | varchar(100) | NOT NULL | — (원본 §3 해당 절 참고) |
 | `description` | text | NOT NULL | — (원본 §3 해당 절 참고) |
 | `category` | project_category | NOT NULL | — (원본 §3 해당 절 참고) |
@@ -223,7 +223,7 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 | `canceled_at` | timestamptz | NULL | — (원본 §3 해당 절 참고) |
 | `deadline_notified_at` | timestamptz | NULL | 마감 임박 알림 발송 여부 추적 (중복 발송 방지) |
 | `pending_application_count` | integer | NOT NULL | **(v1.3 신설, E-23)** 대기(PENDING) 지원 수 캐시. 예산·일정 잠금 판정용. 갱신 주체는 applications 도메인(최윤석) — 원본(`applications.status='PENDING'` 카운트)과 어긋나면 원본이 옳음 |
-| `accepted_application_id` | varchar(30) | NULL | **(v1.3 신설, E-23)** 수락된 지원서 id. 수락 멱등 판정(C-01, D-41)의 근거 값 |
+| `accepted_application_id` | varchar(40) | NULL | **(v1.3 신설, E-23)** 수락된 지원서 id. 수락 멱등 판정(C-01, D-41)의 근거 값 |
 | `payment_pending_at` | timestamptz | NULL | **(v1.3 신설, E-23)** `markPaymentPending`(조준영 → 유동우) 통보 시각. 결제 확정 전 취소 가능 구간의 경계 |
 | `completed_at` | timestamptz | NULL | **(v1.9 신설, E-50, 2026-09-09 팀장)** `transaction_status`가 `COMPLETED`로 바뀐 시각. `completeProjectTransaction` 한 곳에서만 쓰고 그 이후로는 갱신하지 않는다. reviews의 `review_windows.opened_at` 소스 — CR-RV-002(조준영)가 "프로젝트 최초 completedAt"을 요구했는데 이 컬럼 없이는 구현할 방법이 없어 `payment_pending_at`과 같은 원칙으로 추가했다 (Fact, 조준영 요청 근거의 팀장 구현) |
 | `project_version` | integer | NOT NULL | **(v1.3 신설, E-23)** 낙관적 잠금 버전(D-53). **상태가 실제로 전이됐을 때만 +1** — 계약 호출 자체가 기준이 아니다. 멱등 재호출로 200을 돌려주거나 전이 조건 미충족으로 거부된 경우에는 올리지 않는다 (2026-08-26 정정, E-26 · 질의 Q-09) |
@@ -235,7 +235,7 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `project_id` | varchar(30) | NOT NULL | `projects` 참조 |
+| `project_id` | varchar(40) | NOT NULL | `projects` 참조 |
 | `skill_id` | varchar(40) | NOT NULL | `skills` 참조 |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 
@@ -243,9 +243,9 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `freelancer_id` | varchar(30) | NOT NULL | `users` 참조 (role=FREELANCER) |
-| `project_id` | varchar(30) | NOT NULL | `projects` 참조 |
+| `id` | varchar(40) | PK | PK |
+| `freelancer_id` | varchar(40) | NOT NULL | `users` 참조 (role=FREELANCER) |
+| `project_id` | varchar(40) | NOT NULL | `projects` 참조 |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 
 #### `project_contract_idempotency_records` (v1.7 신설 — E-46, 유동우 담당)
@@ -268,9 +268,9 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `project_id` | varchar(30) | NOT NULL | `projects` 참조 |
-| `freelancer_id` | varchar(30) | NOT NULL | `users` 참조 (role=FREELANCER) |
+| `id` | varchar(40) | PK | PK |
+| `project_id` | varchar(40) | NOT NULL | `projects` 참조 |
+| `freelancer_id` | varchar(40) | NOT NULL | `users` 참조 (role=FREELANCER) |
 | `cover_letter` | text | NOT NULL | — (원본 §3 해당 절 참고) |
 | `expected_amount` | integer | NOT NULL | — (원본 §3 해당 절 참고) |
 | `expected_duration_days` | smallint | NOT NULL | — (원본 §3 해당 절 참고) |
@@ -284,14 +284,14 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `recipient_id` | varchar(30) | NOT NULL | `users` 참조 |
+| `id` | varchar(40) | PK | PK |
+| `recipient_id` | varchar(40) | NOT NULL | `users` 참조 |
 | `type` | notification_type | NOT NULL | 알림 종류 (`notification_type`) |
 | `title` | varchar(100) | NOT NULL | — (원본 §3 해당 절 참고) |
 | `body` | varchar(500) | NOT NULL | — (원본 §3 해당 절 참고) |
 | `link_url` | text | NOT NULL | — (원본 §3 해당 절 참고) |
 | `resource_type` | varchar(30) | NULL | 다형성 참조 대상 종류 — project/application/contract 등 (원본 원칙 7) |
-| `resource_id` | varchar(30) | NULL | 다형성 참조 대상 id. FK 제약 없음 — 대상이 삭제돼도 알림은 안 깨짐 (원본 원칙 7, 최윤석 확인 요청 항목) |
+| `resource_id` | varchar(40) | NULL | 다형성 참조 대상 id. FK 제약 없음 — 대상이 삭제돼도 알림은 안 깨짐 (원본 원칙 7, 최윤석 확인 요청 항목) |
 | `dedupe_key` | varchar(120) | NOT NULL | 중복 알림 방지 키 |
 | `read_at` | timestamptz | NULL | 읽음 처리 시각 |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
@@ -308,10 +308,10 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | `aop_...` |
-| `application_id` | varchar(30) | NOT NULL | `applications` 참조 |
-| `project_id` | varchar(30) | NOT NULL | — |
-| `client_id` | varchar(30) | NOT NULL | `users` 참조 — 요청 주체(의뢰인) |
+| `id` | varchar(40) | PK | `aop_...` |
+| `application_id` | varchar(40) | NOT NULL | `applications` 참조 |
+| `project_id` | varchar(40) | NOT NULL | — |
+| `client_id` | varchar(40) | NOT NULL | `users` 참조 — 요청 주체(의뢰인) |
 | `type` | varchar(10) | NOT NULL | `ACCEPT` \| `REJECT` |
 | `status` | varchar(10) | NOT NULL, DEFAULT `QUEUED` | `QUEUED` \| `RUNNING` \| `SUCCEEDED` \| `FAILED` |
 | `updated_at` | timestamptz | NOT NULL | — |
@@ -324,8 +324,8 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | — |
-| `operation_id` | varchar(30) | NOT NULL | `application_operations` 참조 |
+| `id` | varchar(40) | PK | — |
+| `operation_id` | varchar(40) | NOT NULL | `application_operations` 참조 |
 | `seq` | smallint | NOT NULL | 단계 순서 |
 | `name` | varchar(30) | NOT NULL | `REJECT_OTHERS` \| `CREATE_NOTIFICATIONS` \| `ENSURE_NEGOTIATION_CONTEXT` |
 | `status` | varchar(10) | NOT NULL | `QUEUED` \| `RUNNING` \| `SUCCEEDED` \| `FAILED` \| `SKIPPED` |
@@ -344,8 +344,8 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | — |
-| `application_id` | varchar(30) | NOT NULL | `applications` 참조 |
+| `id` | varchar(40) | PK | — |
+| `application_id` | varchar(40) | NOT NULL | `applications` 참조 |
 | `from_status` | application_status | NULL | 최초 생성이면 NULL |
 | `to_status` | application_status | NOT NULL | — |
 | `rejection_type` | application_rejection_type | NULL | — |
@@ -357,12 +357,12 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 |---|---|---|---|
 | `key` | varchar(160) | PK | 지원 생성/수락/거절 요청의 멱등키 |
 | `body_hash` | varchar(64) | NOT NULL | — |
-| `application_id` | varchar(30) | NOT NULL | `applications` 참조 |
-| `operation_id` | varchar(30) | NULL | `application_operations` 참조(수락/거절 요청일 때만) |
+| `application_id` | varchar(40) | NOT NULL | `applications` 참조 |
+| `operation_id` | varchar(40) | NULL | `application_operations` 참조(수락/거절 요청일 때만) |
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `closure_event_id` | varchar(30) | PK | 모집 마감 사건 id — project-management가 발급 |
+| `closure_event_id` | varchar(160) | PK | 모집 마감 사건 id — project-management가 발급 |
 | `rejected_count` | integer | NOT NULL | — |
 | `already_processed` | boolean | NOT NULL | — |
 | `result` | varchar(20) | NOT NULL | `PostActionResult`(`"DONE"｜"NOT_NEEDED"｜"FAILED"`) — **(v1.7, CR-AP-004 변경 2, 2026-09-09)** 원래 `jsonb`였다가 스칼라 리터럴 유니온이라 `varchar`로 바꿨다(`type`·`status` 컬럼과 같은 원칙). 이식 코드가 `Json` 컬럼에 결과 객체 전체를 넣는 결함(`setClosure`)이 있었고, 팀장이 함께 고쳤다 — 이 문서 표만 갱신되지 않고 있었다(2026-09-09 정정) |
@@ -374,9 +374,9 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `application_id` | varchar(30) | NOT NULL | `applications` 참조 |
-| `proposed_by_user_id` | varchar(30) | NOT NULL | `users` 참조 (client/freelancer 둘 다 가능) |
+| `id` | varchar(40) | PK | PK |
+| `application_id` | varchar(40) | NOT NULL | `applications` 참조 |
+| `proposed_by_user_id` | varchar(40) | NOT NULL | `users` 참조 (client/freelancer 둘 다 가능) |
 | `agreed_amount` | integer | NOT NULL | — (원본 §3 해당 절 참고) |
 | `status` | agreement_status | NOT NULL | 합의 상태 (`agreement_status`) |
 | `responded_at` | timestamptz | NULL | 상대가 수락/거절한 시각 |
@@ -387,10 +387,10 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `application_id` | varchar(30) | NOT NULL | `applications` 참조 — 협상 스레드 단위, 한 지원서에 여러 라운드 허용 |
+| `id` | varchar(40) | PK | PK |
+| `application_id` | varchar(40) | NOT NULL | `applications` 참조 — 협상 스레드 단위, 한 지원서에 여러 라운드 허용 |
 | `round` | smallint | NOT NULL | 1부터 시작. 재제안마다 +1. UNIQUE(application_id, round) |
-| `proposed_by_user_id` | varchar(30) | NOT NULL | 이번 라운드 제안자 — 의뢰인/프리랜서 양측 가능 |
+| `proposed_by_user_id` | varchar(40) | NOT NULL | 이번 라운드 제안자 — 의뢰인/프리랜서 양측 가능 |
 | `offered_amount` | integer | NOT NULL | — |
 | `status` | agreement_status | NOT NULL | 개별 제안 상태 (`agreement_status` 재사용, 별도 `NegotiationStatus` DB enum은 두지 않음) |
 | `responded_at` | timestamptz | NULL | — |
@@ -405,11 +405,11 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `agreement_id` | varchar(30) | NOT NULL | `agreements` 참조 |
-| `project_id` | varchar(30) | NOT NULL | `projects` 참조 |
-| `client_id` | varchar(30) | NOT NULL | `users` 참조 (role=CLIENT) |
-| `freelancer_id` | varchar(30) | NOT NULL | `users` 참조 (role=FREELANCER) |
+| `id` | varchar(40) | PK | PK |
+| `agreement_id` | varchar(40) | NOT NULL | `agreements` 참조 |
+| `project_id` | varchar(40) | NOT NULL | `projects` 참조 |
+| `client_id` | varchar(40) | NOT NULL | `users` 참조 (role=CLIENT) |
+| `freelancer_id` | varchar(40) | NOT NULL | `users` 참조 (role=FREELANCER) |
 | `project_title_snapshot` | varchar(100) | NOT NULL | 계약 시점 프로젝트 제목 스냅샷 — 원본 프로젝트가 나중에 바뀌어도 계약서는 그대로 |
 | `agreed_amount` | integer | NOT NULL | — (원본 §3 해당 절 참고) |
 | `work_start_date` | date | NOT NULL | — (원본 §3 해당 절 참고) |
@@ -427,9 +427,9 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `contract_id` | varchar(30) | NOT NULL | `contracts` 참조 |
-| `signer_id` | varchar(30) | NOT NULL | `users` 참조 |
+| `id` | varchar(40) | PK | PK |
+| `contract_id` | varchar(40) | NOT NULL | `contracts` 참조 |
+| `signer_id` | varchar(40) | NOT NULL | `users` 참조 |
 | `signer_role` | user_role | NOT NULL | 서명자가 client였는지 freelancer였는지 |
 | `signed_at` | timestamptz | NOT NULL | — (원본 §3 해당 절 참고) |
 | `ip_address` | varchar(45) | NULL | 서명 시 IP — 분쟁 대비 증빙 |
@@ -440,10 +440,10 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `contract_id` | varchar(30) | NOT NULL | `contracts` 참조 |
-| `client_id` | varchar(30) | NOT NULL | `users` 참조 (role=CLIENT) |
-| `freelancer_id` | varchar(30) | NOT NULL | `users` 참조 (role=FREELANCER) |
+| `id` | varchar(40) | PK | PK |
+| `contract_id` | varchar(40) | NOT NULL | `contracts` 참조 |
+| `client_id` | varchar(40) | NOT NULL | `users` 참조 (role=CLIENT) |
+| `freelancer_id` | varchar(40) | NOT NULL | `users` 참조 (role=FREELANCER) |
 | `currency` | char(3) | NOT NULL | 통화 코드 (예: KRW) |
 | `payment_amount` | integer | NOT NULL | 결제 총액 |
 | `platform_fee_amount` | integer | NOT NULL | 플랫폼 수수료 (금액으로 저장, 비율 아님 — 원본 원칙 6) |
@@ -470,8 +470,8 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `contract_id` | varchar(30) | NOT NULL | `contracts` 참조 |
+| `id` | varchar(40) | PK | PK |
+| `contract_id` | varchar(40) | NOT NULL | `contracts` 참조 |
 | `status` | delivery_status | NOT NULL | 납품 상태 (`delivery_status`) |
 | `message` | text | NULL | — (원본 §3 해당 절 참고) |
 | `attachment_url` | text | NULL | — (원본 §3 해당 절 참고) |
@@ -483,7 +483,7 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 | `mime_type` | varchar(100) | NULL | **(v1.7 신설, E-47)** 원본 mock 그대로(Fact) |
 | `size_bytes` | integer | NULL | **(v1.7 신설, E-47)** 원본 mock 그대로(Fact) |
 | `file_sha256` | varchar(64) | NULL | **(v1.7 신설, E-47)** 업로드 파일 무결성 해시. 원본 mock엔 없던 필드 — 팀장이 spec.md 규칙 23 근거로 추가했고, 2026-09-09 조준영 이식 지시서(§1)가 이 컬럼을 실제로 채우도록 요청하면서 확인됐다(Fact — `prepareDeliveryUpload`가 검증 후 저장한다) |
-| `requested_by` | varchar(30) | NULL | **(v1.7 신설, E-47)** `users` 참조, 납품 요청자. 원본 mock엔 없던 필드 — 팀장이 spec.md 규칙 23 근거로 추가(Assumption, 조준영 확인 필요) |
+| `requested_by` | varchar(40) | NULL | **(v1.7 신설, E-47)** `users` 참조, 납품 요청자. 원본 mock엔 없던 필드 — 팀장이 spec.md 규칙 23 근거로 추가(Assumption, 조준영 확인 필요) |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 | `updated_at` | timestamptz | NOT NULL | 수정 시각 |
 
@@ -491,8 +491,8 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `cancellation_id` | varchar(30) | PK | `inv_...` |
-| `project_id` | varchar(30) | NOT NULL | `projects` 참조 |
+| `cancellation_id` | varchar(160) | PK | `inv_...` |
+| `project_id` | varchar(40) | NOT NULL | `projects` 참조 |
 | `contract_invalidation` | varchar(20) | NOT NULL | `PostActionResult` — `NOT_NEEDED`\|`SUCCEEDED`\|`FAILED` 등 |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 
@@ -520,11 +520,11 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `project_id` | varchar(30) | NOT NULL | `projects` 참조 |
-| `contract_id` | varchar(30) | NOT NULL | `contracts` 참조 |
-| `reviewer_id` | varchar(30) | NOT NULL | `users` 참조 (평가를 남긴 쪽) |
-| `reviewee_id` | varchar(30) | NOT NULL | `users` 참조 (평가를 받는 쪽) |
+| `id` | varchar(40) | PK | PK |
+| `project_id` | varchar(40) | NOT NULL | `projects` 참조 |
+| `contract_id` | varchar(40) | NOT NULL | `contracts` 참조 |
+| `reviewer_id` | varchar(40) | NOT NULL | `users` 참조 (평가를 남긴 쪽) |
+| `reviewee_id` | varchar(40) | NOT NULL | `users` 참조 (평가를 받는 쪽) |
 | `direction` | review_direction | NOT NULL | 리뷰 방향 — client→freelancer 인지 freelancer→client 인지 (`review_direction`) |
 | `rating` | smallint | NOT NULL | 평점 |
 | `comment` | text | NULL | — (원본 §3 해당 절 참고) |
@@ -538,7 +538,7 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 |---|---|---|---|
 | `key` | varchar(160) | PK | `{project_id}:{actor_user_id}:{idempotency_key}` 합성 키 |
 | `body_hash` | varchar(64) | NOT NULL | 요청 본문 해시 |
-| `review_id` | varchar(30) | NOT NULL | `reviews` 참조 |
+| `review_id` | varchar(40) | NOT NULL | `reviews` 참조 |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 
 **(Fact)** 원본(조준영, `review.service.ts`의 `getIdempotency`/`setIdempotency`) 그대로.
@@ -547,7 +547,7 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `project_id` | varchar(30) | PK | `projects` 1:1 |
+| `project_id` | varchar(40) | PK | `projects` 1:1 |
 | `opened_at` | timestamptz | NOT NULL | 프로젝트 최초 `completedAt`(`projects.completed_at`) |
 | `deadline_at` | timestamptz | NOT NULL | `opened_at` + 14일(`SOLO_PUBLIC_AFTER_DAYS`) |
 | `policy_version` | integer | NOT NULL, DEFAULT 1 | — |
@@ -585,9 +585,9 @@ NULL로, `idempotency_key`는 단독 unique → `(requester_id, idempotency_key)
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | PK |
-| `requester_id` | varchar(30) | NOT NULL | `users` 참조 |
-| `project_id` | varchar(30) | NULL | `projects` 참조 |
+| `id` | varchar(40) | PK | PK |
+| `requester_id` | varchar(40) | NOT NULL | `users` 참조 |
+| `project_id` | varchar(40) | NULL | `projects` 참조 |
 | `input_snapshot` | jsonb | NOT NULL | AI 분석 요청 시점의 입력값 스냅샷 (jsonb) |
 | `recommended_amount` | integer | NULL | AI 추천 금액. `APPROVED`에서만 NOT NULL |
 | `breakdown` | jsonb | NULL | 추천 금액 산출 근거 (jsonb). `APPROVED`에서만 NOT NULL |
@@ -613,12 +613,12 @@ NULL로, `idempotency_key`는 단독 unique → `(requester_id, idempotency_key)
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `id` | varchar(30) | PK | `par_...` |
+| `id` | varchar(40) | PK | `par_...` |
 | `operation` | varchar(30) | NOT NULL | 현재 `APPLY_PRICING_ANALYSIS` 하나뿐 |
-| `actor_user_id` | varchar(30) | NOT NULL | 요청자. `users` 참조 |
+| `actor_user_id` | varchar(40) | NOT NULL | 요청자. `users` 참조 |
 | `idempotency_key` | varchar(100) | NOT NULL | 적용 요청 Idempotency-Key |
-| `pricing_analysis_id` | varchar(30) | NOT NULL | `pricing_analyses` 참조 |
-| `project_id` | varchar(30) | NOT NULL | `projects` 참조 |
+| `pricing_analysis_id` | varchar(40) | NOT NULL | `pricing_analyses` 참조 |
+| `project_id` | varchar(40) | NOT NULL | `projects` 참조 |
 | `request_fingerprint` | varchar(64) | NOT NULL | 같은 키·다른 fingerprint 재요청을 409로 구분 |
 | `http_status` | smallint | NOT NULL | 최초 응답 HTTP 상태 (200\|409) |
 | `response_body` | jsonb | NOT NULL | exact replay용 최초 공개 응답 사본 |
