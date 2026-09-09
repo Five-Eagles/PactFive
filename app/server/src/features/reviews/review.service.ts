@@ -1,4 +1,5 @@
 import { SOLO_PUBLIC_AFTER_DAYS, DAY_MS, tagsForDirection } from './review.constants';
+import { displayAverageRating } from './display-average';
 import {
   ReviewApiError,
   type CreateReviewInput,
@@ -13,6 +14,7 @@ import {
   type ReviewItem,
   type ReviewRepository,
   type ReviewRow,
+  type ReviewVisibility,
   type UserExistsPort,
 } from './review.types';
 
@@ -39,30 +41,34 @@ function requireActor(actorUserId: string | undefined): string {
   return actorUserId;
 }
 
-function bodyHash(input: CreateReviewInput): string {
+// bodyHash는 정규화된 content를 해시한다(원본 request.content 원본이 아니다) — 안 그러면
+// 트림 전후로 다른 본문이 같은 해시로 통과하거나, content가 항상 null로 계산돼(2026-09-09
+// 이전 결함) 본문이 다른 요청이 같은 idempotencyKey로 통과한다.
+function bodyHash(input: CreateReviewInput, content: string | null): string {
   return JSON.stringify({
     rating: input.rating,
-    comment: input.comment ?? null,
+    content,
     tags: [...input.tags].sort(),
   });
 }
 
-function isAllowedRating(rating: number): boolean {
-  return Number.isInteger(rating) && rating >= 1 && rating <= 5;
+/** 원본: features/reviews/prototype/server/review.service.ts:47~56 (조준영) 그대로.
+ * undefined는 통과(본문 없는 리뷰 허용)하고, 정의된 값은 trim 후 1~1,000자가 아니면 422다
+ * — 공백만 있는 문자열은 trim 후 0자라 422다. */
+function normalizeContent(raw: string | undefined): string | null {
+  if (raw === undefined) return null;
+  const trimmed = raw.trim();
+  if (trimmed.length < 1 || trimmed.length > 1000) {
+    throw new ReviewApiError('REVIEW_CONTENT_INVALID', '리뷰 내용이 올바르지 않습니다.', [
+      { field: 'content', reason: 'invalid' },
+    ]);
+  }
+  return trimmed;
 }
 
-function assertTags(direction: ReviewDirection, tags: string[]): void {
-  if (!Array.isArray(tags)) {
-    throw new ReviewApiError('VALIDATION_ERROR', '요청 값이 올바르지 않습니다.', [
-      { field: 'tags', reason: 'invalid' },
-    ]);
-  }
-  const allowed = new Set(tagsForDirection(direction));
-  if (tags.some((tag) => !allowed.has(tag))) {
-    throw new ReviewApiError('VALIDATION_ERROR', '요청 값이 올바르지 않습니다.', [
-      { field: 'tags', reason: 'invalid' },
-    ]);
-  }
+/** isPublic(boolean) → visibility(ReviewVisibility) 변환. 원본 :58~60. */
+function visibilityOf(isPublic: boolean): ReviewVisibility {
+  return isPublic ? 'PUBLISHED' : 'BLINDED';
 }
 
 export function isReviewPublic(row: ReviewRow, siblings: ReviewRow[], nowIso: string): boolean {
@@ -79,10 +85,12 @@ function toItem(row: ReviewRow, isPublic: boolean): ReviewItem {
     reviewId: row.reviewId,
     direction: row.direction,
     rating: row.rating,
-    comment: row.comment,
+    // ReviewRow는 DB 컬럼명(comment)을 그대로 쓴다 — API 응답 필드명(content)으로의 리네이밍은
+    // 이 경계에서만 한다(DB 컬럼 자체는 안 건드린다, 이식 지시서 §1-3).
+    content: row.comment,
     tags: row.tags,
-    isPublic,
-    createdAt: row.createdAt,
+    visibility: visibilityOf(isPublic),
+    submittedAt: row.createdAt,
   };
 }
 
@@ -93,6 +101,7 @@ function toCreateBody(row: ReviewRow, isPublic: boolean): CreateReviewResponse {
     contractId: row.contractId,
     reviewerId: row.reviewerId,
     revieweeId: row.revieweeId,
+    editable: false,
   };
 }
 
@@ -137,34 +146,44 @@ export async function createReview(
   }
   const project = await requireProject(deps, projectId);
   if (actor !== project.clientId && actor !== project.freelancerId) {
-    throw new ReviewApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
+    throw new ReviewApiError('REVIEW_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
   }
-  // 취소는 전이 충돌, 그 외 미완료는 TRANSACTION_NOT_COMPLETED다.
-  if (project.transactionStatus === 'CANCELED' || project.contractStatus === 'CANCELED') {
-    throw new ReviewApiError('PROJECT_TRANSITION_CONFLICT', '취소된 거래는 리뷰할 수 없습니다.');
-  }
-  if (project.transactionStatus !== 'COMPLETED') {
-    throw new ReviewApiError('TRANSACTION_NOT_COMPLETED', '거래가 완료되지 않았습니다.');
+  // 취소 분기와 미완료 분기를 한 덩어리로 합쳤다(이식 지시서 §2-2) — 원본이 별도 코드를
+  // 두지 않는다. PROJECT_TRANSITION_CONFLICT는 더 이상 던지지 않는다.
+  if (project.transactionStatus !== 'COMPLETED' || project.contractStatus === 'CANCELED') {
+    throw new ReviewApiError('PROJECT_NOT_COMPLETED', '거래가 완료되지 않았습니다.');
   }
 
   const direction: ReviewDirection =
     actor === project.clientId ? 'CLIENT_TO_FREELANCER' : 'FREELANCER_TO_CLIENT';
-  if (!isAllowedRating(input.rating)) {
-    throw new ReviewApiError('VALIDATION_ERROR', '요청 값이 올바르지 않습니다.', [
+  if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) {
+    throw new ReviewApiError('INVALID_REVIEW_RATING', '별점은 1부터 5까지의 정수입니다.', [
       { field: 'rating', reason: 'invalid' },
     ]);
   }
-  assertTags(direction, input.tags);
+  if (!Array.isArray(input.tags)) {
+    throw new ReviewApiError('REVIEW_TAG_INVALID', '태그가 올바르지 않습니다.', [
+      { field: 'tags', reason: 'invalid' },
+    ]);
+  }
+  const allowedTags = new Set(tagsForDirection(direction));
+  if (input.tags.some((tag) => !allowedTags.has(tag))) {
+    throw new ReviewApiError('REVIEW_TAG_INVALID', '태그가 올바르지 않습니다.', [
+      { field: 'tags', reason: 'invalid' },
+    ]);
+  }
+  const content = normalizeContent(input.content);
 
-  // 같은 키·본문은 기존 행을 그대로 돌려주고, 다른 본문·같은 방향은 409다.
-  const hash = bodyHash(input);
+  // 같은 키·본문은 기존 행을 그대로 돌려주고, 다른 본문은 409(IDEMPOTENCY_KEY_REUSED),
+  // 같은 방향 재작성은 409(REVIEW_ALREADY_SUBMITTED)다 — 화면이 둘을 구분해야 한다(§2-2).
+  const hash = bodyHash(input, content);
   const idemKey = `${projectId}:${actor}:${idempotencyKey}`;
   const cached = await deps.repository.getIdempotency(idemKey);
   const siblings = await deps.repository.getReviewsByProject(projectId);
   const nowIso = deps.now();
   if (cached) {
     if (cached.bodyHash !== hash) {
-      throw new ReviewApiError('REVIEW_ALREADY_EXISTS', '이미 작성한 리뷰입니다.');
+      throw new ReviewApiError('IDEMPOTENCY_KEY_REUSED', '같은 요청 키로 다른 내용을 보낼 수 없습니다.');
     }
     const row = await deps.repository.getReview(cached.reviewId);
     if (!row) {
@@ -177,7 +196,7 @@ export async function createReview(
   }
 
   if (siblings.some((row) => row.direction === direction)) {
-    throw new ReviewApiError('REVIEW_ALREADY_EXISTS', '이미 작성한 리뷰입니다.');
+    throw new ReviewApiError('REVIEW_ALREADY_SUBMITTED', '이미 작성한 리뷰입니다.');
   }
 
   const row: ReviewRow = {
@@ -188,7 +207,7 @@ export async function createReview(
     revieweeId: actor === project.clientId ? project.freelancerId : project.clientId,
     direction,
     rating: input.rating,
-    comment: input.comment ?? null,
+    comment: content,
     tags: input.tags,
     createdAt: nowIso,
     reviewCreatedPublishedAt: null,
@@ -258,5 +277,7 @@ export async function getReviewSummary(
   if (reviewCount === 0) {
     return { userId, averageRating: null, reviewCount: 0 };
   }
-  return { userId, averageRating: ratingSum / reviewCount, reviewCount };
+  // displayAverageRating — 이식 지시서 §2-1. 합계/건수에서 한 번에 반올림한다(두 번 반올림하면
+  // 489/110=4.4454…가 4.4 대신 4.5로 나가는 결함이 있었다).
+  return { userId, averageRating: displayAverageRating(ratingSum, reviewCount), reviewCount };
 }

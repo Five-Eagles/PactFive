@@ -17,18 +17,22 @@
  */
 
 export type ReviewDirection = 'CLIENT_TO_FREELANCER' | 'FREELANCER_TO_CLIENT';
+/** 공개 여부. `isPublic: boolean`에서 바뀌었다 (조준영, 2026-09-09 이식 지시서 §1-3). */
+export type ReviewVisibility = 'BLINDED' | 'PUBLISHED';
+// 태그 코드 v2.0 — review.constants.ts 참고. app/ 이식본(2026-09-05)이 2026-09-07 설계서
+// v2.0 이전 계약을 쓰고 있던 것을 여기서도 맞춘다.
 export type ClientToFreelancerTag =
-  | 'RESPONSIBILITY'
-  | 'COMMUNICATION'
-  | 'TECHNICAL_SKILL'
-  | 'SCHEDULE_COMPLIANCE'
-  | 'DELIVERABLE_QUALITY';
+  | 'WORK_QUALITY'
+  | 'ON_TIME_DELIVERY'
+  | 'GOOD_COMMUNICATION'
+  | 'REQUIREMENT_UNDERSTANDING'
+  | 'PROFESSIONAL_ATTITUDE';
 export type FreelancerToClientTag =
-  | 'REQUIREMENT_CLARITY'
-  | 'COMMUNICATION'
-  | 'FEEDBACK_SPEED'
+  | 'CLEAR_REQUIREMENTS'
+  | 'FAST_FEEDBACK'
+  | 'GOOD_COMMUNICATION'
   | 'SCOPE_STABILITY'
-  | 'PAYMENT_RELIABILITY';
+  | 'PROFESSIONAL_ATTITUDE';
 export type ReviewTag = ClientToFreelancerTag | FreelancerToClientTag;
 
 export type ContractStatus = 'DRAFT' | 'SIGNING' | 'SIGNED' | 'CANCELED';
@@ -41,7 +45,7 @@ export type ProjectTransactionStatus =
 
 export type CreateReviewInput = {
   rating: number;
-  comment?: string;
+  content?: string;
   tags: string[];
 };
 
@@ -49,10 +53,10 @@ export type ReviewItem = {
   reviewId: string;
   direction: ReviewDirection;
   rating: number;
-  comment: string | null;
+  content: string | null;
   tags: string[];
-  isPublic: boolean;
-  createdAt: string;
+  visibility: ReviewVisibility;
+  submittedAt: string;
 };
 
 export type CreateReviewResponse = ReviewItem & {
@@ -60,6 +64,8 @@ export type CreateReviewResponse = ReviewItem & {
   contractId: string;
   reviewerId: string;
   revieweeId: string;
+  /** 작성 직후에는 수정할 수 없다 — 원본 고정값(api-contract.md :137) */
+  editable: false;
 };
 
 export type CreateReviewResult = {
@@ -102,14 +108,23 @@ export type ProjectReviewContext = {
   contractId: string;
 };
 
+// 에러 코드 v2.0 (조준영, 2026-09-09 이식 지시서 §2-2) — api-contract.md 계약과 맞춘다.
+// PROJECT_FORBIDDEN→REVIEW_FORBIDDEN, TRANSACTION_NOT_COMPLETED·PROJECT_TRANSITION_CONFLICT
+// (취소 분기)→PROJECT_NOT_COMPLETED 한 덩어리, REVIEW_ALREADY_EXISTS 두 용도를
+// IDEMPOTENCY_KEY_REUSED(같은 키·다른 본문)·REVIEW_ALREADY_SUBMITTED(같은 방향 재작성)로 분리,
+// rating/tags 검증을 VALIDATION_ERROR에서 INVALID_REVIEW_RATING/REVIEW_TAG_INVALID로 분리,
+// REVIEW_CONTENT_INVALID 신설. idempotencyKey 누락은 원본대로 VALIDATION_ERROR 유지.
 export type ReviewApiErrorCode =
   | 'AUTH_REQUIRED'
-  | 'PROJECT_FORBIDDEN'
+  | 'REVIEW_FORBIDDEN'
   | 'PROJECT_NOT_FOUND'
   | 'USER_NOT_FOUND'
-  | 'REVIEW_ALREADY_EXISTS'
-  | 'TRANSACTION_NOT_COMPLETED'
-  | 'PROJECT_TRANSITION_CONFLICT'
+  | 'IDEMPOTENCY_KEY_REUSED'
+  | 'REVIEW_ALREADY_SUBMITTED'
+  | 'PROJECT_NOT_COMPLETED'
+  | 'INVALID_REVIEW_RATING'
+  | 'REVIEW_TAG_INVALID'
+  | 'REVIEW_CONTENT_INVALID'
   | 'VALIDATION_ERROR'
   | 'METHOD_NOT_ALLOWED';
 
@@ -121,21 +136,24 @@ export type ReviewApiErrorBody = {
   };
 };
 
-const HTTP_BY_CODE: Record<ReviewApiErrorCode, 401 | 403 | 404 | 405 | 409 | 422> = {
+const HTTP_BY_CODE: Record<ReviewApiErrorCode, 400 | 401 | 403 | 404 | 405 | 409 | 422> = {
   AUTH_REQUIRED: 401,
-  PROJECT_FORBIDDEN: 403,
+  REVIEW_FORBIDDEN: 403,
   PROJECT_NOT_FOUND: 404,
   USER_NOT_FOUND: 404,
   METHOD_NOT_ALLOWED: 405,
-  REVIEW_ALREADY_EXISTS: 409,
-  TRANSACTION_NOT_COMPLETED: 409,
-  PROJECT_TRANSITION_CONFLICT: 409,
+  IDEMPOTENCY_KEY_REUSED: 409,
+  REVIEW_ALREADY_SUBMITTED: 409,
+  PROJECT_NOT_COMPLETED: 409,
+  INVALID_REVIEW_RATING: 400,
+  REVIEW_TAG_INVALID: 422,
+  REVIEW_CONTENT_INVALID: 422,
   VALIDATION_ERROR: 422,
 };
 
 /** 공개 리뷰 API 4xx. users 캐시는 이 오류로 갱신하지 않는다. */
 export class ReviewApiError extends Error {
-  readonly httpStatus: 401 | 403 | 404 | 405 | 409 | 422;
+  readonly httpStatus: 400 | 401 | 403 | 404 | 405 | 409 | 422;
   readonly body: ReviewApiErrorBody;
 
   constructor(

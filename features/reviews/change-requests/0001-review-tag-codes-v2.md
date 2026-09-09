@@ -1,6 +1,6 @@
 ---
 title: "리뷰 태그 10종을 상호 리뷰 설계서 v2.0 코드로 맞춘다"
-status: "제안"
+status: "반영 완료"
 requested_by: "조준영 (reviews)"
 date: "2026-09-07"
 affected_docs: [docs/domain/reference/erd-v1.4.dbml, docs/domain/erd.md]
@@ -10,6 +10,12 @@ affected_features: [reviews]
 # 스펙 변경 신청
 
 ID: `CR-RV-001`
+
+> **닫음 (2026-09-09, 팀장).** `erd-v1.4.dbml` E-38 주석은 이미 새 코드로 돼 있었다(CR 제기
+> 당시 함께 반영됨). 남아 있던 것은 `app/server`·`app/web` 이식본이었는데, 오늘
+> `feature/teamlead-cr-port-2026-09-09` 브랜치에서 조준영의 이식 지시서(§1-1)대로 교체했다 —
+> `review.constants.ts`(서버)·`review.types.ts`(서버·웹) 10종. `docs/domain/erd.md`는 별도
+> 태그 설명이 없어(erd.md는 erd-v1.4.dbml을 가리키는 포인터 문서) 추가로 고칠 것이 없었다.
 
 ## 배경 (왜 필요한가)
 

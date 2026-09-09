@@ -638,10 +638,8 @@ rollback된다 — ai-pricing과 project-management가 같은 Postgres DB를 쓰
   - **가정**: 코드별 한글 표시 문구(예: 구 코드의 "책임감이 있어요")는 설계서 v2.0 원문에
     있을 것으로 보이나, `features/reviews/`의 spec·api-contract·prototype 어디에도 한글 라벨이
     없어 이 개정에서는 코드만 반영했다. 화면에 노출할 한글 라벨이 필요하면 조준영 확인 필요
-  - **남은 일 (팀장 다음 통합)**: `app/server/src/features/reviews/review.constants.ts`와
-    `app/web`의 리뷰 태그 UI는 아직 구(舊) E-19 코드를 쓰고 있다. `feature/reviews` 브랜치가
-    develop에 머지되기 전까지 ERD(신규 코드)와 app/(구 코드)가 서로 다른 상태로 남는다 —
-    다음 통합 때 함께 반영할 것
+  - **반영 완료 (2026-09-09, 팀장)**: `app/server/src/features/reviews/review.constants.ts`·
+    `app/web`의 리뷰 태그 UI 모두 새 코드로 교체했다(CR-RV-001 종결).
   - CR 원문: `features/reviews/change-requests/0001-review-tag-codes-v2.md`
 - **(v1.7, 2026-09-08)** 6개 기능을 InMemory에서 Prisma로 이식하려고 저장소 인터페이스를 조사하던
   중, reviews·applications·project-management·contracts-payments 4개 기능이 멱등 캐시·outbox·

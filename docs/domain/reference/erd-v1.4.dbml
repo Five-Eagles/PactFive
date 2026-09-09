@@ -1151,7 +1151,7 @@ Table reviews {
       검증 방식(422 REVIEW_TAG_INVALID)·jsonb 스키마리스 저장 방식은 E-19와 동일하게 유지 —
       코드 목록만 바뀐다. features/reviews/(spec·api-contract·prototype)는 이 CR과 같은
       feature/reviews 브랜치(origin, 커밋 b9ccc92)에서 이미 새 코드로 구현·검증됐다.
-      app/server·app/web 이식본은 아직 구 코드(v1.4)를 쓰고 있어 반영 필요 — 팀장 다음 통합.
+      app/server·app/web 이식본도 2026-09-09 팀장 반영으로 새 코드로 맞췄다(CR-RV-001 종결).
 
   [C] E-39 review_created_published_at 신설 (2026-09-08, 팀장)
       원본(조준영, features/reviews/prototype/server/review.service.ts)에 이미 있던 outbox형
