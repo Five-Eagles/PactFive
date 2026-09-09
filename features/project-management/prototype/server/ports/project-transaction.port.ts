@@ -156,6 +156,18 @@ export type RestorePreContractResult = ContractResult & {
 /* ─────────────── 포트 ─────────────── */
 
 export interface ProjectTransactionPort {
+  /**
+   * 지원 건수 갱신 (CR-AP-001).
+   *   지원 생성  { applicationCount: 1, pendingApplicationCount: 1 }
+   *   개별 거절  { pendingApplicationCount: -1 }
+   * applicationCount 는 올라가기만 한다. 수락·마감·취소 때는 부르지 않는다(0 처리됨).
+   * 결과는 음수가 되지 않는다.
+   */
+  bumpApplicationCounts(
+    projectId: string,
+    delta: { applicationCount?: number; pendingApplicationCount?: number },
+  ): { applicationCount: number; pendingApplicationCount: number };
+
   /** start·complete·markPaymentPending 호출 전 조회 (PRD D-44) */
   getProjectNegotiationContext(projectId: string): Promise<NegotiationContext>;
 

@@ -22,6 +22,7 @@ import { createProjectManagementRouter } from './features/project-management/pro
 import { createProjectService } from './features/project-management/project.service';
 import { createProjectContractService } from './features/project-management/project-contract.service';
 import { createProjectReadService } from './features/project-management/project-read.service';
+import { createDeadlineSweepService } from './features/project-management/deadline-sweep.service';
 import { InMemoryProjectRepository } from './features/project-management/in-memory-project.repository';
 import { PrismaProjectRepository } from './features/project-management/prisma-project.repository';
 import { createInMemoryExternalPorts } from './features/project-management/in-memory-external.adapter';
@@ -298,12 +299,26 @@ const projectReadService = createProjectReadService({
   now: projectNow,
 });
 
+// notifications CR-0001 §4 — 마감일이 지난 프로젝트를 실제로 마감한다.
+// 타이머는 여기 두지 않는다(요청이 올 때만 깨는 배포 형태라 안 돈다).
+// /internal/v1/projects/sweep-deadlines 를 밖에서 주기적으로 두드린다.
+const deadlineSweepService = createDeadlineSweepService({
+  repo: projectRepository,
+  closer: projectService,
+  now: projectNow,
+});
+
 app.use(
-  createProjectManagementRouter(projectService, projectContractService, {
-    requireAuth,
-    optionalAuth,
-    requireServiceToken,
-  }),
+  createProjectManagementRouter(
+    projectService,
+    projectContractService,
+    {
+      requireAuth,
+      optionalAuth,
+      requireServiceToken,
+    },
+    deadlineSweepService,
+  ),
 );
 
 // ---------------------------------------------------------------------------

@@ -172,6 +172,10 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       transactionStatus: 'CONTRACT_PENDING',
       acceptedApplicationId: input.applicationId,
       recruitmentClosedAt: at,
+      // CR-AP-001 — 수락 시점에 대기 지원은 **전부** 정리된다. 하나는 ACCEPTED 로,
+      // 나머지는 applications 가 AUTO_OTHER_ACCEPTED 로 자동 거절한다.
+      // 하나씩 빼지 않고 0 으로 놓는다 — 중간에 하나 실패해도 어긋나지 않는다.
+      pendingApplicationCount: 0,
       projectVersion: p.projectVersion + 1,
     });
 
@@ -512,9 +516,42 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     return result;
   }
 
+  /* ─────────────── 지원 건수 갱신 (CR-AP-001) ───────────────
+     applications 가 지원을 만들거나 개별 거절할 때 부른다.
+
+     **왜 project-management 가 갖고 있나.** 이 두 숫자는 projects 행의 컬럼이고
+     (`prisma/schema.prisma` application_count · pending_application_count),
+     규칙 15(예산·일정 잠금)와 규칙 25(삭제 가능 여부) 판정에 쓰인다 —
+     즉 이 기능의 판단 근거다. 저장도 판단도 여기서 한다.
+
+     **수락·마감·취소 때는 부르지 않는다.** 그 셋은 이미 이 서비스가 도는 자리라
+     같은 트랜잭션 안에서 0 으로 놓는다. 밖에서 또 빼면 두 번 빠진다. */
+
+  async function bumpApplicationCounts(
+    projectId: string,
+    delta: { applicationCount?: number; pendingApplicationCount?: number },
+  ): Promise<{ applicationCount: number; pendingApplicationCount: number }> {
+    const p = await mustFind(projectId);
+
+    // 바닥을 0 으로 막는다. 같은 거절이 두 번 들어와도 음수가 되지 않는다 —
+    // 음수가 되면 "대기 지원 없음"으로 읽혀 잠겨 있어야 할 예산이 풀린다.
+    const nextApplicationCount = Math.max(0, p.applicationCount + (delta.applicationCount ?? 0));
+    const nextPending = Math.max(0, p.pendingApplicationCount + (delta.pendingApplicationCount ?? 0));
+
+    const updated = await repo.update(projectId, {
+      applicationCount: nextApplicationCount,
+      pendingApplicationCount: nextPending,
+    });
+    return {
+      applicationCount: updated.applicationCount,
+      pendingApplicationCount: updated.pendingApplicationCount,
+    };
+  }
+
   return {
     getProjectNegotiationContext,
     acceptProjectApplication,
+    bumpApplicationCounts,
     markPaymentPending,
     startProjectTransaction,
     completeProjectTransaction,

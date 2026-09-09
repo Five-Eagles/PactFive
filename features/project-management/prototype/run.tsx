@@ -607,6 +607,49 @@ async function main() {
     check(ok.budgetAmount === 4_800_000, "알던 예산이 맞으면 통과한다 (CR-0012)");
   }
 
+  /* --- 5-7b. bumpApplicationCounts (CR-AP-001) --- */
+  section("계약 — 지원 건수 갱신 (CR-AP-001)");
+  {
+    const { svc, repo: r } = newService();
+
+    // 지원 생성 — 둘 다 +1
+    const after1 = svc.bumpApplicationCounts("prj_open_free", {
+      applicationCount: 1,
+      pendingApplicationCount: 1,
+    });
+    check(after1.applicationCount === 1 && after1.pendingApplicationCount === 1, "지원 생성: 둘 다 +1");
+
+    // 개별 거절 — 대기만 -1, 전체는 그대로
+    const after2 = svc.bumpApplicationCounts("prj_open_free", { pendingApplicationCount: -1 });
+    check(after2.pendingApplicationCount === 0, "개별 거절: 대기 -1");
+    check(
+      after2.applicationCount === 1,
+      "개별 거절해도 전체는 안 내려간다 (지금까지 몇 명이 지원했나)",
+    );
+
+    // 바닥 0 — 같은 거절이 두 번 들어와도 음수가 되지 않는다
+    const after3 = svc.bumpApplicationCounts("prj_open_free", { pendingApplicationCount: -1 });
+    check(after3.pendingApplicationCount === 0, "중복 거절이 와도 음수가 되지 않는다 (바닥 0)");
+
+    // 실제 저장까지 반영됐는가
+    check(r.findById("prj_open_free")!.applicationCount === 1, "저장소에 실제로 반영된다");
+  }
+  {
+    // 수락하면 대기가 0 이 된다 — 하나씩 빼지 않는다
+    const { svc, repo: r } = newService();
+    const before = r.findById("prj_open_locked")!;
+    check(before.pendingApplicationCount === 3, "수락 전 대기 3건");
+    await svc.acceptProjectApplication("prj_open_locked", {
+      ...envelope(IDEMPOTENCY_KEY.acceptApplication("app_bump")),
+      applicationId: "app_bump",
+      actorUserId: "usr_client_a",
+    });
+    check(
+      r.findById("prj_open_locked")!.pendingApplicationCount === 0,
+      "수락하면 대기가 0 이 된다 (나머지는 자동 거절되므로)",
+    );
+  }
+
   /* --- 5-8. 불변식 (규칙 46~48) --- */
   section("계약 — 불변식");
   {

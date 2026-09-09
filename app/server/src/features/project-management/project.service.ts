@@ -597,6 +597,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
       recruitmentStatus: 'CLOSED',
       recruitmentClosedAt: at,
       deadlineNotifiedAt: project.deadlineNotifiedAt ?? at,
+      // CR-AP-001 — 마감하면 대기 지원이 전부 거절된다(아래 rejectPendingApplications).
+      // 하나씩 빼지 않고 0 으로 놓는다.
+      pendingApplicationCount: 0,
       projectVersion: project.projectVersion + 1,
     });
 
@@ -665,6 +668,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
       recruitmentStatus: 'CLOSED',
       transactionStatus: 'CANCELED',
       canceledAt: at,
+      // CR-AP-001 — 취소도 대기 지원을 전부 거절한다. 마감과 같은 이유로 0 이다.
+      pendingApplicationCount: 0,
       projectVersion: project.projectVersion + 1,
     });
 
