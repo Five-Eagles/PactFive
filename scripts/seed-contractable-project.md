@@ -63,7 +63,9 @@ SERVER_BASE_URL=http://localhost:4000 npm run seed:contractable
 ## 5. 실행하면 무슨 일이 일어나는가
 
 1. 의뢰인 계정 1개, 프리랜서 계정 1개를 새로 만든다 (이메일은
-   `pactfive.seed.client.<임의문자열>@example.com` 형태 — 실행할 때마다 매번 새 계정이
+   `pactfive.seed.client.<임의문자열>@pactfive-dev-seed.com` 형태 — `SEED_EMAIL_DOMAIN`
+   env로 도메인을 바꿀 수 있다(원래 `@example.com`이었지만 Supabase Auth가
+   `email_address_invalid`로 거부해서 2026-09-10에 바꿨다). 실행할 때마다 매번 새 계정이
    생긴다. 기존 계정과 절대 충돌하지 않는다).
 2. 각 계정으로 실제 로그인까지 마쳐서 접근 토큰(access token)을 받는다.
 3. 의뢰인 계정으로 테스트용 프로젝트 1개를 등록한다.
@@ -138,7 +140,8 @@ SERVER_BASE_URL=http://localhost:4000 npm run seed:contractable
 
 ## 8. 안전 관련 참고 (Fact)
 
-- 이 계정들은 `@example.com` 도메인의 테스트 계정이다. 실제 사람에게 메일이 가지 않는다.
+- 이 계정들은 `SEED_EMAIL_DOMAIN`(기본 `@pactfive-dev-seed.com`) 도메인의 테스트 계정이다.
+  실제 사람에게 메일이 가지 않는다.
 - `SUPABASE_SERVICE_ROLE_KEY`(관리자 권한 키)는 스크립트 실행 중 로컬 프로세스 안에서만
   쓰이고, 어디에도 전송하거나 기록하지 않는다.
 - 이 스크립트는 Anthropic 샌드박스 안에서 실행할 수 없다 — 샌드박스에는 Supabase/DB로

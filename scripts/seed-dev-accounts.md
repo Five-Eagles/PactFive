@@ -108,7 +108,9 @@ AUTO_REJECTED로 바뀐다. 스크립트 실행 시간이 몇 초 더 걸리는 
 
 ## 6. 안전 관련 참고 (Fact)
 
-- 10개 계정 모두 `@example.com` 가짜 이메일, 고정 비밀번호(`PactFiveSeedDev!1`)를 쓴다 —
+- 10개 계정 모두 `SEED_EMAIL_DOMAIN`(기본 `@pactfive-dev-seed.com`, `.env`로 바꿀 수 있음)
+  가짜 이메일, 고정 비밀번호(`PactFiveSeedDev!1`)를 쓴다 — 원래 `@example.com`이었지만
+  Supabase Auth가 signUp 단계에서 `email_address_invalid`로 거부해서(2026-09-10) 바꿨다.
   전부 코드에 그대로 있지만, 실제 사람에게 영향을 주는 값이 아니다(auth.mock.ts의 고정
   mock 토큰과 같은 성격).
 - 결과 파일 `.dev-accounts.local.json`(리포 루트)은 `.gitignore`에 있어 커밋되지 않는다.

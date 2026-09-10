@@ -74,6 +74,9 @@ const SERVER_BASE_URL = process.env.SERVER_BASE_URL ?? 'http://localhost:3000';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const WEB_ORIGIN = (process.env.WEB_ORIGIN ?? '').split(',').map((s) => s.trim()).filter(Boolean)[0];
+// 2026-09-10 추가 — seed-dev-accounts.js와 같은 이유(주석 참고): Supabase Auth가 signUp
+// 단계에서 @example.com을 "invalid" (code: email_address_invalid)로 거부해서 바꿨다.
+const SEED_EMAIL_DOMAIN = process.env.SEED_EMAIL_DOMAIN ?? 'pactfive-dev-seed.com';
 
 function requireEnv(name, value) {
   if (!value) {
@@ -141,7 +144,7 @@ async function api(pathname, { method = 'GET', body, accessToken, origin } = {})
  */
 async function createSeedAccount(supabaseAdmin, { role, namePrefix }) {
   const suffix = randomSuffix();
-  const email = `pactfive.seed.${role.toLowerCase()}.${suffix}@example.com`;
+  const email = `pactfive.seed.${role.toLowerCase()}.${suffix}@${SEED_EMAIL_DOMAIN}`;
   const password = `Seed!${suffix}Aa1`; // 8자 이상 조건 충족
   const name = `${namePrefix} 시드 계정 ${suffix}`;
 
