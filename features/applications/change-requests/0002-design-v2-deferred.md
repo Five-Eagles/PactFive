@@ -15,7 +15,7 @@ affected_features: [applications, project-management, contracts-payments, notifi
 | 받는 사람 | 팀장 · 유동우(PM) · 오민혁(프로필) · 조준영(CP) |
 | 보내는 사람 | 조준영 (applications) |
 | 날짜 | 2026-09-07 |
-| 상태 | applications 반영완료 (Mock·spec·시안) · `app/`·ERD·프로필 포트 대기 (2026-09-08) |
+| 상태 | applications 반영완료 (Mock·spec·시안). GAP-04 포트는 이식됨·게이트 보류(화면 대기). 그 외 `app/`·ERD 잔여 |
 | ID | `CR-AP-002` |
 | 근거 | Applications 설계서 v2.0 (`APP-DOC-01`~`08`) GAP-01~04 |
 
@@ -76,7 +76,7 @@ eligibility를 COMPLETE 우회로 Mock하는 안 — 설계서가 금지. 기각
 |---|---|---|
 | GAP-01 `rejection_type` NULL CHECK | 김락원 · 팀장 | ERD CHECK 미확정. Mock은 NULL로 진행 |
 | GAP-02 실 outbox worker·스케줄러 | 팀장 | 서버리스. 이번 Increment 밖 |
-| GAP-04 `getProfileCompletion` 포트 | 오민혁 | user-management에 프로필 코드 없음 |
+| GAP-04 `getProfileCompletion` 포트 | 오민혁 · 팀장 | **포트 이식 완료 · 게이트 보류 (2026-09-09 RW).** 프로필 입력 화면이 없어 켜면 전 지원 차단. 화면 후 express·applications 연결 |
 | 상태 이력 테이블 | 김락원 · 팀장 | ERD 신설 필요. Mock은 메모리 append-only |
 | `app/` 이식 (eligibility·단건 GET·operation·202) | 팀장 | `app/`은 팀장만 수정 |
 | `app/web` 거절 4종 문구 | 팀장 | `MyApplicationsPage`는 상태 라벨만. `REJECTION_COPY` 미이식 |
