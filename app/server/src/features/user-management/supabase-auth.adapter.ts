@@ -176,6 +176,17 @@ function providerError(
     }
   }
 
+  // 클라이언트로는 항상 일반화된 메시지만 내려간다(보안 설계, auth.service.ts의 AuthProblem
+  // 매핑 참고) — 그래서 실제 원인은 여기서 한 번은 서버 로그에 남겨야 나중에 디버깅할 수
+  // 있다. ProviderAuthError 자체는 원본 error를 들고 있지 않으므로(단순 code/message만)
+  // 이 지점이 원본을 볼 수 있는 마지막 위치다. sourceCode/status는 Supabase가 실제로 돌려준
+  // 필드, code는 위에서 매핑한 우리 쪽 결과 — 둘 다 있어야 "왜 이 코드로 매핑됐는지"까지
+  // 바로 알 수 있다.
+  console.error(
+    `[supabase-auth] 매핑됨=${code} (원본 code=${sourceCode ?? "n/a"}, status=${status ?? "n/a"}):`,
+    error,
+  );
+
   return new ProviderAuthError(code, code, providerSessionId);
 }
 
