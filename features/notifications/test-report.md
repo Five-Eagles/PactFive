@@ -1,5 +1,43 @@
 # notifications 테스트 결과
 
+## 2026-09-10 ID 40자 호환성 원본 보정 — 로컬 통과 / app 미반영
+
+기준: develop `5278c58` 동기화 후 `fix/owner-qa-handoff`. CR-0013의 DB ID40 확장 결정에 맞춘
+담당 원본의 통합 검토안이며, 알림 공유 API 승인이나 배포 완료는 아니다. 실제 계정/외부 DB/
+공급자 요청 없이 가상 fixture·메모리 repository·127.0.0.1 임시 HTTP만 사용했다.
+
+| 검증 | 실제 결과 |
+|---|---|
+| 수정 전 신규 16그룹 추가 (38자 그룹 추가 전) | **95 PASS / 8 FAIL**. 31/36/40 서버 인증401·웹 DTO502, 36/40 사건 전달 retry_required로 실패 재현 |
+| ID/링크 보정 + 38자 경계 2그룹 추가 후 `npx tsx features/notifications/prototype/run.tsx` | **105 PASS / 0 FAIL** (기존87 + 신규18) |
+| `npx tsc -p features/notifications/prototype/tsconfig.json` | strict PASS |
+| `npm run preview:build` | PASS, 102 modules |
+| `git diff --check` | PASS |
+
+### 규칙21 및 인접 규칙 회귀
+
+| 규칙 | 검사 내용 | 결과 |
+|---|---|---|
+| 1/3/12/21 | 1·30·31·36·38·40자 userId·projectId·applicationId·notificationId·resourceId, 저장 DTO 조회·읽음·최초 readAt 보존 | PASS |
+| 12/20/21 | 웹 목록/읽음 DTO와 정확한 경로가 긴 ID를 그대로 보존 | PASS |
+| 1/12/21 | 41자·빈값·공백·슬래시·역슬래시·query·fragment·퍼센트·URL·후행 개행 거부, 모든 수신자 입력을 첫 저장 전에 검증 | PASS |
+| 12/20/21 | 불량 저장 ID/resourceId/link는 서버500·웹502; 잘못된 읽음 ID는 웹 요청 전400 | PASS |
+| 12/21 | resourceType null/30자 수용·31자 거부, eventId/closureEventId120 수용·121 거부 | PASS |
+| 1~14/19/21 | 36/40자 fixture 각각 필수6종 전달→중복 재전달→loopback HTTP→실제 웹 adapter→계정별 목록→타인404→본인 반복 읽음→전체 읽음 | PASS; 성공 HTTP200·타인404·no-store 관찰 |
+
+신규 파일: `prototype/tests/notification-id-compatibility.test.ts`. 기존 31자 거부 테스트 3곳은
+41자 거부로 갱신했고, 기존 생성 ID가30자 이내라는 테스트는 생성기 미변경 때문에 유지했다.
+단순히 기존 실패 기대를 삭제한 것이 아니라 31자 이상 입력의 성공 왕복을 별도로 검증했다.
+
+시안·CSS·문구·컴포넌트 레이아웃은 변경하지 않았다. UX 자체 점검은 기존 SSR 필수 요소·
+상태/포커스/반응형 규칙 회귀를 재실행했으며, 시각·키보드·브라우저 실배포 QA는 이번 로컬
+테스트로 대체하지 않는다. ID 보존으로 잘못된 오류/링크 차단을 줄이되 기존 경로 제한은 유지했다.
+
+**남은 통합 조건:** app 서버·웹도 같은 계약으로 이식, 실제 DB40 migration 적용 확인,
+원천 delivery/단일 알림 snapshot 연결, QA 전용 사건 수신·계정 분리·읽음 실배포 검증.
+아래 실제 배포 QA의 “원본30”은 보정 전 이력이다. 배포 결과/미검증 판정 자체는 그대로 유효하며
+이 로컬 성공으로 완료 처리하지 않았다. 승인 요청과 파일 매핑은 CR-0001의 상단 후속 절 참조.
+
 ## 2026-09-10 실제 배포 통합 QA — 일부 통과, 양성 데이터·수신 검증 차단
 
 대상: `https://pact-five-seven.vercel.app/`. 코드 대조 기준은 최신 develop `38ab13c`이며,

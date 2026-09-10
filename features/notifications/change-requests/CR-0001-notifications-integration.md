@@ -9,6 +9,39 @@ affected_features: [notifications, applications, project-management, contracts-p
 
 # 스펙 변경 신청
 
+## 2026-09-10 ID 호환성 후속 — 담당 원본 수정안 / 팀장 검토 요청
+
+기준: develop `5278c58`을 `fix/owner-qa-handoff`에 동기화. **FACT:**
+`features/project-management/change-requests/0013-generated-ids-exceed-varchar-30.md`와
+`feedback_loop/2026-09-09/project-management-cr-0013-id-length.md`에서 팀장은 ID를 줄이지 않고
+PK/FK를 40자로 확장하는 안을 채택했다. Notification의 id/recipientId/resourceId도 해당한다.
+`resourceType`은 명시적으로 30자를 유지한 예외다. 실제 DB 마이그레이션은 해당 기록에서 미검증이다.
+
+**수정안:** DB 확장 결정에 맞춰 알림 담당 원본의 식별자/프로젝트 링크 수용 길이만 30→40으로
+보정한다(spec 규칙21, API 계약 공통). 엔드포인트·DTO 필드·문구·종류·기존 생성기·dedupe 방식은
+변경하지 않는다. 41자 이상과 기존 불허 문자는 계속 거부하고 resourceType30/eventId120은 유지한다.
+**알림 API40 공유 승인 완료라고 해석하지 않는다.** app/공유 문서/배포 DB 변경은 이 PR에 없다.
+
+| 팀장 검토·이식 항목 | 원본/대상 | 완료 조건 |
+|---|---|---|
+| API40 수정안 채택 여부 | 이 spec 규칙21 + api-contract 공통 → 공유 API 사본 | 허용 ID 범위·기존 ID 보존·resourceType30·사건 키120에 동의 또는 대안 회신 |
+| 서버 길이/링크 검증 | prototype/server/notification.service.ts → app 동명 서비스 | 기존 app의 제어문자 검사와 DB adapter를 유지하고 ID/링크 길이만 반영 |
+| 웹 DTO/읽음 ID/링크 검증 | prototype/web/api/notifications.ts → app 웹 API | 공용 HTTP/ApiError 연결을 보존. resourceType은 ID와 함께40으로 늘리지 않음 |
+| 배포 전 정합성 | CR-0013 migration + 실제 DB + 원천 port | DB40 적용 확인 후 36/38/40 ID 사건→목록→읽음→링크 및 타인404 검증 |
+
+**팀장에게 전달할 요청:**
+
+> 알림 DB ID 컬럼40 확장(CR-0013)은 반영됐지만 서비스·웹 검증은30이라 실제36자 프로젝트
+> 알림을 거부합니다. 담당 원본에 40자 호환 수정안과 경계/HTTP 왕복 회귀를 준비했습니다.
+> API40 수용안을 검토해 주시고, 승인 시 app 서버·웹 검증과 원천 delivery 연결, 헤더·목록
+> 단일 snapshot 연결을 부탁드립니다. 로그인 공유 상태 수정도 같은 브랜치에 있습니다.
+> 실제 수신 QA는 배포 후 전용 사건·수신자로 재실행하겠습니다. AI 정상 견적은 마지막 확인에서
+> 503 PRICING_ANALYZER_UNAVAILABLE였으므로 분석기 설정 확인도 부탁드립니다.
+
+다음 절의 “ID 정책 결정/원본30”은 이 수정안을 만들기 전 배포 QA 기록이다. 현재 원본 제안과
+미수정 app을 구분한다. 실제 수신·마감 정책·worker·10분 SLA가 해결되지 않았으므로 이 CR의
+전체 상태 및 기존 feedback 상태를 종결하지 않는다.
+
 ## 2026-09-10 실제 배포 QA 후 통합 인계
 
 최신 develop `38ab13c`에는 app 알림 조회/읽음 API와 화면이 존재한다. 아래 과거의
@@ -139,6 +172,8 @@ freelancerId를 확인할 수 있다. clientId/acceptedApplicationId는
 - scheduler 간격+재시도 지연을 합쳐 deadline→알림 저장 10분 이내임을 운영 환경에서 검증한다.
 
 ### 5. 공통 식별자 길이 블로커
+
+아래는 최초 제기 이력이다. DB40 채택과 담당 원본 호환성 후속은 문서 상단 9/10 절을 따른다.
 
 `app/server/src/features/user-management/auth.service.ts:243`의 기본 사용자 ID 생성은
 `usr_` + UUID 32자리로 36자다. `app/server/prisma/schema.prisma:325`의 User.id와 `:603`의

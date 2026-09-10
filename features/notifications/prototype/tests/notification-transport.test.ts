@@ -149,7 +149,7 @@ export async function runNotificationTransportTests(check: Check) {
   await check("통합 전송: 잘못된 개별 읽음 ID는 공용 요청 함수를 호출하기 전에 거부한다", async () => {
     let calls = 0;
     const api = createNotificationApi({ request: async () => { calls++; return {}; } });
-    for (const id of ["", "../read-all", "ntf_other?recipientId=other", "ntf_other\n", "x".repeat(31)]) {
+    for (const id of ["", "../read-all", "ntf_other?recipientId=other", "ntf_other\n", "x".repeat(41)]) {
       await assert.rejects(api.markNotificationRead(id), isSafeApiError(400, "VALIDATION_ERROR"));
     }
     assert.equal(calls, 0);

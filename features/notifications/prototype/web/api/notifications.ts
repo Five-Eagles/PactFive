@@ -11,9 +11,9 @@ export class NotificationApiError extends Error {
   }
 }
 
-const identifier = /^[A-Za-z0-9][A-Za-z0-9_-]{0,29}(?![\s\S])/;
+const identifier = /^[A-Za-z0-9][A-Za-z0-9_-]{0,39}(?![\s\S])/;
 export function isNotificationProjectLink(value: string): boolean {
-  return /^\/projects\/[A-Za-z0-9][A-Za-z0-9_-]{0,29}(?![\s\S])/.test(value);
+  return /^\/projects\/[A-Za-z0-9][A-Za-z0-9_-]{0,39}(?![\s\S])/.test(value);
 }
 function invalidResponse(): never {
   throw new NotificationApiError(502, "INVALID_RESPONSE", "알림 응답을 확인할 수 없습니다. 다시 시도해 주세요.");
@@ -36,9 +36,9 @@ function timestamp(value: unknown): string {
       || !Number.isFinite(Date.parse(result))) return invalidResponse();
   return result;
 }
-function nullableIdentifier(value: unknown): string | null {
+function nullableIdentifier(value: unknown, maxLength = 40): string | null {
   if (value === null) return null;
-  if (typeof value !== "string" || !identifier.test(value)) return invalidResponse();
+  if (typeof value !== "string" || value.length > maxLength || !identifier.test(value)) return invalidResponse();
   return value;
 }
 function item(value: unknown): NotificationItem {
@@ -49,7 +49,7 @@ function item(value: unknown): NotificationItem {
   // Explicit allowlist: internal recipientId/dedupeKey can never leak into UI state.
   return {
     id, type: dto.type as NotificationType, title: string(dto.title, 100), body: string(dto.body, 500),
-    linkUrl: dto.linkUrl, resourceType: nullableIdentifier(dto.resourceType),
+    linkUrl: dto.linkUrl, resourceType: nullableIdentifier(dto.resourceType, 30),
     resourceId: nullableIdentifier(dto.resourceId),
     readAt: dto.readAt === null ? null : timestamp(dto.readAt), createdAt: timestamp(dto.createdAt),
   };

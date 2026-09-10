@@ -17,7 +17,7 @@ import {
 
 export { NotificationApiError } from "./notification.errors";
 
-const ENTITY_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,29}(?![\s\S])/;
+const ENTITY_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,39}(?![\s\S])/;
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 const COMMON_EVENT_KEYS = ["type", "eventId", "projectId", "projectTitle", "occurredAt"];
 
@@ -146,7 +146,7 @@ function toNotificationItem(record: NotificationRecord, recipientId: string): No
     || !NOTIFICATION_TYPES.includes(record.type) || typeof record.title !== "string"
     || record.title.length < 1 || record.title.length > 100 || typeof record.body !== "string"
     || record.body.length > 500 || typeof record.linkUrl !== "string"
-    || !/^\/projects\/[A-Za-z0-9][A-Za-z0-9_-]{0,29}(?![\s\S])/.test(record.linkUrl)
+    || !/^\/projects\/[A-Za-z0-9][A-Za-z0-9_-]{0,39}(?![\s\S])/.test(record.linkUrl)
     || (record.resourceType !== null && (typeof record.resourceType !== "string" || record.resourceType.length > 30))
     || (record.resourceId !== null && !isEntityId(record.resourceId))) throw notificationStorageError();
   return {
