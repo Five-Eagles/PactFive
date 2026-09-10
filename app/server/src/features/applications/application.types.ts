@@ -9,10 +9,12 @@
  * 그 부분만 `ProjectApplicationContextPort`(비동기 포트)로 분리했다 — `ApplicationRepository`는
  * 지원(`applications`) 자기 자신의 행·멱등·closure·operation·상태 이력만 갖는다.
  *
- * PR #83 이식 범위 — 2026-09-07 대화, RW 결정("카운트 제외하고 나머지만 먼저")에 따라
- * 프로필 완성도 강제만 이번에도 생략한다. **지원 건수 쓰기(CR-AP-001)는 2026-09-10에
- * `bumpApplicationCounts` 호출을 연결했다**(create +1/+1, 개별 거절 pending -1).
- * 1. ~~`applicationCount`/`pendingApplicationCount` 쓰기~~ — 포트 연결 완료(2026-09-10)
+ * PR #83 이식 범위에서 보류했던 두 항목 중 카운트 쓰기는 PR #106에서 포트가 열렸고,
+ * app/ 통합에서 생성·개별 DIRECT 거절 경로가 호출한다. 수락·마감·취소의 일괄 정리는
+ * project-management가 소유한다. `ProjectApplicationContext`에 두 필드를 추가하지 않는
+ * 이유는 원본 스토어에는 프로젝트 전체 객체가 있었지만 app/에서는 project-management가
+ * 프로젝트를 소유하기 때문이다.
+ *
  * 2. 프로필 완성도 강제(`ProfileCompletionPort`/`PROFILE_INCOMPLETE`) — user-management에
  *    아직 프로필 관련 코드가 전혀 없다(인증만 있음). 원본 포트 자신의 주석이 "기본 COMPLETE
  *    우회 금지"라고 못박아 뒀으므로, 가짜 어댑터를 만들어 항상 COMPLETE를 반환하게 하는
