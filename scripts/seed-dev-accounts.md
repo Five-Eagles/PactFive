@@ -25,6 +25,11 @@ npm run seed:dev-accounts
 실행할 때마다 계정이 늘어나지 않는다 — 이메일이 고정이라, 이미 있으면 그 계정을 그대로
 재사용한다(idempotent). 서버를 재시작한 뒤에도 다시 돌려도 안전하다.
 
+이 스크립트와 `scripts/seed-contractable-project.js`(매번 새 계정 1쌍 + CONTRACT_PENDING
+프로젝트 1개를 추가로 만드는 non-idempotent 스크립트)를 한 번에 순서대로 실행하려면
+`npm run seed:all`(`scripts/seed-all.js`)을 쓴다. 대부분은 이 문서의 10개 계정만으로
+충분하니 평소엔 `npm run seed:dev-accounts`만 돌리면 된다.
+
 ## 3. 만들어지는 계정 10개
 
 | 계정 | 역할 | 상태 | 어떤 화면 테스트용 |
