@@ -15,6 +15,10 @@ function toActor(req: Request): string | undefined {
   return req.user?.userId;
 }
 
+function toRole(req: Request): 'CLIENT' | 'FREELANCER' | undefined {
+  return req.user?.role;
+}
+
 function readIdempotencyKey(req: Request): string | undefined {
   const raw = req.header('Idempotency-Key');
   return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
@@ -43,7 +47,7 @@ export function createApplicationRouter(
     '/api/v1/projects/:projectId/application-eligibility',
     requireAuth,
     async (req: Request, res: Response) => {
-      const { httpStatus, body } = await controller.eligibility(req.params.projectId, toActor(req));
+      const { httpStatus, body } = await controller.eligibility(req.params.projectId, toActor(req), toRole(req));
       res.status(httpStatus).json(body);
     },
   );
@@ -57,6 +61,7 @@ export function createApplicationRouter(
         toActor(req),
         req.body as CreateApplicationBody,
         readIdempotencyKey(req),
+        toRole(req),
       );
       res.status(httpStatus).json(body);
     },

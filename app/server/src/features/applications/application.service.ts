@@ -398,9 +398,13 @@ export async function getApplicationEligibility(
   deps: ApplicationServiceDeps,
   projectId: string,
   actorUserId: string | undefined,
+  actorRole?: 'CLIENT' | 'FREELANCER',
 ): Promise<EligibilityResponse> {
   const actor = requireActor(actorUserId);
   const project = await requireProject(deps, projectId);
+  if (actorRole === 'CLIENT') {
+    throw new ApplicationApiError('PROJECT_FORBIDDEN', '프리랜서만 지원할 수 있습니다.');
+  }
   if (actor === project.clientId) {
     throw new ApplicationApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
   }
@@ -428,8 +432,12 @@ export async function createApplication(
   actorUserId: string | undefined,
   input: CreateApplicationBody,
   idempotencyKey: string | undefined,
+  actorRole?: 'CLIENT' | 'FREELANCER',
 ): Promise<CreateApplicationResult> {
   const actor = requireActor(actorUserId);
+  if (actorRole === 'CLIENT') {
+    throw new ApplicationApiError('PROJECT_FORBIDDEN', '프리랜서만 지원할 수 있습니다.');
+  }
   // 허용 필드·범위부터 검사하고 모집 상태는 그 다음에 본다.
   assertCreateAllowlist(input);
   const parsed = parseCreateInput(input);
@@ -614,6 +622,9 @@ export async function acceptApplication(
   }
   if (project.acceptedApplicationId && project.acceptedApplicationId !== applicationId) {
     throw new ApplicationApiError('PROJECT_TRANSITION_CONFLICT', '다른 지원자가 먼저 수락되었습니다');
+  }
+  if (row.status !== 'PENDING') {
+    throw new ApplicationApiError('PROJECT_TRANSITION_CONFLICT', '대기 중인 지원만 수락할 수 있습니다.');
   }
   if (project.recruitmentStatus !== 'OPEN' || project.transactionStatus !== 'NONE') {
     throw new ApplicationApiError('PROJECT_TRANSITION_CONFLICT', '다른 지원자가 먼저 수락되었습니다');
