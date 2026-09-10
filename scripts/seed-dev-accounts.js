@@ -231,8 +231,89 @@ const MARKER = {
   closed: '[시드:project-management] 마감 처리 테스트 프로젝트',
 };
 
-async function ensureAccount(supabaseAdmin, persona) {
+/**
+ * 회원가입 → (필요시) 강제 확인 → 로그인을 한 번 시도한다. 실패하면 {@link ensureAccount}가
+ * 해석해서 재시도할지 판단할 수 있도록, 성공 시 세션을, 실패 시 원인 진단에 필요한 정보를
+ * 그대로 담은 객체를 던진다(throw하지 않는다 — 호출부에서 로그인 실패 body를 봐야 하므로).
+ */
+async function attemptRegisterConfirmLogin(supabaseAdmin, persona) {
   const { email, role, label } = persona;
+
+  console.log(`[seed] ${persona.key}: 신규 생성 시도 중 (${email})`);
+  const registerRes = await api('/api/v1/auth/registrations', {
+    method: 'POST',
+    origin: WEB_ORIGIN,
+    body: { email, password: SEED_PASSWORD, name: label, role, returnTo: '/' },
+  });
+
+  // status가 202가 아니어도 곧바로 포기하지 않는다 — 이전에 여기서 한 번 끊긴 실행(잘못된
+  // 이메일 도메인, 이메일 발송 rate limit 등으로 이번 세션에서 실제로 여러 번 겪은 상황)이
+  // Supabase 쪽에는 signUp까지 성공시켜 뒀는데 이메일 확인·로컬 동기화 전에 죽었을 수 있다.
+  // 이 경우 register()는 Supabase의 422 user_already_exists를 받아서 실패하지만
+  // (auth.service.ts가 클라이언트에는 일부러 뭉뚱그린 AUTH_PROVIDER_UNAVAILABLE만 준다 —
+  // 이메일 존재 여부를 노출하지 않으려는 의도적 보안 설계, 여기서 고치면 안 된다), 실제로는
+  // 아래의 "Supabase 관리자 API로 찾아서 강제 확인 후 로그인"으로 복구 가능할 수 있다.
+  if (registerRes.status !== 202) {
+    console.log(
+      `[seed] ${persona.key}: 회원가입 응답이 202가 아님 (status ${registerRes.status}) — ` +
+        'Supabase에는 이미 있는 계정일 수 있어 강제 확인·재로그인으로 복구를 시도합니다.',
+    );
+  }
+
+  const authUserId = await findSupabaseUserIdByEmail(supabaseAdmin, email);
+  if (!authUserId) {
+    return {
+      ok: false,
+      recoverable: false,
+      authUserId: null,
+      reason:
+        `회원가입 실패(status ${registerRes.status}: ${JSON.stringify(registerRes.body)})했고, ` +
+        `Supabase에서도 이 이메일(${email})을 가진 계정을 찾지 못했습니다 — 복구할 수 없는 상태입니다.`,
+    };
+  }
+  const { error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(authUserId, { email_confirm: true });
+  if (confirmError) {
+    return {
+      ok: false,
+      recoverable: false,
+      authUserId,
+      reason: `이메일 확인 처리 실패: ${confirmError.message}`,
+    };
+  }
+
+  const loginRes = await api('/api/v1/auth/sessions', {
+    method: 'POST',
+    origin: WEB_ORIGIN,
+    body: { email, password: SEED_PASSWORD },
+  });
+  if (loginRes.status !== 200) {
+    // REGISTRATION_NOT_AVAILABLE(403) — auth.service.ts의 login()이 Supabase 확인은 됐지만
+    // 로컬 registrationIntent가 없어서(또는 만료돼서) 로컬 계정을 자동으로 못 만든다는 뜻이다.
+    // 우리 seed 흐름에서는 "이전 실행이 signUp까지만 성공시키고 intent 저장 전에 죽었을 때"
+    // 정확히 이 상태가 된다 — 이 Supabase 계정은 로그인으로 절대 복구되지 않으므로, 삭제하고
+    // 처음부터 다시 회원가입해야 한다(재시도하면 registrationIntent가 새로 저장된다).
+    const code = loginRes.body?.error?.code;
+    return {
+      ok: false,
+      recoverable: code === 'REGISTRATION_NOT_AVAILABLE',
+      authUserId,
+      reason:
+        `강제 확인 후에도 로그인 실패 (status ${loginRes.status}): ${JSON.stringify(loginRes.body)}` +
+        (code === 'REGISTRATION_NOT_AVAILABLE'
+          ? ' — Supabase에는 계정이 있지만 로컬 registrationIntent가 없어(이전 실행이 signUp 직후 끊김) 자동 복구가 불가능합니다. 이 Supabase 계정을 삭제하고 재시도합니다.'
+          : ' — Supabase에 이 이메일로 다른 비밀번호의 계정이 이미 있을 수 있습니다(고정 SEED_PASSWORD와 불일치).'),
+    };
+  }
+
+  console.log(`[seed] ${persona.key}: 생성/복구 완료 (userId=${loginRes.body.user.userId})`);
+  return {
+    ok: true,
+    session: { ...persona, userId: loginRes.body.user.userId, accessToken: loginRes.body.accessToken, password: SEED_PASSWORD },
+  };
+}
+
+async function ensureAccount(supabaseAdmin, persona) {
+  const { email } = persona;
 
   // 빠른 경로 — 이미 완전히 준비된 계정이면 로그인 한 번으로 끝난다(재실행 시 매번
   // Supabase 관리자 API를 부르지 않아도 되게).
@@ -246,53 +327,29 @@ async function ensureAccount(supabaseAdmin, persona) {
     return { ...persona, userId: quickLogin.body.user.userId, accessToken: quickLogin.body.accessToken, password: SEED_PASSWORD };
   }
 
-  console.log(`[seed] ${persona.key}: 신규 생성 시도 중 (${email})`);
-  const registerRes = await api('/api/v1/auth/registrations', {
-    method: 'POST',
-    origin: WEB_ORIGIN,
-    body: { email, password: SEED_PASSWORD, name: label, role, returnTo: '/' },
-  });
+  const first = await attemptRegisterConfirmLogin(supabaseAdmin, persona);
+  if (first.ok) return first.session;
 
-  // 2026-09-10 추가 — status가 202가 아니어도 곧바로 포기하지 않는다. 위의 "빠른 로그인"이
-  // 실패했다고 해서 계정이 아예 없다는 뜻은 아니다 — 이전에 여기서 한 번 끊긴 실행(잘못된
-  // 이메일 도메인, 이메일 발송 rate limit 등으로 이번 세션에서 실제로 여러 번 겪은 상황)이
-  // Supabase 쪽에는 signUp까지 성공시켜 뒀는데 이메일 확인·로컬 동기화 전에 죽었을 수 있다.
-  // 이 경우 register()는 Supabase의 422 user_already_exists를 받아서 실패하지만
-  // (auth.service.ts가 클라이언트에는 일부러 뭉뚱그린 AUTH_PROVIDER_UNAVAILABLE만 준다 —
-  // 이메일 존재 여부를 노출하지 않으려는 의도적 보안 설계, 여기서 고치면 안 된다), 실제로는
-  // 아래의 "Supabase 관리자 API로 찾아서 강제 확인 후 로그인"으로 복구 가능하다 — 신규 생성
-  // 성공 시와 정확히 같은 절차다.
-  if (registerRes.status !== 202) {
-    console.log(
-      `[seed] ${persona.key}: 회원가입 응답이 202가 아님 (status ${registerRes.status}) — ` +
-        'Supabase에는 이미 있는 계정일 수 있어 강제 확인·재로그인으로 복구를 시도합니다.',
-    );
+  if (!first.recoverable) {
+    throw new Error(`[${persona.key}] ${first.reason}`);
   }
 
-  const authUserId = await findSupabaseUserIdByEmail(supabaseAdmin, email);
-  if (!authUserId) {
-    throw new Error(
-      `[${persona.key}] 회원가입 실패(status ${registerRes.status}: ${JSON.stringify(registerRes.body)})했고, ` +
-        `Supabase에서도 이 이메일(${email})을 가진 계정을 찾지 못했습니다 — 복구할 수 없는 상태입니다.`,
-    );
+  // 2026-09-10 추가 — REGISTRATION_NOT_AVAILABLE(로컬 intent 없음)은 로그인으로 복구가 안
+  // 되므로, 그 "고아" Supabase 계정을 지우고 한 번만 더 처음부터 시도한다. 이번엔 Supabase에
+  // 계정이 없는 상태에서 다시 시작하므로 register()가 정상적으로 registrationIntent까지
+  // 저장하고 끝난다(이메일 발송 rate limit·잘못된 도메인 문제가 이미 해결된 상태라는 전제).
+  console.log(`[seed] ${persona.key}: ${first.reason}`);
+  if (first.authUserId) {
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(first.authUserId);
+    if (deleteError) {
+      throw new Error(`[${persona.key}] 고아 계정 삭제 실패: ${deleteError.message} — 직접 Supabase 대시보드에서 정리해 주세요.`);
+    }
+    console.log(`[seed] ${persona.key}: 고아 Supabase 계정 삭제 완료 — 재시도합니다.`);
   }
-  const { error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(authUserId, { email_confirm: true });
-  if (confirmError) throw new Error(`[${persona.key}] 이메일 확인 처리 실패: ${confirmError.message}`);
 
-  const loginRes = await api('/api/v1/auth/sessions', {
-    method: 'POST',
-    origin: WEB_ORIGIN,
-    body: { email, password: SEED_PASSWORD },
-  });
-  if (loginRes.status !== 200) {
-    throw new Error(
-      `[${persona.key}] 강제 확인 후에도 로그인 실패 (status ${loginRes.status}): ${JSON.stringify(loginRes.body)} — ` +
-        `Supabase에 이 이메일로 다른 비밀번호의 계정이 이미 있을 수 있습니다(고정 SEED_PASSWORD와 불일치). ` +
-        'Supabase 대시보드 Authentication > Users에서 이 사용자를 직접 확인하거나 삭제 후 재실행하세요.',
-    );
-  }
-  console.log(`[seed] ${persona.key}: 생성/복구 완료 (userId=${loginRes.body.user.userId})`);
-  return { ...persona, userId: loginRes.body.user.userId, accessToken: loginRes.body.accessToken, password: SEED_PASSWORD };
+  const second = await attemptRegisterConfirmLogin(supabaseAdmin, persona);
+  if (second.ok) return second.session;
+  throw new Error(`[${persona.key}] 재시도 후에도 실패: ${second.reason}`);
 }
 
 async function ensureProject(clientSession, markerTitle) {
