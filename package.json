@@ -9,6 +9,7 @@
     "dev:mock-auth": "node scripts/dev-mock-auth.js",
     "seed:contractable": "node scripts/seed-contractable-project.js",
     "seed:dev-accounts": "node scripts/seed-dev-accounts.js",
+    "seed:all": "node scripts/seed-all.js",
     "check:design": "node scripts/check-design-drift.js",
     "test:integration": "tsc --project tests/tsconfig.json && tsx --test tests/email-confirmation-bootstrap.test.ts app/web/tests/project-registration-draft.test.ts app/server/tests/project-pricing-registration.test.ts",
     "sample:login": "tsx features/sample-login/prototype/run.tsx",
