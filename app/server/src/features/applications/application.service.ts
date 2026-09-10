@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { AcceptProjectApplicationDelegate } from './application.types';
 import {
   ACCEPT_IDEMPOTENCY_PREFIX,
@@ -177,12 +178,23 @@ function parseCreateInput(input: CreateApplicationBody): CreateApplicationInput 
   };
 }
 
+/**
+ * 2026-09-10 수정 — 원래 이 함수가 JSON.stringify 결과를 그대로 돌려주고 있었다. 이름은
+ * "hash"인데 실제로는 해시가 아니었던 것 — 결과물이 Prisma의 ApplicationIdempotencyKey.bodyHash
+ * 컬럼(schema.prisma, @db.VarChar(64))에 그대로 들어가는데, coverLetter 최소 길이만 100자라
+ * (application.constants.ts COVER_LETTER_MIN) JSON 문자열은 사실상 항상 64자를 넘는다.
+ * 실제로 로컬에서 지원 생성 요청에 Idempotency-Key를 실어 보내자 Postgres가
+ * "value too long for type character varying(64)"(22001)로 거부했고, 이 예외가 컨트롤러
+ * 밖으로 새 나가 서버 프로세스 전체가 죽었다(아래 toHttp() 주석 참고). 지금은 SHA-256
+ * hex digest(정확히 64자)를 저장한다 — 멱등 비교 목적에는 원문 대신 해시로 충분하다.
+ */
 function bodyHash(input: CreateApplicationInput): string {
-  return JSON.stringify({
+  const raw = JSON.stringify({
     coverLetter: input.coverLetter,
     expectedAmount: input.expectedAmount,
     expectedDurationDays: input.expectedDurationDays,
   });
+  return createHash('sha256').update(raw).digest('hex');
 }
 
 function toItem(row: ApplicationRow): CreateApplicationResult['body'] {
