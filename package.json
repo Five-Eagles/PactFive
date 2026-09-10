@@ -7,6 +7,7 @@
     "dev": "node scripts/dev.js",
     "dev:run": "concurrently --names server,web --prefix-colors cyan,magenta --kill-others-on-fail \"npm --prefix app/server run dev\" \"npm --prefix app/web run dev\"",
     "dev:mock-auth": "node scripts/dev-mock-auth.js",
+    "seed:skill-catalog": "node scripts/seed-skill-catalog.js",
     "seed:contractable": "node scripts/seed-contractable-project.js",
     "seed:dev-accounts": "node scripts/seed-dev-accounts.js",
     "seed:all": "node scripts/seed-all.js",

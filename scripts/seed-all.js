@@ -19,14 +19,19 @@
  *   추가로 독립된 계약 시나리오가 필요할 때만 의미가 있다.
  *
  * 실행 전제는 두 스크립트와 같다(로컬 서버가 AUTH_PROVIDER_MODE=supabase로 떠 있어야 함,
- * 리포 루트 .env에 SUPABASE_*·WEB_ORIGIN 필요) — 이 파일 자체는 별도 전제조건이 없다,
- * 각 스크립트가 실행 시점에 알아서 검증하고 없으면 바로 종료한다.
+ * 리포 루트 .env에 SUPABASE_*·WEB_ORIGIN·DATABASE_URL 필요) — 이 파일 자체는 별도
+ * 전제조건이 없다, 각 스크립트가 실행 시점에 알아서 검증하고 없으면 바로 종료한다.
+ *
+ * 2026-09-10 추가 — scripts/seed-skill-catalog.js(기술 스택 참조 데이터 12종)를 항상
+ * 맨 먼저 실행한다. --only로도 건너뛸 수 없다 — 아래 두 단계가 만드는 프로젝트가 전부
+ * skillIds를 쓰는데, 그 코드에 대응하는 행이 DB skills 테이블에 없으면 프로젝트 생성
+ * 자체가 500(INTERNAL_ERROR)으로 죽는다(seed-skill-catalog.js 헤더 주석 참고).
  *
  * 실행:
  *   npm run seed:all
- *   node scripts/seed-all.js                     — 둘 다 실행 (기본)
- *   node scripts/seed-all.js --only=dev-accounts  — seed-dev-accounts.js만
- *   node scripts/seed-all.js --only=contractable  — seed-contractable-project.js만
+ *   node scripts/seed-all.js                     — skill-catalog + 둘 다 실행 (기본)
+ *   node scripts/seed-all.js --only=dev-accounts  — skill-catalog + seed-dev-accounts.js만
+ *   node scripts/seed-all.js --only=contractable  — skill-catalog + seed-contractable-project.js만
  *
  * 이 스크립트도 샌드박스 안에서는 실행되지 않는다 — Supabase/DB로 나가는 네트워크가 여기
  * 세션에는 없다. 팀장/각 담당자의 로컬 환경에서 실행해야 한다.
@@ -36,6 +41,16 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
+
+// 2026-09-10 추가 — skill-catalog는 항상 먼저 실행한다(--only로도 건너뛸 수 없다). 아래
+// 두 단계가 만드는 프로젝트가 전부 skillIds(REACT 등)를 쓰는데, 그 코드에 대응하는 행이
+// skills 테이블에 없으면 project_skills FK 위반으로 프로젝트 생성 자체가 500으로 죽는다
+// (scripts/seed-skill-catalog.js 헤더 주석 참고 — 실제 배포 앱에도 있는 버그다).
+const PREREQ_STEP = {
+  key: 'skill-catalog',
+  label: 'seed-skill-catalog.js — 기술 스택 참조 데이터(skills 테이블) 12종 (idempotent)',
+  file: path.join(__dirname, 'seed-skill-catalog.js'),
+};
 
 const STEPS = [
   {
@@ -91,8 +106,9 @@ function runStep(step, index, total) {
 function main() {
   const only = parseOnlyFlag(process.argv.slice(2));
   const steps = only ? STEPS.filter((s) => s.key === only) : STEPS;
+  const allSteps = [PREREQ_STEP, ...steps];
 
-  steps.forEach((step, i) => runStep(step, i, steps.length));
+  allSteps.forEach((step, i) => runStep(step, i, allSteps.length));
 
   console.log('\n========================================');
   console.log(`[seed-all] 완료 — ${steps.map((s) => s.key).join(', ')} 전부 성공.`);
