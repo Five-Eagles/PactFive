@@ -4,9 +4,17 @@
 통합 준비 기준: develop `ec1c01f`; 작업 브랜치 `feature/notifications`.
 기존 구현 PR #75는 develop 병합됨. 이것은 app/DB/운영 스케줄러 통합 완료를 의미하지 않는다.
 
+## 2026-09-10 후속
+
+`fix/owner-qa-handoff`에서 develop `5278c58`을 동기화했다. 실제 배포 QA는 목록 0건·인증
+경계까지 부분 확인했고 수신 검증은 열린 상태다. CR-0013에서 DB ID 컬럼 확장(40자)은 팀장이
+채택했으나 알림 원본 검증이 30자로 남아 있어, 서버·웹의 40자 호환 수정안을 작성했다.
+공유 API 승인·app 반영은 별도이며 `resourceType` 30자·사건 키 120자는 유지한다.
+최신 실행 결과는 `test-report.md`, 승인 요청과 팀장 이식 범위는 CR-0001의 9/10 후속이 정본이다.
+
 ## 범위와 파일
 
-- `spec.md`: 필수 6종 인앱 알림·조회·읽음·중복 방지와 통합 접점의 번호 규칙 20개.
+- `spec.md`: 필수 6종 인앱 알림·조회·읽음·중복 방지와 통합 접점·ID 호환성의 번호 규칙 21개.
 - `api-contract.md`: 목록/미읽음/개별 읽음/전체 읽음 HTTP와 내부 event snapshot 계약.
 - `design/high-fi.html`: 공통 browse 레퍼런스와 토큰을 적용한 인터랙티브 시안, 필수 요소 목록.
 - `prototype/server/`: service/controller/인증 resolver 주입 router/저장소 port.
@@ -30,7 +38,8 @@ npm run preview:dev
 
 공통 프리뷰의 notifications를 선택하거나 `/?feature=notifications`로 접근한다.
 가상 사용자·실패 상태 전환은 feature preview에만 있고 실제 인증을 대신하지 않는다.
-현재 담당 회귀 87 PASS, 기존 인증/AI 등록 연결 회귀 28 PASS. 9/8 로컬 브라우저 QA 결과는 test-report 참조.
+현재 담당 회귀 105 PASS(기존87+ID 호환18). 인증/AI 등록 연결 회귀28 PASS는 9/8 이력이며
+이번 ID 보정에서 재실행하지 않았다. 날짜별 로컬/실제 배포 QA 범위는 test-report 참조.
 화면 전체 폭으로 보려면 같은 Vite 서버의 `/@fs/<저장소 절대경로>/features/notifications/prototype/preview.html`
 을 연다. 새 기능 entry가 목록에 보이지 않으면 Vite를 재시작한다(최초 glob 탐색 갱신).
 
@@ -56,7 +65,8 @@ npm run preview:dev
 > resolver를 주입하는 조립 함수, 웹은 공용 HTTP 오류를 정규화하는 접점을 제공합니다.
 > 조준영님께는 안정적인 eventId·수신자·제목 snapshot과 알림 성공 ACK, 유동우님께는 9/9
 > 능동 마감·closure snapshot·전달 성공 후 deadlineNotifiedAt 처리를 요청드립니다.
-> 팀장님은 DB/실인증/웹 공통 상태를 연결하고 ID 생성36자/스키마30자 충돌을 먼저 확인해 주세요.
+> 팀장님은 DB/실인증/웹 공통 상태를 연결하고, CR-0013의 DB40 확장에 맞춘 알림 원본 ID40
+> 수정안을 검토해 주세요. app 검증은 아직30이며, 배포 DB 마이그레이션 적용 확인도 필요합니다.
 > app/·공유 스키마는 이번에 수정하지 않았으며, 선택 알림 7종·REVIEW_CREATED 평점 캐시는 별개입니다.
 
 ## 갱신 이력
@@ -66,3 +76,4 @@ npm run preview:dev
 | 2026-09-07 | 빈 notifications 틀에서 필수 MVP 담당 구현 및 통합 요청 작성 |
 | 2026-09-08 | 최신 develop 기준 서버 조립·공용 HTTP 접점·loopback 연동 QA·통합 handoff 보완 |
 | 2026-09-08 | 전체 읽음 응답의 미읽음0 검증 보완·회귀3개 추가·로컬 브라우저 QA 재실행 |
+| 2026-09-10 | 배포 QA 부분 확인·통합 블로커 인계, DB40 결정에 맞춘 원본 ID 호환 수정안·회귀18개 추가 |

@@ -2384,6 +2384,8 @@ async function main() {
   await runUserRatingTests(test);
   const { runAuthRecordIdTests } = await import("./tests/auth-record-id.test");
   await runAuthRecordIdTests(test);
+  const { runAuthViewStoreTests } = await import("./tests/auth-view-store.test");
+  await runAuthViewStoreTests(test);
 
   const passed = results.filter((result) => result.ok).length;
   const failed = results.length - passed;

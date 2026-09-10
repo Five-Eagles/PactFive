@@ -222,7 +222,7 @@ export async function runNotificationClientTests(check: Check): Promise<void> {
     let calls = 0;
     const fakeFetch: typeof globalThis.fetch = async () => { calls += 1; return jsonResponse({}); };
     const api = createNotificationHttpApi({ getAccessToken: () => "synthetic-client-token", fetch: fakeFetch });
-    for (const id of ["", "../read-all", "id/other", "id?recipientId=other", "x".repeat(31)]) {
+    for (const id of ["", "../read-all", "id/other", "id?recipientId=other", "x".repeat(41)]) {
       await assert.rejects(async () => api.markNotificationRead(id), NotificationApiError);
     }
     assert.equal(calls, 0);

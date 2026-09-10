@@ -2,6 +2,8 @@
 
 담당자: 오민혁 · 2026-09-07 사용자 인수 요청 기준. 공유 담당표 변경은 팀장 확인 필요.
 상태: 2026-09-08 API 4종 통합 준비. 회의상 담당/API 진행 승인, `app/` 통합·실제 DB·운영 스케줄러는 별도 검증한다.
+2026-09-10 후속: CR-0013의 DB 식별자 40자 확장에 맞춘 담당 원본 호환성 수정안.
+알림 API의 공유 정본 승인·app 반영 완료를 뜻하지 않는다(CR-0001 후속 참조).
 
 ## 목적
 
@@ -20,11 +22,12 @@
 
 ## 관련 엔티티 (근거: `docs/domain/erd.md`)
 
-`notifications`: `id` varchar(30), `recipient_id` varchar(30) users 참조,
+`notifications`: `id` varchar(40), `recipient_id` varchar(40) users 참조,
 `type` notification_type, `title` varchar(100), `body` varchar(500), `link_url` text,
-`resource_type` varchar(30) nullable, `resource_id` varchar(30) nullable (FK 없음),
+`resource_type` varchar(30) nullable, `resource_id` varchar(40) nullable (FK 없음),
 `dedupe_key` varchar(120) unique, `read_at` timestamptz nullable, `created_at` timestamptz.
 원본 프로젝트 삭제 시에도 알림 기록은 유지한다. 별도 테이블은 추가하지 않는다.
+이는 9/9 팀장 CR-0013 반영 후 ERD 표기다. 실제 배포 DB 마이그레이션 적용 여부는 별도 확인한다.
 
 ## 규칙
 
@@ -73,6 +76,12 @@
 20. 웹은 공용 JSON request 함수를 주입해도 동일한 DTO 검증을 유지한다. 외부 통신 계층의
     숫자 status 401을 알림 오류로 정규화해 기존 데이터를 숨기고, 그 외 오류 원문은 노출하지
     않는다. 인증·base URL·쿠키·전역 401 처리는 앱 공용 HTTP 계층의 책임으로 유지한다.
+21. **[통합 검토안, 2026-09-10] 식별자 호환성:** 인증 userId, 사건의 수신자/projectId/applicationId,
+    조회·읽음의 notificationId/resourceId와 프로젝트 링크 경로의 ID는 1~40자 ASCII 영숫자·
+    `_`·`-`를 허용하며 첫 글자는 영숫자다. 기존 ID를 자르거나 재발급하지 않는다.
+    41자 이상·공백·제어문자·경로 구분자·query/fragment/퍼센트 인코딩은 거부한다.
+    `resourceType`은 식별자 폭 확장 대상이 아니므로 기존 최대 30자, 사건 키는 기존 최대
+    120자를 유지한다. 기존 알림 생성기의 28자 형식·수신자 격리·중복 방지·문구는 변경하지 않는다.
 
 ## 비고
 

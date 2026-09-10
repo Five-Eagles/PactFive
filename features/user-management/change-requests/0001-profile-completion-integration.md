@@ -74,3 +74,71 @@ app 직접 수정 예외 승인은 이 새 기능으로 확대하지 않는다.
 - 사용자 없음/장애면 COMPLETE: 게이트 우회이므로 기각.
 - 미완성이면 탈퇴/인증 오류를 반환: 프로필 입력 부족과 인증 실패를 혼동하므로 기각.
 - 다른 feature 또는 app를 함께 수정: 이번 담당 범위 밖이므로 소비 계약과 통합 요청으로 분리.
+
+## 2026-09-10 QA 후속 — 프로필 화면 현황과 팀장 통합 인계
+
+### 확인된 사실과 정정
+
+기준은 최신 develop `38ab13c`에서 시작한 `fix/owner-qa-handoff`다. 아래 코드 점검은 로컬
+정적 확인이며 배포/실DB 재검증을 뜻하지 않는다. 이전 배포 QA의 `/profile` 없는 페이지와
+로그인 후 헤더 지연 표시를 출발점으로 원본과 app 사본을 대조했다.
+
+- **FACT:** 원본 `spec.md` 제외 범위와 `index.md`에 프로필 상세 화면·저장 API가 명시적으로
+  빠져 있다. 독립 프로필 시안, `ProfilePage`/수정 폼, 웹 프로필 API client는 없다.
+  따라서 **“완성된 프로필 화면을 app으로 이식만 하면 된다”는 해석은 잘못이다.**
+- **FACT:** 원본에 있는 high-fi는 로그인·회원가입·이메일 확인·비활성 탈퇴 4종이다.
+  가입 시안의 “상세 프로필은 실제로 필요한 순간에 이어서 입력합니다”와 `/profile`
+  `returnTo` 허용은 프로필 화면 구현의 증거가 아니다.
+- **FACT:** `GET /api/v1/auth/contexts/current`는 이름·이메일을 제공한다. 이것은 인증된 사용자
+  요약이며 회사/업종·경력/기술을 읽고 수정하는 프로필 API가 아니다. `DELETE /users/current`는
+  탈퇴 잠정 계약일 뿐 프로필 조회 API로 재사용하지 않는다.
+- **FACT:** app에는 `PrismaProfileCompletionRepository`까지 이식돼 있다. 이전 본문의
+  “실제 DB adapter 구현 필요”는 9/9 이식으로 일부 해소됐으나, 실제 DB 일관성·저장 시각 갱신·
+  지원 게이트 통합 완료를 검증한 것은 아니다. **9/9 RW 결정은 게이트 OFF 유지**이며 이번
+  작업은 그 결정을 바꾸거나 “미완성” 계정을 새로 차단하지 않는다.
+
+### 바로 참고할 파일 매핑
+
+| 목적 | feature 원본 | app 통합 대상/현재 차이 |
+|---|---|---|
+| 인증 화면 디자인 | `design/high-fi.html`, `high-fi-sign-up.html`, `high-fi-email-confirmation.html`, `auth-foundation.css` | 기존 `app/web/src/features/user-management/` 인증 화면의 참조. 프로필 시안으로 간주하지 않음 |
+| 이름·이메일·역할·사진 요약 | `prototype/web/api/auth.ts#getCurrentAuthContext`, `api-contract.md`의 GET contexts/current | 같은 app API client/서버 route 존재. 필드: `userId`, `name`, `email`, `role`, `profileImageUrl`, `authenticated`, `accessTokenExpiresAt` |
+| 공유 로그인 화면 상태 | `prototype/web/useAuth.ts`의 `createAuthViewStore`와 `useSyncExternalStore` 구독 (이번 보정) | `app/web/src/features/user-management/useAuth.ts`에 재해석 필요. app은 `shared/http.ts`의 토큰 provider/ApiError 및 DEV 로그인 경로도 보존해야 함 |
+| 프로필 완성도 내부 조회 | `prototype/server/profile-completion.port.ts`, `.repository.ts`, `.service.ts` | `app/server/src/features/user-management/`에 동명 3파일+`prisma-profile-completion.repository.ts` 있음. express 조립/지원 게이트는 보류 |
+| 역할별 완성 조건·회귀 | `spec.md` PC-01~08, `prototype/tests/profile-completion.test.ts` | CLIENT 회사명·업종 / FREELANCER 분야·경력·활성 연결 기술. 조회 응답은 상태·완성시각·누락 필드뿐이며 화면의 실제 입력값이 아님 |
+| 프로필 화면·저장 API | **없음 — 현재 원본 제외 범위** | 라우트/읽기 전용 요약만 우선 제공할지, 역할별 편집·저장까지 이번 범위에 넣을지 팀장 범위 결정 필요 |
+
+### 로그인 상태 원본 보정과 app 적용 순서
+
+1. **원인:** 원본과 app 모두 토큰만 모듈에 공유하고 화면 상태는 훅마다 `useState`로 갖고 있었다.
+   app의 `App.tsx#AppRoutes`와 `LoginForm.tsx`가 별도 훅을 호출하므로 폼의 성공이 헤더의
+   `viewer`에 즉시 전달되지 않는다. 알림 구독의 `viewer.userId`도 이 값을 사용한다.
+2. **이번 원본 수정:** 한 문서의 공유 메모리 상태를 `useSyncExternalStore`로 구독한다.
+   로그인/가입 확인/복원/실패/로그아웃이 같은 상태를 게시한다. 계정 전환 제출 중 이전 토큰을
+   제거하고, 복원 일시 장애는 R16대로 기존 메모리 토큰·쿠키를 강제 폐기하지 않는다.
+   늦은 로그아웃 성공/실패도 epoch 검사 후에만 최신 화면 상태를 바꾼다.
+3. **팀장 적용:** app의 DTO 경로·`ApiError`·`setAuthTokenProvider`는 유지하며 상태 구독과
+   게시/초기 복원/epoch 경계만 옮긴다. `devLoginAsMock`·`devLogoutMock`도 같은 상태 게시를
+   사용해야 한다. feature 파일을 통째로 복사해 app 전용 연결을 지우지 않는다.
+4. **중복 복원 정리:** app `AppRoutes`에 명시적 `restore()` effect가 있고 `useAuth`에도
+   mount 복원이 있다. 초기 복원의 소유자를 한 곳으로 정한다. 여러 화면 마운트로 복원을
+   다시 시작하거나 새 로그인을 이전 컨텍스트로 덮지 않아야 한다.
+5. **UI 범위 결정:** 당장 QA 요구가 이름·이메일 읽기라면 기존 인증 컨텍스트 기반 요약 화면을
+   최소안으로 검토할 수 있다(**제안, 미구현**). 상세 편집을 선택하면 시안→spec/API→
+   Mock/저장 구현→완성 시각/복귀 흐름 검증 후에만 지원 게이트를 켠다. API 경로·필드·게이트를
+   이번 담당 원본 수정에 끼워 넣지 않는다.
+
+### 팀장 통합 후 회귀 시나리오
+
+| 시나리오 | 기대 결과 / 완료 증거 |
+|---|---|
+| 신규 CLIENT 로그인 → 새로고침 없이 헤더/요약 진입 | 로그인+contexts/current 200과 응답의 name/email이 화면에 그대로 일치. 헤더 로그인 CTA가 즉시 사용자 상태로 변경 |
+| CLIENT 로그아웃 → FREELANCER 로그인 | 두 화면과 알림 `viewer`가 즉시 새 계정으로 전환. 이전 이름/이메일/알림이 남지 않음 |
+| 로그인 진행 중 또는 직후 다른 인증 소비자 마운트 | 중복 초기 복원으로 로그인 결과를 덮지 않음 |
+| 느린 restore 응답 뒤 새 계정 로그인 / 느린 logout 응답 뒤 새 로그인 | 이전 epoch 응답으로 새 계정을 지우거나 이전 계정을 되살리지 않음 |
+| 로그아웃 실패 / refresh 503 / 확정 401 | 로그아웃 실패는 재시도 행동, 503은 일시 장애, 확정 401만 로그인 유도. 코드·문구·UI를 별도로 기록 |
+| `/profile` 직접 진입·새로고침·비로그인 진입 | 팀이 채택한 화면/가드/returnTo가 동작. 주소를 허용 목록에 둔 것만으로 PASS 처리하지 않음 |
+| 프로필 상세를 추가하기로 한 경우 | 역할별 필드 저장·재조회·계정 격리·completed_at 원자적 갱신·미완성→수정→원래 지원 복귀를 별도 검증. 그 전엔 게이트 OFF |
+
+원본 자동/마운트 훅 검증 결과와 실행 조건은 `../test-report.md`의 2026-09-10 절이 정본이다.
+이번 변경은 app/공유 문서/실제 계정·DB를 수정하지 않았고, 과거 피드백 상태도 임의 종결하지 않았다.
