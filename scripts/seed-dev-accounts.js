@@ -338,7 +338,9 @@ async function ensureApplication(freelancerSession, projectId) {
     method: 'POST',
     accessToken: freelancerSession.accessToken,
     body: {
-      coverLetter: '시드 스크립트가 자동 생성한 지원서입니다. '.repeat(4),
+      // 2026-09-10 수정 — .repeat(4)는 trim 후 95자로 COVER_LETTER_MIN(100, applications
+      // spec.md 규칙 1)에 5자 모자라 VALIDATION_ERROR가 났다. repeat(5)=약 119자로 여유를 둔다.
+      coverLetter: '시드 스크립트가 자동 생성한 지원서입니다. '.repeat(5),
       expectedAmount: 3_000_000,
       expectedDurationDays: 14,
     },
