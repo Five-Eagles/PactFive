@@ -134,6 +134,9 @@ function createUnavailableApplicationsPort(): ApplicationsPort {
     ): Promise<RejectPendingApplicationsResult> {
       return { rejectedCount: 0, alreadyProcessed: false, result: 'FAILED' };
     },
+    async restoreAcceptedApplication() {
+      return { changed: false, result: 'FAILED' as const };
+    },
   };
 }
 

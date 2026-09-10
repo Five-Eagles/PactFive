@@ -121,6 +121,7 @@ export type ProjectAction =
 /** 등록 의뢰인 전용. 거래 상태는 여기에만 들어간다 (규칙 9) */
 export type ClientProjectDetail = PublicProjectDetail & {
   transactionStatus: ProjectTransactionStatus;
+  acceptedApplicationId: string | null;
   /**
    * 예산 출처. **공개 응답에는 넣지 않는다** — 의뢰인이 AI 를 썼는지는
    * 프리랜서가 알 필요가 없고, 알면 지원 금액 판단에 영향을 준다.

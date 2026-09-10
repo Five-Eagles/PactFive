@@ -142,7 +142,7 @@ export function ProjectDetailPage({
               {data.client.companyName ?? data.client.name}
             </p>
             <p className="caption" style={{ margin: 0 }}>
-              평점 {data.client.averageRating} · 리뷰 {data.client.reviewCount}건
+              {data.client.reviewCount === 0 ? '평점 없음' : `평점 ${data.client.averageRating}`} · 리뷰 {data.client.reviewCount}건
             </p>
           </div>
 
