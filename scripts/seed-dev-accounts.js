@@ -59,6 +59,13 @@ const WEB_ORIGIN = (process.env.WEB_ORIGIN ?? '').split(',').map((s) => s.trim()
 // 그 시나리오 하나만 건너뛰고 나머지 8개 계정은 그대로 만든다(다른 필수 env처럼
 // requireEnv로 죽이지 않는다 — 이건 선택 기능이다, CR-0001 §4 운영 게이트와 같은 값).
 const INTERNAL_SERVICE_TOKEN = process.env.INTERNAL_SERVICE_TOKEN;
+// 2026-09-10 추가 — 원래 @example.com을 썼는데, Supabase Auth가 signUp 단계에서
+// "Email address ... is invalid" (code: email_address_invalid, status 400)로 거부한다.
+// RFC 2606이 example.com/net/org를 "절대 실제로 쓰이면 안 되는 예약 도메인"으로 정해 둔
+// 값이라, Supabase가 이 도메인들을 자체적으로 차단하는 것으로 보인다(공식 문서에 명시된
+// 동작은 아니고, 실제 이 프로젝트에서 재현된 증상 기준). env로 바꿀 수 있게 해서, 이 값도
+// 막히면 코드를 다시 고치지 않고 .env의 SEED_EMAIL_DOMAIN만 바꾸면 되게 했다.
+const SEED_EMAIL_DOMAIN = process.env.SEED_EMAIL_DOMAIN ?? 'pactfive-dev-seed.com';
 
 function requireEnv(name, value) {
   if (!value) {
@@ -70,8 +77,8 @@ requireEnv('SUPABASE_URL', SUPABASE_URL);
 requireEnv('SUPABASE_SERVICE_ROLE_KEY', SUPABASE_SERVICE_ROLE_KEY);
 requireEnv('WEB_ORIGIN', WEB_ORIGIN);
 
-// 전부 @example.com 가짜 계정이라 고정 비밀번호를 코드에 둬도 안전하다(auth.mock.ts의 고정
-// mock 토큰과 같은 성격). 결과 파일(.dev-accounts.local.json)은 .gitignore에 있다.
+// 전부 가짜 계정(SEED_EMAIL_DOMAIN)이라 고정 비밀번호를 코드에 둬도 안전하다(auth.mock.ts의
+// 고정 mock 토큰과 같은 성격). 결과 파일(.dev-accounts.local.json)은 .gitignore에 있다.
 const SEED_PASSWORD = 'PactFiveSeedDev!1';
 
 async function loadSupabaseAdminClient() {
@@ -135,7 +142,7 @@ const ACCOUNTS = [
   {
     key: 'client-fresh',
     role: 'CLIENT',
-    email: 'seed.client.fresh@example.com',
+    email: `seed.client.fresh@${SEED_EMAIL_DOMAIN}`,
     label: '의뢰인 · 신규',
     feature: 'user-management / ai-pricing',
     description: '프로젝트가 아직 없는 갓 가입한 의뢰인. 프로필 화면, AI 견적(프로젝트 등록 전) 테스트용.',
@@ -143,7 +150,7 @@ const ACCOUNTS = [
   {
     key: 'freelancer-fresh',
     role: 'FREELANCER',
-    email: 'seed.freelancer.fresh@example.com',
+    email: `seed.freelancer.fresh@${SEED_EMAIL_DOMAIN}`,
     label: '프리랜서 · 신규',
     feature: 'user-management / engagement',
     description: '지원·북마크가 없는 갓 가입한 프리랜서. 프로필, 프로젝트 탐색·북마크 토글 테스트용.',
@@ -151,7 +158,7 @@ const ACCOUNTS = [
   {
     key: 'client-recruiting',
     role: 'CLIENT',
-    email: 'seed.client.recruiting@example.com',
+    email: `seed.client.recruiting@${SEED_EMAIL_DOMAIN}`,
     label: '의뢰인 · 모집 중 프로젝트',
     feature: 'project-management',
     description:
@@ -160,7 +167,7 @@ const ACCOUNTS = [
   {
     key: 'freelancer-applicant',
     role: 'FREELANCER',
-    email: 'seed.freelancer.applicant@example.com',
+    email: `seed.freelancer.applicant@${SEED_EMAIL_DOMAIN}`,
     label: '프리랜서 · 지원(PENDING) 상태',
     feature: 'applications',
     description: 'client-recruiting의 프로젝트에 지원서(PENDING)를 낸 상태. 내 지원 목록/상세 화면 테스트용.',
@@ -168,7 +175,7 @@ const ACCOUNTS = [
   {
     key: 'client-contract-pending',
     role: 'CLIENT',
-    email: 'seed.client.contract-pending@example.com',
+    email: `seed.client.contract-pending@${SEED_EMAIL_DOMAIN}`,
     label: '의뢰인 · 계약 대기(합의 전)',
     feature: 'contracts-payments (합의)',
     description: '지원 수락까지 끝나 CONTRACT_PENDING인 프로젝트의 의뢰인. 합의 제안 테스트용.',
@@ -176,7 +183,7 @@ const ACCOUNTS = [
   {
     key: 'freelancer-contract-pending',
     role: 'FREELANCER',
-    email: 'seed.freelancer.contract-pending@example.com',
+    email: `seed.freelancer.contract-pending@${SEED_EMAIL_DOMAIN}`,
     label: '프리랜서 · 계약 대기(합의 전)',
     feature: 'contracts-payments (합의)',
     description: 'client-contract-pending과 짝. 합의 수락 테스트용.',
@@ -184,7 +191,7 @@ const ACCOUNTS = [
   {
     key: 'client-payment-ready',
     role: 'CLIENT',
-    email: 'seed.client.payment-ready@example.com',
+    email: `seed.client.payment-ready@${SEED_EMAIL_DOMAIN}`,
     label: '의뢰인 · 서명 완료·결제 준비',
     feature: 'contracts-payments (결제~납품) / reviews',
     description:
@@ -193,7 +200,7 @@ const ACCOUNTS = [
   {
     key: 'freelancer-payment-ready',
     role: 'FREELANCER',
-    email: 'seed.freelancer.payment-ready@example.com',
+    email: `seed.freelancer.payment-ready@${SEED_EMAIL_DOMAIN}`,
     label: '프리랜서 · 서명 완료·결제 준비',
     feature: 'contracts-payments (결제~납품) / reviews',
     description: 'client-payment-ready와 짝.',
@@ -201,7 +208,7 @@ const ACCOUNTS = [
   {
     key: 'client-recruitment-closed',
     role: 'CLIENT',
-    email: 'seed.client.closed@example.com',
+    email: `seed.client.closed@${SEED_EMAIL_DOMAIN}`,
     label: '의뢰인 · 마감 처리 완료(CLOSED)',
     feature: 'project-management / applications',
     description:
@@ -210,7 +217,7 @@ const ACCOUNTS = [
   {
     key: 'freelancer-auto-rejected',
     role: 'FREELANCER',
-    email: 'seed.freelancer.auto-rejected@example.com',
+    email: `seed.freelancer.auto-rejected@${SEED_EMAIL_DOMAIN}`,
     label: '프리랜서 · 마감으로 자동거절(AUTO_REJECTED)',
     feature: 'applications',
     description: 'client-recruitment-closed의 프로젝트에 PENDING으로 지원한 뒤 마감 스윕으로 자동거절된 상태. 내 지원 목록에서 AUTO_REJECTED 사유 표시 테스트용.',
