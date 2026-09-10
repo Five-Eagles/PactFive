@@ -53,9 +53,10 @@ import {
  *    `AcceptProjectApplicationDelegate`(requestId·idempotencyKey·occurredAt·actorUserId까지
  *    전달, accept-project-application.adapter.ts)를 갖고 있어 그대로 쓴다 — outbox 이후
  *    단계(잔여 거절·알림·손잡이 확인)만 원본 로직을 옮긴다.
- * 3. 프로필 완성도 검사(`requireProfile`/`PROFILE_INCOMPLETE`)와 카운트 쓰기
- *    (`saveProject({ applicationCount, pendingApplicationCount })`)는 뺐다 — 이유는
- *    application.types.ts 헤더 주석 1·2번 항목 참고(둘 다 아직 없는 외부 포트에 의존한다).
+ * 3. 프로필 완성도 검사(`requireProfile`/`PROFILE_INCOMPLETE`)는 뺐다 — user-management의
+ *    완료도 포트가 아직 통합되지 않았기 때문이다. 지원 건수 쓰기는 PR #106에서
+ *    `ProjectApplicationContextPort.bumpApplicationCounts`가 열렸으므로 app/ 통합 경로에서
+ *    호출한다.
  *
  * 그 외 검증 순서·오류 코드·멱등 판정·outbox 단계는 원본 그대로다.
  */
@@ -469,8 +470,13 @@ export async function createApplication(
   };
   await deps.repository.insertApplication(row);
   await recordTransition(deps.repository, row, null, nowIso);
-  // 누적·대기 카운트 증가는 이번 반영에서 빠졌다 — application.types.ts 헤더 주석 1번 항목
-  // (CR-AP-001 승인 대기, project-management 쪽 쓰기 포트 미존재).
+  // CR-AP-001: applications가 유일하게 알고 있는 생성 지점에서만 +1/+1 한다.
+  // 수락·마감·취소의 일괄 정리는 project-management가 이미 0으로 처리하므로
+  // 이 서비스에서 다시 감소시키지 않는다.
+  await deps.projectContext.bumpApplicationCounts(projectId, {
+    applicationCount: 1,
+    pendingApplicationCount: 1,
+  });
   if (idempotencyKey) await deps.repository.setIdempotency(idempotencyKey, bodyHash(parsed), row.applicationId);
   await publish(deps, {
     type: 'APPLICATION_SUBMITTED',
@@ -678,7 +684,9 @@ export async function rejectApplication(
   const rejected: ApplicationRow = { ...row, status: 'REJECTED', rejectionType: 'DIRECT', decidedAt: nowIso };
   await deps.repository.saveApplication(rejected);
   await recordTransition(deps.repository, rejected, 'PENDING', nowIso);
-  // 대기 카운트 감소는 이번 반영에서 빠졌다 — application.types.ts 헤더 주석 1번 항목.
+  // CR-AP-001: 개별 DIRECT 거절만 pending을 한 건 감소시킨다.
+  // ACCEPT/마감/취소의 잔여 거절은 project-management가 일괄적으로 0으로 정리한다.
+  await deps.projectContext.bumpApplicationCounts(row.projectId, { pendingApplicationCount: -1 });
 
   const operation: ApplicationOperation = {
     operationId: await deps.repository.nextOperationId(),

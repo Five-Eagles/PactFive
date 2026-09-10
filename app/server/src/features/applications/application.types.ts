@@ -9,14 +9,13 @@
  * 그 부분만 `ProjectApplicationContextPort`(비동기 포트)로 분리했다 — `ApplicationRepository`는
  * 지원(`applications`) 자기 자신의 행·멱등·closure·operation·상태 이력만 갖는다.
  *
- * PR #83 이식 범위 — 2026-09-07 대화, RW 결정("카운트 제외하고 나머지만 먼저")에 따라
- * 두 가지를 이번 반영에서 뺐다:
- * 1. `applicationCount`/`pendingApplicationCount` 쓰기 — CR-AP-001(조준영→project-management
- *    유동우)이 아직 승인 대기 중이라, project-management 쪽에 그 카운트를 받아 쓸 포트가
- *    없다. `ProjectApplicationContext`에 두 필드를 추가하지 않는다 — 원본 스토어에는
- *    있지만 app/은 읽지도 쓰지도 않는다. CR-AP-001이 머지되면 이 타입과
- *    `project-application-context.adapter.ts`를 함께 갱신한다.
- * 2. 프로필 완성도 강제(`ProfileCompletionPort`/`PROFILE_INCOMPLETE`) — user-management에
+ * PR #83 이식 범위에서 보류했던 두 항목 중 카운트 쓰기는 PR #106에서 포트가 열렸고,
+ * app/ 통합에서 생성·개별 DIRECT 거절 경로가 호출한다. 수락·마감·취소의 일괄 정리는
+ * project-management가 소유한다. `ProjectApplicationContext`에 두 필드를 추가하지 않는
+ * 이유는 원본 스토어에는 프로젝트 전체 객체가 있었지만 app/에서는 project-management가
+ * 프로젝트를 소유하기 때문이다.
+ *
+ * 1. 프로필 완성도 강제(`ProfileCompletionPort`/`PROFILE_INCOMPLETE`) — user-management에
  *    아직 프로필 관련 코드가 전혀 없다(인증만 있음). 원본 포트 자신의 주석이 "기본 COMPLETE
  *    우회 금지"라고 못박아 뒀으므로, 가짜 어댑터를 만들어 항상 COMPLETE를 반환하게 하는
  *    대신 — 이 축의 검사 자체를 생략한다(`getApplicationEligibility`의 `profileCompletion`은
