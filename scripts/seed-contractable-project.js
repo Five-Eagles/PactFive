@@ -102,11 +102,27 @@ async function api(pathname, { method = 'GET', body, accessToken, origin } = {})
   const headers = { 'Content-Type': 'application/json' };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   if (origin) headers.Origin = origin;
-  const res = await fetch(`${SERVER_BASE_URL}${pathname}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const url = `${SERVER_BASE_URL}${pathname}`;
+
+  let res;
+  try {
+    res = await fetch(url, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (error) {
+    // fetch()의 TypeError('fetch failed')는 메시지만으로는 원인을 알 수 없다 — 실제 이유는
+    // error.cause에 있다(ECONNREFUSED 등). 여기서 붙여서 던져야 main().catch에서 보인다.
+    const cause = error.cause ? ` — 원인: ${error.cause.code ?? error.cause.message ?? error.cause}` : '';
+    throw new Error(
+      `${url} 요청 자체가 실패했습니다${cause}\n` +
+        `[seed] 서버가 ${SERVER_BASE_URL}에서 떠 있는지 확인하세요 — ` +
+        `npm run dev를 AUTH_PROVIDER_MODE=supabase(mock 아님)로 실행했는지, ` +
+        `SERVER_BASE_URL을 커스텀했다면 포트가 맞는지 확인하세요.`,
+    );
+  }
+
   let json = null;
   try {
     json = await res.json();
