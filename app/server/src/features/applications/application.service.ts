@@ -53,9 +53,10 @@ import {
  *    `AcceptProjectApplicationDelegate`(requestId·idempotencyKey·occurredAt·actorUserId까지
  *    전달, accept-project-application.adapter.ts)를 갖고 있어 그대로 쓴다 — outbox 이후
  *    단계(잔여 거절·알림·손잡이 확인)만 원본 로직을 옮긴다.
- * 3. 프로필 완성도 검사(`requireProfile`/`PROFILE_INCOMPLETE`)와 카운트 쓰기
- *    (`saveProject({ applicationCount, pendingApplicationCount })`)는 뺐다 — 이유는
- *    application.types.ts 헤더 주석 1·2번 항목 참고(둘 다 아직 없는 외부 포트에 의존한다).
+ * 3. 프로필 완성도 검사(`requireProfile`/`PROFILE_INCOMPLETE`)는 뺐다 — user-management의
+ *    완료도 포트가 아직 통합되지 않았기 때문이다. 지원 건수 쓰기는 PR #106에서
+ *    `ProjectApplicationContextPort.bumpApplicationCounts`가 열렸으므로 app/ 통합 경로에서
+ *    호출한다.
  *
  * 그 외 검증 순서·오류 코드·멱등 판정·outbox 단계는 원본 그대로다.
  */

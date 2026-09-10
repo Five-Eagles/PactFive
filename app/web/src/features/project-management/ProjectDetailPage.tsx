@@ -129,7 +129,12 @@ export function ProjectDetailPage({
             </div>
             <div className="kv">
               <span className="kv__k">지원 현황</span>
-              <span>지원 {data.applicationCount}건</span>
+              <span>
+                지원 {data.applicationCount}건
+                {mine && data.pendingApplicationCount > 0
+                  ? ` · 대기 ${data.pendingApplicationCount}건`
+                  : ''}
+              </span>
             </div>
           </div>
         </div>
