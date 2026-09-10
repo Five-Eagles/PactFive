@@ -277,6 +277,11 @@ Supabase가 같은 사용자의 Google·Kakao identity를 복수로 연결할 �
 14. **[DECISION] 앱 시작 시 세션 복원** — 앱을 다시 열거나 새로고침하면 브라우저가 PactFive
     Refresh API를 한 번 호출하고, 서버가 HttpOnly 쿠키로 Supabase 세션을 갱신한 뒤 PactFive 사용자
     상태를 다시 검증한다. 검증이 끝나기 전에는 인증됨으로 간주하지 않는다.
+    **2026-09-10 원본 보정:** 같은 브라우저 문서의 `useAuth` 소비자들은 메모리 상태와 구독을
+    공유한다. 로그인/가입 확인/복원 성공과 로그아웃·실패 상태를 헤더와 폼에 함께 반영하고,
+    뒤늦게 마운트한 소비자는 진행 중인 인증을 새 복원으로 덮지 않는다. 이전 epoch의 복원·로그인·
+    로그아웃 완료는 새 계정 상태를 변경하지 않는다. 서버 렌더는 비인증 스냅샷만 반환한다.
+    이는 R12/R14/R17의 화면 상태 보정이며 cross-tab 잠금이나 서버 세션 폐기 정책 승인이 아니다.
 15. **[DECISION] Refresh Token rotation 결과** — 공급자 갱신 성공 후에만
     `auth_sessions.refresh_token_hash`를 새 HMAC-SHA-256 fingerprint로 교체하고 기존 값을
     `previous_token_hash`로 옮긴다. 행 갱신은 기대한 현재 fingerprint를 조건으로 원자적으로 수행한다.

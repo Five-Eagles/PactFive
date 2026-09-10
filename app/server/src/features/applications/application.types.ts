@@ -15,7 +15,7 @@
  * 이유는 원본 스토어에는 프로젝트 전체 객체가 있었지만 app/에서는 project-management가
  * 프로젝트를 소유하기 때문이다.
  *
- * 1. 프로필 완성도 강제(`ProfileCompletionPort`/`PROFILE_INCOMPLETE`) — user-management에
+ * 2. 프로필 완성도 강제(`ProfileCompletionPort`/`PROFILE_INCOMPLETE`) — user-management에
  *    아직 프로필 관련 코드가 전혀 없다(인증만 있음). 원본 포트 자신의 주석이 "기본 COMPLETE
  *    우회 금지"라고 못박아 뒀으므로, 가짜 어댑터를 만들어 항상 COMPLETE를 반환하게 하는
  *    대신 — 이 축의 검사 자체를 생략한다(`getApplicationEligibility`의 `profileCompletion`은

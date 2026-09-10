@@ -541,6 +541,11 @@ const publicApiService = createPublicApiService({
   coordinator: transactionLifecycleCoordinator,
   now: projectNow,
   randomId: contractsPaymentsRandomId,
+  // C-01 — 선정 지원서의 freelancerId로 협상 당사자를 가른다.
+  resolveApplicationFreelancer: async (applicationId) => {
+    const row = await applicationRepository.getApplication(applicationId);
+    return row?.freelancerId ?? null;
+  },
 });
 
 app.use(

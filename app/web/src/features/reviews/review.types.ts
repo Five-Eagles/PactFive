@@ -74,3 +74,18 @@ export type GetUserRatingResponse = {
   averageRating: number | null;
   reviewCount: number;
 };
+
+export type MyProjectReviewReason =
+  | 'PROJECT_NOT_COMPLETED'
+  | 'REVIEW_FORBIDDEN'
+  | 'REVIEW_ALREADY_SUBMITTED'
+  | 'REVIEW_PERIOD_CLOSED';
+
+export type GetMyProjectReviewResponse = {
+  canReview: boolean;
+  reason: MyProjectReviewReason | null;
+  reviewDeadlineAt: string | null;
+  myDirection: ReviewDirection | null;
+  myReview: CreateReviewResponse | null;
+  counterpartyReviewVisibility: 'NOT_AVAILABLE' | 'PUBLISHED';
+};

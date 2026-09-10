@@ -269,6 +269,7 @@ async function main() {
     const meBlind = await api.getMyProjectReview("prj_solo_fresh", MOCK_FREELANCER_USER_ID);
     if (
       meBlind.canReview === true &&
+      meBlind.myDirection === "FREELANCER_TO_CLIENT" &&
       meBlind.myReview === null &&
       meBlind.counterpartyReviewVisibility === "NOT_AVAILABLE"
     ) {
@@ -277,7 +278,11 @@ async function main() {
       fail("규칙 9: /me 상대 블라인드 숨김", meBlind);
     }
     const meMine = await api.getMyProjectReview("prj_solo_fresh", MOCK_CLIENT_USER_ID);
-    if (meMine.canReview === false && meMine.myReview?.visibility === "BLINDED") {
+    if (
+      meMine.canReview === false &&
+      meMine.myDirection === "CLIENT_TO_FREELANCER" &&
+      meMine.myReview?.visibility === "BLINDED"
+    ) {
       pass("규칙 9: /me 본인 미공개");
     } else {
       fail("규칙 9: /me 본인 미공개", meMine);
