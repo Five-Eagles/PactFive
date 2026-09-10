@@ -72,10 +72,15 @@ reviews는 작성 API·화면만. 공개 프로젝트 상세에 거래 상태를
   "canReview": true,
   "reason": null,
   "reviewDeadlineAt": "2026-09-18T08:00:00Z",
+  "myDirection": "CLIENT_TO_FREELANCER",
   "myReview": null,
   "counterpartyReviewVisibility": "NOT_AVAILABLE"
 }
 ```
+
+`myDirection`은 당사자일 때만 채운다 — 의뢰인이면 `CLIENT_TO_FREELANCER`, 프리랜서면
+`FREELANCER_TO_CLIENT`. 비당사자는 `null`(이때 `reason`은 `REVIEW_FORBIDDEN`).
+작성 화면은 이 값으로 태그 목록·라벨을 가른다(서버가 세션으로 방향을 이미 안다).
 
 `reason`은 `PROJECT_NOT_COMPLETED` · `REVIEW_FORBIDDEN` · `REVIEW_ALREADY_SUBMITTED` ·
 `REVIEW_PERIOD_CLOSED` 또는 null. 에러: 401. 404.
@@ -140,6 +145,7 @@ type GetMyProjectReviewResponse = {
   canReview: boolean;
   reason: 'PROJECT_NOT_COMPLETED'|'REVIEW_FORBIDDEN'|'REVIEW_ALREADY_SUBMITTED'|'REVIEW_PERIOD_CLOSED'|null;
   reviewDeadlineAt: string | null;
+  myDirection: ReviewDirection | null;
   myReview: CreateReviewResponse | null;
   counterpartyReviewVisibility: 'NOT_AVAILABLE' | 'PUBLISHED';
 };

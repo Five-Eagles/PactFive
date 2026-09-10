@@ -50,6 +50,14 @@
 파일 상단 주석·feedback_loop 2026-09-05 기록)라 이번에 새로 만든 문제는 아니지만, 아직
 안 풀렸다는 점은 다시 남긴다.
 
+**담당자 메모 (조준영, 2026-09-10) — R4 확인 · 후속 지시**
+- 한글 라벨을 `app/web` 상수로 둔 것 — **동의.** 서버가 라벨을 안 내려주는 계약과 맞습니다.
+- 방향 고정은 기존 한계(차단 아님, 서버 422)로 인정했습니다.
+- **후속 준비 완료:** `/me`가 방향을 **계산만 하고 응답에 안 줬습니다.** 계약·Mock에
+  `myDirection`을 추가했습니다. app/ 이식 지시서:
+  [teamlead-port-instructions-2026-09-10-tag-direction.md](../../features/reviews/review/teamlead-port-instructions-2026-09-10-tag-direction.md)
+  — 서버 한 필드 + ReviewPage가 `/me`로 태그 5개·라벨을 가름.
+
 **오민혁 (applications)** — 영향 없음. 「완료됨」 배지 CTA가 가리키는 웹 경로(`/review` vs
 `/reviews`)는 이번 커밋에서 아직 안 건드렸다 — #198에서 함께 맞춘다.
 

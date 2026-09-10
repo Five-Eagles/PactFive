@@ -68,6 +68,8 @@ export type GetMyProjectReviewResponse = {
   canReview: boolean;
   reason: MyProjectReviewReason | null;
   reviewDeadlineAt: string | null;
+  /** 당사자만. 작성 화면 태그·라벨 분기용. 비당사자는 null. */
+  myDirection: ReviewDirection | null;
   myReview: CreateReviewResponse | null;
   counterpartyReviewVisibility: "NOT_AVAILABLE" | "PUBLISHED";
 };

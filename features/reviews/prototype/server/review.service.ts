@@ -309,6 +309,7 @@ export async function getMyProjectReview(
     canReview: reason === null,
     reason,
     reviewDeadlineAt: reviewDeadlineAt(window),
+    myDirection: direction,
     myReview: mine ? toCreateBody(mine, isReviewPublic(mine, siblings, nowIso, window)) : null,
     counterpartyReviewVisibility: counterpartPublic ? "PUBLISHED" : "NOT_AVAILABLE",
   };
