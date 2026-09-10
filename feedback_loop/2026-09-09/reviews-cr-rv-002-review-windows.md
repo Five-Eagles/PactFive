@@ -62,6 +62,25 @@
 상정한 것과 같은지 확인해 달라. `user_rating_projections`를 신설하지 않기로 한 결정도
 재확인 부탁한다(이전 세션에서 이미 합의했다고 기록돼 있으나, 최종 확인은 조준영 몫).
 
+**담당자 메모 (조준영, 2026-09-10) — 확인 완료**
+
+1. **`projects.completed_at` — 의미·시점이 원본과 같습니다. 동의합니다.**
+   - 규칙 6: `reviewOpenedAt` = 프로젝트 **최초** `completedAt`.
+   - `completeProjectTransaction` 성공 순간에만 쓰고, 이미 `COMPLETED`면 early-return으로
+     다시 쓰지 않는 패턴이 그 정의와 같습니다. `review_windows.opened_at`이 이 값을
+     그대로 가져가는 것도 원본 `ensureWindow`와 같습니다.
+   - CR에 컬럼을 명시하지 않았던 이유는 Mock이 `ProjectReviewContext.completedAt`을
+     포트로만 받았기 때문입니다. PM 테이블에 두는 구현은 맞고, 위치가 달라진 것뿐입니다.
+
+2. **`user_rating_projections` 미신설 — 동의합니다. CR-RV-002의 이 절반은 닫아도 됩니다.**
+   - 합계 정본은 원래 `getPublishedRatingAggregate`입니다(규칙 8·spec). Mock의
+     Projection은 F07(지연 집계 덮어쓰기) 재현용 캐시였습니다.
+   - `app/` `getUserRating`이 공개분을 매번 합산하면 F07 경합이 생기지 않아 캐시
+     테이블이 필요 없습니다. `users` 평점 캐시는 오민혁의 `REVIEW_CREATED` 소비
+     쪽이고, reviews 소유 Projection과는 별개입니다.
+   - 배포 전 `COMPLETED`인데 `completed_at` NULL인 행 백필은 팀장 몫으로 남겨 둔
+     안내에 동의합니다 — 그 행은 window가 안 열려 단독 공개·작성이 막힙니다.
+
 **유동우 (project-management)** — 코드 변경 없음(팀장이 스키마·서비스 함수 직접 수정).
 `projects` 테이블에 새 컬럼(`completed_at`)이 생겼다 — `ProjectRecord` 타입에 필드가
 추가됐으니 이 테이블을 다루는 다른 작업을 할 때 인지하고 있어야 한다.

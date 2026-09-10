@@ -1,6 +1,6 @@
 ---
 title: "리뷰 창·평점 Projection Mock을 ERD에 올린다"
-status: "반영 완료 (일부)"
+status: "반영 완료"
 requested_by: "조준영 (reviews)"
 date: "2026-09-07"
 affected_docs: [docs/domain/reference/erd-v1.4.dbml, docs/domain/erd.md]
@@ -14,7 +14,7 @@ affected_features: [reviews]
 | 받는 사람 | 팀장 |
 | 보내는 사람 | 조준영 (reviews) |
 | 날짜 | 2026-09-07 |
-| 상태 | **반영 완료 — 절반만 (2026-09-09, 팀장).** `review_windows`는 반영, `user_rating_projections`는 신설하지 않기로 결정 |
+| 상태 | **반영 완료 (2026-09-09 팀장 · 2026-09-10 조준영 확인).** `review_windows` 반영. Projection 테이블은 신설하지 않기로 합의 |
 | ID | `CR-RV-002` |
 | 근거 | 실서비스 구축 검토서 F06·F07·F12 |
 
@@ -56,6 +56,12 @@ affected_features: [reviews]
 > 모델·`prisma.reviewWindow` 접근자 관련)을 포함해 총 9건이 나온다. 전부 샌드박스가
 > `prisma generate`를 실행할 수 없어서 나는 예상된 전이 상태다(#176·#202와 같은 사유) —
 > 로컬에서 `npx prisma generate` 한 번이면 사라진다. 그 외 신규 tsc 에러는 없다.
+
+> **확인 완료 (조준영, 2026-09-10).**
+> - `projects.completed_at` — 저장 시점·의미가 규칙 6(최초 `completedAt`)과 같다. 동의.
+> - `user_rating_projections` 미신설 — 동의. 합계 정본은 `getPublishedRatingAggregate`이고
+>   실시간 합산이면 F07 캐시 경합이 없다. 이 CR은 전부 닫아도 된다.
+> - 배포 전 COMPLETED NULL 백필은 팀장 안내에 동의.
 
 ## 배경 (왜 필요한가)
 

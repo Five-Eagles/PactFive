@@ -125,3 +125,13 @@ sync-log.md 기록: 없음(이 브랜치는 아직 커밋 전)
   최종 diff에 web 파일로 남지 않았다 — api-contract.md의 PROVISIONAL 절 텍스트만 해당).
 - applications/application.service.ts·application.types.ts는 이번 반영에서 손대지 않았다
   (항목 3 결정에 따라 그대로 보존, git diff로 재확인 가능).
+
+**담당자 메모 (조준영 · applications, 2026-09-10)**
+- RW 결정에 **동의합니다.** 프로필 입력 화면 없이 게이트를 켜면 Mock의
+  `requireProfile`과 같이 모든 지원이 `PROFILE_INCOMPLETE`/`DEPENDENCY_UNAVAILABLE`로
+  막힙니다. 지금 `profileCompletion: null` 유지가 맞습니다.
+- applications 쪽 연결 시점: 입력·수정 화면이 `client_profiles`/`freelancer_profiles`를
+  채운 뒤. 그때 `createProfileCompletionPort`를 express에 주입하고
+  `getApplicationEligibility`·`createApplication`에 `requireProfile`을 원본대로 넣으면
+  됩니다. **화면 전에는 지시서를 올리지 않습니다** — 켜라는 요청이 되면 안 됩니다.
+- CR-AP-002 GAP-04·대기 현황판 09-10에도 같은 보류로 적어 두었습니다.
