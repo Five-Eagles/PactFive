@@ -2,6 +2,48 @@
 
 담당자: 오민혁
 
+## 2026-09-10 담당 원본 로그인 동기화·프로필 인계
+
+기준: develop `38ab13c`에서 시작한 `fix/owner-qa-handoff`. 수정은 `features/user-management/`
+내부만이며 app, 배포, 공유 DB/API, 운영 계정, 기존 feedback 상태는 변경하지 않았다.
+
+- [x] `npx tsx features/user-management/prototype/run.tsx` — **106 PASS / 0 FAIL**
+  (기존 101개 + 공유 상태 저장소 구독 회귀 5개).
+- [x] `npx tsc -p features/user-management/prototype/tsconfig.json` — strict PASS.
+- [x] `npm run preview:build` — PASS (102 modules, 기존 화면 빌드 회귀).
+- [x] `git diff --check` — PASS. app/공유 문서/package manifest·lockfile diff 없음.
+- [x] `npx tsx features/user-management/prototype/tests/auth-hook.integration.ts` —
+  **12 PASS / 0 FAIL**, React 18 마운트 훅 2~3개를 함께 렌더해 검증.
+- [ ] app 적용 후 실제 브라우저/배포 회귀 — **미실행**, 팀장 통합 후 필요.
+- [ ] `/profile` 이름·이메일 화면 검증 — **BLOCKED**, 원본에도 독립 프로필 화면/상세 API가 없다.
+
+마운트 훅 테스트는 선택 실행이다. 기본 의존성을 늘리지 않기 위해 `react-test-renderer@18.3.1`
+설치가 있을 때만 별도 명령을 사용한다. 이번 실행에서는
+`npm install --no-save --package-lock=false --ignore-scripts react-test-renderer@18.3.1`로 임시
+준비했으며 package manifest/lockfile을 변경하지 않았다. 실제 브라우저/HTTP 측정이 아니라
+합성 fetch 응답(외부 네트워크 없음)과 React 구독/상태 전이 검증이다. 성공 응답 fixture에서
+`authenticated` 필드가 빠진 최초 실행 실패 1건은 fixture를 계약대로 보정한 뒤 재실행해 해소했다.
+
+| 규칙/회귀 | 실제 확인 범위 | 결과 |
+|---|---|---|
+| R12/R14 소비자 상태 공유 | 로그인 성공 즉시 헤더/폼 갱신, 늦게 마운트한 소비자 최신 상태, 구독 해제, 안정적 snapshot | PASS |
+| R14 초기/동시 복원 | 새 소비자 마운트에 불필요한 refresh 없음, 동시 restore 2개가 refresh+context 각 1회 공유 | PASS |
+| R12/R17 계정 전환 | 제출 중 이전 토큰 제거, 새 역할/이메일로 동시 전환, 이전 restore 응답 무시 | PASS |
+| R16 오류 구분 | refresh 503은 retryable+기존 메모리 토큰 유지, 잘못된 로그인 401은 원래 안내 문구 | PASS |
+| R17 로그아웃 경쟁 | 즉시 비인증 게시, 지연 성공/실패가 새 로그인을 지우지 않음, 늦은 로그인 성공은 로그아웃 뒤 복원 금지 | PASS |
+| R17 외부 무효화 | clearAccessTokenInMemory가 모든 소비자와 토큰을 비움 | PASS |
+| SSR 격리 | 서버 snapshot은 비인증이며 브라우저 공유 세션을 반환하지 않음 | PASS (저장소 단위) |
+| PC-01~PC-08 | 기존 내부 프로필 완성도 24개 회귀 | PASS; 실제 DB/화면 검증 아님 |
+
+UX §6: 새 화면·디자인·문구·레이아웃은 변경하지 않았다. 상태 이해 항목은 폼/헤더의 같은
+로그인 상태 게시로 보완했고, 복구 가능성은 503 재시도·로그아웃 실패 안내 회귀로 확인했다.
+나머지 기존 인증 시안의 SSR 필수 요소·반응형/reduced-motion 계약 검사는 기본 106개에 포함된다.
+실제 시각/키보드/모바일 QA는 이번 훅 테스트로 대신하지 않는다. cross-tab 경쟁, 실제 쿠키
+응답 순서와 서버측 무효화는 기존 팀 승인/통합 검증 범위로 남는다.
+
+팀장용 파일 매핑·원본 프로필 누락 정정·통합 회귀:
+`change-requests/0001-profile-completion-integration.md`의 2026-09-10 후속 절.
+
 ## 2026-09-08 사용자 평점 캐시·인증 식별자 후속
 
 검증 범위는 `features/user-management/**`다. 기존 77개에 평점 소비 18개와 ID 생성 6개를

@@ -9,6 +9,30 @@ affected_features: [notifications, applications, project-management, contracts-p
 
 # 스펙 변경 신청
 
+## 2026-09-10 실제 배포 QA 후 통합 인계
+
+최신 develop `38ab13c`에는 app 알림 조회/읽음 API와 화면이 존재한다. 아래 과거의
+“브랜치 준비, develop merge 아직”은 9/9 작성 당시 이력이다. 단, 현재 소스의 존재를
+운영 수신 완료로 해석하지 않는다. 실제 배포 QA와 HTTP/문구는 `../test-report.md`의 9/10 절.
+
+| 우선순위 / 조치 담당 | 확인 근거 | 필요한 조치·완료 조건 |
+|---|---|---|
+| P1 · 팀장 + applications/project-management | `app/server/src/express-app.ts`에서 notifications.delivery 미사용, applications에는 InMemoryApplicationNotificationPort 주입. seed 계정 10개 실제 목록 모두 0건 | 정규화 사건을 영속 알림 port에 연결. eventId/closureEventId·projectTitle·상태 변경 전 수신자 스냅샷을 보존하고 delivery 결과에 따라 재시도/ACK. 메모리 수집 성공을 알림 저장 성공으로 보지 않음 |
+| P1 · 팀장 + 원천/notifications 담당 | DB Notification id/recipientId/resourceId는 varchar(40), 프로젝트 기본 생성기는 36자. 알림 서비스와 웹 ID·linkUrl validator는 최대 30자 | 공유 ID 정책을 확정해 원본 계약/검증·app 서버/웹을 같이 맞춤. 기존 36자 사용자/프로젝트를 포함한 생성→목록→링크→읽음 회귀 필요. 기존 데이터를 임의 재작성하지 않음 |
+| P1 · 팀장 app 웹 통합 | App.tsx 헤더와 NotificationListPage가 각각 useNotifications를 호출하고 훅은 각각 store를 생성 | API 계약의 조립 예시대로 한 store/snapshot을 헤더·NotificationListView에 주입. 개별/전체 읽음 시 헤더·목록·배지가 즉시 일치하는 양성 UI 검증 필요 |
+| P1 · 팀장 인증 통합 | 실제 로그인 복귀가 `/notifications` 대신 `/`로 이동하고 로그인 CTA가 남음. 원본과 app 훅 상태가 인스턴스별로 분리 | user-management CR-0001의 공유 인증 상태 보정을 app 방식으로 이식하고 returnTo 전달도 확인. bootstrap 중 임시 로그인 요구 UI·계정 전환 때 알림 상태를 함께 검증 |
+| P1 · 팀장/원천 QA 데이터 담당 | 제공된 10계정에 알림 행 없음. 읽음·수신·타인 행 404 양성 검증 불가 | QA 전용 프로젝트/지원자와 허용된 상태 변경 범위를 지정. 제출/수락/직접 거절/다른 지원자 수락으로 자동 미선정/자연 마감을 분리한 사건 fixture 제공 |
+
+ID 충돌은 메모리 원본 delivery에서 직접 재현했다. 같은 APPLICATION_SUBMITTED 사건이
+12자 프로젝트 ID면 `delivered`/저장 1건, 실제 생성 형식의 36자 ID면 `retry_required`/저장 0건이다.
+DB 확장만으로 호환 문제가 끝난 상태가 아니다. 식별자 정책을 바꾸는 구현은 이번 QA 범위에서
+하지 않았으며, 결정 후 담당 원본과 app 사본을 함께 검증해야 한다.
+
+원천 통합 때 자연 마감/취소를 APPLICATION_AUTO_REJECTED로 중복 전달하지 않는다.
+자동 미선정은 다른 지원자가 수락된 경우다. 마감 수신자 정책·영속 재시도·성공 후 deadline 표식·
+10분 SLA는 이 CR의 기존 §2~4대로 열린 항목이다. 원천 상태 변경이나 DB 직접 알림 삽입 없이
+검증했으며, app/공유 문서/배포 설정/피드백 상태는 수정하지 않았다. CR 상태는 `제안` 유지.
+
 ## 배경 (왜 필요한가)
 
 2026-09-07 오민혁 사용자가 notifications 범위 직접 구현을 요청했다. 다른 담당자의 로컬

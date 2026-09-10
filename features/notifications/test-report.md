@@ -1,5 +1,88 @@
 # notifications 테스트 결과
 
+## 2026-09-10 실제 배포 통합 QA — 일부 통과, 양성 데이터·수신 검증 차단
+
+대상: `https://pact-five-seven.vercel.app/`. 코드 대조 기준은 최신 develop `38ab13c`이며,
+배포의 정확한 commit SHA는 확인하지 않았다. 아래 HTTP 값은 동일 배포에 별도로 보낸 API
+요청의 실제 상태/본문이다. 브라우저가 보낸 요청을 네트워크 패널에서 캡처한 값은 아니다.
+비밀번호·토큰·쿠키는 기록하지 않는다. 원천 지원/수락/거절/마감 상태나 DB는 변경하지 않았다.
+
+### 실제 API 결과
+
+사용자가 제공한 seed 계정 10개 모두 로그인 200, 목록 200, 미읽음 수 200이었다.
+각 계정의 목록 응답은 `{"items":[],"unreadCount":0,"limit":100}`, 개수 응답은
+`{"unreadCount":0}`이며 목록의 `Cache-Control`은 `no-store`였다.
+
+| 확인 계정 별칭 | 목록 수 / 미읽음 |
+|---|---|
+| client-fresh / freelancer-fresh | 각각 0 / 0 |
+| client-recruiting / freelancer-applicant | 각각 0 / 0 |
+| freelancer-auto-rejected / client-closed | 각각 0 / 0 |
+| client-contract-pending / freelancer-contract-pending | 각각 0 / 0 |
+| client-payment-ready / freelancer-payment-ready | 각각 0 / 0 |
+
+계정은 `seed.<역할>.<상태>@pactfive-dev-seed.com`에 대응한다. 아래 인증 요청은 client-fresh다.
+
+| 요청 | 실제 HTTP | 실제 응답 |
+|---|---|---|
+| POST `/api/v1/notifications/read-all`, `{}` | 200 | `{"updatedCount":0,"unreadCount":0}` |
+| 같은 전체 읽음 반복 | 200 | `{"updatedCount":0,"unreadCount":0}` |
+| POST `/api/v1/notifications/ntf_qa_missing_20260910/read`, `{}` | 404 | `{"error":{"code":"NOTIFICATION_NOT_FOUND","message":"알림을 찾을 수 없습니다."}}` |
+| GET 목록에 다른 제공 계정의 `recipientId` query 추가 | 400 | `{"error":{"code":"VALIDATION_ERROR","message":"요청 값이 올바르지 않습니다."}}` |
+| 비인증 GET 목록 / GET unread-count / POST read-all | 각각 401 | `{"error":{"code":"UNAUTHORIZED","message":"로그인이 필요합니다."}}` |
+
+빈 계정 10개가 각각 200인 사실은 **타인 알림 접근 차단의 양성 데이터 검증이 아니다**.
+존재하는 타인 알림 ID에 대한 404, 본인 알림 1건 읽기, 여러 건 전체 읽음은 실행하지 못했다.
+
+### 실제 브라우저 결과
+
+1. freelancer-fresh 복원 후 `/notifications`: 헤더와 페이지 벨 모두
+   **“알림, 안 읽은 알림 0개”**, 요약 **“0 개”**, **“아직 도착한 알림이 없어요”**,
+   **“프로젝트의 새로운 소식이 생기면 이곳에 알려드릴게요.”**. **“모두 읽음”** 비활성.
+2. 안 읽음 필터: **“최근 100건에 안 읽은 알림이 없어요”**,
+   **“전체 목록에서 지난 알림을 다시 확인할 수 있어요.”**, **“전체 알림 보기”**.
+3. 새로고침: **“새로고침 중…”** 이후 **“알림 목록을 새로고침했습니다.”**. 0건 유지.
+4. 로그아웃 후 직접 진입: **“— 개”**, **“다시 로그인해 주세요”**,
+   **“로그인 상태를 확인할 수 없어 알림을 숨겼습니다.”**. 새로고침/모두 읽음 비활성.
+5. `/login?returnTo=%2Fnotifications`에서 client-fresh 로그인 후 **`/`로 이동**하고
+   헤더에 **“로그인”**이 남았다. 요청한 알림 화면 자동 복귀는 실패했다. 직접
+   `/notifications`로 전체 문서 이동한 뒤 세션이 복원되면 다시 벨/요약 0과 빈 안내를 표시했다.
+   로그인 후 상태 공유와 returnTo 전달 경로는 팀장 app 후속이며 이번 QA에서 수정하지 않았다.
+
+두 계정의 빈 목록/로그아웃 숨김은 확인했으나, 이전 계정의 실제 알림이 제거되는지는 미검증이다.
+세션 bootstrap 중 잠깐 로그인 요구 화면이 보이는 현상도 관찰했다. 화면의 상태 코드를 추정하지 않는다.
+검증 후 생성한 API 세션 10개는 각각 DELETE current 204로 종료했고, 브라우저도 로그아웃했다.
+
+### 로컬 회귀와 통합 결함 대조
+
+- `npx tsx features/notifications/prototype/run.tsx`: **87 PASS / 0 FAIL**.
+  Mock·loopback HTTP·SSR/store 검증으로 운영 알림 수신 성공을 뜻하지 않는다.
+- `npx tsc -p features/notifications/prototype/tsconfig.json`: strict PASS.
+- 별도 메모리 전달 비교: 같은 APPLICATION_SUBMITTED 입력에서 프로젝트 ID `prj_qa_short`
+  (12자)는 `{"status":"delivered","createdCount":1,"duplicateCount":0}`, 저장 1건.
+  배포 목록에서 관찰한 36자 프로젝트 ID는 `{"status":"retry_required"}`, 저장 0건.
+  배포 DB에 사건을 생성한 것이 아니라 원본 delivery port에서 ID 계약 충돌을 재현했다.
+- `app/server/src/express-app.ts`는 원천 applications에 InMemoryApplicationNotificationPort를
+  주입하며 notifications.delivery를 사용하지 않는다. seed도 알림 행을 만들지 않는다.
+- app 헤더와 NotificationListPage가 각자 useNotifications/store를 생성한다. 계약의 한 snapshot
+  공유와 다르며, 읽음 뒤 헤더 stale 위험이다. 0건인 배포에서 양성 재현했다고 주장하지 않는다.
+- DB Notification 식별자는 varchar(40)으로 늘었으나 서비스/웹의 ID·링크 검증은 최대 30자다.
+  원천 사건 연결 전에 이 불일치를 함께 조정해야 한다. 상세 근거·담당은 CR-0001의 9/10 절.
+
+### 판정과 재개 조건
+
+| 사용자 요청 | 판정 | 남은 실제 증거 |
+|---|---|---|
+| 알림 목록·미읽음 배지 | PARTIAL | 빈 상태 0만 확인. 실제 행과 양수 배지 및 동시 갱신 필요 |
+| 개별·전체 읽음 | PARTIAL | 전체 읽음 0건 반복/없는 ID 404만 확인. 본인 1건·여러 건 읽음 필요 |
+| 계정별 분리 | PARTIAL | 10계정 조회/비인증 차단/로그아웃 숨김 확인. 실제 타인 행 접근 404 필요 |
+| 지원·수락·거절·마감 알림 수신 | BLOCKED | producer 연결 + ID 계약 정합성 + 승인된 양성 시나리오 데이터 필요 |
+
+팀장/원천 담당자가 연결과 QA 전용 사건·수신자를 준비한 뒤, 사건별 발생 시각·eventId·수신자·
+알림 ID·HTTP·화면 문구를 묶어 재검증한다. 직접 거절과 다른 지원자 수락에 따른 자동 거절,
+자연 마감은 구분한다. 재전달 중복 방지·재시작·마감 10분 SLA는 여전히 미검증이다.
+아래 9/8 체크리스트의 “아직 실행하지 않음”은 당시 이력이며 현재 부분 실행 결과는 이 절이 정본이다.
+
 ## 2026-09-08 통합 준비 검증
 
 기준: `origin/develop ec1c01f`를 `feature/notifications`에 동기화한 뒤 담당 폴더만 변경.
