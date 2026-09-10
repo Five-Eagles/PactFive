@@ -62,6 +62,10 @@ Mock은 같은 저장소에서 동기 조회하고, app/은 `ProjectApplicationC
    `PENDING`을 `REJECTED` + `AUTO_OTHER_ACCEPTED` ③ 알림 발행. 순서가 반대면 안 된다.
    C-01 실패 시 거절·알림을 하지 않는다. ②③은 인메모리 outbox. 기본 Mock은 같은 틱에서
    drain해 200. `holdOutbox`면 202. 실패해도 ACCEPTED는 롤백하지 않는다.
+   **한 operation의 단계는 이름당 최대 1행이다** — `ACCEPT`는 `REJECT_OTHERS` ·
+   `CREATE_NOTIFICATIONS` · `ENSURE_NEGOTIATION_CONTEXT` 3개, `REJECT`는
+   `CREATE_NOTIFICATIONS` 1개로 고정이고 재시도해도 늘지 않는다. 저장은 덮어쓰기이며
+   append가 아니다 (CR-AP-004).
 
 4. **C-01 멱등 — 같은 지원인지 먼저** (D-41, PM 규칙 55). 같은 `applicationId`면 200.
    그 다음에 상태 조건을 본다. 다른 지원자가 이미 수락됐거나 `recruitmentStatus`가

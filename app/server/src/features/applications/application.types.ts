@@ -348,6 +348,26 @@ export type ApplicationRepository = {
 /** 프로젝트 컨텍스트 읽기 — project-management delegate (app/web/AGENTS.md "폴더 간 접점"). */
 export type ProjectApplicationContextPort = {
   getProjectContext(projectId: string): Promise<ProjectApplicationContext | null>;
+
+  /**
+   * 지원 건수 갱신 (CR-AP-001, 2026-09-09 유동우가 열었다).
+   *
+   * 저장 자리는 projects 행의 컬럼이고 project-management 소유다 —
+   * 규칙 15(예산·일정 잠금)와 삭제 가능 여부 판정의 근거라서 그렇다.
+   *
+   *   지원 생성  `{ applicationCount: 1, pendingApplicationCount: 1 }`
+   *   개별 거절  `{ pendingApplicationCount: -1 }`
+   *
+   * **수락·일괄 거절 때는 부르지 않는다.** 그 경로는 project-management 가 이미
+   * 같은 트랜잭션 안에서 0 으로 놓는다. 여기서 또 빼면 두 번 빠진다.
+   *
+   * 음수가 되지 않는다(바닥 0). 실패해도 지원 자체는 성립한다 —
+   * 부르는 쪽에서 실패를 삼킬지 던질지 정한다.
+   */
+  bumpApplicationCounts(
+    projectId: string,
+    delta: { applicationCount?: number; pendingApplicationCount?: number },
+  ): Promise<{ applicationCount: number; pendingApplicationCount: number }>;
 };
 
 /** 지원 수락 — project-management delegate. 실 검증(권한·잠금·버전)은 그쪽 소유. */

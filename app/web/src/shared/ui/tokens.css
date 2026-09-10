@@ -176,6 +176,14 @@ body {
   font-weight: 600;
 }
 
+/* 2026-09-09 — notifications의 NotificationBell 슬롯. 로고·nav 다음 세 번째 flex 자식이라
+   오른쪽 끝에 붙도록 margin-left:auto를 준다(AppShell.tsx headerExtra). */
+.frame > header .header-extra {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
 .body-pad {
   max-width: 1120px;
   margin: 0 auto;

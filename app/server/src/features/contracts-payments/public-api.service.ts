@@ -59,9 +59,11 @@ import {
  * 사용자(프리랜서)의 지원인지는 이 서비스가 조회할 방법이 없다 — applications 기능이 수락
  * 지원서의 프리랜서 id를 이 컨텍스트에 아직 주지 않는다. 그래서 `acceptNegotiationOffer`를
  * 처음 호출한 의뢰인이 아닌 사용자를 그 거래의 프리랜서로 확정해 계약 행에 기록한다.
- * 마찬가지로 `projects.title`을 이 서비스가 조회할 방법이 없어 `projectTitleSnapshot`/
- * `projectTitle` 필드는 계속 빈 문자열이다 — negotiation-context 응답에 필드가 추가되면 채운다.
- * feedback_loop/2026-09-07/contracts-payments.md 참고.
+ *
+ * **2026-09-09 해소 (CR-CP-001, 조준영)**: `projects.title`을 이 서비스가 조회할 방법이 없어
+ * `projectTitleSnapshot`/`projectTitle` 필드가 계속 빈 문자열이던 문제는 negotiation-context
+ * 응답에 `title` 필드가 추가되면서 해소했다 — feedback_loop/2026-09-07/contracts-payments.md
+ * 참고. 계약 생성 시점(`acceptNegotiationOffer`)의 `ctx.title`을 스냅샷으로 찍는다.
  *
  * 2026-09-08 팀장 반영: `ContractsPaymentsRepository`가 Promise 반환으로 바뀌면서(6기능 Prisma
  * 이식 트랙) 이 파일의 모든 `repo.*` 호출부에 `await`를 추가했다 — `toCurrent`/
@@ -111,6 +113,14 @@ function utcDate(iso: string): string {
 function laterDate(start: string, end: string): string {
   return end < start ? start : end;
 }
+
+/**
+ * 2026-09-09 팀장 반영(이식 지시서 §1) — 원본(`prototype/mock/public-api.mock.ts:76`)과
+ * 같은 값. `prepareDeliveryUpload`의 size 상한 검증에 쓴다.
+ */
+const MAX_DELIVERY_FILE_BYTES = 100 * 1024 * 1024;
+
+const SHA256_RE = /^[0-9a-f]{64}$/;
 
 /**
  * 교차 생명주기 Coordinator용 스냅샷 리더. `snapshots.read(projectId)`가 호출될 때마다
@@ -209,6 +219,7 @@ export function createPublicApiService({
       fileName: null,
       mimeType: null,
       sizeBytes: null,
+      fileSha256: null,
     };
     await repo.saveDelivery(row);
     return row;
@@ -370,17 +381,17 @@ export function createPublicApiService({
         clientId: ctx.clientId,
         freelancerId,
         agreedAmount: offer.amount,
-        // project-management이 아직 프로젝트 제목을 이 컨텍스트에 주지 않는다 — 계약 열람
-        // 시 항상 project-management API로 다시 읽어야 하는 부담을 피하려고 지금은 자리표시자를
-        // 둔다. 실제 제목이 필요해지면 negotiation-context 응답에 필드 추가를 요청한다.
-        projectTitleSnapshot: '',
+        // CR-CP-001(조준영, 2026-09-08) — negotiation-context의 title을 그대로 스냅샷으로
+        // 찍는다. 계약 열람 시 매번 project-management API를 다시 부르지 않기 위한 스냅샷
+        // 설계는 그대로 두고, 빈 문자열 자리표시자만 없앤다.
+        projectTitleSnapshot: ctx.title,
         workStartDate,
         workEndDate,
         termsSnapshot: {
           schemaVersion: 1,
           amount: offer.amount,
           currency: 'KRW',
-          projectTitle: '',
+          projectTitle: ctx.title,
         },
         status: 'DRAFT',
         clientSignedAt: null,
@@ -586,6 +597,36 @@ export function createPublicApiService({
       const row = await repo.findPaymentById(paymentId);
       if (!row) throw new DomainContractError('PROJECT_NOT_FOUND', '결제를 찾을 수 없습니다.');
       const contract = await requireContractParty(row.contractId, auth);
+      // 2026-09-09 팀장 반영(이식 지시서 §3) — 승인 리다이렉트가 유실되면 결제가 PENDING에
+      // 갇히고 자동 복구가 없었다. retrievePayment 어댑터 구현은 있었는데(toss-payments.adapter.ts)
+      // 부르는 곳이 없었다 — 원본(prototype/mock/payment-record.mock.ts:303~314)의
+      // reconcilePendingPayments와 같은 재조회를, 사용자가 결제 화면을 다시 열 때(=이 GET을
+      // 부를 때) 수행한다. 재조회 자체가 실패해도(PG 장애 등) 조회 응답은 그대로 나가야 하므로
+      // 여기서 예외를 삼킨다 — 다음에 화면을 다시 열면 또 시도한다.
+      if (row.status === 'PENDING' && paymentGateway) {
+        try {
+          const retrieved = await paymentGateway.retrievePayment(row.orderId);
+          if (retrieved.status === 'PAID') {
+            row.status = 'PAID';
+            row.paymentKey = retrieved.paymentKey ?? row.paymentKey;
+            row.failedAt = null;
+            row.failureCode = null;
+            await repo.savePayment(row);
+            await coordinator.onPaymentPaid({
+              eventId: randomId('evt_paid_reconciled'),
+              projectId: contract.projectId,
+              occurredAt: now(),
+            });
+          } else if (retrieved.status === 'FAILED') {
+            row.status = 'FAILED';
+            row.failedAt = now();
+            await repo.savePayment(row);
+          }
+          // READY·PENDING 그대로면 아직 결론이 안 났다는 뜻이라 손대지 않는다.
+        } catch {
+          // PG 재조회 실패는 조용히 넘어간다 — 사용자는 여전히 현재 상태(PENDING)를 본다.
+        }
+      }
       const ctx = await projectPort.getProjectNegotiationContext(contract.projectId);
       const projectTransactionStatus =
         ctx.transactionStatus === 'IN_PROGRESS' || ctx.transactionStatus === 'CANCELED'
@@ -775,8 +816,22 @@ export function createPublicApiService({
         ]);
       }
       const idemKey = `invalidate-${cancellationId}`;
-      const cached = await repo.getIdempotent<InvalidateAgreementResponse>('invalidate', idemKey);
-      if (cached) return { ...cached, alreadyProcessed: true, changed: false };
+      // 2026-09-09 팀장 반영(이식 지시서 §4) — requestDelivery처럼 캐시된 입력과 새 입력을
+      // 비교한다. 이전에는 캐시가 있으면 본문을 보지 않고 그대로 돌려줘 규칙 25("같은 키·다른
+      // 본문은 409")를 어겼다.
+      const cached = await repo.getIdempotent<{
+        input: InvalidateAgreementInput;
+        response: InvalidateAgreementResponse;
+      }>('invalidate', idemKey);
+      if (cached) {
+        if (JSON.stringify(cached.input) !== JSON.stringify(input)) {
+          throw new DomainContractError(
+            'PROJECT_TRANSITION_CONFLICT',
+            '같은 취소 사건으로 다른 요청을 보낼 수 없습니다.',
+          );
+        }
+        return { ...cached.response, alreadyProcessed: true, changed: false };
+      }
 
       return withActiveProjectGuard(projectId, async () => {
         const ctx = await projectPort.getProjectNegotiationContext(projectId);
@@ -831,7 +886,7 @@ export function createPublicApiService({
           signaturesPreserved: true,
           changed,
         };
-        await repo.setIdempotent('invalidate', idemKey, response);
+        await repo.setIdempotent('invalidate', idemKey, { input, response });
         await repo.saveInvalidation({
           cancellationId,
           projectId,
@@ -850,6 +905,12 @@ export function createPublicApiService({
       return assembleDeliveryResponse(contractId, contract, auth!);
     },
 
+    /**
+     * 2026-09-09 팀장 반영(이식 지시서 §1) — 원본(`prototype/mock/public-api.mock.ts:1365~1392`)과
+     * 같은 검증을 붙이고, `fileName`·`contentType`·`size`·`sha256`을 delivery 행에 저장한다.
+     * 이전에는 sha256만 검증하고 나머지 3개를 받지도 저장하지도 않아 `requestDelivery`의
+     * `??` fallback이 항상 걸려 모든 납품이 `delivery.zip`·0 bytes로 보였다.
+     */
     async prepareDeliveryUpload(
       contractId: string,
       auth: AuthContext | null,
@@ -859,13 +920,28 @@ export function createPublicApiService({
       if (auth!.userId !== contract.freelancerId) {
         throw new PublicApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
       }
-      if (!/^[0-9a-f]{64}$/.test(input.sha256)) {
+      if (!input.fileName?.trim() || !input.contentType?.trim()) {
         throw new DomainContractError('VALIDATION_ERROR', '요청 값이 올바르지 않습니다.', [
-          { field: 'sha256', reason: 'INVALID_FORMAT' },
+          { field: input.fileName?.trim() ? 'contentType' : 'fileName', reason: 'required' },
         ]);
       }
-      await ensureDeliveryForContract(contractId);
+      if (!input.size || input.size <= 0 || input.size > MAX_DELIVERY_FILE_BYTES) {
+        throw new DomainContractError('VALIDATION_ERROR', '요청 값이 올바르지 않습니다.', [
+          { field: 'size', reason: 'invalid' },
+        ]);
+      }
+      if (!SHA256_RE.test(input.sha256 ?? '')) {
+        throw new DomainContractError('VALIDATION_ERROR', '요청 값이 올바르지 않습니다.', [
+          { field: 'sha256', reason: 'invalid' },
+        ]);
+      }
+      const delivery = await ensureDeliveryForContract(contractId);
       const objectKey = `deliveries/${contractId}/${randomId('obj')}`;
+      delivery.fileName = input.fileName.trim();
+      delivery.mimeType = input.contentType;
+      delivery.sizeBytes = input.size;
+      delivery.fileSha256 = input.sha256;
+      await repo.saveDelivery(delivery);
       return {
         uploadId: randomId('upl'),
         // 실저장소·실AV는 스텁이다(spec.md 규칙 23) — PactFive API가 직접 서빙하지 않는 자리표시자.
@@ -914,9 +990,8 @@ export function createPublicApiService({
       delivery.message = input.message;
       delivery.requestedAt = now();
       delivery.objectKey = input.objectKey;
-      delivery.fileName = delivery.fileName ?? 'delivery.zip';
-      delivery.mimeType = delivery.mimeType ?? 'application/octet-stream';
-      delivery.sizeBytes = delivery.sizeBytes ?? 0;
+      // fileName·mimeType·sizeBytes·fileSha256은 prepareDeliveryUpload에서 이미 채워졌다
+      // (이식 지시서 §1) — 여기서 fallback으로 덮어쓰지 않는다.
       delivery.version += 1;
       await repo.saveDelivery(delivery);
 
@@ -947,13 +1022,27 @@ export function createPublicApiService({
       if (auth!.userId !== contract.clientId) {
         throw new PublicApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
       }
-      const cached = await repo.getIdempotent<GetDeliveryResponse>('delivery-approve', input.idempotencyKey);
-      if (cached) return { ...cached, alreadyProcessed: true };
+      // 2026-09-09 팀장 반영(이식 지시서 §4) — requestDelivery처럼 캐시된 입력과 새 입력을
+      // 비교한다. 이전에는 캐시가 있으면 본문을 보지 않고 그대로 돌려줘 규칙 23("같은 키·다른
+      // 본문은 409")을 어겼다.
+      const cached = await repo.getIdempotent<{
+        input: ApproveDeliveryInput;
+        response: GetDeliveryResponse;
+      }>('delivery-approve', input.idempotencyKey);
+      if (cached) {
+        if (JSON.stringify(cached.input) !== JSON.stringify(input)) {
+          throw new DomainContractError(
+            'PROJECT_TRANSITION_CONFLICT',
+            '같은 Idempotency-Key로 다른 요청을 보낼 수 없습니다.',
+          );
+        }
+        return { ...cached.response, alreadyProcessed: true };
+      }
 
       const delivery = await ensureDeliveryForContract(contractId);
       if (delivery.status === 'APPROVED') {
         const response = await assembleDeliveryResponse(contractId, contract, auth!);
-        await repo.setIdempotent('delivery-approve', input.idempotencyKey, response);
+        await repo.setIdempotent('delivery-approve', input.idempotencyKey, { input, response });
         return { ...response, alreadyProcessed: true };
       }
       if (delivery.status !== 'DELIVERY_REQUESTED') {
@@ -988,7 +1077,7 @@ export function createPublicApiService({
       });
 
       const response = await assembleDeliveryResponse(contractId, contract, auth!);
-      await repo.setIdempotent('delivery-approve', input.idempotencyKey, response);
+      await repo.setIdempotent('delivery-approve', input.idempotencyKey, { input, response });
       return { ...response, alreadyProcessed: false };
     },
   };
@@ -1025,10 +1114,14 @@ export function createPublicApiService({
             : null,
       },
       paymentStatus: payment?.status ?? 'READY',
-      downloadUrl: delivery.status === 'APPROVED' && isClient ? `/api/v1/contracts/${contractId}/delivery/download` : null,
+      // 2026-09-09 팀장 반영(이식 지시서 §2, 조준영 권고안) — 이 경로는 public-api.routes.ts에
+      // 등록된 적이 없어 항상 404였다. 실저장소가 이 Increment 밖(spec.md 규칙 23)이라 리다이렉트할
+      // 대상이 없으므로, 없는 라우트를 가리키는 대신 null로 둔다 — canDownload도 false가 되어
+      // 웹의 다운로드 버튼이 비활성화된다("승인됐는데 받을 수 없다"가 드러나지만, 그게 사실이다).
+      downloadUrl: null,
       canRequestDelivery: isFreelancer && delivery.status === 'IN_PROGRESS',
       canApprove: isClient && delivery.status === 'DELIVERY_REQUESTED',
-      canDownload: delivery.status === 'APPROVED' && (isClient || isFreelancer),
+      canDownload: false,
       canReview: ctx.transactionStatus === 'COMPLETED',
     };
   }

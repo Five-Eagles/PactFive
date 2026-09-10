@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
 import { Button, Notice } from '../../shared/ui/primitives';
@@ -25,6 +25,10 @@ const BLOCKED_REASON_LABEL: Partial<Record<EligibilityBlockedReason, string>> = 
   PROJECT_CANCELED: '프로젝트가 취소되었습니다.',
   RECRUITMENT_NOT_OPEN: '모집이 마감되었습니다.',
   DEADLINE_PASSED: '모집 마감 기한이 지났습니다.',
+  // 2026-09-09 팀장 반영(이식 지시서 §3-4) — user-management의 ProfileCompletionPort
+  // 제공자가 아직 없어(오민혁 대기) 서버가 이 사유를 절대 내려주지 않는다. 라벨만 먼저
+  // 채워 둔다 — 포트가 붙으면 이 화면은 그대로 동작한다.
+  PROFILE_INCOMPLETE: '필수 프로필을 완성한 뒤에 지원서를 작성할 수 있습니다.',
 };
 
 type Draft = { coverLetter: string; expectedAmount: string; expectedDurationDays: string };
@@ -44,6 +48,10 @@ export function ApplyPage() {
   const eligibility = useApplicationEligibility(projectId);
   const [draft, setDraft] = useState<Draft>({ coverLetter: '', expectedAmount: '', expectedDurationDays: '' });
   const [validationError, setValidationError] = useState<string | null>(null);
+  // 2026-09-09 팀장 반영(이식 지시서 §2-1) — 제출은 되돌릴 수 없다(재수정·철회 불가). 시안
+  // (design/high-fi.html #submit-overlay)은 확인 다이얼로그를 거치는데 이 화면은 검증 직후
+  // 바로 submit을 호출하고 있었다 — 확인 없이 제출로 넘어가는 결함이었다.
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   function handleSubmit() {
     const input = toInput(draft);
@@ -52,6 +60,13 @@ export function ApplyPage() {
       return;
     }
     setValidationError(null);
+    setConfirmOpen(true);
+  }
+
+  function handleConfirmSubmit() {
+    const input = toInput(draft);
+    if (!input) return;
+    setConfirmOpen(false);
     void submit(input);
   }
 
@@ -179,6 +194,81 @@ export function ApplyPage() {
           </Button>
         </div>
       </form>
+      {confirmOpen && (
+        <SubmitConfirmDialog
+          draft={draft}
+          submitting={status === 'submitting'}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={handleConfirmSubmit}
+        />
+      )}
     </PageBody>
+  );
+}
+
+/**
+ * 지원서 제출 확인 — `ManageApplicantsPage.tsx`의 `AcceptConfirmDialog`와 같은
+ * `.overlay-backdrop`/`.dialog` 패턴(design-tokens.md §13). 마크업·문구는
+ * `prototype/web/ApplicationPanel.tsx:364~383`을 그대로 옮겼다.
+ */
+function SubmitConfirmDialog({
+  draft,
+  submitting,
+  onCancel,
+  onConfirm,
+}: {
+  draft: Draft;
+  submitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onCancel();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  const amount = Number(draft.expectedAmount);
+  const days = Number(draft.expectedDurationDays);
+
+  return (
+    <div
+      className={`overlay-backdrop${visible ? ' open' : ''}`}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="submit-title">
+        <h2 className="title" id="submit-title">
+          지원서를 제출할까요?
+        </h2>
+        <p className="status-copy">제출 후에는 수정하거나 철회할 수 없습니다. 제안 금액과 예상 기간을 확인해 주세요.</p>
+        <dl className="facts">
+          <dt>희망 금액</dt>
+          <dd>{Number.isFinite(amount) ? `${amount.toLocaleString('ko-KR')}원` : draft.expectedAmount}</dd>
+          <dt>예상기간</dt>
+          <dd>{Number.isFinite(days) ? `${days}일` : draft.expectedDurationDays}</dd>
+        </dl>
+        <div className="btn-row">
+          <Button variant="quiet" onClick={onCancel} disabled={submitting}>
+            그만두기
+          </Button>
+          <Button variant="primary" onClick={onConfirm} loading={submitting}>
+            제출하기
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

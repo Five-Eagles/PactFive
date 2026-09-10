@@ -2,42 +2,46 @@
  * reviews 응답 타입 — app/server/src/features/reviews/review.types.ts와 같은 모양을 화면이
  * 필요로 하는 만큼만 옮긴다 (app/web/AGENTS.md "폴더 간 접점" — 서버 폴더를 직접 import하지
  * 않는다).
+ *
+ * 2026-09-09 — 조준영 이식 지시서 §1: 태그 코드 v2.0, comment→content, isPublic→visibility,
+ * createdAt→submittedAt, editable 추가. 서버 review.types.ts와 같은 변경.
  */
 
 export type ReviewDirection = 'CLIENT_TO_FREELANCER' | 'FREELANCER_TO_CLIENT';
+export type ReviewVisibility = 'BLINDED' | 'PUBLISHED';
 export type ClientToFreelancerTag =
-  | 'RESPONSIBILITY'
-  | 'COMMUNICATION'
-  | 'TECHNICAL_SKILL'
-  | 'SCHEDULE_COMPLIANCE'
-  | 'DELIVERABLE_QUALITY';
+  | 'WORK_QUALITY'
+  | 'ON_TIME_DELIVERY'
+  | 'GOOD_COMMUNICATION'
+  | 'REQUIREMENT_UNDERSTANDING'
+  | 'PROFESSIONAL_ATTITUDE';
 export type FreelancerToClientTag =
-  | 'REQUIREMENT_CLARITY'
-  | 'COMMUNICATION'
-  | 'FEEDBACK_SPEED'
+  | 'CLEAR_REQUIREMENTS'
+  | 'FAST_FEEDBACK'
+  | 'GOOD_COMMUNICATION'
   | 'SCOPE_STABILITY'
-  | 'PAYMENT_RELIABILITY';
+  | 'PROFESSIONAL_ATTITUDE';
 export type ReviewTag = ClientToFreelancerTag | FreelancerToClientTag;
 
 export const CLIENT_TO_FREELANCER_TAGS: ClientToFreelancerTag[] = [
-  'RESPONSIBILITY',
-  'COMMUNICATION',
-  'TECHNICAL_SKILL',
-  'SCHEDULE_COMPLIANCE',
-  'DELIVERABLE_QUALITY',
+  'WORK_QUALITY',
+  'ON_TIME_DELIVERY',
+  'GOOD_COMMUNICATION',
+  'REQUIREMENT_UNDERSTANDING',
+  'PROFESSIONAL_ATTITUDE',
 ];
 
 export const FREELANCER_TO_CLIENT_TAGS: FreelancerToClientTag[] = [
-  'REQUIREMENT_CLARITY',
-  'COMMUNICATION',
-  'FEEDBACK_SPEED',
+  'CLEAR_REQUIREMENTS',
+  'FAST_FEEDBACK',
+  'GOOD_COMMUNICATION',
   'SCOPE_STABILITY',
-  'PAYMENT_RELIABILITY',
+  'PROFESSIONAL_ATTITUDE',
 ];
 
 export type CreateReviewInput = {
   rating: number;
-  comment?: string;
+  content?: string;
   tags: string[];
 };
 
@@ -45,10 +49,10 @@ export type ReviewItem = {
   reviewId: string;
   direction: ReviewDirection;
   rating: number;
-  comment: string | null;
+  content: string | null;
   tags: string[];
-  isPublic: boolean;
-  createdAt: string;
+  visibility: ReviewVisibility;
+  submittedAt: string;
 };
 
 export type CreateReviewResponse = ReviewItem & {
@@ -56,6 +60,7 @@ export type CreateReviewResponse = ReviewItem & {
   contractId: string;
   reviewerId: string;
   revieweeId: string;
+  editable: false;
 };
 
 export type ListProjectReviewsResponse = {
@@ -63,7 +68,8 @@ export type ListProjectReviewsResponse = {
   items: ReviewItem[];
 };
 
-export type GetReviewSummaryResponse = {
+/** `review-summary`→`rating` 경로 변경과 짝인 타입 이름 변경 (이식 지시서 §3). */
+export type GetUserRatingResponse = {
   userId: string;
   averageRating: number | null;
   reviewCount: number;

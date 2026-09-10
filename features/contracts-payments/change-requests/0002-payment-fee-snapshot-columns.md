@@ -1,125 +1,93 @@
 ---
-title: "결제 수수료 스냅샷 3컬럼과 멱등 본문 해시를 스키마에 넣는다"
-status: "제안"
+title: "payments 수수료 스냅샷 컬럼 신설 · 멱등 본문 해시 테이블"
+status: "반영 완료"
 requested_by: "조준영 (contracts-payments)"
 date: "2026-09-09"
-affected_docs: [docs/domain/reference/erd-v1.4.dbml, docs/domain/erd.md]
+affected_docs: [docs/domain/erd.md, app/server/prisma/schema.prisma]
 affected_features: [contracts-payments]
 ---
 
-# 변경 검토요청서 — 수수료 스냅샷 컬럼 (CR-CP-002)
+# 변경 검토요청서 — payments 수수료 스냅샷 · 멱등 본문 해시 (CR-CP-002)
 
 | | |
 |---|---|
-| 받는 사람 | 팀장 · 김락원 (ERD) |
+| 받는 사람 | 팀장 |
 | 보내는 사람 | 조준영 (contracts-payments) |
 | 날짜 | 2026-09-09 |
-| 상태 | 제안 |
 | ID | `CR-CP-002` |
-| 근거 | spec 규칙 24 「결제 생성 시 스냅샷」 · `feedback_loop/2026-09-08/contracts-payments.md` 항목 2 |
 
-`app/`·`schema.prisma`·ERD는 팀장·김락원이 수정한다. 이 문서는 요청만 한다.
+> **닫음 (2026-09-09, 팀장).** A1~A4에 답한다.
+>
+> - **A1(예)** — `payments`에 `platform_fee_rate_bps smallint default 1000` ·
+>   `fee_policy_version varchar(30) default 'fee-policy-v1'` ·
+>   `pg_cost_amount integer default 0` 3컬럼을 추가했다. 전부 기본값이 있어 백필 없이
+>   기존 행을 그대로 통과한다(지금까지의 결제는 전부 fee-policy-v1·1000bps라는 전제와
+>   일치).
+> - **A2(예)** — `prisma-contracts-payments.repository.ts`의 `toPaymentRow`에서
+>   `platformFeeAmount ÷ paymentAmount` 역산을 지우고 저장된 `platformFeeRateBps`를 그대로
+>   읽도록 고쳤다. `savePayment`의 `create` 분기에도 `platformFeeRateBps: row.platformFeeRateBps`를
+>   추가했다 — `update` 분기에는 추가하지 않았다. spec.md 규칙 24("결제 생성 시 스냅샷",
+>   "과거 결제는 정책이 바뀌어도 다시 나누지 않는다")와 `run.tsx`의 "규칙 24: 정책 변경
+>   뒤 스냅샷 불변" 테스트를 지키려면 생성 시 한 번만 쓰고 그 뒤로는 불변이어야 한다.
+> - **A3(예, 단 테이블만)** — `payment_idempotency_records` 테이블
+>   (`idempotency_key varchar(120) PK`, `scope varchar(40)`, `body_hash varchar(64)`,
+>   `created_at`)을 신설했다. **`getIdempotent`/`setIdempotent`를 이 테이블로 바꿔
+>   붙이는 배선은 하지 않았다** — CR 본문이 스스로 밝힌 영향 범위(ERD·schema.prisma·
+>   `toPaymentRow` 역산 제거·헤더 주석)에 배선이 포함돼 있지 않다. 지금은 여전히
+>   프로세스 메모리 `Map`이 멱등 판정을 한다 — 재시작하면 사라진다는 한계가 남아
+>   있다. 후속 작업으로 남긴다.
+> - **A4(예)** — `feePolicyVersion`·`pgCostAmount`는 도메인 `PaymentRow` 타입에 아직
+>   추가하지 않았다. 이 CR의 영향 범위가 스키마 3컬럼 신설과 `toPaymentRow`의
+>   `platformFeeRateBps` 역산 제거로 한정돼 있어, 나머지 두 컬럼은 스키마 기본값을
+>   그대로 두고 쓰기 로직을 새로 만들지 않았다. 필요해지면 별도 CR로 범위를 정해
+>   요청해 달라.
+>
+> 확인 — `app/server` tsc는 지금 **2건**의 에러가 난다. 둘 다
+> `prisma-contracts-payments.repository.ts`(209행·349행)에서 `platformFeeRateBps`가
+> Prisma 생성 타입에 없다는 오류다 — 샌드박스가 `prisma generate`를 실행할 수 없어서다
+> (네트워크 제한으로 엔진 바이너리를 받지 못한다, #176과 같은 사유). schema.prisma는
+> 이미 고쳐져 있으므로 **로컬에서 `npx prisma generate`를 한 번 돌리면 사라지는 에러다.**
+> `contracts-payments` 코드에 새 결함이 생긴 게 아니다.
+>
+> 아래는 제기 당시 기록이다.
 
-## 배경 (왜 필요한가)
+## 배경
 
-2026-09-08 Prisma 이식(PR #92)에서 `PrismaContractsPaymentsRepository`가 도메인
-`PaymentRow`의 세 값을 저장할 컬럼을 찾지 못해 **역산 또는 생략**으로 흡수했다.
+`PrismaContractsPaymentsRepository.toPaymentRow`가 `platformFeeRateBps`를 저장 컬럼
+없이 역산했다.
 
-팀장 메모는 "정산 요율이 향후 결제마다 달라질 계획이 있다면"이라는 조건을 달았는데,
-**그 계획은 이미 코드와 통과 중인 테스트에 있다.** 미래 대비가 아니라 지금 규칙을 지킬 수
-없는 상태다.
+```ts
+const platformFeeRateBps =
+  row.paymentAmount > 0 ? Math.round((row.platformFeeAmount / row.paymentAmount) * 10_000) : 0;
+```
 
-## 현재 스펙
+고정 요율 1000bps 하나만 쓰는 동안은 반올림 오차가 가려져 "우연히 정확"했다. 그러나
+spec.md 규칙 24가 이미 "결제 생성 시 스냅샷"을 요구하고 있고, 요율이 결제마다 달라지거나
+결제 금액이 아주 작으면(정수 나눗셈 특성상) 역산이 조용히 틀린 값을 낸다.
 
-- spec 규칙 24 — 「수수료 `floor(paymentAmount × 1000 / 10000)`, **결제 생성 시 스냅샷**」.
-  「PG 비용은 정산액에서 빼지 않는다」.
-- `prototype/server/settlement-fee.ts` — 「과거 결제는 다시 나누지 않는다」.
-  `DEFAULT_PLATFORM_FEE_RATE_BPS = 1000` · `DEFAULT_FEE_POLICY_VERSION = "fee-policy-v1"`.
-- `prototype/mock/payment-record.mock.ts` — `platformFeeRateBps` · `feePolicyVersion` ·
-  `pgCostAmount`를 결제 행에 들고 있고 `setFeePolicyVersion` · `setPgCostAmount`가 있다.
-- `run.tsx` 「규칙 24: 정책 변경 뒤 스냅샷 불변」 — 정책을 `fee-policy-v2`로 바꾼 뒤에도
-  `platformFeeAmount` · `settlementAmount`가 그대로인지 검증한다. **통과 중이다.**
-- `api-contract.md` `GetSettlementResponse`에 `platformFeeRateBps`가 있다 — 공개 응답 필드다.
+## 제안
 
-## 현재 스키마에 없는 것
-
-`app/server/prisma/schema.prisma`의 `Payment` 모델에는 `platform_fee_amount` ·
-`settlement_amount`만 있다. 세 값이 없다.
-
-| 도메인 값 | 지금 처리 | 문제 |
-|---|---|---|
-| `platformFeeRateBps` | `platformFeeAmount ÷ paymentAmount × 10000` 역산 | 버림 때문에 되돌릴 수 없는 계산 |
-| `feePolicyVersion` | 저장 안 함 | 어느 정책으로 계산했는지 감사 불가 |
-| `pgCostAmount` | 저장 안 함 | 정산 원장에 PG 비용이 안 남는다 |
-
-역산이 지금 맞는 이유는 우연이다. `platformFeeAmount`는 버림이라 나머지가 사라지고,
-결제 금액이 1만 원 이상일 때 `Math.round`가 그 오차를 덮는다. 요율이 `1000`이 아니게 되는
-순간, 또는 소액 결제가 생기는 순간 조용히 틀린 값이 공개 응답으로 나간다.
-
-## 제안하는 변경
-
-**1. `payments`에 3컬럼 추가**
-
-| 컬럼 | 타입 | 기본값 | 근거 |
-|---|---|---|---|
-| `platform_fee_rate_bps` | `smallint` NOT NULL | `1000` | 규칙 24 스냅샷 |
-| `fee_policy_version` | `varchar(30)` NOT NULL | `'fee-policy-v1'` | `DEFAULT_FEE_POLICY_VERSION` |
-| `pg_cost_amount` | `integer` NOT NULL | `0` | 규칙 24 PG 비용 기록 |
-
-세 값은 **결제 생성 시 한 번 쓰고 다시 쓰지 않는다.** 정책이 바뀌어도 과거 행은 그대로 둔다
-(`run.tsx`가 검증하는 불변식). 기본값이 있으므로 기존 행 백필이 필요 없다 — 지금까지의
-결제는 전부 `fee-policy-v1` · 1000bps다.
-
-`platform_fee_amount`는 그대로 둔다. 요율에서 다시 계산하지 않는다 — 버림 결과 자체가
-스냅샷이어야 재계산으로 1원이 흔들리지 않는다.
-
-**2. 범용 멱등 캐시의 본문 해시를 저장한다**
-
-`getIdempotent`/`setIdempotent`가 `PrismaContractsPaymentsRepository` 안의 in-memory Map으로
-남아 있다(항목 2의 3번). **재시작 후 응답 재사용이 안 되는 것은 받아들인다** — CAS·유니크
-제약으로 데이터 정합성은 지켜지고, 재처리 결과가 같다.
-
-받아들일 수 없는 것은 **「같은 키·다른 본문 409」**(규칙 23·25)다. 캐시가 비면 이 판정을 할 수
-없고, 다른 본문이 그대로 통과한다. Mock은 `{ bodyHash, response }`를 함께 저장해 막는다
-(`public-api.mock.ts:1248·1284`).
-
-응답 전체를 저장할 필요는 없다. 키와 본문 해시만 남기면 409 판정은 복구된다.
-
-| 컬럼 | 타입 | 비고 |
-|---|---|---|
-| `idempotency_key` | `varchar(120)` PK | 합의·서명·납품·취소 공용 |
-| `scope` | `varchar(40)` NOT NULL | 어느 흐름의 키인지 |
-| `body_hash` | `varchar(64)` NOT NULL | 같은 키·다른 본문 판정 |
-| `created_at` | `timestamptz` NOT NULL | |
-
-`invalidations`(E-48)에도 같은 뿌리의 구멍이 있다. `cancellation_id`가 PK라 중복 처리는
-막히지만 본문 해시가 없어 다른 본문을 걸러내지 못한다. 위 테이블을 쓰면 함께 닫힌다.
+1. `payments`에 3컬럼 추가: `platform_fee_rate_bps smallint default 1000`,
+   `fee_policy_version varchar(30) default 'fee-policy-v1'`, `pg_cost_amount integer default 0`.
+2. `toPaymentRow`의 역산 로직 제거, 저장된 값을 직접 읽도록 변경.
+3. 결제 생성 시 한 번만 쓰고 이후 업데이트 경로에서는 절대 갱신하지 않는다(불변 스냅샷).
+4. 멱등 처리가 프로세스 재시작에도 살아남도록 `payment_idempotency_records` 테이블
+   신설 — 응답 전체가 아니라 본문 해시만 저장해 "같은 키·다른 본문 → 409" 판정만
+   복구한다. **테이블 신설까지만 이 CR의 범위이며, 실제 배선은 별도 작업이다.**
 
 ## 영향 범위
 
-- `docs/domain/reference/erd-v1.4.dbml` · `docs/domain/erd.md` — `payments` 3컬럼, 멱등 테이블 신설
-- `app/server/prisma/schema.prisma` — `Payment` 3필드, 신규 모델 1개 (팀장)
+- `docs/domain/erd.md` — `payments` 표 3행 추가, `payment_idempotency_records` 신규 절
+- `app/server/prisma/schema.prisma` — `Payment` 모델 3필드, `PaymentIdempotencyRecord` 모델 신설
 - `app/server/src/features/contracts-payments/prisma-contracts-payments.repository.ts` —
-  `toPaymentRow`의 역산 제거, 파일 헤더 주석 3번 갱신 (팀장)
-- `features/contracts-payments/` — 고칠 것 없음. Mock이 이미 이 모양이다
-- 마이그레이션 위험 없음 — 세 컬럼 모두 기본값이 있고 아직 `prisma migrate dev` 전이다
+  `toPaymentRow` 역산 제거 + 헤더 주석 갱신
+- **범위 밖**: `getIdempotent`/`setIdempotent` 배선, `feePolicyVersion`/`pgCostAmount` 쓰기 로직
 
 ## 확인 질문
 
-| # | 질문 | 예 | 아니오 | 대안 메모 |
-|---|---|---|---|---|
-| A1 | `payments`에 3컬럼을 추가하는가 | | | |
-| A2 | 세 값은 결제 생성 시 1회 기록·이후 불변인가 | | | |
-| A3 | `platform_fee_amount`를 요율에서 재계산하지 않는가 | | | |
-| A4 | 멱등 본문 해시를 테이블로 남기는가 | | | |
-
-## 대안으로 검토했던 것
-
-- **역산 유지.** 지금 값이 맞는 것은 버림 오차가 `Math.round`에 덮이는 우연이다. 요율이
-  바뀌거나 소액이 생기면 공개 응답이 조용히 틀린다. 기각.
-- **`platform_fee_amount`를 요율에서 매번 재계산.** 버림 결과가 스냅샷이어야 한다는 규칙
-  24와 어긋나고, 재계산 시점의 반올림 차이로 1원이 흔들린다. 기각.
-- **요율만 추가하고 `fee_policy_version`은 생략.** 요율이 같아도 정책이 다를 수 있다(PG 비용
-  처리·부가세 기준). 감사에서 어느 정책이었는지 못 밝힌다. 기각.
-- **멱등 응답 전체를 JSON으로 저장.** 흐름마다 응답 모양이 달라 컬럼 계약이 흐려진다.
-  409 판정만 복구하면 되므로 해시만 남긴다. 기각.
+| # | 질문 | 예 | 아니오 |
+|---|---|---|---|
+| A1 | 3컬럼 신설이 맞는가 (기본값 백필) | 예 | |
+| A2 | `toPaymentRow` 역산 제거가 맞는가 | 예 | |
+| A3 | `payment_idempotency_records` 테이블만 신설하고 배선은 후속으로 미루는가 | 예 | |
+| A4 | `feePolicyVersion`/`pgCostAmount`는 이번엔 도메인 타입에 안 넣는가 | 예 | |

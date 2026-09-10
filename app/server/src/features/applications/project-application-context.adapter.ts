@@ -20,6 +20,12 @@ import type { ProjectApplicationContext, ProjectApplicationContextPort } from '.
  * `PROJECT_NOT_FOUND`로 다시 던진다.
  */
 export type ProjectContractServiceDelegate = {
+  /** CR-AP-001 — project-management 의 지원 건수 갱신 (project-contract.service.ts) */
+  bumpApplicationCounts(
+    projectId: string,
+    delta: { applicationCount?: number; pendingApplicationCount?: number },
+  ): Promise<{ applicationCount: number; pendingApplicationCount: number }>;
+
   getProjectNegotiationContext(projectId: string): Promise<{
     projectId: string;
     clientId: string;
@@ -43,6 +49,11 @@ export function createProjectApplicationContextAdapter(
   delegate: ProjectContractServiceDelegate,
 ): ProjectApplicationContextPort {
   return {
+    /** CR-AP-001 — 그대로 위임한다. 음수 방지·저장은 project-management 가 한다 */
+    bumpApplicationCounts(projectId, delta) {
+      return delegate.bumpApplicationCounts(projectId, delta);
+    },
+
     async getProjectContext(projectId: string): Promise<ProjectApplicationContext | null> {
       try {
         const context = await delegate.getProjectNegotiationContext(projectId);
