@@ -55,6 +55,12 @@ CR-CP-002는 스키마·역산 제거 부분만 닫혔다. **후속 작업 남�
 남아 있다(지금은 여전히 프로세스 메모리 `Map` — 재시작하면 멱등 판정이 사라진다). 필요
 시 새 CR로 요청.
 
+**담당자 메모 (조준영, 2026-09-10)** — 후속 CR을 올렸습니다.
+[CR-CP-003](../../features/contracts-payments/change-requests/0003-idempotency-map-to-db.md).
+지금 테이블은 `body_hash`만 있어 Map이 담는 응답·`{input,response}`를 못 넣습니다.
+`payload Json` + PK `(scope, idempotency_key)` 추가 후 `getIdempotent`/`setIdempotent`
+배선이 필요합니다. 테이블은 아직 비어 있어 마이그레이션 비용이 없습니다.
+
 **전체 팀 (특히 로컬에서 `app/server`를 빌드/테스트하는 사람)** — `git pull` 후
 `npx prisma generate`를 반드시 재실행해야 tsc가 통과한다. 안 하면 위 2건의 에러가
 그대로 보인다.
