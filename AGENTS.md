@@ -10,6 +10,8 @@
 - `app/` 작업 규칙(접근 권한, 통합 워크플로우)은 `app/AGENTS.md` 참고
 - 도메인 공유 문서(ERD·API 계약) 통합 규칙은 `docs/domain/AGENTS.md` 참고
 - 공통 통합 워크플로우(diff 확인 → 반영 → sync-log 기록) 원리는 `sdd-framework/integration-workflow.md` 참고
+- **8개 기능이 app/에 1차 반영된 이후 단계(인메모리 → Prisma 전환, 로컬 QA 버그 수정, 시드/dev-tooling)의
+  실전 패턴과 알려진 함정은 `sdd-framework/backend-integration-notes.md` 참고 (2026-09-10 추가)**
 - **기능 담당자가 `features/{기능}/` 안에서 작업하는 순서(SPEC → API 계약/디자인 시안 → Mock+구현
   초안 코드)는 `sdd-framework/feature-workflow.md` 참고 (2026-08-20 추가)**
 - ADR을 새로 써야 할지 판단하는 기준은 `sdd-framework/adr-process.md` 참고 (2026-08-20 추가)

@@ -232,6 +232,7 @@ export type ApplicationRow = {
 export type ProjectApplicationContext = {
   projectId: string;
   clientId: string;
+  title: string;
   recruitmentStatus: RecruitmentStatus;
   transactionStatus: ProjectTransactionStatus;
   acceptedApplicationId: string | null;

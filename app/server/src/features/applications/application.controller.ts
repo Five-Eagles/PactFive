@@ -42,9 +42,9 @@ function toHttp(error: unknown): ApplicationHttpResult {
 /** HTTP 프레임워크와 무관한 controller — ai-pricing/pricing-analysis.controller.ts와 같은 형태. */
 export function createApplicationController(deps: ApplicationServiceDeps) {
   return {
-    async eligibility(projectId: string, actorUserId: string | undefined): Promise<ApplicationHttpResult> {
+    async eligibility(projectId: string, actorUserId: string | undefined, actorRole?: 'CLIENT' | 'FREELANCER'): Promise<ApplicationHttpResult> {
       try {
-        return { httpStatus: 200, body: await getApplicationEligibility(deps, projectId, actorUserId) };
+        return { httpStatus: 200, body: await getApplicationEligibility(deps, projectId, actorUserId, actorRole) };
       } catch (error) {
         return toHttp(error);
       }
@@ -54,9 +54,10 @@ export function createApplicationController(deps: ApplicationServiceDeps) {
       actorUserId: string | undefined,
       input: CreateApplicationBody,
       idempotencyKey: string | undefined,
+      actorRole?: 'CLIENT' | 'FREELANCER',
     ): Promise<ApplicationHttpResult> {
       try {
-        const result = await createApplication(deps, projectId, actorUserId, input, idempotencyKey);
+        const result = await createApplication(deps, projectId, actorUserId, input, idempotencyKey, actorRole);
         return { httpStatus: result.httpStatus, body: result.body };
       } catch (error) {
         return toHttp(error);
