@@ -113,6 +113,16 @@ AUTO_REJECTED로 바뀐다. 스크립트 실행 시간이 몇 초 더 걸리는 
   Supabase Auth가 signUp 단계에서 `email_address_invalid`로 거부해서(2026-09-10) 바꿨다.
   전부 코드에 그대로 있지만, 실제 사람에게 영향을 주는 값이 아니다(auth.mock.ts의 고정
   mock 토큰과 같은 성격).
+- **2026-09-10 변경 — 계정 생성이 더는 서버의 공개 회원가입(signUp) API를 거치지 않는다.**
+  `scripts/lib/bootstrap-seed-user.ts`가 Supabase Admin API(`auth.admin.createUser`, 확인
+  이메일을 보내지 않는 경로)로 Auth 계정을 만들고, 로컬 `users` 테이블 행도 Prisma로 직접
+  INSERT한다. 이전엔 공개 signUp을 썼는데, Confirm Email이 켜져 있으면 그 호출마다
+  Supabase가 실제 이메일을 보내려 시도해 시간당 2통 제한에 걸렸고, 꺼져 있으면 서버가 그
+  상태를 설정 오류로 보고 막아버렸다 — 계정 10개를 한 번에 만들 방법이 없었다. 그래서
+  이제는 **Supabase 대시보드의 Confirm Email 설정과 무관하게** 10개 계정이 전부 만들어진다.
+  대신 `DATABASE_URL`이 새로 필수 환경변수가 됐다(§2 준비물, 이미 있었으면 손댈 것 없음).
+  프로젝트/지원/계약/결제 등 나머지 데이터는 여전히 손대지 않는다 — 실제 서버 API를 그대로
+  호출해 감사·멱등성 기록까지 정상적으로 남긴다.
 - 결과 파일 `.dev-accounts.local.json`(리포 루트)은 `.gitignore`에 있어 커밋되지 않는다.
 - `GET /api/internal/dev/test-accounts`·`POST /api/internal/dev/simulate-settlement`
   두 엔드포인트는 서버가 `NODE_ENV=production`이면 아예 등록되지 않는다

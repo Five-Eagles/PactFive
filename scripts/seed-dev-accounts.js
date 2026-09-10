@@ -76,17 +76,18 @@ function requireEnv(name, value) {
 requireEnv('SUPABASE_URL', SUPABASE_URL);
 requireEnv('SUPABASE_SERVICE_ROLE_KEY', SUPABASE_SERVICE_ROLE_KEY);
 requireEnv('WEB_ORIGIN', WEB_ORIGIN);
+// 2026-09-10 추가 — 계정 부트스트랩이 scripts/lib/bootstrap-seed-user.ts(Prisma 직접
+// INSERT)를 거치면서 DATABASE_URL도 필수가 됐다. 없으면 tsx 하위 프로세스 안에서 애매한
+// 에러로 죽는 대신 여기서 먼저 명확하게 막는다.
+requireEnv('DATABASE_URL', process.env.DATABASE_URL);
 
 // 전부 가짜 계정(SEED_EMAIL_DOMAIN)이라 고정 비밀번호를 코드에 둬도 안전하다(auth.mock.ts의
 // 고정 mock 토큰과 같은 성격). 결과 파일(.dev-accounts.local.json)은 .gitignore에 있다.
 const SEED_PASSWORD = 'PactFiveSeedDev!1';
 
-async function loadSupabaseAdminClient() {
-  const { createClient } = require('@supabase/supabase-js');
-  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
+// 2026-09-10 — 계정 부트스트랩을 scripts/lib/bootstrap-seed-user.ts(Supabase Admin API +
+// Prisma 직접 INSERT)로 옮기면서 이 파일에서 Supabase Admin 클라이언트를 직접 쓸 일이
+// 없어졌다(아래 bootstrapAccountViaAdminApi 참고). loadSupabaseAdminClient는 그래서 제거했다.
 
 async function api(pathname, { method = 'GET', body, accessToken, origin } = {}) {
   const headers = { 'Content-Type': 'application/json' };
@@ -121,17 +122,6 @@ async function api(pathname, { method = 'GET', body, accessToken, origin } = {})
     // 본문 없는 응답
   }
   return { status: res.status, body: json };
-}
-
-async function findSupabaseUserIdByEmail(supabaseAdmin, email) {
-  for (let page = 1; page <= 20; page += 1) {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
-    if (error) throw new Error(`Supabase listUsers 실패: ${error.message}`);
-    const found = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-    if (found) return found.id;
-    if (data.users.length < 200) break;
-  }
-  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -231,92 +221,50 @@ const MARKER = {
   closed: '[시드:project-management] 마감 처리 테스트 프로젝트',
 };
 
-/**
- * 회원가입 → (필요시) 강제 확인 → 로그인을 한 번 시도한다. 실패하면 {@link ensureAccount}가
- * 해석해서 재시도할지 판단할 수 있도록, 성공 시 세션을, 실패 시 원인 진단에 필요한 정보를
- * 그대로 담은 객체를 던진다(throw하지 않는다 — 호출부에서 로그인 실패 body를 봐야 하므로).
- */
-async function attemptRegisterConfirmLogin(supabaseAdmin, persona) {
-  const { email, role, label } = persona;
+// 2026-09-10 — 계정 생성을 더는 POST /api/v1/auth/registrations(공개 signUp)로 하지 않는다.
+// Confirm Email이 켜져 있으면 그 호출마다 Supabase가 실제 확인 이메일을 "보내려고 시도"해서
+// 시간당 2통 제한에 걸리고, 꺼져 있으면 서버 코드(auth.service.ts)가 signUp의 즉시-세션
+// 응답을 설정 오류로 보고 무조건 503으로 막는다 — 어느 쪽이든 10개 계정을 한 번에 만들 수
+// 없었다(2026-09-10 논의). scripts/lib/bootstrap-seed-user.ts가 Supabase Admin API
+// (`auth.admin.createUser`, signUp과 별개 경로라 이메일을 아예 안 보낸다) + 로컬 users
+// 테이블 직접 INSERT로 이 병목을 우회한다 — 자세한 이유는 그 파일 헤더 주석 참고.
+const TSX_BIN = path.join(REPO_ROOT, 'node_modules', '.bin', 'tsx');
+const BOOTSTRAP_HELPER_PATH = path.join(__dirname, 'lib', 'bootstrap-seed-user.ts');
 
-  console.log(`[seed] ${persona.key}: 신규 생성 시도 중 (${email})`);
-  const registerRes = await api('/api/v1/auth/registrations', {
-    method: 'POST',
-    origin: WEB_ORIGIN,
-    body: { email, password: SEED_PASSWORD, name: label, role, returnTo: '/' },
+function bootstrapAccountViaAdminApi(persona) {
+  const { execFileSync } = require('node:child_process');
+  const payload = JSON.stringify({
+    email: persona.email,
+    password: SEED_PASSWORD,
+    name: persona.label,
+    role: persona.role,
   });
-
-  // status가 202가 아니어도 곧바로 포기하지 않는다 — 이전에 여기서 한 번 끊긴 실행(잘못된
-  // 이메일 도메인, 이메일 발송 rate limit 등으로 이번 세션에서 실제로 여러 번 겪은 상황)이
-  // Supabase 쪽에는 signUp까지 성공시켜 뒀는데 이메일 확인·로컬 동기화 전에 죽었을 수 있다.
-  // 이 경우 register()는 Supabase의 422 user_already_exists를 받아서 실패하지만
-  // (auth.service.ts가 클라이언트에는 일부러 뭉뚱그린 AUTH_PROVIDER_UNAVAILABLE만 준다 —
-  // 이메일 존재 여부를 노출하지 않으려는 의도적 보안 설계, 여기서 고치면 안 된다), 실제로는
-  // 아래의 "Supabase 관리자 API로 찾아서 강제 확인 후 로그인"으로 복구 가능할 수 있다.
-  if (registerRes.status !== 202) {
-    console.log(
-      `[seed] ${persona.key}: 회원가입 응답이 202가 아님 (status ${registerRes.status}) — ` +
-        'Supabase에는 이미 있는 계정일 수 있어 강제 확인·재로그인으로 복구를 시도합니다.',
-    );
+  let stdout;
+  try {
+    stdout = execFileSync(TSX_BIN, [BOOTSTRAP_HELPER_PATH, payload], {
+      cwd: REPO_ROOT,
+      env: process.env,
+      encoding: 'utf8',
+    });
+  } catch (error) {
+    const stderrText = (error.stderr ?? '').toString().trim();
+    let reason = stderrText || error.message;
+    try {
+      reason = JSON.parse(stderrText).error ?? reason;
+    } catch {
+      // stderr가 JSON이 아니면(예: tsx 자체 크래시) 원문 그대로 둔다.
+    }
+    throw new Error(`[${persona.key}] Supabase/DB 계정 부트스트랩 실패: ${reason}`);
   }
-
-  const authUserId = await findSupabaseUserIdByEmail(supabaseAdmin, email);
-  if (!authUserId) {
-    return {
-      ok: false,
-      recoverable: false,
-      authUserId: null,
-      reason:
-        `회원가입 실패(status ${registerRes.status}: ${JSON.stringify(registerRes.body)})했고, ` +
-        `Supabase에서도 이 이메일(${email})을 가진 계정을 찾지 못했습니다 — 복구할 수 없는 상태입니다.`,
-    };
-  }
-  const { error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(authUserId, { email_confirm: true });
-  if (confirmError) {
-    return {
-      ok: false,
-      recoverable: false,
-      authUserId,
-      reason: `이메일 확인 처리 실패: ${confirmError.message}`,
-    };
-  }
-
-  const loginRes = await api('/api/v1/auth/sessions', {
-    method: 'POST',
-    origin: WEB_ORIGIN,
-    body: { email, password: SEED_PASSWORD },
-  });
-  if (loginRes.status !== 200) {
-    // REGISTRATION_NOT_AVAILABLE(403) — auth.service.ts의 login()이 Supabase 확인은 됐지만
-    // 로컬 registrationIntent가 없어서(또는 만료돼서) 로컬 계정을 자동으로 못 만든다는 뜻이다.
-    // 우리 seed 흐름에서는 "이전 실행이 signUp까지만 성공시키고 intent 저장 전에 죽었을 때"
-    // 정확히 이 상태가 된다 — 이 Supabase 계정은 로그인으로 절대 복구되지 않으므로, 삭제하고
-    // 처음부터 다시 회원가입해야 한다(재시도하면 registrationIntent가 새로 저장된다).
-    const code = loginRes.body?.error?.code;
-    return {
-      ok: false,
-      recoverable: code === 'REGISTRATION_NOT_AVAILABLE',
-      authUserId,
-      reason:
-        `강제 확인 후에도 로그인 실패 (status ${loginRes.status}): ${JSON.stringify(loginRes.body)}` +
-        (code === 'REGISTRATION_NOT_AVAILABLE'
-          ? ' — Supabase에는 계정이 있지만 로컬 registrationIntent가 없어(이전 실행이 signUp 직후 끊김) 자동 복구가 불가능합니다. 이 Supabase 계정을 삭제하고 재시도합니다.'
-          : ' — Supabase에 이 이메일로 다른 비밀번호의 계정이 이미 있을 수 있습니다(고정 SEED_PASSWORD와 불일치).'),
-    };
-  }
-
-  console.log(`[seed] ${persona.key}: 생성/복구 완료 (userId=${loginRes.body.user.userId})`);
-  return {
-    ok: true,
-    session: { ...persona, userId: loginRes.body.user.userId, accessToken: loginRes.body.accessToken, password: SEED_PASSWORD },
-  };
+  const lastLine = stdout.trim().split('\n').pop();
+  return JSON.parse(lastLine);
 }
 
-async function ensureAccount(supabaseAdmin, persona) {
+async function ensureAccount(persona) {
   const { email } = persona;
 
   // 빠른 경로 — 이미 완전히 준비된 계정이면 로그인 한 번으로 끝난다(재실행 시 매번
-  // Supabase 관리자 API를 부르지 않아도 되게).
+  // Supabase Admin API·Prisma를 부르지 않아도 되게).
   const quickLogin = await api('/api/v1/auth/sessions', {
     method: 'POST',
     origin: WEB_ORIGIN,
@@ -327,29 +275,25 @@ async function ensureAccount(supabaseAdmin, persona) {
     return { ...persona, userId: quickLogin.body.user.userId, accessToken: quickLogin.body.accessToken, password: SEED_PASSWORD };
   }
 
-  const first = await attemptRegisterConfirmLogin(supabaseAdmin, persona);
-  if (first.ok) return first.session;
+  console.log(`[seed] ${persona.key}: Supabase Auth + 로컬 DB 계정 부트스트랩 중 (${email})`);
+  const bootstrap = bootstrapAccountViaAdminApi(persona);
+  console.log(
+    `[seed] ${persona.key}: ${bootstrap.created ? '신규 생성' : '기존 계정 연결'} 완료 (authUserId=${bootstrap.authUserId})`,
+  );
 
-  if (!first.recoverable) {
-    throw new Error(`[${persona.key}] ${first.reason}`);
+  // 부트스트랩 단계는 이메일을 보내지 않지만, 로그인 자체도 보내지 않는다 — 여기서 다시
+  // POST /api/v1/auth/sessions를 쓰는 건 rate limit과 무관하다. 로컬에 users 행이 이미
+  // 있으므로 auth.service.ts의 login()이 registrationIntent 없이 바로 세션을 만들어 준다.
+  const loginRes = await api('/api/v1/auth/sessions', {
+    method: 'POST',
+    origin: WEB_ORIGIN,
+    body: { email, password: SEED_PASSWORD },
+  });
+  if (loginRes.status !== 200) {
+    throw new Error(`[${persona.key}] 부트스트랩 후에도 로그인 실패 (status ${loginRes.status}): ${JSON.stringify(loginRes.body)}`);
   }
-
-  // 2026-09-10 추가 — REGISTRATION_NOT_AVAILABLE(로컬 intent 없음)은 로그인으로 복구가 안
-  // 되므로, 그 "고아" Supabase 계정을 지우고 한 번만 더 처음부터 시도한다. 이번엔 Supabase에
-  // 계정이 없는 상태에서 다시 시작하므로 register()가 정상적으로 registrationIntent까지
-  // 저장하고 끝난다(이메일 발송 rate limit·잘못된 도메인 문제가 이미 해결된 상태라는 전제).
-  console.log(`[seed] ${persona.key}: ${first.reason}`);
-  if (first.authUserId) {
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(first.authUserId);
-    if (deleteError) {
-      throw new Error(`[${persona.key}] 고아 계정 삭제 실패: ${deleteError.message} — 직접 Supabase 대시보드에서 정리해 주세요.`);
-    }
-    console.log(`[seed] ${persona.key}: 고아 Supabase 계정 삭제 완료 — 재시도합니다.`);
-  }
-
-  const second = await attemptRegisterConfirmLogin(supabaseAdmin, persona);
-  if (second.ok) return second.session;
-  throw new Error(`[${persona.key}] 재시도 후에도 실패: ${second.reason}`);
+  console.log(`[seed] ${persona.key}: 로그인 완료 (userId=${loginRes.body.user.userId})`);
+  return { ...persona, userId: loginRes.body.user.userId, accessToken: loginRes.body.accessToken, password: SEED_PASSWORD };
 }
 
 async function ensureProject(clientSession, markerTitle) {
@@ -576,11 +520,9 @@ async function ensureRecruitmentClosed(clientSession, freelancerSession, markerT
 }
 
 async function main() {
-  const supabaseAdmin = await loadSupabaseAdminClient();
-
   const sessions = {};
   for (const persona of ACCOUNTS) {
-    sessions[persona.key] = await ensureAccount(supabaseAdmin, persona);
+    sessions[persona.key] = await ensureAccount(persona);
   }
 
   console.log('[seed] project-management + applications 상태 구성 중...');
