@@ -1,6 +1,6 @@
 ---
 title: "지원 건수 캐시를 생성·DIRECT 거절에서만 갱신한다"
-status: "반영중"
+status: "반영중 — app/ 호출 배선만 남음"
 requested_by: "조준영 (reviews · contracts-payments)"
 date: "2026-09-07"
 updated: "2026-09-08"
@@ -16,7 +16,7 @@ affected_features: [applications, project-management]
 | 받는 사람 | 조준영 (applications) · 유동우 (project-management) |
 | 보내는 사람 | 조준영 (reviews · contracts-payments) |
 | 날짜 | 2026-09-07 |
-| 상태 | 반영중 (applications Mock 확인 2026-09-08. `app/`·PM 미반영) |
+| 상태 | 반영중 — PM 포트·어댑터 완료(2026-09-09). `app/` `application.service` 호출만 남음 (2026-09-10) |
 | ID | `CR-AP-001` |
 | 근거 | 유동우 `260907 보완사항.md` 건 1 · `feedback_loop/2026-09-05/applications.md` 항목 2 |
 
@@ -130,3 +130,17 @@ applications가 쓸 포트가 없다. 화면 "지원 N건"이 0이다.
 `features/applications/` 조준영 할 일 1~4는 Mock에 있다. `createApplication` +1/+1,
 `DIRECT` −1, `AUTO_*` 비감산, C-01 스탠드인 `pendingApplicationCount: 0`.
 `app/` 쓰기 포트와 `acceptProjectApplication`·마감·취소의 0은 유동우·팀장.
+
+## 진행 상황 (2026-09-10) — 포트는 열렸고 호출만 빠짐
+
+**유동우 쪽은 끝났다.** `bumpApplicationCounts`가 `project-contract.service.ts`에 있고
+`ProjectApplicationContextPort`·어댑터·`express-app` 주입까지 연결됐다
+(`application.types.ts:352~370` 주석 — "2026-09-09 유동우가 열었다").
+
+**막힌 곳은 `app/` `application.service.ts` 한 파일이다.** 생성·DIRECT 거절에서
+포트를 **부르지 않는다.** 주석이 아직 「포트 미존재」라 이식 때 의도적으로 뺀 상태가
+그대로다. 포트가 생긴 뒤 호출을 안 넣은 간극이다.
+
+팀장 이식 지시:
+[review/teamlead-port-instructions-2026-09-10-application-count.md](../review/teamlead-port-instructions-2026-09-10-application-count.md)
+— `createApplication` +1/+1, `rejectApplication` DIRECT −1, 수락·일괄은 부르지 않음.
