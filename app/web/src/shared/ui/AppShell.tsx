@@ -28,9 +28,15 @@ export type AppShellProps = {
   items: NavItem[];
   homeHref: string;
   children: ReactNode;
+  /**
+   * 헤더 오른쪽 끝에 끼울 부가 요소 슬롯 — notifications의 `NotificationBell`을 위해
+   * 2026-09-09에 추가했다. `shared/`가 기능 폴더를 import하지 않도록(app/web/AGENTS.md
+   * "폴더 간 접점") 실제 컴포넌트는 App.tsx가 넣어 준다.
+   */
+  headerExtra?: ReactNode;
 };
 
-export function AppShell({ items, homeHref, children }: AppShellProps) {
+export function AppShell({ items, homeHref, children, headerExtra }: AppShellProps) {
   return (
     <>
       <div className="frame">
@@ -45,6 +51,7 @@ export function AppShell({ items, homeHref, children }: AppShellProps) {
               </NavLink>
             ))}
           </nav>
+          {headerExtra && <div className="header-extra">{headerExtra}</div>}
         </header>
       </div>
       {children}

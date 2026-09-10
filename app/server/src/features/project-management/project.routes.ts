@@ -25,6 +25,11 @@ export function createProjectManagementRouter(
     optionalAuth: RequestHandler;
     requireServiceToken: RequestHandler;
   },
+  /**
+   * 마감 스윕 (notifications CR-0001 §4). 없으면 그 경로를 열지 않는다 —
+   * 아직 안 붙은 것을 501 로 알리는 대신 **경로 자체를 만들지 않는다.**
+   */
+  deadlineSweep?: { sweepDeadlines(): Promise<unknown> },
 ): Router {
   const router = Router();
   const controller = createProjectController(service);
@@ -61,6 +66,31 @@ export function createProjectManagementRouter(
     requireServiceToken,
     contract.getNegotiationContext,
   );
+  /**
+   * 마감일이 지난 프로젝트를 실제로 마감한다 (notifications CR-0001 §4).
+   *
+   * **밖에서 주기적으로 두드려야 한다.** 서버 안에 타이머를 두지 않는 이유는
+   * `deadline-sweep.service.ts` 주석 참고 — 요청이 올 때만 깨는 배포 형태라
+   * 프로세스 내부 타이머는 로컬에서만 돌고 배포하면 조용히 안 돈다.
+   *
+   * 여러 번 불러도 안전하다. 마감 처리가 이미 멱등이다 (규칙 24).
+   */
+  if (deadlineSweep) {
+    router.post('/internal/v1/projects/sweep-deadlines', requireServiceToken, async (_req, res) => {
+      try {
+        res.status(200).json(await deadlineSweep.sweepDeadlines());
+      } catch (error) {
+        res.status(500).json({
+          error: {
+            code: 'DEADLINE_SWEEP_FAILED',
+            message: error instanceof Error ? error.message : '알 수 없는 오류',
+            details: null,
+          },
+        });
+      }
+    });
+  }
+
   router.post(
     '/internal/v1/projects/:projectId/accept-application',
     requireServiceToken,

@@ -17,6 +17,7 @@
  */
 
 import type { ProjectRepository } from './project.repository';
+import { effectiveRecruitmentStatus } from './recruitment-status';
 import {
   ProjectContractError,
   type CancelProjectResponse,
@@ -33,7 +34,6 @@ import {
   type ProjectRecord,
   type PublicProjectDetail,
   type PublicProjectItem,
-  type RecruitmentStatus,
   type ReopenRecruitmentInput,
   type ReopenRecruitmentResponse,
   type UpdateProjectInput,
@@ -122,23 +122,6 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
   }
 
-  /**
-   * 규칙 14 — 저장된 값이 아니라 **조회 시점 기준**으로 보이는 모집 상태.
-   * 시각이 지났는데 배치가 아직 안 돈 프로젝트가 잘못된 상태로 보이지 않게 한다.
-   */
-  function effectiveRecruitmentStatus(p: ProjectRecord, at: string): RecruitmentStatus {
-    const t = new Date(at).getTime();
-    if (p.recruitmentStatus === 'SCHEDULED' && p.recruitmentStartAt !== null) {
-      if (new Date(p.recruitmentStartAt).getTime() <= t) {
-        return new Date(p.recruitmentDeadlineAt).getTime() <= t ? 'CLOSED' : 'OPEN';
-      }
-      return 'SCHEDULED';
-    }
-    if (p.recruitmentStatus === 'OPEN' && new Date(p.recruitmentDeadlineAt).getTime() <= t) {
-      return 'CLOSED';
-    }
-    return p.recruitmentStatus;
-  }
 
   /* ═══════════ 검증 ═══════════ */
 
@@ -356,6 +339,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       deadlineNotifiedAt: null,
       acceptedApplicationId: null,
       paymentPendingAt: null,
+      completedAt: null,
       projectVersion: 1,
       skillIds: [...input.skillIds],
       createdAt: at,
@@ -526,16 +510,32 @@ export function createProjectService(deps: ProjectServiceDeps) {
       });
     }
 
+    // 수정 후 유효할 시작일 — 일정 재계산(아래)과 마감일 검증이 함께 쓴다.
+    const resolvedStartAt =
+      input.recruitmentStartAt !== undefined ? input.recruitmentStartAt : project.recruitmentStartAt;
+
     if (input.recruitmentDeadlineAt !== undefined) {
-      const startAt =
-        input.recruitmentStartAt !== undefined
-          ? input.recruitmentStartAt
-          : project.recruitmentStartAt;
-      validateDeadline(input.recruitmentDeadlineAt, startAt, at);
+      validateDeadline(input.recruitmentDeadlineAt, resolvedStartAt, at);
     }
+
+    // CR-AP-003 ② (조준영, 2026-09-08) — 일정이 바뀌면 저장값 recruitmentStatus도 다시 쓴다.
+    //
+    // 등록(registerProject)과 같은 규칙: 새 시작일이 미래면 SCHEDULED, 아니면 OPEN.
+    // 안 하면 "시작일을 앞당겨도 저장값은 계속 SCHEDULED로 남는" CR-AP-003 재현 경로 1이
+    // 남는다 — effectiveRecruitmentStatus(규칙 14)의 조회 시점 보정은 마감(규칙 22)·재모집
+    // (규칙 33)처럼 저장값을 정확히 쓰는 다른 경로와 계속 어긋난다.
+    //
+    // 일정 필드가 이번 요청에 없으면 건드리지 않는다 — 마감(CLOSED)은 위에서 이미 막혔으므로
+    // 여기 내려온 시점의 저장값은 OPEN 아니면 SCHEDULED뿐이다.
+    const scheduleChanged =
+      input.recruitmentStartAt !== undefined || input.recruitmentDeadlineAt !== undefined;
+    const startsLater =
+      resolvedStartAt !== null && new Date(resolvedStartAt).getTime() > new Date(at).getTime();
 
     // 규칙 18 — 일반 필드 수정으로는 projectVersion 이 올라가지 않는다.
     // 상태 축이 안 바뀌었는데 올리면 다른 도메인의 낙관적 잠금이 헛돈다.
+    // recruitmentStatus 재계산도 마찬가지다 — OPEN⇄SCHEDULED는 규칙 14가 이미 조회 시점에
+    // 보정해 주는 축이라 projectVersion을 올리는 "상태 축"으로 취급하지 않는다.
     const next = await repo.update(projectId, {
       ...(input.title !== undefined && { title: input.title }),
       ...(input.description !== undefined && { description: input.description }),
@@ -547,6 +547,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       ...(input.recruitmentDeadlineAt !== undefined && {
         recruitmentDeadlineAt: input.recruitmentDeadlineAt,
       }),
+      ...(scheduleChanged && { recruitmentStatus: startsLater ? 'SCHEDULED' : 'OPEN' }),
       ...(input.skillIds !== undefined && { skillIds: [...input.skillIds] }),
     });
     return { status: 200, body: toClientDetail(next, at) };
@@ -614,6 +615,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
       recruitmentStatus: 'CLOSED',
       recruitmentClosedAt: at,
       deadlineNotifiedAt: project.deadlineNotifiedAt ?? at,
+      // CR-AP-001 — 마감하면 대기 지원이 전부 거절된다(아래 rejectPendingApplications).
+      // 하나씩 빼지 않고 0 으로 놓는다.
+      pendingApplicationCount: 0,
       projectVersion: project.projectVersion + 1,
     });
 
@@ -682,6 +686,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
       recruitmentStatus: 'CLOSED',
       transactionStatus: 'CANCELED',
       canceledAt: at,
+      // CR-AP-001 — 취소도 대기 지원을 전부 거절한다. 마감과 같은 이유로 0 이다.
+      pendingApplicationCount: 0,
       projectVersion: project.projectVersion + 1,
     });
 

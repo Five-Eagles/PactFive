@@ -566,6 +566,45 @@ async function main() {
         actorUserId: "usr_client_a",
       }),
     );
+
+    /* CR-0012 — 일반 수정으로 못 바꾸는 것을 이 경로로도 못 바꾼다 */
+    await expectError("마감된 프로젝트", 409, "PROJECT_EDIT_CLOSED", () =>
+      svc.applyPricingAnalysisBudget("prj_closed", {
+        ...envelope(IDEMPOTENCY_KEY.applyPricingBudget("ana_closed")),
+        pricingAnalysisId: "ana_valid",
+        actorUserId: "usr_client_a",
+      }),
+    );
+    await expectError("거래가 시작된 프로젝트", 409, "PROJECT_EDIT_CLOSED", () =>
+      svc.applyPricingAnalysisBudget("prj_in_progress", {
+        ...envelope(IDEMPOTENCY_KEY.applyPricingBudget("ana_running")),
+        pricingAnalysisId: "ana_valid",
+        actorUserId: "usr_client_a",
+      }),
+    );
+
+    /* CR-0012 — 화면이 알던 예산이 그 사이 바뀌었으면 덮어쓰지 않는다 */
+    await expectError("예산이 그 사이 바뀜", 409, "PROJECT_BUDGET_CONFLICT", () =>
+      svc.applyPricingAnalysisBudget("prj_open_free", {
+        ...envelope(IDEMPOTENCY_KEY.applyPricingBudget("ana_stale")),
+        pricingAnalysisId: "ana_valid",
+        actorUserId: "usr_client_a",
+        expectedBudgetAmount: 1,
+      }),
+    );
+  }
+
+  /* CR-0012 — 맞는 예산을 보내면 통과한다. 안 보내도 통과한다(선택값) */
+  {
+    const { svc, repo: r } = newService();
+    const current = r.findById("prj_open_free")!.budgetAmount;
+    const ok = await svc.applyPricingAnalysisBudget("prj_open_free", {
+      ...envelope(IDEMPOTENCY_KEY.applyPricingBudget("ana_match")),
+      pricingAnalysisId: "ana_valid",
+      actorUserId: "usr_client_a",
+      expectedBudgetAmount: current,
+    });
+    check(ok.budgetAmount === 4_800_000, "알던 예산이 맞으면 통과한다 (CR-0012)");
   }
 
   /* --- 5-8. 불변식 (규칙 46~48) --- */

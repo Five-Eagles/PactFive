@@ -46,6 +46,21 @@ export type ContractResult = {
 export type NegotiationContext = {
   projectId: string;
   clientId: string;
+  /**
+   * 프로젝트 제목 (CR-CP-001, 조준영/2026-09-08).
+   *
+   * contracts-payments가 계약 스냅샷(`project_title_snapshot`, 규칙 20)과 공개 GET
+   * 4곳(`projectTitle`)을 채우는 데 쓴다. 빈 값이면 화면이 「프로젝트」로 가린다.
+   */
+  title: string;
+  /**
+   * 규칙 14 보정값 (CR-AP-003, 조준영/2026-09-08).
+   *
+   * **저장값이 아니라 조회 시점 기준 상태다** — `effectiveRecruitmentStatus`를 그대로
+   * 돌려준다. applications 생성·수락(규칙 1·36)과 contracts-payments 협상 진입이 화면과
+   * 같은 값을 보게 하기 위함이다. `SCHEDULED → OPEN` 전환 배치가 없는 이 프로젝트에서는
+   * 저장값이 "아직 반영되지 않은 값"이고 이 보정값이 정본이다.
+   */
   recruitmentStatus: RecruitmentStatus;
   transactionStatus: ProjectTransactionStatus;
   /** 합의 대상이 실제로 수락된 지원자인지 대조하는 데 쓴다 */
@@ -53,6 +68,9 @@ export type NegotiationContext = {
   recruitmentDeadlineAt: string;
   canceledAt: string | null;
   paymentPendingAt: string | null;
+  /** transactionStatus가 COMPLETED로 바뀐 시각 (CR-RV-002, reviews의 review_windows.opened_at
+   * 소스). COMPLETED가 아니면 항상 null이다. */
+  completedAt: string | null;
   projectVersion: number;
 };
 
@@ -103,6 +121,16 @@ export type AcceptApplicationResult = ContractResult & {
 export type ApplyPricingBudgetInput = ContractEnvelope & {
   pricingAnalysisId: string;
   actorUserId: string;
+  /**
+   * 호출자가 알고 있던 현재 예산 (CR-0012).
+   *
+   * 화면이 "현재 예산 500만원"을 보여준 뒤 사용자가 반영을 누르기까지 사이에 예산이
+   * 바뀌었으면 막는다. 버전 검사로는 못 잡는다 — 예산 변경은 `projectVersion` 을
+   * 올리지 않기 때문이다(규칙 44).
+   *
+   * **선택값이다.** 보내지 않으면 검사하지 않는다 — 기존 호출자를 깨지 않기 위해서다.
+   */
+  expectedBudgetAmount?: number;
 };
 
 export type ApplyPricingBudgetResult = ContractResult & {
@@ -143,6 +171,29 @@ export type RestorePreContractResult = ContractResult & {
 export interface ProjectTransactionPort {
   /** start·complete·markPaymentPending 호출 전 조회 (PRD D-44) */
   getProjectNegotiationContext(projectId: string): Promise<NegotiationContext>;
+
+  /**
+   * 지원 건수 갱신 (CR-AP-001).
+   *
+   * applications 가 **지원을 만들 때**와 **개별 거절할 때** 부른다.
+   *
+   *   지원 생성  `{ applicationCount: +1, pendingApplicationCount: +1 }`
+   *   개별 거절  `{ pendingApplicationCount: -1 }`
+   *
+   * `applicationCount` 는 올라가기만 한다 — "지금까지 몇 명이 지원했나" 이므로
+   * 거절해도 내려가지 않는다. 오르내리는 것은 대기 수뿐이다.
+   *
+   * **수락·마감·취소 때는 부르지 않는다.** 그 셋은 이 서비스가 같은 트랜잭션 안에서
+   * 0 으로 놓는다(대기 지원이 전부 정리되는 시점이라 하나씩 빼는 것보다 안 어긋난다).
+   * 밖에서 또 빼면 두 번 빠진다.
+   *
+   * 결과는 **음수가 되지 않는다** — 바닥이 0 이다. 음수는 "대기 지원 없음"으로 읽혀
+   * 잠겨 있어야 할 예산이 풀린다.
+   */
+  bumpApplicationCounts(
+    projectId: string,
+    delta: { applicationCount?: number; pendingApplicationCount?: number },
+  ): Promise<{ applicationCount: number; pendingApplicationCount: number }>;
 
   /**
    * 지원 수락. OPEN + NONE → CLOSED + CONTRACT_PENDING (규칙 36)

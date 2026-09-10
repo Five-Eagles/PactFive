@@ -28,6 +28,8 @@ export type ProjectNegotiationContextDelegate = {
     projectId: string;
     clientId: string;
     transactionStatus: ProjectReviewContext['transactionStatus'];
+    /** CR-RV-002(#203) — review_windows.openedAt 소스. project-management 정본. */
+    completedAt: string | null;
   }>;
 };
 
@@ -68,6 +70,7 @@ export function createProjectReviewContextAdapter(
         transactionStatus: project.transactionStatus,
         contractStatus: contract.status,
         contractId: contract.contractId,
+        completedAt: project.completedAt,
       };
     },
   };

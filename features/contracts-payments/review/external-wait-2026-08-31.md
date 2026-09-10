@@ -5,7 +5,8 @@
 | 보내는 사람 | 조준영 · contracts-payments · reviews |
 | 날짜 | 2026-08-31 |
 | 범위 | 이번 Increment 밖. Mock·reviews 규칙 13은 닫힘 |
-| 정본 | 이 파일. 키 질문 원문은 [teamlead-pg-sandbox-keys.md](teamlead-pg-sandbox-keys.md) |
+| 정본 | 이 파일은 **Increment 밖 외부 대기**만 다룬다. 대기 전체는 [waiting-board-2026-09-09.md](waiting-board-2026-09-09.md) |
+| 참고 | 키 질문 원문은 [teamlead-pg-sandbox-keys.md](teamlead-pg-sandbox-keys.md) |
 
 답이 없어도 조준영 쪽 구현은 진행하지 않는다. 수신 후에만 이어서 한다.
 
@@ -13,12 +14,20 @@
 
 | 항목 | 상대 | 조준영 | 상대 | 오면 |
 |---|---|---|---|---|
-| Toss sandbox 키 | 팀장 | Mock만. 실호출 없음 | 8/26 요청, 미수신 | 루트 `.env` → 위젯·실호출 |
+| Toss sandbox 키 | 팀장 | Mock만. 실호출 없음 | **2026-09-09 수신 확인 — 닫힘** | 완료 |
 | 단독 공개 14일 | 팀장 | 규칙 6 = 14일 구현 | ASSUMPTION | 다른 일수면 상수 1곳 |
 | `REVIEW_CREATED` | 오민혁 | 집계 포트 제공 | 회신 반영 · 소비자 미구현 | 없음. 소비는 오민혁 |
 | 알림 4종 | 팀장 | 포트 설계 완료. Mock publish만 | 발송 대기 | 함수명 회신 시 spec 한 줄 |
 
 위젯 실연동, 에스크로·`RELEASED`, PG 환불, 재제안은 키·납품 설계 이후다.
+
+**2026-09-09 갱신 — Toss 키 항목은 닫혔다.** 루트 `.env`에 `PG_CLIENT_KEY`·`PG_SECRET_KEY`가
+들어와 있고, `app/`은 실제로 붙어 있다 — `express-app.ts:426~435`가 `PG_SECRET_KEY`가 있을
+때만 어댑터를 만들고(없으면 결제 라우트를 503으로 막는다), `toss-payments.adapter.ts`가
+`api.tosspayments.com`을 호출하며 웹도 실 SDK를 로드한다(`PaymentPage.tsx:27`).
+**내 `prototype/`은 계속 스텁이다** — Mock이므로 그대로 둔다.
+
+남은 세 항목(14일 확정 · `REVIEW_CREATED` 소비 · 알림 4종)은 아직 대기다.
 
 ---
 

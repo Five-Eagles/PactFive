@@ -65,7 +65,8 @@ export function useCreateReview(projectId: string) {
         const apiError = error instanceof ApiError ? error : null;
         setErrorMessage(apiError?.message ?? '리뷰를 작성하지 못했습니다.');
         setErrorCode(apiError?.code);
-        setStatus(apiError?.code === 'REVIEW_ALREADY_EXISTS' ? 'conflict' : 'error');
+        // REVIEW_ALREADY_SUBMITTED — 2026-09-09부터 REVIEW_ALREADY_EXISTS를 대체(이식 지시서 §2-2).
+        setStatus(apiError?.code === 'REVIEW_ALREADY_SUBMITTED' ? 'conflict' : 'error');
         return null;
       }
     },

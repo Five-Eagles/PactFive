@@ -35,16 +35,18 @@ export type HomePageProps = {
   myActivityHref: string;
   onLogout: () => void;
   renderBookmark?: (projectId: string) => ReactNode;
+  /** HomeHeader의 `.hdr__act` 슬롯 — notifications의 NotificationBell (2026-09-09). */
+  headerExtra?: ReactNode;
 };
 
-export function HomePage({ viewer, myActivityHref, onLogout, renderBookmark }: HomePageProps) {
+export function HomePage({ viewer, myActivityHref, onLogout, renderBookmark, headerExtra }: HomePageProps) {
   // "지금 모집 중인 프로젝트" — 이 화면에서 실제 API로 채워지는 유일한 자리.
   // ProjectBrowsePage와 같은 훅·같은 정렬 규칙을 쓴다(원본 주석 — 하드코딩하면 목록과 달라진다).
   const { data, loading, error } = useProjectSearch({ sortBy: 'latest', page: 1, pageSize: 6 });
 
   return (
     <div className="home">
-      <HomeHeader viewer={viewer} myActivityHref={myActivityHref} onLogout={onLogout} />
+      <HomeHeader viewer={viewer} myActivityHref={myActivityHref} onLogout={onLogout} headerExtra={headerExtra} />
 
       <main>
         <div className="home-wrap">

@@ -1,6 +1,6 @@
 ---
 title: "분석 생성 멱등 키 unique 범위를 요청자별로 변경"
-status: "제안"
+status: "반영 완료"
 requested_by: "오민혁 (ai-pricing)"
 date: "2026-09-04"
 affected_docs: [docs/domain/reference/erd-v1.4.dbml, docs/domain/erd.md]
@@ -8,6 +8,12 @@ affected_features: [ai-pricing]
 ---
 
 # 스펙 변경 신청
+
+> **닫음 (2026-09-09, 팀장, 문서 상태 정리).** 단일 컬럼 unique를 제거하고
+> `@@unique([requesterId, idempotencyKey], map: "uq_pricing_analyses_requester_idempotency")`
+> 복합 unique로 바꿨다(`schema.prisma` `PRISMA-GAP-5`, E-35). 마이그레이션에도
+> `CREATE UNIQUE INDEX uq_pricing_analyses_requester_idempotency ON pricing_analyses
+> (requester_id, idempotency_key)`로 반영됐다(#119).
 
 ID: `CR-AP-005`
 

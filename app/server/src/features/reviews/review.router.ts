@@ -4,11 +4,16 @@ import type { ReviewServiceDeps } from './review.service';
 import type { CreateReviewInput } from './review.types';
 
 /**
- * reviews 공개 API 3종을 Express에 붙인다 — applications/application.router.ts와 같은 형태.
- * PATCH/PUT/DELETE는 등록하지 않는다(api-contract.md 규칙 4) — Express가 등록되지 않은
- * 메서드는 404로 떨어뜨리므로, 405 METHOD_NOT_ALLOWED가 필요하면 이 라우터 등록 순서
- * (다른 405 핸들러가 없다) 아래에서 별도로 처리해야 하지만, 이번 반영 범위에서는 미사용
- * 경로에 대한 404가 이미 안전한 기본값이라 별도 405 라우트를 추가하지 않는다.
+ * reviews 공개 API 5종을 Express에 붙인다 — applications/application.router.ts와 같은 형태.
+ *
+ * 2026-09-09 — 조준영 이식 지시서 §3. 3종(`reviews/me`·`users/:userId/rating`·
+ * `users/:userId/reviews`) 신설, `review-summary`→`rating` 경로 변경.
+ * `/reviews/me`를 `/reviews`(목록)보다 먼저 등록한다 — 더 구체적인 경로를 앞에 두는 편이
+ * 경로 혼동이 없다(지시서 원문).
+ *
+ * PATCH/PUT/DELETE는 등록하지 않는다(api-contract.md 규칙 4). 405 METHOD_NOT_ALLOWED는
+ * 이번 반영 범위 밖이다(지시서 §3 R2 — "급하지 않습니다") — 미등록 메서드는 Express가 404로
+ * 떨어뜨리고, 그것도 안전한 기본값이라 별도 405 라우트를 아직 추가하지 않는다.
  */
 
 function toActor(req: Request): string | undefined {
@@ -18,6 +23,15 @@ function toActor(req: Request): string | undefined {
 function readIdempotencyKey(req: Request): string | undefined {
   const raw = req.header('Idempotency-Key');
   return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
+}
+
+function readPageParams(req: Request): { page?: number; pageSize?: number } {
+  const page = Number(req.query.page);
+  const pageSize = Number(req.query.pageSize);
+  return {
+    page: Number.isFinite(page) ? page : undefined,
+    pageSize: Number.isFinite(pageSize) ? pageSize : undefined,
+  };
 }
 
 export function createReviewRouter(
@@ -38,19 +52,35 @@ export function createReviewRouter(
     res.status(httpStatus).json(body);
   });
 
+  router.get(
+    '/api/v1/projects/:projectId/reviews/me',
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const { httpStatus, body } = await controller.getMyProjectReview(req.params.projectId, toActor(req));
+      res.status(httpStatus).json(body);
+    },
+  );
+
   router.get('/api/v1/projects/:projectId/reviews', requireAuth, async (req: Request, res: Response) => {
     const { httpStatus, body } = await controller.listProjectReviews(req.params.projectId, toActor(req));
     res.status(httpStatus).json(body);
   });
 
-  router.get(
-    '/api/v1/users/:userId/review-summary',
-    requireAuth,
-    async (req: Request, res: Response) => {
-      const { httpStatus, body } = await controller.getReviewSummary(req.params.userId, toActor(req));
-      res.status(httpStatus).json(body);
-    },
-  );
+  router.get('/api/v1/users/:userId/rating', requireAuth, async (req: Request, res: Response) => {
+    const { httpStatus, body } = await controller.getUserRating(req.params.userId, toActor(req));
+    res.status(httpStatus).json(body);
+  });
+
+  router.get('/api/v1/users/:userId/reviews', requireAuth, async (req: Request, res: Response) => {
+    const { page, pageSize } = readPageParams(req);
+    const { httpStatus, body } = await controller.listUserReviews(
+      req.params.userId,
+      toActor(req),
+      page,
+      pageSize,
+    );
+    res.status(httpStatus).json(body);
+  });
 
   return router;
 }

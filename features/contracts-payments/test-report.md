@@ -8,6 +8,8 @@
 - [x] `npx tsx prototype/run.tsx` 통과 (PASS 개수: 347, FAIL 개수: 0)
 
 규칙 9 sandbox는 잘못된 paymentKey 승인 실패·retrieve 실패 프로브. 시크릿은 문서에 적지 않는다.
+**347은 `PG_SECRET_KEY`가 있는 쪽 숫자다** — 키가 없으면 프로브 2건이 「해당 없음」 1건으로
+바뀌어 346이다 (2026-09-09 양쪽 실행 확인).
 
 정산은 slug `set-eligible` 등. `.settlement-grid`(본문 + 340px). 지급 실행 버튼 없음.
 수수료 스냅샷·ELIGIBLE·RELEASED 원자 반영·C-03 409 재판정. `SETTLEMENT_*` 코드 없음.
@@ -66,8 +68,19 @@
 
 - `prototype/`은 스탠드인 Mock이다. A-07 실호출·알림 발송·환불은 Increment 밖이다.
 - Coordinator는 교차 AND Mock이다. Outbox 공용 테이블·일 대사 cron·복구 워커는 Increment 밖이다.
-- 웹 패널은 app 미반영.
+- ~~웹 패널은 app 미반영.~~ **2026-09-09 해소** — `app/web/src/features/contracts-payments/`에
+  6화면(합의·계약 서명·결제·납품·정산·취소)이 `*Page` + `*Panel` 짝으로 있고, 서버도
+  공개 경로 16종이 등록돼 있다(`public-api.routes.ts`).
+- `PAID → RELEASED`는 여전히 화면으로 도달할 수 없다. 정산 자동 트리거(웹훅·배치)가
+  Increment 밖이고 지급 실행 버튼을 두지 않기로 했기 때문이다(`spec.md:310~312`). QA는
+  `simulateSettlementResult`를 직접 부른다.
 
 ## 팀장에게 물어봐야 하는 것
 
-요청 전문: `review/teamlead-pg-sandbox-keys.md`. 2026-08-31 미수신.
+**PG sandbox 키는 2026-09-09 수신으로 닫혔다** — `review/teamlead-pg-sandbox-keys.md`
+「회신 결과」 참고. 실호출 프로브 2건이 `api.tosspayments.com`에 붙어 통과한다. 다만
+**성공 승인과 취소는 호출하지 않았다** (유효 `paymentKey`는 결제창을 거쳐야 나오고 PG
+취소·환불은 Increment 밖). 위젯 붙일 때 함께 확인한다.
+
+남은 대기 3건은 `review/external-wait-2026-08-31.md` — 단독 공개 14일 확정(팀장),
+`REVIEW_CREATED` 소비(오민혁), 알림 4종 발송(팀장).
