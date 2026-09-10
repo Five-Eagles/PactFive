@@ -428,15 +428,20 @@ export async function createApplication(
   if (project.recruitmentStatus !== 'OPEN') {
     throw new ApplicationApiError('PROJECT_TRANSITION_CONFLICT', '모집이 마감되었습니다.');
   }
-  if (idempotencyKey) {
-    const cached = await deps.repository.getIdempotency(idempotencyKey);
-    if (cached) {
-      if (cached.bodyHash !== bodyHash(parsed)) {
-        throw new ApplicationApiError('APPLICATION_ALREADY_EXISTS', '이미 지원한 프로젝트입니다.');
-      }
-      const existing = await deps.repository.getApplication(cached.applicationId);
-      if (existing) return { httpStatus: 200, body: toItem(existing) };
+  // A-04 — Idempotency-Key 필수, 사용자·프로젝트로 격리.
+  if (!idempotencyKey) {
+    throw new ApplicationApiError('VALIDATION_ERROR', 'Idempotency-Key가 필요합니다.', [
+      { field: 'Idempotency-Key', reason: 'required' },
+    ]);
+  }
+  const scopedKey = `${projectId}:${actor}:${idempotencyKey}`;
+  const cached = await deps.repository.getIdempotency(scopedKey);
+  if (cached) {
+    if (cached.bodyHash !== bodyHash(parsed)) {
+      throw new ApplicationApiError('APPLICATION_ALREADY_EXISTS', '이미 지원한 프로젝트입니다.');
     }
+    const existing = await deps.repository.getApplication(cached.applicationId);
+    if (existing) return { httpStatus: 200, body: toItem(existing) };
   }
   const duplicate = await deps.repository.findByProjectFreelancer(projectId, actor);
   if (duplicate) {
@@ -457,9 +462,16 @@ export async function createApplication(
   };
   await deps.repository.insertApplication(row);
   await recordTransition(deps.repository, row, null, nowIso);
-  // 누적·대기 카운트 증가는 이번 반영에서 빠졌다 — application.types.ts 헤더 주석 1번 항목
-  // (CR-AP-001 승인 대기, project-management 쪽 쓰기 포트 미존재).
-  if (idempotencyKey) await deps.repository.setIdempotency(idempotencyKey, bodyHash(parsed), row.applicationId);
+  // A-03 — CR-AP-001 포트로 누적·대기 카운트를 올린다. 실패해도 지원 자체는 유지한다.
+  try {
+    await deps.projectContext.bumpApplicationCounts(projectId, {
+      applicationCount: 1,
+      pendingApplicationCount: 1,
+    });
+  } catch {
+    // 카운트 드리프트는 운영 재대조로 맞춘다 — 지원 INSERT를 롤백하지 않는다.
+  }
+  await deps.repository.setIdempotency(scopedKey, bodyHash(parsed), row.applicationId);
   await publish(deps, {
     type: 'APPLICATION_SUBMITTED',
     projectId,
@@ -666,7 +678,12 @@ export async function rejectApplication(
   const rejected: ApplicationRow = { ...row, status: 'REJECTED', rejectionType: 'DIRECT', decidedAt: nowIso };
   await deps.repository.saveApplication(rejected);
   await recordTransition(deps.repository, rejected, 'PENDING', nowIso);
-  // 대기 카운트 감소는 이번 반영에서 빠졌다 — application.types.ts 헤더 주석 1번 항목.
+  // A-03 — 개별 거절은 대기 건수만 -1 (CR-AP-001). 수락·일괄 거절은 PM이 0으로 맞춘다.
+  try {
+    await deps.projectContext.bumpApplicationCounts(row.projectId, { pendingApplicationCount: -1 });
+  } catch {
+    // 카운트 드리프트는 운영 재대조로 맞춘다.
+  }
 
   const operation: ApplicationOperation = {
     operationId: await deps.repository.nextOperationId(),

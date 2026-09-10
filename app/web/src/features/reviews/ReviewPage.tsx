@@ -2,44 +2,43 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
 import { Button, Notice } from '../../shared/ui/primitives';
-import { useCreateReview, useProjectReviews } from './useReviews';
+import { useCreateReview, useMyProjectReview, useProjectReviews } from './useReviews';
 import {
   CLIENT_TO_FREELANCER_TAGS,
   FREELANCER_TO_CLIENT_TAGS,
   type CreateReviewInput,
+  type ReviewDirection,
 } from './review.types';
 
 /**
- * 리뷰(규칙 11) — `features/reviews/prototype/web/ReviewPanel.tsx`의 view 스위칭(정적 목업)을
- * 실제 제출·목록 조회로 재해석했다.
- *
- * 시안은 `incomplete`/`canceled`/`duplicate`를 서버 판정 없이 view prop으로만 재현했다.
- * 여기서는 그 문구를 서버가 돌려주는 오류 코드(`PROJECT_NOT_COMPLETED`·
- * `REVIEW_ALREADY_SUBMITTED`)에 매핑해 같은 화면을 보여준다 — 2026-09-09부터 취소된 거래와
- * 미완료 거래는 서버가 같은 코드(`PROJECT_NOT_COMPLETED`)로 합쳐 보낸다(이식 지시서 §2-2) —
- * 어느 방향(의뢰인→프리랜서/프리랜서→의뢰인)인지는 서버가 세션으로 판정하므로 태그
- * 선택지는 두 방향 모두 보여주고 서버가 422로 걸러낸다(간단한 절충 — 태그 집합을
- * 미리 좁히려면 이 화면이 상대가 누구인지 알아야 하는데, 지금 프로젝트 상세 API는
- * 프리랜서에게 거래 상태를 내려주지 않는다. feedback_loop/2026-09-05/reviews.md에
- * 후속 과제로 남긴다).
+ * 리뷰(규칙 11) — R-07: `/reviews/me`의 myDirection으로 태그를 가르고, 제출 전 확인 모달을 둔다.
  */
 
-const ALL_TAGS = [...CLIENT_TO_FREELANCER_TAGS, ...FREELANCER_TO_CLIENT_TAGS];
-
-// 태그 한글 라벨 — 이식 지시서 §1-2 표. GOOD_COMMUNICATION은 양쪽 라벨이 같지만
-// PROFESSIONAL_ATTITUDE는 방향별로 다르다("업무 태도"/"협업 태도") — 코드가 같아도 방향에
-// 맞는 라벨을 따로 둔다. 이 화면은 두 방향 태그를 한 목록(ALL_TAGS)으로 같이 보여주므로
-// (파일 상단 주석 참고) 두 라벨 중 하나만 고정해서 쓴다.
-const TAG_LABEL: Record<string, string> = {
+const CLIENT_TAG_LABEL: Record<string, string> = {
   WORK_QUALITY: '결과물 품질이 좋아요',
   ON_TIME_DELIVERY: '납기를 잘 지켜요',
   GOOD_COMMUNICATION: '소통이 원활해요',
   REQUIREMENT_UNDERSTANDING: '요구사항 이해가 정확해요',
   PROFESSIONAL_ATTITUDE: '업무 태도가 전문적이에요',
+};
+
+const FREELANCER_TAG_LABEL: Record<string, string> = {
   CLEAR_REQUIREMENTS: '요구사항이 명확해요',
   FAST_FEEDBACK: '피드백이 빨라요',
+  GOOD_COMMUNICATION: '소통이 원활해요',
   SCOPE_STABILITY: '업무 범위가 안정적이에요',
+  PROFESSIONAL_ATTITUDE: '협업 태도가 전문적이에요',
 };
+
+function tagsForDirection(direction: ReviewDirection | null) {
+  if (direction === 'CLIENT_TO_FREELANCER') {
+    return CLIENT_TO_FREELANCER_TAGS.map((code) => ({ code, label: CLIENT_TAG_LABEL[code] ?? code }));
+  }
+  if (direction === 'FREELANCER_TO_CLIENT') {
+    return FREELANCER_TO_CLIENT_TAGS.map((code) => ({ code, label: FREELANCER_TAG_LABEL[code] ?? code }));
+  }
+  return [];
+}
 
 function toInput(rating: string, content: string, tags: string[]): CreateReviewInput | null {
   const ratingNumber = Number(rating);
@@ -50,29 +49,43 @@ function toInput(rating: string, content: string, tags: string[]): CreateReviewI
 export function ReviewPage() {
   const { projectId = '' } = useParams();
   const { data: reviews, loading, error, reload } = useProjectReviews(projectId);
+  const { data: me, loading: meLoading, error: meError, reload: reloadMe } = useMyProjectReview(projectId);
   const { status, errorMessage, errorCode, submit } = useCreateReview(projectId);
   const [rating, setRating] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const tagOptions = tagsForDirection(me?.myDirection ?? null);
 
   function toggleTag(tag: string) {
     setTags((prev) => (prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag]));
   }
 
-  function handleSubmit() {
+  function openConfirm() {
     const input = toInput(rating, content, tags);
     if (!input) {
       setValidationError('별점은 1부터 5까지 정수로 입력해 주세요.');
       return;
     }
     setValidationError(null);
+    setConfirmOpen(true);
+  }
+
+  function confirmSubmit() {
+    const input = toInput(rating, content, tags);
+    if (!input) return;
+    setConfirmOpen(false);
     void submit(input).then((result) => {
-      if (result) reload();
+      if (result) {
+        reload();
+        reloadMe();
+      }
     });
   }
 
-  if (loading) {
+  if (loading || meLoading) {
     return (
       <PageBody>
         <article className="panel" aria-busy="true">
@@ -87,16 +100,22 @@ export function ReviewPage() {
     );
   }
 
-  if (error || !reviews) {
+  if (error || meError || !reviews || !me) {
     return (
       <PageBody>
         <article className="panel">
           <div className="panel-head">
             <h2 className="title">리뷰</h2>
           </div>
-          <Notice tone="danger">{error ?? '리뷰를 불러오지 못했습니다.'}</Notice>
+          <Notice tone="danger">{error ?? meError ?? '리뷰를 불러오지 못했습니다.'}</Notice>
           <div className="btn-row">
-            <Button variant="primary" onClick={reload}>
+            <Button
+              variant="primary"
+              onClick={() => {
+                reload();
+                reloadMe();
+              }}
+            >
               다시 시도
             </Button>
           </div>
@@ -105,8 +124,7 @@ export function ReviewPage() {
     );
   }
 
-  if (status === 'submitted') {
-    // 제출 뒤에는 수정 버튼을 두지 않는다. "수정" 문구도 넣지 않는다 (규칙 11).
+  if (status === 'submitted' || me.reason === 'REVIEW_ALREADY_SUBMITTED') {
     return (
       <PageBody>
         <article className="panel">
@@ -116,22 +134,46 @@ export function ReviewPage() {
           </div>
           <p className="status-copy">제출한 리뷰는 다시 작성할 수 없습니다.</p>
           <p className="helper">상대가 없으면 첫 리뷰 후 14일이 지나면 이 리뷰가 공개됩니다.</p>
-          <dl className="facts">
-            <dt>별점</dt>
-            <dd>{rating}</dd>
-          </dl>
+          {rating && (
+            <dl className="facts">
+              <dt>별점</dt>
+              <dd>{rating}</dd>
+            </dl>
+          )}
         </article>
       </PageBody>
     );
   }
 
-  if (errorCode === 'REVIEW_ALREADY_SUBMITTED' || errorCode === 'PROJECT_NOT_COMPLETED') {
-    // PROJECT_NOT_COMPLETED는 2026-09-09부터 "거래 미완료"·"취소됨" 두 사유를 서버가 한
-    // 코드로 합쳐 보낸다(이식 지시서 §2-2) — 화면도 하나의 안내문으로 합친다.
+  if (
+    !me.canReview ||
+    errorCode === 'REVIEW_ALREADY_SUBMITTED' ||
+    errorCode === 'PROJECT_NOT_COMPLETED' ||
+    me.reason === 'PROJECT_NOT_COMPLETED' ||
+    me.reason === 'REVIEW_FORBIDDEN' ||
+    me.reason === 'REVIEW_PERIOD_CLOSED'
+  ) {
     const presentation =
-      errorCode === 'REVIEW_ALREADY_SUBMITTED'
-        ? { badge: '작성 완료', tone: 'info' as const, title: '이미 작성한 리뷰입니다', body: '이 거래의 리뷰는 한 번만 작성할 수 있습니다. 제출한 내용은 바꿀 수 없습니다.' }
-        : { badge: '거래 미완료', tone: 'warning' as const, title: '거래가 완료되지 않았습니다', body: '거래가 완료되면 리뷰를 작성할 수 있습니다 — 취소된 거래는 리뷰를 남길 수 없습니다.' };
+      me.reason === 'REVIEW_PERIOD_CLOSED'
+        ? {
+            badge: '기한 마감',
+            tone: 'warning' as const,
+            title: '리뷰 작성 기간이 끝났습니다',
+            body: '완료일로부터 14일이 지나 새 리뷰를 작성할 수 없습니다.',
+          }
+        : me.reason === 'REVIEW_FORBIDDEN' || errorCode === 'REVIEW_ALREADY_SUBMITTED'
+          ? {
+              badge: '작성 불가',
+              tone: 'info' as const,
+              title: '리뷰를 작성할 수 없습니다',
+              body: '이 거래의 당사자만 리뷰를 남길 수 있습니다.',
+            }
+          : {
+              badge: '거래 미완료',
+              tone: 'warning' as const,
+              title: '거래가 완료되지 않았습니다',
+              body: '거래가 완료되면 리뷰를 작성할 수 있습니다 — 취소된 거래는 리뷰를 남길 수 없습니다.',
+            };
     return (
       <PageBody>
         <article className="panel">
@@ -177,7 +219,7 @@ export function ReviewPage() {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            handleSubmit();
+            openConfirm();
           }}
         >
           <p className="status-copy">
@@ -221,15 +263,15 @@ export function ReviewPage() {
           <div className="field-row">
             <span className="label">태그 (선택)</span>
             <div className="btn-row">
-              {ALL_TAGS.map((tag) => (
+              {tagOptions.map((tag) => (
                 <Button
-                  key={tag}
+                  key={tag.code}
                   type="button"
-                  variant={tags.includes(tag) ? 'primary' : 'secondary'}
+                  variant={tags.includes(tag.code) ? 'primary' : 'secondary'}
                   size="sm"
-                  onClick={() => toggleTag(tag)}
+                  onClick={() => toggleTag(tag.code)}
                 >
-                  {TAG_LABEL[tag] ?? tag}
+                  {tag.label}
                 </Button>
               ))}
             </div>
@@ -244,6 +286,47 @@ export function ReviewPage() {
           </div>
         </form>
       </article>
+
+      {confirmOpen && (
+        <ReviewConfirmDialog
+          rating={rating}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={confirmSubmit}
+        />
+      )}
     </PageBody>
+  );
+}
+
+function ReviewConfirmDialog({
+  rating,
+  onCancel,
+  onConfirm,
+}: {
+  rating: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="overlay-backdrop open" role="presentation">
+      <div className="overlay-card" role="dialog" aria-modal="true" aria-labelledby="review-confirm-title">
+        <h3 id="review-confirm-title" className="title">
+          리뷰를 제출할까요?
+        </h3>
+        <p className="status-copy">제출 후에는 수정할 수 없습니다. 별점과 내용을 확인해 주세요.</p>
+        <dl className="facts">
+          <dt>별점</dt>
+          <dd>{rating}</dd>
+        </dl>
+        <div className="btn-row">
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            돌아가기
+          </Button>
+          <Button type="button" variant="primary" onClick={onConfirm}>
+            제출하기
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
