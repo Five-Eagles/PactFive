@@ -417,6 +417,21 @@ select.field {
   color: var(--warning);
 }
 
+/* 성공 상태 — applications·contracts-payments·reviews 시안의 .success / .field.success / .helper.success */
+.success {
+  color: var(--success);
+}
+.field.success {
+  border-color: var(--success);
+}
+.helper.success {
+  color: var(--success);
+}
+.badge.success {
+  background: var(--success-surface);
+  color: var(--success);
+}
+
 .chip {
   display: inline-flex;
   align-items: center;

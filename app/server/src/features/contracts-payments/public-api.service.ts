@@ -87,6 +87,11 @@ export type PublicApiServiceDeps = {
   randomId: (prefix: string) => string;
   /** PaymentPanel과 같은 공식(규칙 19) — 원 미만 버림. */
   platformFeeRate?: number;
+  /**
+   * 선정 지원서 → 프리랜서 id. C-01 — 협상 당사자 가드에 쓴다.
+   * express-app이 applications 저장소로 연결한다.
+   */
+  resolveApplicationFreelancer?: (applicationId: string) => Promise<string | null>;
 };
 
 /** @deprecated PublicApiServiceDeps를 쓴다. 이전 이름과의 호환용. */
@@ -135,12 +140,15 @@ export function createContractsPaymentsSnapshotReader(
       if (!contract) {
         throw new Error(`contracts-payments snapshot: no contract for project ${projectId}`);
       }
+      // C-06 — start 가드는 acceptedApplicationId와 비교한다. agreementId(agr_)를 넣으면
+      // 항상 불일치로 start가 0회가 된다. 합의 행의 applicationId(app_)를 쓴다.
+      const agreement = await repo.findAgreementById(contract.agreementId);
       const payment = await repo.findPaymentByContractId(contract.contractId);
       const delivery = await repo.findDeliveryByContractId(contract.contractId);
       return {
         projectId,
         contractId: contract.contractId,
-        contractApplicationId: contract.agreementId,
+        contractApplicationId: agreement?.applicationId ?? '',
         freelancerId: contract.freelancerId,
         contractStatus: contract.status,
         paymentStatus: payment?.status ?? null,
@@ -159,11 +167,29 @@ export function createPublicApiService({
   now,
   randomId,
   platformFeeRate = 0.1,
+  resolveApplicationFreelancer,
 }: PublicApiServiceDeps) {
+  /** prepareDeliveryUpload가 발급한 uploadId → objectKey (C-10 검증용, 프로세스 메모리). */
+  const preparedUploads = new Map<string, { contractId: string; objectKey: string }>();
+
+  async function resolveSelectedFreelancerId(
+    projectId: string,
+    acceptedApplicationId: string | null,
+  ): Promise<string | null> {
+    const contract = await repo.findContractByProjectId(projectId);
+    if (contract) return contract.freelancerId;
+    if (!acceptedApplicationId || !resolveApplicationFreelancer) return null;
+    return resolveApplicationFreelancer(acceptedApplicationId);
+  }
+
   async function requireParty(projectId: string, auth: AuthContext | null) {
     if (!auth) throw new PublicApiError('AUTH_REQUIRED', '로그인이 필요합니다.');
     const ctx = await projectPort.getProjectNegotiationContext(projectId);
-    return ctx;
+    // C-01 — 의뢰인 또는 선정 프리랜서만 협상 읽기/쓰기.
+    if (auth.userId === ctx.clientId) return ctx;
+    const freelancerId = await resolveSelectedFreelancerId(projectId, ctx.acceptedApplicationId);
+    if (freelancerId && auth.userId === freelancerId) return ctx;
+    throw new PublicApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
   }
 
   async function requireContractParty(contractId: string, auth: AuthContext | null): Promise<ContractRow> {
@@ -353,6 +379,18 @@ export function createPublicApiService({
       if (auth!.userId === offer.offeredByUserId) {
         throw new PublicApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
       }
+      // C-01 — 선정 프리랜서가 확정돼 있으면 그 사용자(또는 의뢰인)만 수락.
+      const selectedFreelancerId = await resolveSelectedFreelancerId(
+        projectId,
+        ctx.acceptedApplicationId,
+      );
+      if (
+        selectedFreelancerId &&
+        auth!.userId !== ctx.clientId &&
+        auth!.userId !== selectedFreelancerId
+      ) {
+        throw new PublicApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
+      }
       if (agreement.status === 'ACCEPTED') {
         const current = await toCurrent(projectId, ctx);
         await repo.setIdempotent('accept', idemKey, current);
@@ -369,8 +407,11 @@ export function createPublicApiService({
       agreement.agreedAmount = offer.amount;
       await repo.saveAgreement(agreement);
 
-      // 규칙 11: 의뢰인이 아닌 첫 accept 호출자를 프리랜서로 확정한다(파일 상단 주석).
-      const freelancerId = auth!.userId === ctx.clientId ? offer.offeredByUserId : auth!.userId;
+      // 규칙 11: 선정 지원서 프리랜서를 우선하고, 없으면 의뢰인이 아닌 수락자를 쓴다.
+      const resolvedFreelancer =
+        selectedFreelancerId ??
+        (auth!.userId === ctx.clientId ? offer.offeredByUserId : auth!.userId);
+      const freelancerId = resolvedFreelancer;
       const workStartDate = utcDate(now());
       const workEndDate = laterDate(workStartDate, utcDate(ctx.recruitmentDeadlineAt));
       const contractId = randomId('ctr');
@@ -534,6 +575,10 @@ export function createPublicApiService({
       input: PreparePaymentInput,
     ): Promise<PreparePaymentResponse> {
       const row = await requireContractParty(input.contractId, auth);
+      // C-07 / T31 — 결제는 의뢰인만 준비·승인한다.
+      if (auth!.userId !== row.clientId) {
+        throw new PublicApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
+      }
       if (row.status !== 'SIGNED') {
         throw new DomainContractError(
           'PROJECT_TRANSITION_CONFLICT',
@@ -661,6 +706,19 @@ export function createPublicApiService({
         throw new Error('PaymentGateway가 설정되지 않았습니다 (PG_SECRET_KEY 미설정).');
       }
       const contract = await requireContractParty(row.contractId, auth);
+      // C-07 — confirm도 의뢰인만.
+      if (auth!.userId !== contract.clientId) {
+        throw new PublicApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
+      }
+      // C-08 — 이미 PAID면 동일 승인 재요청을 멱등 성공으로 돌려준다.
+      if (row.status === 'PAID') {
+        return {
+          orderId: row.orderId,
+          amount: row.amount,
+          paymentKey: row.paymentKey ?? input.paymentKey,
+          status: 'PAID' as const,
+        };
+      }
       if (row.status !== 'READY' && row.status !== 'PENDING') {
         throw new DomainContractError(
           'PROJECT_TRANSITION_CONFLICT',
@@ -747,19 +805,33 @@ export function createPublicApiService({
     ): Promise<void> {
       const row = await repo.findPaymentById(paymentId);
       if (!row) throw new DomainContractError('PROJECT_NOT_FOUND', '결제를 찾을 수 없습니다.');
-      if (row.status !== 'PAID') return; // F04: 진입은 PAID∧APPROVED∧IN_PROGRESS.
+      // C-11 — PAID ∧ 납품 APPROVED ∧ 프로젝트 IN_PROGRESS 일 때만 RELEASED.
+      if (row.status !== 'PAID') return;
+      const contract = await repo.findContractById(row.contractId);
+      if (!contract) return;
+      const delivery = await repo.findDeliveryByContractId(row.contractId);
+      if (delivery?.status !== 'APPROVED') {
+        throw new DomainContractError(
+          'PROJECT_TRANSITION_CONFLICT',
+          '납품 승인 전에는 정산할 수 없습니다.',
+        );
+      }
+      const ctx = await projectPort.getProjectNegotiationContext(contract.projectId);
+      if (ctx.transactionStatus !== 'IN_PROGRESS') {
+        throw new DomainContractError(
+          'PROJECT_TRANSITION_CONFLICT',
+          '진행 중인 거래만 정산할 수 있습니다.',
+        );
+      }
       if (result === 'SUCCESS') {
         row.status = 'RELEASED';
         row.releasedAt = now();
         await repo.savePayment(row);
-        const contract = await repo.findContractById(row.contractId);
-        if (contract) {
-          await coordinator.onPaymentReleased({
-            eventId: randomId('evt_released'),
-            projectId: contract.projectId,
-            occurredAt: row.releasedAt,
-          });
-        }
+        await coordinator.onPaymentReleased({
+          eventId: randomId('evt_released'),
+          projectId: contract.projectId,
+          occurredAt: row.releasedAt,
+        });
       }
       // FAILURE → PAID 유지. UNKNOWN → PROCESSING(새 지급 없음, 여기서는 상태를 바꾸지 않는다).
     },
@@ -841,7 +913,16 @@ export function createPublicApiService({
             '결제가 시작된 이후에는 취소할 수 없습니다.',
           );
         }
-        if (ctx.transactionStatus !== 'NONE' && ctx.transactionStatus !== 'CONTRACT_PENDING') {
+        // C-13 — PM이 프로젝트를 먼저 CANCELED로 저장한 뒤 무효화를 부른다.
+        // CONTRACT_PENDING/NONE뿐 아니라 취소 확정(CANCELED·canceledAt)도 허용한다.
+        // IN_PROGRESS·COMPLETED 등은 계속 거부한다.
+        const cancelFinalized =
+          ctx.transactionStatus === 'CANCELED' || ctx.canceledAt != null;
+        if (
+          !cancelFinalized &&
+          ctx.transactionStatus !== 'NONE' &&
+          ctx.transactionStatus !== 'CONTRACT_PENDING'
+        ) {
           throw new DomainContractError(
             'PROJECT_TRANSITION_CONFLICT',
             '프로젝트 상태가 변경되어 처리할 수 없습니다.',
@@ -937,13 +1018,16 @@ export function createPublicApiService({
       }
       const delivery = await ensureDeliveryForContract(contractId);
       const objectKey = `deliveries/${contractId}/${randomId('obj')}`;
+      const uploadId = randomId('upl');
       delivery.fileName = input.fileName.trim();
       delivery.mimeType = input.contentType;
       delivery.sizeBytes = input.size;
       delivery.fileSha256 = input.sha256;
       await repo.saveDelivery(delivery);
+      // C-10 — requestDelivery가 이 uploadId·objectKey 쌍만 받는다.
+      preparedUploads.set(uploadId, { contractId, objectKey });
       return {
-        uploadId: randomId('upl'),
+        uploadId,
         // 실저장소·실AV는 스텁이다(spec.md 규칙 23) — PactFive API가 직접 서빙하지 않는 자리표시자.
         uploadUrl: `https://uploads.invalid/${objectKey}`,
         objectKey,
@@ -978,6 +1062,20 @@ export function createPublicApiService({
         throw new DomainContractError('VALIDATION_ERROR', '업로드가 완료되지 않았습니다.', [
           { field: 'objectKey', reason: 'required' },
         ]);
+      }
+      // C-10 — prepare에서 발급한 uploadId·objectKey만 허용. 임의 키는 거부.
+      const prepared = preparedUploads.get(input.uploadId);
+      if (!prepared || prepared.contractId !== contractId || prepared.objectKey !== input.objectKey) {
+        throw new DomainContractError('VALIDATION_ERROR', '업로드가 완료되지 않았습니다.', [
+          { field: 'uploadId', reason: 'invalid' },
+        ]);
+      }
+      const projectCtx = await projectPort.getProjectNegotiationContext(contract.projectId);
+      if (projectCtx.transactionStatus !== 'IN_PROGRESS') {
+        throw new DomainContractError(
+          'PROJECT_TRANSITION_CONFLICT',
+          '진행 중인 거래만 납품을 요청할 수 있습니다.',
+        );
       }
       const delivery = await ensureDeliveryForContract(contractId);
       if (delivery.status !== 'IN_PROGRESS') {

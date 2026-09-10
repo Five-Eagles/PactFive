@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '../../shared/http';
-import { createReview as createReviewRequest, fetchProjectReviews } from './api/review';
-import type { CreateReviewInput, CreateReviewResponse, ReviewItem } from './review.types';
+import {
+  createReview as createReviewRequest,
+  fetchMyProjectReview,
+  fetchProjectReviews,
+} from './api/review';
+import type {
+  CreateReviewInput,
+  CreateReviewResponse,
+  GetMyProjectReviewResponse,
+  ReviewItem,
+} from './review.types';
 
 /** `project-management/useProject.ts`와 같은 자세(AsyncState, 데이터 패칭 라이브러리 없음). */
 
@@ -32,6 +41,26 @@ export function useProjectReviews(projectId: string) {
       .then((response) => setState({ data: response.items, loading: false, error: null }))
       .catch((error: unknown) =>
         setState({ data: null, loading: false, error: toMessage(error, '리뷰를 불러오지 못했습니다.') }),
+      );
+  }, [projectId]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  return { ...state, reload };
+}
+
+/** `GET .../reviews/me` — 작성 가능 여부·방향·기한. R-07 태그 축소용. */
+export function useMyProjectReview(projectId: string) {
+  const [state, setState] = useState<AsyncState<GetMyProjectReviewResponse>>(IDLE);
+
+  const reload = useCallback(() => {
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+    fetchMyProjectReview(projectId)
+      .then((response) => setState({ data: response, loading: false, error: null }))
+      .catch((error: unknown) =>
+        setState({ data: null, loading: false, error: toMessage(error, '작성 상태를 불러오지 못했습니다.') }),
       );
   }, [projectId]);
 

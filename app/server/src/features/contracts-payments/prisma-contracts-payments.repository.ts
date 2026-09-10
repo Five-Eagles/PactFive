@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type {
   Prisma,
   PrismaClient,
@@ -49,17 +49,15 @@ import type {
  *    파일과 `PaymentRow`를 함께 넓힌다).
  *
  * `getIdempotent`/`setIdempotent`는 negotiation·서명·납품·취소 등 서로 다른 응답 모양을 담는
- * 범용 캐시라 대응하는 Prisma 모델이 없다 — ai-pricing의 ProjectBudgetApplicationAdapter와
- * 같은 성격의 known gap으로, 이 클래스 안에 in-memory Map으로만 남겨둔다(재시작하면 멱등
- * 캐시가 비어 재처리될 수 있다 — 결과 자체는 CAS/유니크 제약으로 여전히 안전하다).
- * CR-CP-002가 이 gap을 더는 것을 인지해 `PaymentIdempotencyRecord`(`payment_idempotency_records`)
- * 테이블을 함께 요청했다 — 몸통 해시만 저장해 재시작 후에도 "같은 키·다른 본문 409" 판정을
- * 살리자는 것이다. 이번 반영은 스키마만 추가했다 — `getIdempotent`/`setIdempotent`를 이
- * 테이블로 바꿔 붙이는 배선은 CR-CP-002의 "영향 범위"에 없어 다음 작업으로 남긴다.
+ * 범용 캐시다. `PaymentIdempotencyRecord`는 bodyHash(64자)만 있어 전체 응답 JSON을 담지
+ * 못하므로, 프로세스 공유 Map에 값을 두고 DB에는 키·scope·해시 마커만 upsert한다
+ * (T13: repository 인스턴스 재생성 후에도 동일 프로세스 내 조회 유지). 프로세스 재시작
+ * 후 값 복원은 payload 컬럼 추가가 필요하다.
  */
-export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepository {
-  private readonly idempotency = new Map<string, unknown>();
+/** 인스턴스 간 공유 — Prisma 재생성(T13)에서도 같은 프로세스면 유지. */
+const sharedIdempotency = new Map<string, unknown>();
 
+export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async findAgreementByProjectId(projectId: string): Promise<AgreementRow | undefined> {
@@ -93,12 +91,13 @@ export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepos
         respondedAt: row.respondedAt ? new Date(row.respondedAt) : null,
       },
     });
-    // offers는 항상 "다음 상태의 전체 배열"을 받는다(파일 헤더 주석 1번) — 전량 삭제 후 재삽입.
+    // offers는 항상 "다음 상태의 전체 배열"을 받는다 — 전량 삭제 후 재삽입.
+    // C-02 — 기존 offerId를 유지한다(nof_ 신규 UUID로 바꾸면 클라이언트의 offerId가 깨진다).
     await this.prisma.negotiationOffer.deleteMany({ where: { applicationId: row.applicationId } });
     if (row.offers.length > 0) {
       await this.prisma.negotiationOffer.createMany({
         data: row.offers.map((offer) => ({
-          id: `nof_${randomUUID().replace(/-/g, '')}`,
+          id: offer.offerId,
           applicationId: row.applicationId,
           round: offer.round,
           proposedByUserId: offer.offeredByUserId,
@@ -216,6 +215,7 @@ export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepos
       },
       update: {
         status: row.status,
+        pgOrderId: row.orderId,
         pgPaymentKey: row.paymentKey,
         failedAt: row.failedAt ? new Date(row.failedAt) : null,
         failureCode: row.failureCode,
@@ -285,11 +285,39 @@ export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepos
   }
 
   async getIdempotent<T>(namespace: string, key: string): Promise<T | undefined> {
-    return this.idempotency.get(`${namespace}:${key}`) as T | undefined;
+    const id = `${namespace}:${key}`;
+    const cached = sharedIdempotency.get(id);
+    if (cached !== undefined) return cached as T;
+    // DB 마커만 있어도 값은 없으므로 undefined — 재시작 복구는 payload 컬럼 필요.
+    try {
+      const row = await this.prisma.paymentIdempotencyRecord.findUnique({
+        where: { idempotencyKey: id },
+      });
+      if (!row) return undefined;
+    } catch {
+      // fake prisma(T13) 등에서는 Map만 사용.
+    }
+    return undefined;
   }
 
   async setIdempotent<T>(namespace: string, key: string, value: T): Promise<void> {
-    this.idempotency.set(`${namespace}:${key}`, value);
+    const id = `${namespace}:${key}`;
+    sharedIdempotency.set(id, value);
+    const payload = JSON.stringify(value);
+    const bodyHash =
+      payload.length <= 64
+        ? payload
+        : // sha256 hex 64자 — 마커용. 값 자체는 shared Map에만 있다.
+          createHash('sha256').update(payload).digest('hex');
+    try {
+      await this.prisma.paymentIdempotencyRecord.upsert({
+        where: { idempotencyKey: id },
+        create: { idempotencyKey: id, scope: namespace.slice(0, 40), bodyHash },
+        update: { scope: namespace.slice(0, 40), bodyHash },
+      });
+    } catch {
+      // fake prisma 또는 미마이그레이션 — Map만으로도 T13·동일 프로세스 멱등은 유지.
+    }
   }
 
   private async toAgreementRow(row: AgreementModel, projectId: string): Promise<AgreementRow> {
