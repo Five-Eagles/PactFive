@@ -265,6 +265,36 @@ function bootstrapAccountViaAdminApi(persona) {
   return JSON.parse(lastLine);
 }
 
+// 2026-09-10 추가 — ensureRecruitmentClosed 전용. scripts/lib/backdate-project-deadline.ts
+// 헤더 주석 참고: project.service.ts의 DEADLINE_BELOW_MINIMUM(마감은 최소 1일 뒤)은 실제
+// 비즈니스 규칙이라 생성 시점엔 지킨다 — 그 다음 이 함수로 DB의 recruitmentDeadlineAt만
+// 직접 과거로 되돌려서, 마감 스윕을 실제로 며칠씩 기다리지 않고 바로 테스트할 수 있게 한다.
+const BACKDATE_HELPER_PATH = path.join(__dirname, 'lib', 'backdate-project-deadline.ts');
+
+function backdateProjectDeadline(projectId) {
+  const { execFileSync } = require('node:child_process');
+  const payload = JSON.stringify({ projectId });
+  let stdout;
+  try {
+    stdout = execFileSync(process.execPath, [TSX_CLI_PATH, BACKDATE_HELPER_PATH, payload], {
+      cwd: REPO_ROOT,
+      env: process.env,
+      encoding: 'utf8',
+    });
+  } catch (error) {
+    const stderrText = (error.stderr ?? '').toString().trim();
+    let reason = stderrText || error.message;
+    try {
+      reason = JSON.parse(stderrText).error ?? reason;
+    } catch {
+      // stderr가 JSON이 아니면 원문 그대로 둔다.
+    }
+    throw new Error(`마감 시각 되돌리기 실패(projectId=${projectId}): ${reason}`);
+  }
+  const lastLine = stdout.trim().split('\n').pop();
+  return JSON.parse(lastLine);
+}
+
 async function ensureAccount(persona) {
   const { email } = persona;
 
@@ -451,11 +481,23 @@ async function ensurePaymentReady(clientSession, freelancerSession, projectId) {
 }
 
 /**
- * 2026-09-09 추가 — "마감 처리" 시나리오. registerProject의 마감 검증(project.service.ts
- * validateDeadline)이 `deadline <= now`를 거부하므로 처음부터 과거 시각으로는 못 만든다 —
- * 대신 등록 직후 마감되도록 몇 초 뒤로만 잡고, 그 시각이 지나길 기다린 다음
- * `/internal/v1/projects/sweep-deadlines`(서비스 토큰 필요)를 직접 호출해 실제로 마감시킨다.
- * 마감 처리는 멱등이라(deadline-sweep.service.ts 주석) 재실행해도 안전하다.
+ * 2026-09-09 추가, 2026-09-10 수정 — "마감 처리" 시나리오.
+ *
+ * project.service.ts의 실제 검증 두 가지를 등록 시점엔 그대로 지킨다(둘 다 비즈니스
+ * 규칙이지 버그가 아니다 — 값을 우회하지 않는다):
+ *   - DEADLINE_MUST_BE_FUTURE: `deadline <= now` 거부.
+ *   - DEADLINE_BELOW_MINIMUM: `deadline - now < 1일`이면 거부(2026-09-10, 이 시나리오가
+ *     처음으로 실제 Prisma 백엔드까지 도달하면서 처음 걸렸다 — scripts/lib/
+ *     backdate-project-deadline.ts 헤더 주석 참고).
+ *
+ * 그래서 등록은 "최소 1일 뒤"를 만족하는 정상 마감 시각으로 하고, 지원까지 받은 다음에만
+ * `scripts/lib/backdate-project-deadline.ts`로 DB의 recruitmentDeadlineAt만 직접
+ * 과거로 되돌린다(HTTP API가 아니라 Prisma 직접 UPDATE — API는 생성 시점에만 이 규칙을
+ * 검사하므로, 이미 만들어진 행의 값을 나중에 바꾸는 것 자체는 막지 않는다). 그러면
+ * `/internal/v1/projects/sweep-deadlines`(서비스 토큰 필요)를 실제로 며칠씩 기다리지
+ * 않고 바로 호출할 수 있다 — 스윕이 하는 일(CLOSED 전이, 지원 자동거절) 자체는 정상
+ * API 그대로 실행되므로 우회하지 않는다. 마감 처리는 멱등이라(deadline-sweep.service.ts
+ * 주석) 재실행해도 안전하다.
  */
 async function ensureRecruitmentClosed(clientSession, freelancerSession, markerTitle) {
   if (!INTERNAL_SERVICE_TOKEN) {
@@ -473,14 +515,16 @@ async function ensureRecruitmentClosed(clientSession, freelancerSession, markerT
   let project = mine.body.items.find((p) => p.title === markerTitle);
 
   if (!project) {
-    const deadline = new Date(Date.now() + 6000).toISOString(); // 등록 직후(6초 뒤) 마감되도록 일부러 짧게 잡는다.
+    // DEADLINE_BELOW_MINIMUM(최소 1일)을 만족하도록 1일 + 5분 뒤로 등록한다 — 실제
+    // 마감은 아래에서 backdateProjectDeadline으로 DB를 직접 되돌려 앞당긴다.
+    const deadline = new Date(Date.now() + 24 * 60 * 60 * 1000 + 5 * 60 * 1000).toISOString();
     const created = await api('/api/v1/projects', {
       method: 'POST',
       accessToken: clientSession.accessToken,
       body: {
         title: markerTitle,
         description:
-          '시드 스크립트(scripts/seed-dev-accounts.js)가 "마감 처리" 테스트용으로 자동 생성한 프로젝트입니다. 등록 직후 마감되도록 일부러 마감 시각을 짧게 잡았습니다.',
+          '시드 스크립트(scripts/seed-dev-accounts.js)가 "마감 처리" 테스트용으로 자동 생성한 프로젝트입니다. 등록은 정상 마감 시각으로 하고, 실제 마감은 DB에서 직접 앞당깁니다.',
         category: 'WEB_DEVELOPMENT',
         recruitmentStartAt: null,
         recruitmentDeadlineAt: deadline,
@@ -500,11 +544,8 @@ async function ensureRecruitmentClosed(clientSession, freelancerSession, markerT
 
   await ensureApplication(freelancerSession, project.projectId);
 
-  const waitMs = new Date(project.recruitmentDeadlineAt).getTime() - Date.now() + 1000; // 마감 + 1초 여유.
-  if (waitMs > 0) {
-    console.log(`[seed] 마감 처리 시나리오: 마감 시각까지 ${Math.ceil(waitMs / 1000)}초 대기 중...`);
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-  }
+  console.log('[seed] 마감 처리 시나리오: DB에서 마감 시각을 과거로 되돌리는 중...');
+  backdateProjectDeadline(project.projectId);
 
   const swept = await api('/internal/v1/projects/sweep-deadlines', {
     method: 'POST',

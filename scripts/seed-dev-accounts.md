@@ -62,11 +62,14 @@ CLOSED 상태로 만들려면 `POST /internal/v1/projects/sweep-deadlines`(마�
 `INTERNAL_SERVICE_TOKEN`을 채우고 `npm run seed:dev-accounts`를 다시 돌리면 그때
 마저 만들어진다(멱등이라 이미 만든 다른 8개는 건드리지 않는다).
 
-동작 방식: 등록 직후(6초 뒤) 마감되도록 짧은 마감 시각으로 프로젝트를 만들고,
-`freelancer-auto-rejected`가 지원(PENDING)한 뒤, 마감 시각이 지나길 실제로 기다렸다가
-스윕 엔드포인트를 호출한다 — 그러면 프로젝트는 CLOSED로, 대기 중이던 지원은
-AUTO_REJECTED로 바뀐다. 스크립트 실행 시간이 몇 초 더 걸리는 것은 이 대기 때문이다
-(정상 동작).
+동작 방식(2026-09-10 수정): 프로젝트는 project.service.ts의 실제 검증(마감은 최소 1일
+뒤여야 함, `DEADLINE_BELOW_MINIMUM`)을 만족하는 정상 마감 시각으로 등록한다.
+`freelancer-auto-rejected`가 지원(PENDING)한 뒤, `scripts/lib/backdate-project-deadline.ts`가
+DB의 마감 시각만 직접 과거로 되돌리고(Prisma 직접 UPDATE — API 생성 시점 검증은
+그대로 지켰으므로 규칙 우회가 아니다), 그 다음 스윕 엔드포인트를 호출한다 — 프로젝트는
+CLOSED로, 대기 중이던 지원은 AUTO_REJECTED로 바뀐다. 예전에는 실제로 몇 초 기다렸지만
+(등록 직후 마감되도록 아주 짧게 잡았었다), 그 방식은 "마감은 최소 1일 뒤" 규칙에
+걸려서 더 이상 못 쓴다 — 지금은 기다리지 않는다.
 
 ## 4. `payment-ready` 계정의 한계 — 결제 확정부터는 수동이다 (Fact)
 
