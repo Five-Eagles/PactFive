@@ -137,7 +137,11 @@ async function api(pathname, { method = 'GET', body, accessToken, origin } = {})
 // 보내려고 시도해 시간당 2통 제한에 걸리고, 꺼져 있으면 서버가 즉시-세션 응답을 설정
 // 오류로 보고 무조건 503으로 막는다. scripts/lib/bootstrap-seed-user.ts(Supabase Admin API
 // + 로컬 users 테이블 직접 INSERT)로 우회한다 — 자세한 이유는 그 파일 헤더 주석 참고.
-const TSX_BIN = path.join(REPO_ROOT, 'node_modules', '.bin', 'tsx');
+// node_modules/.bin/tsx(확장자 없음)는 POSIX shebang 스크립트라 Windows에서
+// execFileSync로 직접 실행하면 ENOENT가 난다(2026-09-10, 실제 Windows 실행에서 재현) —
+// cmd.exe는 shebang을 모른다. tsx 패키지의 실제 CLI 엔트리(node_modules/tsx/dist/cli.mjs)를
+// `node`로 직접 실행해 셸 shim을 아예 거치지 않는다 — OS 불문 동일하게 동작한다.
+const TSX_CLI_PATH = path.join(REPO_ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs');
 const BOOTSTRAP_HELPER_PATH = path.join(__dirname, 'lib', 'bootstrap-seed-user.ts');
 
 function bootstrapAccountViaAdminApi({ email, password, name, role }) {
@@ -145,7 +149,7 @@ function bootstrapAccountViaAdminApi({ email, password, name, role }) {
   const payload = JSON.stringify({ email, password, name, role });
   let stdout;
   try {
-    stdout = execFileSync(TSX_BIN, [BOOTSTRAP_HELPER_PATH, payload], {
+    stdout = execFileSync(process.execPath, [TSX_CLI_PATH, BOOTSTRAP_HELPER_PATH, payload], {
       cwd: REPO_ROOT,
       env: process.env,
       encoding: 'utf8',
