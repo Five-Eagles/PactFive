@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PactFive QA 최소·최대 요구조건 &amp; 담당자별 테스트 계정·AI QA 스크립트 — 2026-09-10 점심 회의</title>
+<style>
+  :root{
+    --navy-900:#111B33; --navy-800:#1D2942; --navy-700:#394760; --navy-600:#55627A; --navy-500:#667085; --navy-300:#B7C0CF; --navy-200:#D5DCE7; --navy-100:#E9EDF3; --navy-50:#F5F7FA;
+    --teal-700:#006D70; --teal-600:#007C7E; --teal-500:#008A8D; --teal-100:#C7E9E8; --teal-50:#E7F5F4;
+    --rust-700:#B93824; --rust-600:#C9472E; --rust-500:#D95336; --rust-100:#FAD8CF; --rust-50:#FDEEEA;
+    --green-700:#115D3E; --green-600:#16734D; --green-200:#A7DFC5; --green-50:#EAF7F0;
+    --amber-700:#7A4B00; --amber-600:#9A6200; --amber-300:#F2CF6C; --amber-100:#FFF3C4; --amber-50:#FFF9E7;
+    --blue-700:#164E80; --blue-600:#1C5F9C; --blue-200:#B9D9F3; --blue-50:#EDF5FC;
+    --canvas:#FBFAF7; --surface:#F7F8FA; --muted:#EEF1F5; --border:#CBD3DF; --border-strong:#7A8498; --white:#fff;
+    --radius-md:8px; --radius-lg:12px; --radius-xl:16px;
+    --shadow-raised:0 6px 18px rgba(11,19,43,.10); --shadow-overlay:0 18px 48px rgba(11,19,43,.18);
+    font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--canvas);color:var(--navy-900);line-height:1.6;}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px 80px;}
+  header.hero{background:linear-gradient(180deg,var(--navy-900),var(--navy-800));color:#fff;padding:44px 20px 34px;}
+  header.hero .wrap{padding-bottom:0;}
+  .eyebrow{font-size:13px;letter-spacing:.04em;color:var(--teal-100);font-weight:600;text-transform:uppercase;}
+  h1{font-size:26px;margin:8px 0 6px;font-weight:800;letter-spacing:-.02em;}
+  .sub{color:var(--navy-200);font-size:15px;margin:0 0 22px;}
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px;}
+  .stat{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:var(--radius-md);padding:12px 14px;}
+  .stat .n{font-size:22px;font-weight:800;}
+  .stat .l{font-size:12px;color:var(--navy-200);margin-top:2px;}
+  .stat.danger .n{color:#ffb4a2;}
+  .stat.ok .n{color:#8fe3c2;}
+  .stat.warn .n{color:var(--amber-300);}
+  nav.toc{position:sticky;top:0;z-index:10;background:rgba(251,250,247,.94);backdrop-filter:blur(6px);border-bottom:1px solid var(--border);padding:10px 20px;}
+  nav.toc .wrap{display:flex;gap:4px;overflow-x:auto;padding:0;white-space:nowrap;}
+  nav.toc a{font-size:13px;color:var(--navy-700);text-decoration:none;padding:6px 10px;border-radius:999px;font-weight:600;}
+  nav.toc a:hover{background:var(--navy-100);}
+  section{padding:36px 0;border-bottom:1px solid var(--border);}
+  section:last-of-type{border-bottom:none;}
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;}
+  .tag.fact{background:var(--blue-50);color:var(--blue-700);}
+  .tag.assump{background:var(--amber-50);color:var(--amber-700);}
+  .tag.opinion{background:var(--teal-50);color:var(--teal-700);}
+  h2{font-size:21px;font-weight:800;margin:0 0 6px;display:flex;align-items:center;gap:10px;}
+  h3.owner{font-size:18px;font-weight:800;margin:0 0 4px;display:flex;align-items:center;gap:10px;}
+  .step-no{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--navy-800);color:#fff;font-size:13px;font-weight:800;flex-shrink:0;}
+  .owner-badge{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;}
+  .owner-badge.om{background:var(--teal-600);}
+  .owner-badge.yd{background:var(--blue-600);}
+  .owner-badge.cj{background:var(--rust-600);}
+  .owner-badge.ys{background:var(--green-600);}
+  .lede{color:var(--navy-600);font-size:14.5px;margin:0 0 20px;max-width:74ch;}
+  .card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:14px;}
+  .card h3{margin:0 0 6px;font-size:15.5px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .card p{margin:6px 0;font-size:14px;color:var(--navy-800);}
+  .card p.meta{color:var(--navy-500);font-size:12.5px;}
+  .sev{font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;letter-spacing:.02em;}
+  .sev.critical{background:var(--rust-100);color:var(--rust-700);}
+  .sev.high{background:var(--amber-100);color:var(--amber-700);}
+  .sev.mid{background:var(--blue-50);color:var(--blue-700);}
+  .sev.low{background:var(--navy-100);color:var(--navy-700);}
+  .sev.resolved{background:var(--green-50);color:var(--green-700);}
+  .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .pill{font-size:11.5px;background:var(--navy-50);border:1px solid var(--border);border-radius:6px;padding:3px 8px;color:var(--navy-700);font-family:ui-monospace,monospace;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);}
+  th{background:var(--navy-50);font-weight:700;color:var(--navy-700);font-size:12.5px;}
+  tr.hl td{background:var(--rust-50);}
+  tr.ok td{background:var(--green-50);}
+  tr.warn td{background:var(--amber-50);}
+  .checklist{list-style:none;margin:0;padding:0;}
+  .checklist li{background:var(--white);border:1px solid var(--border);border-left:4px solid var(--navy-800);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:10px;}
+  .checklist li.crit{border-left-color:var(--rust-600);}
+  .checklist .q{font-weight:700;font-size:14.5px;margin-bottom:4px;}
+  .checklist .who{font-size:12.5px;color:var(--navy-500);margin-top:6px;}
+  footer{padding:28px 0 10px;color:var(--navy-500);font-size:12.5px;}
+  code{background:var(--navy-50);padding:1px 5px;border-radius:4px;font-size:12.5px;}
+  .verdict{background:var(--teal-50);border:2px solid var(--teal-500);border-radius:var(--radius-lg);padding:20px;margin:16px 0;}
+  .verdict h3{margin:0 0 8px;font-size:16.5px;font-weight:800;color:var(--teal-700);}
+
+  /* 이 문서 전용 추가 — 기존 토큰만 사용, 새 팔레트 없음 (전신 문서: qa-flow-and-account-assignment-2026-09-09.html) */
+  .flow-list{list-style:none;margin:10px 0 0;padding:0;counter-reset:flow;}
+  .flow-list li{position:relative;padding:10px 0 10px 34px;font-size:14px;border-bottom:1px dashed var(--border);}
+  .flow-list li:last-child{border-bottom:none;}
+  .flow-list li::before{counter-increment:flow;content:counter(flow);position:absolute;left:0;top:9px;width:22px;height:22px;border-radius:50%;background:var(--navy-100);color:var(--navy-800);font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+  .flow-list b{color:var(--navy-900);}
+  .flow-list .expect{display:block;margin-top:3px;color:var(--teal-700);font-size:12.5px;}
+  .flow-list .expect::before{content:"기대 결과 — ";font-weight:700;}
+  .flow-list .note{display:block;margin-top:3px;color:var(--navy-500);font-size:12.5px;}
+  .acct-row{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 4px;}
+  .acct-chip{background:var(--navy-50);border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 12px;font-size:12.5px;min-width:220px;}
+  .acct-chip .k{font-family:ui-monospace,monospace;font-weight:700;color:var(--navy-900);font-size:12.5px;}
+  .acct-chip .e{color:var(--navy-600);font-size:11.5px;margin-top:2px;}
+  .acct-chip .pw{color:var(--navy-500);font-size:11px;margin-top:2px;font-family:ui-monospace,monospace;}
+  .prompt-box{position:relative;background:var(--navy-900);color:#E9EDF3;border-radius:var(--radius-lg);padding:18px 18px 16px;margin-top:12px;}
+  .prompt-box .ttl{font-size:12px;letter-spacing:.03em;text-transform:uppercase;color:var(--teal-100);font-weight:700;margin-bottom:8px;}
+  .prompt-box pre{margin:0;white-space:pre-wrap;word-break:keep-all;font-family:ui-monospace,'Menlo',monospace;font-size:12.8px;line-height:1.65;color:#E9EDF3;}
+  .copy-btn{position:absolute;top:14px;right:14px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:12px;font-weight:700;border-radius:6px;padding:5px 10px;cursor:pointer;}
+  .copy-btn:hover{background:rgba(255,255,255,.18);}
+  .copy-btn.copied{background:var(--teal-600);border-color:var(--teal-600);}
+  .roster-owner{font-size:11px;font-weight:800;padding:2px 7px;border-radius:6px;}
+  .roster-owner.om{background:var(--teal-50);color:var(--teal-700);}
+  .roster-owner.yd{background:var(--blue-50);color:var(--blue-700);}
+  .roster-owner.cj{background:var(--rust-50);color:var(--rust-700);}
+  .roster-owner.ys{background:var(--green-50);color:var(--green-700);}
+  .roster-owner.multi{background:var(--amber-50);color:var(--amber-700);}
+
+  /* 탭 (신규 — 담당자별 실제 클릭 탭) */
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:22px;}
+  .tab-btn{display:flex;align-items:center;gap:8px;background:transparent;border:none;border-bottom:3px solid transparent;padding:10px 14px 12px;font-size:14.5px;font-weight:700;color:var(--navy-500);cursor:pointer;font-family:inherit;}
+  .tab-btn:hover{color:var(--navy-800);}
+  .tab-btn.active{color:var(--navy-900);border-bottom-color:var(--navy-800);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+  .feature-line{font-size:13.5px;color:var(--navy-600);margin:0 0 16px;}
+  .decision-box{background:var(--amber-50);border:2px solid var(--amber-300);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0;}
+  .decision-box h3{margin:0 0 8px;font-size:15.5px;font-weight:800;color:var(--amber-700);}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">PactFive · QA 운영 기준 &amp; 담당자별 계정·스크립트</div>
+    <h1>2026-09-10 점심 회의 자료 — QA 요구조건 공유 &amp; 리스크 등록</h1>
+    <p class="sub">안건 ① QA 최소/최대 요구조건 공유 ② 기능별 QA 테스트 계정 &amp; AI QA 스크립트 공유 ③ 리스크 등록(이메일 인증 발송 제한) ·
+      전신 문서 <code style="background:rgba(255,255,255,.12);color:#fff;">qa-flow-and-account-assignment-2026-09-09.html</code> 갱신판</p>
+    <div class="stat-row">
+      <div class="stat ok"><div class="n">4명</div><div class="l">담당자(ADR-0002 기준)</div></div>
+      <div class="stat ok"><div class="n">10개</div><div class="l">시드 계정</div></div>
+      <div class="stat"><div class="n">8개</div><div class="l">기능별 입력값 검증 규칙</div></div>
+      <div class="stat warn"><div class="n">1건</div><div class="l">미결 리스크(이메일 인증 발송 제한)</div></div>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="wrap">
+    <a href="#context">1. 왜 이 문서인가</a>
+    <a href="#minmax">2. QA 최소·최대 요구조건</a>
+    <a href="#roster">3. 계정 로스터(10개)</a>
+    <a href="#accounts">4. 담당자별 계정·시나리오·AI QA 스크립트</a>
+    <a href="#risk">5. 리스크 — 이메일 인증 발송 제한</a>
+    <a href="#next">6. Action Item</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<section id="context">
+  <h2><span class="step-no">1</span>왜 이 문서인가 (Context)</h2>
+  <p class="lede">오늘 점심 회의 안건은 두 가지다 — QA를 시작하기 전에 "입력값이 최소/최대 몇이어야 통과·거부되는지"를 팀 전체가 같은 기준으로 알고 있어야 하고,
+    담당자별로 어떤 계정으로 어떤 화면을 어떤 순서로 눌러봐야 하는지가 정리돼 있어야 한다. 여기에 더해, 어제 계정 부트스트랩을 고치면서 드러난 리스크 하나
+    (Supabase 이메일 발송 시간당 2통 제한)도 같이 등록해서 회의에서 결정한다.</p>
+  <div class="card">
+    <p><span class="tag fact">Fact</span> 아래 최소/최대 값은 전부 서버 코드의 상수·검증 로직에서 그대로 가져온 것이다(추정 아님) —
+      <code>application.constants.ts</code>, <code>project.service.ts</code>, <code>review.service.ts</code>,
+      <code>auth.service.ts</code>, <code>pricing-analysis.constants.ts</code>, <code>notification.service.ts</code>,
+      <code>public-api.service.ts</code>, <code>features/engagement/spec.md</code> 직접 확인.</p>
+    <p><span class="tag fact">Fact</span> 담당자 매핑은 <code>docs/decisions/0002-role-division.md</code>(ADR-0002, 2026-08-19 재구성)
+      기준으로 4명 체제다 — 오민혁(user-management·ai-pricing) · 유동우(project-management·engagement) ·
+      최윤석(applications·notifications) · 조준영(contracts-payments·reviews). 전신 문서(9/9)는 최윤석 섹션이 없이 3명으로
+      돼 있었는데, 이번 문서에서 4명 체제로 바로잡았다.</p>
+  </div>
+</section>
+
+<section id="minmax">
+  <h2><span class="step-no">2</span>QA 최소·최대 요구조건 (안건 ①)</h2>
+  <p class="lede">이 문서에서 말하는 최소·최대는 입력값의 최소·최대가 아니다. 최소 요구조건은 발표에서 보여 줄 수 있는 Happy case 데모 수준이고, 최대 요구조건은 실제 사용자가 입력·클릭·재시도하는 상황까지 포함하는 QA 수준이다. 아래 입력 경계값 표는 두 수준에서 공통으로 참고하는 별도 검증 자료다.</p>
+
+  <div class="verdict">
+    <h3>QA 수준 정의</h3>
+    <p><b>최소 요구조건 — 발표용 Happy case:</b> 준비된 계정으로 로그인하고, 대표 정상 흐름이 중단 없이 완료되어 화면·상태·핵심 결과를 시연할 수 있어야 한다.</p>
+    <p><b>최대 요구조건 — 실제 사용 수준:</b> 무작위에 가까운 입력값과 사용자 액션(빈 값, 경계값, 긴 값, 반복 클릭, 새로고침, 뒤로가기, 권한 없는 접근, 네트워크 재시도)을 넣어도 오류가 설명되고 데이터·화면 상태가 안전하게 유지되어야 한다.</p>
+    <p><b>판정 원칙:</b> 최소는 발표 차단 기준이다. 최대는 모든 입력을 통과시키라는 뜻이 아니라, 허용·거부 결과와 안내가 일관되고 재현 가능해야 한다는 뜻이다.</p>
+  </div>
+
+  <h3 style="font-size:16px;font-weight:800;margin:18px 0 6px;">Phase별 진행</h3>
+  <table>
+    <tr><th>Phase</th><th>목적</th><th>통과 기준</th></tr>
+    <tr><td>0. 환경</td><td>.env·DB·Prisma·시드 계정 확인</td><td>필수 변수명이 존재하고 값은 노출하지 않으며, 실제 DB 조회가 성공한다.</td></tr>
+    <tr><td>1. 발표용 Happy case</td><td>대표 정상 흐름 시연</td><td>담당 시나리오의 핵심 성공 경로가 중단 없이 완료된다.</td></tr>
+    <tr><td>2. 경계·오류</td><td>최소−1/최소/최대/최대+1과 권한·중복 검증</td><td>예상 상태 코드·오류 코드·화면 안내가 일치한다.</td></tr>
+    <tr><td>3. 실제 사용자 액션</td><td>무작위 입력, 반복 클릭, 새로고침, 뒤로가기, 재시도</td><td>중복 생성·권한 우회·깨진 화면·조용한 실패가 없다.</td></tr>
+    <tr><td>4. UX 회귀</td><td>로딩·빈 상태·실패·복귀·접근성 확인</td><td>사용자가 다음 행동을 이해할 수 있는 문구와 복구 경로가 있다.</td></tr>
+  </table>
+
+  <p class="lede" style="margin-top:18px;">아래 표의 열 이름은 입력 규칙의 <b>허용 하한·허용 상한</b>으로 읽는다. 이것을 QA 최소·최대 요구조건과 혼동하지 않는다.</p>
+
+  <table>
+    <tr><th>기능</th><th>항목</th><th>허용 하한</th><th>허용 상한</th><th>근거(파일)</th></tr>
+    <tr><td><span class="roster-owner cj">조준영</span></td><td>지원 동기(coverLetter)</td><td>100자</td><td>3,000자</td><td><code>application.constants.ts</code></td></tr>
+    <tr><td rowspan="2" style="border-bottom:none;"></td><td>희망 금액(expectedAmount)</td><td>10,000원</td><td>1,000,000,000원</td><td><code>application.constants.ts</code></td></tr>
+    <tr><td>예상 기간(expectedDurationDays)</td><td>1일</td><td>365일</td><td><code>application.constants.ts</code></td></tr>
+    <tr><td><span class="roster-owner yd">유동우</span></td><td>모집 마감일시</td><td>등록 시점 +1일</td><td>등록 시점 +365일</td><td><code>project.service.ts</code> (DEADLINE_BELOW_MINIMUM / MAX_RECRUITMENT_DAYS)</td></tr>
+    <tr><td rowspan="3" style="border-bottom:none;"></td><td>합의 제안(negotiation-offer) 금액</td><td colspan="2">별도 상/하한 없음 — 0보다 크고 통화가 KRW인지만 검사</td><td><code>public-api.service.ts</code></td></tr>
+    <tr><td>납품 파일 크기</td><td>0바이트 초과</td><td>100MB(104,857,600B)</td><td><code>public-api.service.ts</code></td></tr>
+    <tr><td>납품 파일 sha256</td><td colspan="2">정확히 64자 hex 문자열이어야 함</td><td><code>public-api.service.ts</code></td></tr>
+    <tr><td><span class="roster-owner cj">조준영</span></td><td>리뷰 평점(rating)</td><td>1(정수)</td><td>5(정수)</td><td><code>review.service.ts</code></td></tr>
+    <tr><td rowspan="1" style="border-bottom:none;"></td><td>리뷰 본문(content, 선택)</td><td>1자(trim 후)</td><td>1,000자</td><td><code>review.service.ts</code></td></tr>
+    <tr><td><span class="roster-owner om">오민혁</span></td><td>비밀번호(회원가입)</td><td>8자</td><td>제한 없음</td><td><code>auth.service.ts</code> — 복잡도(대소문자·숫자·특수문자) 규칙은 없음</td></tr>
+    <tr><td rowspan="2" style="border-bottom:none;"></td><td>이름(name)</td><td colspan="2">공백만 아니면 통과 — 길이 제한 없음</td><td><code>auth.service.ts</code></td></tr>
+    <tr><td>이메일 형식</td><td colspan="2">정규식 형식 검사만(<code>/^[^\s@]+@[^\s@]+\.[^\s@]+$/</code>) — 길이 제한 없음</td><td><code>auth.service.ts</code></td></tr>
+    <tr><td><span class="roster-owner yd">유동우</span></td><td>북마크 개수</td><td colspan="2">제한 없음 — (프리랜서, 프로젝트) 조합 중복만 금지</td><td><code>features/engagement/spec.md</code></td></tr>
+    <tr><td><span class="roster-owner om">오민혁</span></td><td>AI 견적 — 제목(title)</td><td>5자</td><td>100자</td><td><code>pricing-analysis.constants.ts</code></td></tr>
+    <tr><td rowspan="2" style="border-bottom:none;"></td><td>AI 견적 — 설명(description)</td><td>20자</td><td>5,000자</td><td><code>pricing-analysis.constants.ts</code></td></tr>
+    <tr><td>AI 견적 — 결과 항목 수(breakdown)</td><td>1개</td><td>20개</td><td><code>pricing-analysis.constants.ts</code></td></tr>
+    <tr><td><span class="roster-owner ys">최윤석</span></td><td>알림 제목(title)</td><td>1자</td><td>100자</td><td><code>notification.service.ts</code></td></tr>
+    <tr><td rowspan="1" style="border-bottom:none;"></td><td>알림 본문(body)</td><td colspan="2">최대 500자(하한 없음)</td><td><code>notification.service.ts</code></td></tr>
+  </table>
+
+  <div class="card">
+    <p><span class="tag opinion">Opinion, 팀장</span> 눈에 띄는 비대칭이 하나 있다 — <b>비밀번호는 최소 8자일 뿐 복잡도 규칙이 전혀 없다.</b>
+      QA 항목으로는 "8자 미만 거부"만 확인하면 되지만, 이게 실제 서비스라면 보안 관점에서 재검토할 만한 지점이다(이 문서 범위 밖, 참고로만 남긴다).</p>
+  </div>
+</section>
+
+<section id="roster">
+  <h2><span class="step-no">3</span>계정 로스터 (10개 전체, 4명 담당 기준)</h2>
+  <p class="lede">공통 비밀번호는 전부 <code>PactFiveSeedDev!1</code>, 이메일 도메인은
+    <code>SEED_EMAIL_DOMAIN</code>(기본 <code>@pactfive-dev-seed.com</code>) — DEV 위젯 클릭 로그인을 쓰면 직접 입력할 일은 없다.</p>
+  <table>
+    <tr><th>계정 key</th><th>실제 로그인 이메일</th><th>역할</th><th>상태</th><th>담당</th></tr>
+    <tr><td><code>client-fresh</code></td><td><code>seed.client.fresh@pactfive-dev-seed.com</code></td><td>CLIENT</td><td>프로젝트 없음</td><td><span class="roster-owner om">오민혁</span></td></tr>
+    <tr><td><code>freelancer-fresh</code></td><td><code>seed.freelancer.fresh@pactfive-dev-seed.com</code></td><td>FREELANCER</td><td>지원·북마크 없음</td><td><span class="roster-owner multi">오민혁 / 유동우</span></td></tr>
+    <tr><td><code>client-recruiting</code></td><td><code>seed.client.recruiting@pactfive-dev-seed.com</code></td><td>CLIENT</td><td>모집 중(RECRUITING) 프로젝트 1개</td><td><span class="roster-owner multi">유동우 / 최윤석</span></td></tr>
+    <tr><td><code>freelancer-applicant</code></td><td><code>seed.freelancer.applicant@pactfive-dev-seed.com</code></td><td>FREELANCER</td><td>지원(PENDING)</td><td><span class="roster-owner ys">최윤석</span></td></tr>
+    <tr><td><code>client-contract-pending</code></td><td><code>seed.client.contract-pending@pactfive-dev-seed.com</code></td><td>CLIENT</td><td>CONTRACT_PENDING</td><td><span class="roster-owner cj">조준영</span></td></tr>
+    <tr><td><code>freelancer-contract-pending</code></td><td><code>seed.freelancer.contract-pending@pactfive-dev-seed.com</code></td><td>FREELANCER</td><td>CONTRACT_PENDING 짝</td><td><span class="roster-owner cj">조준영</span></td></tr>
+    <tr><td><code>client-payment-ready</code></td><td><code>seed.client.payment-ready@pactfive-dev-seed.com</code></td><td>CLIENT</td><td>서명 완료·결제 준비</td><td><span class="roster-owner cj">조준영</span></td></tr>
+    <tr><td><code>freelancer-payment-ready</code></td><td><code>seed.freelancer.payment-ready@pactfive-dev-seed.com</code></td><td>FREELANCER</td><td>서명 완료·결제 준비 짝</td><td><span class="roster-owner cj">조준영</span></td></tr>
+    <tr><td><code>client-recruitment-closed</code></td><td><code>seed.client.closed@pactfive-dev-seed.com</code></td><td>CLIENT</td><td>마감 처리(CLOSED) — <code>INTERNAL_SERVICE_TOKEN</code> 필요</td><td><span class="roster-owner multi">유동우 / 최윤석</span></td></tr>
+    <tr><td><code>freelancer-auto-rejected</code></td><td><code>seed.freelancer.auto-rejected@pactfive-dev-seed.com</code></td><td>FREELANCER</td><td>자동거절(AUTO_REJECTED) — 〃</td><td><span class="roster-owner ys">최윤석</span></td></tr>
+  </table>
+  <p class="meta" style="color:var(--navy-500);font-size:12.5px;">
+    <span class="tag fact">Fact</span> 전신 문서(9/9)는 <code>client-recruiting</code>·<code>freelancer-applicant</code>·
+    <code>client-recruitment-closed</code>·<code>freelancer-auto-rejected</code>(모두 지원 관련) 담당을 조준영으로 적었는데,
+    ADR-0002 기준 지원(applications) 담당은 최윤석이다 — 이번 문서에서 정정했다.
+  </p>
+</section>
+
+<section id="accounts">
+  <h2><span class="step-no">4</span>담당자별 계정·시나리오·AI QA 스크립트 (안건 ②)</h2>
+  <p class="lede">탭을 눌러 담당자를 전환한다. 각 탭은 담당 기능 → 실제 로그인 이메일이 있는 계정 → 순서대로 눌러볼 시나리오 → AI QA 프롬프트로 구성했다. 모든 담당자는 아래 공통 사전 검증을 먼저 실행한 뒤 담당 시나리오를 진행한다.</p>
+
+  <div class="prompt-box" style="margin-bottom:22px;">
+    <div class="ttl">공통 AI QA 사전 검증 — Phase 0</div>
+    <button class="copy-btn" onclick="copyPrompt(this)">복사</button>
+    <pre>당신은 PactFive QA 담당자입니다. 먼저 저장소 루트와 app/server를 확인하고 다음을 실행하세요.
+
+1. 환경 파일: D:\projects\pact_five\.env가 존재하는지 확인하세요. 파일 내용과 시크릿 값은 출력하지 말고, WEB_ORIGIN, AUTH_PROVIDER_MODE, SUPABASE_URL, DATABASE_URL, DIRECT_URL, INTERNAL_SERVICE_TOKEN 등 필요한 키의 존재 여부만 PASS/FAIL로 기록하세요.
+2. Prisma 준비: app/server에서 npm run prisma:generate를 실행하고 성공 여부를 기록하세요.
+3. 실제 DB 연결: npx prisma migrate status를 실행하세요. 연결 실패·미적용 migration·schema 오류를 구분해 기록하세요.
+4. 읽기 전용 DB 확인: Prisma schema의 users 테이블에서 count와 seed 계정 이메일 일부를 조회하세요. 비밀번호·토큰·DATABASE_URL은 절대 출력하지 마세요.
+5. 로컬 계정: npm run seed:dev-accounts를 실행하세요. 이 명령은 idempotent이므로 기존 데이터를 삭제하지 않습니다. 성공 후 .dev-accounts.local.json에 계정 이메일이 생성됐는지만 확인하고, 실제 로그인은 각 계정의 이메일과 공통 비밀번호로 수행하세요.
+6. API/UX 준비: 서버 health 응답, 로그인 성공, 새로고침 후 세션 유지 여부를 확인하세요. 이후 Phase 1 Happy case, Phase 2 경계·오류, Phase 3 실제 사용자 액션, Phase 4 UX 회귀 순서로 진행하세요.
+
+각 단계에 PASS/FAIL, 실제 상태 코드, 화면 문구, 재현 단계와 스크린샷 위치를 기록하세요. 무작위 입력은 재현할 수 있도록 입력값과 액션 순서를 저장하세요.</pre>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab-btn active" data-tab="om" onclick="showTab('om')"><span class="owner-badge om" style="width:22px;height:22px;font-size:11px;">오</span>오민혁</button>
+    <button class="tab-btn" data-tab="yd" onclick="showTab('yd')"><span class="owner-badge yd" style="width:22px;height:22px;font-size:11px;">유</span>유동우</button>
+    <button class="tab-btn" data-tab="ys" onclick="showTab('ys')"><span class="owner-badge ys" style="width:22px;height:22px;font-size:11px;">최</span>최윤석</button>
+    <button class="tab-btn" data-tab="cj" onclick="showTab('cj')"><span class="owner-badge cj" style="width:22px;height:22px;font-size:11px;">조</span>조준영</button>
+  </div>
+
+  <!-- 오민혁 -->
+  <div class="tab-panel active" id="panel-om">
+    <h3 class="owner"><span class="owner-badge om">오</span>오민혁 — user-management · ai-pricing</h3>
+    <p class="feature-line">담당 화면: 회원가입/로그인/프로필, AI 견적(가격 제안) 산정</p>
+    <div class="acct-row">
+      <div class="acct-chip"><div class="k">client-fresh</div><div class="e">CLIENT · 프로젝트 없음</div><div class="pw">PactFiveSeedDev!1</div></div>
+      <div class="acct-chip"><div class="k">freelancer-fresh</div><div class="e">FREELANCER · 지원·북마크 없음</div><div class="pw">PactFiveSeedDev!1</div></div>
+    </div>
+    <ul class="flow-list">
+      <li><b>client-fresh로 로그인</b><span class="expect">프로필 화면에 이름·이메일이 정확히 표시된다.</span></li>
+      <li><b>AI 견적 받기 — description을 19자로 입력 후 요청</b><span class="expect">422 VALIDATION_ERROR, 최소 20자 안내 문구가 뜬다.</span></li>
+      <li><b>description을 20자 이상(예: 21자)으로 재요청</b><span class="expect">견적 결과(항목 1~20개, 각 name≤100자)가 정상 반환된다.</span></li>
+      <li><b>title을 4자로 입력해 요청</b><span class="expect">422 VALIDATION_ERROR(최소 5자 미만).</span></li>
+      <li><b>freelancer-fresh로 전환 로그인</b><span class="expect">프리랜서 프로필 화면이 정상 노출되고, 지원·북마크 목록은 비어 있다.</span><span class="note">비밀번호 8자 미만 신규가입 시도(예: 회원가입 폼에서 별도로) → 422 확인은 선택.</span></li>
+    </ul>
+    <div class="prompt-box">
+      <div class="ttl">샘플 AI QA 스크립트</div>
+      <button class="copy-btn" onclick="copyPrompt(this)">복사</button>
+      <pre>당신은 PactFive의 회원가입/로그인/AI 견적 기능 QA 담당자입니다.
+
+1. client-fresh 계정(비밀번호 PactFiveSeedDev!1)으로 로그인하고, 프로필 화면에 이름·이메일이 정확히 표시되는지 확인하세요.
+2. "AI 견적 받기" 화면에서 description을 19자로 입력해 요청하고, 422 VALIDATION_ERROR와 최소 20자 안내 문구가 뜨는지 확인하세요.
+3. description을 21자 이상으로 바꿔 재요청하고, 견적 결과(항목 1~20개)가 정상 반환되는지 확인하세요.
+4. title을 4자로 입력해 요청하고 422가 뜨는지 확인하세요.
+5. freelancer-fresh 계정으로 전환 로그인해 프로필 화면이 정상 노출되는지 확인하세요.
+
+각 단계마다 실제 HTTP 상태 코드와 화면에 뜬 문구를 그대로 기록해 주세요.</pre>
+    </div>
+  </div>
+
+  <!-- 유동우 -->
+  <div class="tab-panel" id="panel-yd">
+    <h3 class="owner"><span class="owner-badge yd">유</span>유동우 — project-management · engagement</h3>
+    <p class="feature-line">담당 화면: 프로젝트 등록/수정/마감/재모집/취소, 북마크·추천</p>
+    <div class="acct-row">
+      <div class="acct-chip"><div class="k">client-recruiting</div><div class="e">CLIENT · RECRUITING 프로젝트 1개</div><div class="pw">PactFiveSeedDev!1</div></div>
+      <div class="acct-chip"><div class="k">client-recruitment-closed</div><div class="e">CLIENT · CLOSED 처리 완료</div><div class="pw">PactFiveSeedDev!1</div></div>
+      <div class="acct-chip"><div class="k">freelancer-fresh</div><div class="e">FREELANCER · 북마크 테스트용</div><div class="pw">PactFiveSeedDev!1</div></div>
+    </div>
+    <ul class="flow-list">
+      <li><b>client-recruiting으로 로그인 → 내 프로젝트 목록</b><span class="expect">RECRUITING 상태 프로젝트 1개가 보인다.</span></li>
+      <li><b>마감일시를 현재 +12시간으로 수정 요청</b><span class="expect">422 DEADLINE_BELOW_MINIMUM, "마감 일시는 최소 1일 뒤여야 합니다" 문구.</span></li>
+      <li><b>마감일시를 현재 +400일로 수정 요청</b><span class="expect">422, 최대 365일 초과 오류.</span><span class="note">MAX_RECRUITMENT_DAYS=365, project.service.ts.</span></li>
+      <li><b>client-recruitment-closed로 전환 로그인</b><span class="expect">CLOSED 상태 화면, 더 이상 지원을 받을 수 없다는 안내가 보인다.</span></li>
+      <li><b>freelancer-fresh로 전환 로그인 → 임의 프로젝트 북마크 추가</b><span class="expect">즉시 목록에 반영.</span></li>
+      <li><b>같은 프로젝트를 다시 북마크 추가</b><span class="expect">409(중복) — 개수 제한이 아니라 중복만 막힘.</span></li>
+    </ul>
+    <div class="prompt-box">
+      <div class="ttl">샘플 AI QA 스크립트</div>
+      <button class="copy-btn" onclick="copyPrompt(this)">복사</button>
+      <pre>당신은 PactFive의 프로젝트 모집/마감 규칙과 북마크 기능 QA 담당자입니다.
+
+1. client-recruiting 계정으로 로그인해 RECRUITING 프로젝트가 보이는지 확인하세요.
+2. 그 프로젝트의 마감일시를 현재 시각 +12시간으로 수정 요청하고, 422 DEADLINE_BELOW_MINIMUM(최소 1일 뒤 규칙)이 뜨는지 확인하세요.
+3. 마감일시를 현재 시각 +400일로 수정 요청하고, 최대 365일 제한에 걸리는지 확인하세요.
+4. client-recruitment-closed 계정으로 전환 로그인해 CLOSED 상태 화면과 안내 문구를 확인하세요.
+5. freelancer-fresh 계정으로 전환 로그인해 임의 프로젝트를 북마크에 추가하고, 같은 프로젝트를 다시 추가했을 때 409가 뜨는지 확인하세요.
+
+각 단계마다 실제 HTTP 상태 코드와 화면 문구를 기록해 주세요.</pre>
+    </div>
+  </div>
+
+  <!-- 최윤석 -->
+  <div class="tab-panel" id="panel-ys">
+    <h3 class="owner"><span class="owner-badge ys">최</span>최윤석 — applications · notifications</h3>
+    <p class="feature-line">담당 화면: 지원 생성/내 지원 목록, 지원자 수락·거절(의뢰인), 알림 발행(발송 UI는 이번 Increment 범위 밖)</p>
+    <div class="acct-row">
+      <div class="acct-chip"><div class="k">freelancer-applicant</div><div class="e">FREELANCER · PENDING 지원 1건</div><div class="pw">PactFiveSeedDev!1</div></div>
+      <div class="acct-chip"><div class="k">client-recruiting</div><div class="e">CLIENT · 수락/거절 테스트용</div><div class="pw">PactFiveSeedDev!1</div></div>
+      <div class="acct-chip"><div class="k">freelancer-auto-rejected</div><div class="e">FREELANCER · AUTO_REJECTED 처리 완료</div><div class="pw">PactFiveSeedDev!1</div></div>
+    </div>
+    <ul class="flow-list">
+      <li><b>freelancer-applicant로 로그인 → 내 지원 목록</b><span class="expect">PENDING 상태 지원 1건이 "검토 중"으로 표시된다.</span></li>
+      <li><b>새 지원 작성 — 지원 동기(coverLetter) 99자로 제출</b><span class="expect">422 VALIDATION_ERROR, "100~3,000자로 입력해 주세요" 문구.</span></li>
+      <li><b>coverLetter 100자 이상으로 재제출</b><span class="expect">201 생성, 목록에 새 PENDING 지원이 추가된다.</span></li>
+      <li><b>client-recruiting으로 전환 로그인 → 지원자 관리</b><span class="expect">지원자 목록이 보이고 "수락"/"거절" 버튼이 있다.</span></li>
+      <li><b>지원자 1명 수락</b><span class="expect">해당 지원 ACCEPTED, 같은 프로젝트의 나머지 PENDING 지원은 자동으로 REJECTED(AUTO_OTHER_ACCEPTED)되고 알림이 발행된다.</span></li>
+      <li><b>freelancer-auto-rejected로 전환 로그인 → 내 지원 목록</b><span class="expect">REJECTED 상태, 사유가 "프로젝트 모집이 마감되어 지원이 종료되었습니다"(AUTO_RECRUITMENT_CLOSED)로 표시된다.</span></li>
+    </ul>
+    <div class="prompt-box">
+      <div class="ttl">샘플 AI QA 스크립트</div>
+      <button class="copy-btn" onclick="copyPrompt(this)">복사</button>
+      <pre>당신은 PactFive의 지원(applications) 기능 QA 담당자입니다.
+
+1. freelancer-applicant 계정으로 로그인해 내 지원 목록에서 PENDING 지원 1건을 확인하세요.
+2. 새 프로젝트에 지원할 때 지원 동기를 99자로 입력해 제출하고, 422 VALIDATION_ERROR(100~3,000자 문구)가 뜨는지 확인하세요.
+3. 지원 동기를 100자 이상으로 바꿔 재제출하고 정상 생성되는지 확인하세요.
+4. client-recruiting 계정으로 전환 로그인해 지원자 관리 화면에서 지원자 1명을 수락하고, 같은 프로젝트의 나머지 PENDING 지원이 자동으로 거절 처리되는지 확인하세요.
+5. freelancer-auto-rejected 계정으로 전환 로그인해 내 지원 목록에서 "프로젝트 모집이 마감되어 지원이 종료되었습니다" 문구가 뜨는지 확인하세요.
+
+각 단계마다 실제 HTTP 상태 코드와 화면 문구를 기록해 주세요.</pre>
+    </div>
+  </div>
+
+  <!-- 조준영 -->
+  <div class="tab-panel" id="panel-cj">
+    <h3 class="owner"><span class="owner-badge cj">조</span>조준영 — contracts-payments · reviews</h3>
+    <p class="feature-line">담당 화면: 금액 합의(negotiation)~계약 서명~결제~납품, 리뷰 작성. 결제 확정·정산은 수동 단계 포함(아래 참고).</p>
+    <div class="acct-row">
+      <div class="acct-chip"><div class="k">client-contract-pending</div><div class="e">CLIENT · CONTRACT_PENDING</div><div class="pw">PactFiveSeedDev!1</div></div>
+      <div class="acct-chip"><div class="k">freelancer-contract-pending</div><div class="e">FREELANCER · 짝</div><div class="pw">PactFiveSeedDev!1</div></div>
+      <div class="acct-chip"><div class="k">client-payment-ready</div><div class="e">CLIENT · 서명·결제 준비 완료</div><div class="pw">PactFiveSeedDev!1</div></div>
+      <div class="acct-chip"><div class="k">freelancer-payment-ready</div><div class="e">FREELANCER · 짝</div><div class="pw">PactFiveSeedDev!1</div></div>
+    </div>
+    <ul class="flow-list">
+      <li><b>client-contract-pending으로 로그인 → 금액 합의 제안</b><span class="expect">제안 생성됨(금액 상/하한 없음, 0보다 크고 KRW인지만 검사).</span></li>
+      <li><b>freelancer-contract-pending으로 전환 → 제안 수락</b><span class="expect">계약(Contract) DRAFT 생성, acceptedApplicationId 연결 확인.</span></li>
+      <li><b>양측 각각 서명(sign) 호출</b><span class="expect">양쪽 서명 후 계약 상태가 SIGNED로 바뀐다.</span></li>
+      <li><b>client-payment-ready/freelancer-payment-ready로 확인 → 결제 진행</b><span class="expect">clientKey·orderId·amount가 출력된다(여기서부터는 토스 샌드박스 카드로 수동 결제 필요).</span><span class="note">결제 확정(PaymentConfirm)·정산(RELEASED)은 API만으로 안 됨 — seed-dev-accounts.md §4 참고, dev 전용 /api/internal/dev/simulate-settlement 사용.</span></li>
+      <li><b>납품 파일 업로드 — 100MB 초과 파일로 upload-prepare 시도</b><span class="expect">422(파일 크기 상한 초과).</span></li>
+      <li><b>정산 완료 후 리뷰 작성 화면 진입</b><span class="expect">거래가 COMPLETED 상태여야만 리뷰 작성 가능, rating은 1~5 정수만 허용.</span></li>
+    </ul>
+    <div class="prompt-box">
+      <div class="ttl">샘플 AI QA 스크립트</div>
+      <button class="copy-btn" onclick="copyPrompt(this)">복사</button>
+      <pre>당신은 PactFive의 계약~결제~리뷰 기능 QA 담당자입니다.
+
+1. client-contract-pending 계정으로 로그인해 금액 합의 제안을 생성하세요.
+2. freelancer-contract-pending 계정으로 전환해 제안을 수락하고, 계약이 DRAFT로 생성되는지 확인하세요.
+3. 양측 계정에서 각각 서명을 호출하고, 계약 상태가 SIGNED로 바뀌는지 확인하세요.
+4. client-payment-ready/freelancer-payment-ready 계정으로 결제 준비 화면을 확인하세요(실제 결제 확정은 토스 샌드박스 카드로 수동 진행 필요 — 자동화하지 말고 이 단계에서 결과만 보고하세요).
+5. 납품 파일 업로드 시 100MB를 초과하는 파일로 upload-prepare를 요청하고 422가 뜨는지 확인하세요.
+6. rating 값으로 0과 6을 각각 입력해 리뷰 작성을 시도하고 둘 다 거부되는지 확인하세요.
+
+각 단계마다 실제 HTTP 상태 코드와 화면 문구를 기록해 주세요.</pre>
+    </div>
+  </div>
+</section>
+
+<section id="risk">
+  <h2><span class="step-no">5</span>리스크 등록 — 이메일 인증 시간당 발송 제한</h2>
+
+  <h3 style="font-size:16px;font-weight:800;margin:18px 0 6px;">Problem</h3>
+  <div class="card">
+    <p><span class="tag fact">Fact</span> 서버 코드(<code>auth.service.ts</code>)는 Confirm Email이 꺼져 있으면 회원가입 자체를
+      503 AUTH_CONFIGURATION_INVALID로 막도록 설계돼 있다 — 즉 이메일 인증은 지금 구조상 반드시 켜져 있어야 한다.</p>
+    <p><span class="tag fact">Fact</span> Supabase 기본 이메일 발송(자체 SMTP)은 <b>시간당 2통</b>으로 제한돼 있다
+      (Supabase 공식 문서·GitHub 이슈로 확인). 실사용자가 동시에 여러 명 가입하면 3번째 요청부터 이메일이 발송되지 않는다.</p>
+    <p><span class="tag assump">Assumption</span> 캡스톤 발표·시연 시점에 동시 가입자가 시간당 2명을 넘을 가능성 — 아직 정확한
+      동시 가입자 수 추정치는 없다. 팀 논의로 확인 필요.</p>
+  </div>
+
+  <h3 style="font-size:16px;font-weight:800;margin:18px 0 6px;">Options</h3>
+  <div class="card">
+    <p><b>A. 이메일 인증을 회원가입 절차에서 제거</b></p>
+    <p class="meta">장점: 시간당 발송 제한 문제 자체가 사라진다. 가입 즉시 서비스 이용 가능(체감 속도 빠름). 추가 비용·설정 없음.</p>
+    <p class="meta">단점: 이메일 소유 확인 없이 계정이 만들어진다(오탈자·스팸 계정 위험). 비밀번호 재설정 등 이메일 기반 기능에 영향 가능성 — 별도 검토 필요.
+      현재 코드의 fail-closed 가드(503)를 되돌리는 설계 변경이 필요하다.</p>
+  </div>
+  <div class="card">
+    <p><b>B. 이메일 발송 벤더 추가(커스텀 SMTP 연동)</b></p>
+    <p class="meta">장점: 시간당 30통까지 확보 가능 — 기존 인증 플로우·보안성을 그대로 유지한다. 코드 변경 범위가 작다(Supabase 대시보드 설정 위주).</p>
+    <p class="meta">단점: 벤더 가입·설정 작업 필요. 그래도 상한선은 남는다(시간당 30통) — 동시 가입자가 더 늘면 다시 논의 필요.
+      벤더에 따라 비용이 발생할 수 있다.</p>
+  </div>
+
+  <h3 style="font-size:16px;font-weight:800;margin:18px 0 6px;">Comparison</h3>
+  <table>
+    <tr><th>기준</th><th>A. 이메일 인증 제거</th><th>B. SMTP 벤더 추가(30통/시간)</th></tr>
+    <tr><td>구현 난이도</td><td>중 — fail-closed 가드 설계 변경</td><td>하 — 설정 위주</td></tr>
+    <tr><td>보안·신뢰성</td><td>낮음 — 이메일 미확인 계정 허용</td><td>유지</td></tr>
+    <tr><td>확장성</td><td>제한 자체가 없음</td><td>시간당 30통 상한은 여전히 존재</td></tr>
+    <tr><td>비용</td><td>없음</td><td>벤더에 따라 발생 가능</td></tr>
+    <tr><td>개발 속도</td><td>당장 빠름</td><td>벤더 설정 시간 필요</td></tr>
+    <tr><td>팀원 이해 가능성</td><td>쉬움</td><td>쉬움</td></tr>
+    <tr><td>현재 프로젝트 규모 적합성</td><td>캡스톤 규모엔 과함(보안 후퇴)일 수 있음</td><td>규모에 맞는 절충안에 가까움</td></tr>
+  </table>
+
+  <div class="card">
+    <p><span class="tag opinion">Opinion, 팀장</span> 표만 보면 B가 더 균형 잡힌 절충안으로 보이지만, 이건 팀장 개인 의견이고
+      최종 결정은 아니다 — 아래처럼 결정을 보류하고 오늘 회의에서 팀이 정한다.</p>
+  </div>
+
+  <div class="decision-box">
+    <h3>Decision — 보류 (오늘 회의에서 결정)</h3>
+    <p style="margin:0 0 6px;font-size:14px;">두 옵션(A: 이메일 인증 제거 / B: SMTP 벤더 추가) 중 하나를 오늘 회의에서 팀 합의로 정한다.
+      결정 후에는 이유·포기한 대안·가정을 Decision Log/ADR로 남긴다(운영 지침 §8).</p>
+  </div>
+</section>
+
+<section id="next">
+  <h2><span class="step-no">6</span>Action Item</h2>
+  <ul class="checklist">
+    <li><div class="q">① 오늘 회의에서 이메일 인증 리스크 A/B 결정</div>
+      <p class="who">담당: 전체 · 기한: 오늘 회의 중 · 결정 즉시 ADR로 기록(팀장)</p></li>
+    <li><div class="q">② 각자 담당 탭의 시나리오대로 로컬 QA 진행</div>
+      <p class="who">담당: 오민혁·유동우·최윤석·조준영 각자 · 기한: 다음 스탠드업 전까지 · AI QA 스크립트 결과(상태 코드·문구)를 기록해 공유</p></li>
+    <li><div class="q">③ 최소/최대 경계값 표에서 실제 응답이 다른 항목 발견 시 즉시 보고</div>
+      <p class="who">담당: 전체 · 표와 다르면 버그일 가능성이 높다(예: 이번 세션에서 발견된 skills FK 미시딩 버그처럼) · 팀장에게 파일:줄번호와 함께 공유</p></li>
+    <li class="crit"><div class="q">④ 미해결 — client-recruitment-closed / freelancer-auto-rejected는 INTERNAL_SERVICE_TOKEN 없으면 생성 안 됨</div>
+      <p class="who">담당: 유동우·최윤석 · 각자 .env에 INTERNAL_SERVICE_TOKEN 값이 있는지 먼저 확인</p></li>
+  </ul>
+</section>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    작성 근거: application.constants.ts · project.service.ts · review.service.ts · auth.service.ts ·
+    pricing-analysis.constants.ts · notification.service.ts · public-api.service.ts · features/engagement/spec.md ·
+    docs/decisions/0002-role-division.md(ADR-0002) · scripts/seed-dev-accounts.md · scripts/seed-contractable-project.md ·
+    Supabase 공식 문서(auth rate limits). 전신 문서: qa-flow-and-account-assignment-2026-09-09.html.
+    2026-09-10 작성·회의용 개정. 이메일 형식은 scripts/seed-dev-accounts.js의 SEED_EMAIL_DOMAIN 기본값을 기준으로 함.
+  </div>
+</footer>
+
+<script>
+function showTab(name){
+  document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === name); });
+  document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.toggle('active', p.id === 'panel-' + name); });
+}
+function copyPrompt(btn){
+  var pre = btn.parentElement.querySelector('pre');
+  var text = pre.innerText;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){
+      var original = btn.textContent;
+      btn.textContent = '복사됨';
+      btn.classList.add('copied');
+      setTimeout(function(){ btn.textContent = original; btn.classList.remove('copied'); }, 1500);
+    });
+  }
+}
+</script>
+
+</body>
+</html>
