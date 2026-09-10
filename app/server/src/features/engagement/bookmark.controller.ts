@@ -18,6 +18,9 @@ function sendDomainError(res: Response, error: unknown): void {
     res.status(error.status).json(error.body);
     return;
   }
+  // 2026-09-10 추가 — project-management/project.controller.ts와 동일한 이유(그쪽 주석
+  // 참고): 로깅 없이 500만 던지면 서버 콘솔에 흔적이 안 남는다.
+  console.error('[engagement] 예상하지 못한 오류:', error);
   res
     .status(500)
     .json({ error: { code: 'INTERNAL_ERROR', message: '예상하지 못한 오류입니다.', details: null } });
