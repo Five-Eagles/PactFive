@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import './shared/ui/tokens.css';
 import { APP_ROUTES } from './shared/routes';
@@ -9,7 +8,7 @@ import { ComingSoonOverlay } from './shared/ui/ComingSoonOverlay';
 import type { NotYetScreenKey } from './shared/notYetScreens';
 import { Button, EmptyState } from './shared/ui/primitives';
 import { authRoutes, AUTH_ROUTES } from './features/user-management/auth.routes';
-import { useAuth } from './features/user-management/useAuth';
+import { AuthProvider, useAuth } from './features/user-management/useAuth';
 import { DevAuthToggle } from './features/user-management/DevAuthToggle';
 import { captureInitialEmailConfirmation } from './features/user-management/auth.bootstrap';
 import { projectRoutes, PROJECT_ROUTES } from './features/project-management/project.routes';
@@ -89,14 +88,7 @@ function NotFoundPage() {
 function AppRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, restore, logout, login, devLoginAsMock, devLogoutMock } = useAuth();
-
-  // 새로고침 후에도 로그인 상태를 이어간다 — Refresh Token은 HttpOnly 쿠키에 있고
-  // Access Token은 메모리에만 있으므로, 앱이 뜰 때 한 번 복원해야 한다.
-  // 실패는 정상적인 경우다(비로그인). useAuth가 anonymous로 되돌린다.
-  useEffect(() => {
-    void restore().catch(() => undefined);
-  }, [restore]);
+  const { state, logout, login, devLoginAsMock, devLogoutMock } = useAuth();
 
   const viewer = state.status === 'authenticated' ? state.session.user : null;
 
@@ -241,7 +233,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppRoutes />
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </BrowserRouter>
   );
 }
