@@ -11,9 +11,8 @@ import type { CreateReviewInput } from './review.types';
  * `/reviews/me`를 `/reviews`(목록)보다 먼저 등록한다 — 더 구체적인 경로를 앞에 두는 편이
  * 경로 혼동이 없다(지시서 원문).
  *
- * PATCH/PUT/DELETE는 등록하지 않는다(api-contract.md 규칙 4). 405 METHOD_NOT_ALLOWED는
- * 이번 반영 범위 밖이다(지시서 §3 R2 — "급하지 않습니다") — 미등록 메서드는 Express가 404로
- * 떨어뜨리고, 그것도 안전한 기본값이라 별도 405 라우트를 아직 추가하지 않는다.
+ * PATCH/PUT/DELETE는 수정·삭제 API가 아니므로(api-contract.md 규칙 4) 405 METHOD_NOT_ALLOWED
+ * 를 명시한다(R-02 / T25).
  */
 
 function toActor(req: Request): string | undefined {
@@ -34,6 +33,12 @@ function readPageParams(req: Request): { page?: number; pageSize?: number } {
   };
 }
 
+function methodNotAllowed(_req: Request, res: Response): void {
+  res.status(405).json({
+    error: { code: 'METHOD_NOT_ALLOWED', message: '허용되지 않은 메서드입니다.' },
+  });
+}
+
 export function createReviewRouter(
   deps: ReviewServiceDeps,
   middleware: { requireAuth: RequestHandler },
@@ -41,6 +46,14 @@ export function createReviewRouter(
   const router = Router();
   const controller = createReviewController(deps);
   const { requireAuth } = middleware;
+
+  // R-02 — 미지원 메서드는 404가 아니라 405.
+  router.patch('/api/v1/projects/:projectId/reviews', methodNotAllowed);
+  router.put('/api/v1/projects/:projectId/reviews', methodNotAllowed);
+  router.delete('/api/v1/projects/:projectId/reviews', methodNotAllowed);
+  router.patch('/api/v1/projects/:projectId/reviews/me', methodNotAllowed);
+  router.put('/api/v1/projects/:projectId/reviews/me', methodNotAllowed);
+  router.delete('/api/v1/projects/:projectId/reviews/me', methodNotAllowed);
 
   router.post('/api/v1/projects/:projectId/reviews', requireAuth, async (req: Request, res: Response) => {
     const { httpStatus, body } = await controller.createReview(

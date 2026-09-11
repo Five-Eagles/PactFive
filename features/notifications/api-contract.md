@@ -1,7 +1,10 @@
 # notifications — API 계약
 
 상태: 2026-09-08 회의상 API 4종 진행 승인. 공유 API 정본 및 `app/` 실제 반영은 별도.
-관련 규칙: `spec.md` 1–20. Base path `/api/v1/notifications`.
+관련 규칙: `spec.md` 1–21. Base path `/api/v1/notifications`.
+
+2026-09-10 식별자 호환성 수정안: 아래 40자 수용은 CR-0013의 DB 확장 결정에 맞춘
+담당 원본의 통합 검토안이다. 알림 API 공유 정본의 승인·배포 완료와 구분한다.
 
 ## 공통
 
@@ -13,6 +16,12 @@
   남의 알림/없는 알림 동일 404 `NOTIFICATION_NOT_FOUND`, 저장 실패 500 `INTERNAL_ERROR`.
 - 에러 형식: `{ "error": { "code": "UNAUTHORIZED", "message": "로그인이 필요합니다." } }`.
   내부 오류·토큰·수신자 존재 여부를 응답에 포함하지 않는다.
+- 식별자 형식: 1~40자, 첫 글자 `[A-Za-z0-9]`, 이후 `[A-Za-z0-9_-]`.
+  인증 userId, 알림 id, resourceId, 내부 사건의 사용자/프로젝트/지원 ID에 동일 적용한다.
+  `/projects/:projectId` 링크는 같은 ID 형식만 허용하고 query/fragment/인코딩 우회는 받지 않는다.
+  30자 이하 기존 ID와 36~38자 현재 생성 ID를 그대로 보존하며 새로운 ID 생성 형식을 강제하지 않는다.
+  잘못된 인증 ID는 401, 잘못된 개별 읽음 ID는 400, 잘못된 저장 DTO는 500,
+  웹에서 잘못된 응답은 502 `INVALID_RESPONSE`다. `resourceType`은 nullable·최대 30자 유지.
 
 ## GET /api/v1/notifications
 
@@ -83,7 +92,7 @@
 | PROJECT_RECRUITMENT_CLOSED | closureEventId, recipientIds | 원천이 확정한 마감 수신자 스냅샷 |
 | PROJECT_CANCELED | closureEventId, pendingFreelancerIds, acceptedFreelancerId (nullable) | 대기+선정 합집합 |
 
-수신자 ID와 리소스 ID는 서버 검증된 1–30자 식별자다. 공백/경로 구분자는 허용하지 않는다.
+수신자 ID와 리소스 ID는 서버 검증된 위 1–40자 식별자다. 공백/경로 구분자는 허용하지 않는다.
 eventId/closureEventId는 안정적인 1–120자 키다. closure 종류는 closureEventId가 dedupe 원천이다.
 `publishEvent(input)`는 `{ createdCount, duplicateCount }`를 반환하며 잘못된 입력은 거부한다.
 `deliverNotificationEventSafely(input)`는 성공 시 `{ status: "delivered", createdCount, duplicateCount }`,
@@ -174,5 +183,5 @@ const notificationApi = createNotificationApi({
 - `/notifications` placeholder/ComingSoonOverlay를 기능 라우트로 교체하고 등록 정본 및
   로그인 returnTo 허용 경로는 팀장이 검토한다. 화면 표현 재설계는 이번 변경 범위가 아니다.
 
-원천별 최신 조립 위치, ID 36자/30자 충돌, 아직 승인되지 않은 마감 수신자 정책과 운영 ACK는
+원천별 최신 조립 위치, ID 호환성 수정안과 app 잔여 충돌, 미확정 마감 수신자 정책과 운영 ACK는
 `change-requests/CR-0001-notifications-integration.md`를 따른다.

@@ -69,17 +69,32 @@ function blockedReason(action: string, project: ClientProjectDetail): string | u
   return undefined;
 }
 
-/** 시안의 `.row__sub` — "5,000,000원 · 지원 3건 · 마감 5일 전" */
+/**
+ * 시안의 `.row__sub` — "5,000,000원 · 지원 3건 · 마감 5일 전"
+ *
+ * 2026-09-10 QA 로 두 곳을 고쳤다.
+ *
+ * "지원 N건"은 **누적**이다(`applicationCount`). 전에는 대기 수를 썼는데, 그러면 지원을
+ * 받고 마감한 프로젝트가 "지원 0건"으로 보인다 — 아무도 지원하지 않은 것처럼 읽힌다.
+ * 공개 상세의 "지원 현황"도 누적을 쓴다. 두 화면이 같은 말을 해야 한다.
+ *
+ * 마감된 프로젝트에 "협상이 끝났으나 마감일이 지났습니다"를 붙이지 않는다. 그 문구는
+ * 시안에서 **협상 결렬 뒤 복귀한 카드** 하나를 위한 것이었는데, 조건이 "재모집 가능"이라
+ * 그냥 마감한 프로젝트에도 전부 붙었다. 데이터로는 협상이 있었는지 알 수 없으므로
+ * 어느 경우에나 참인 말만 한다.
+ */
 function summaryOf(project: ClientProjectDetail): string {
   const parts = [`${project.budgetAmount.toLocaleString('ko-KR')}원`];
-  parts.push(`지원 ${project.pendingApplicationCount}건`);
+  parts.push(`지원 ${project.applicationCount}건`);
+
+  const deadlinePassed = new Date(project.recruitmentDeadlineAt).getTime() <= Date.now();
 
   if (project.transactionStatus === 'CONTRACT_PENDING') {
     parts.push('선정된 프리랜서와 금액 합의 중');
   } else if (project.canceledAt !== null) {
     parts.push('취소된 프로젝트입니다');
-  } else if (project.availableActions.includes('REOPEN_RECRUITMENT')) {
-    parts.push('협상이 끝났으나 마감일이 지났습니다');
+  } else if (project.recruitmentStatus === 'CLOSED') {
+    parts.push(deadlinePassed ? '마감일이 지났습니다' : '모집을 마감했습니다');
   } else {
     const days = Math.ceil(
       (new Date(project.recruitmentDeadlineAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000),

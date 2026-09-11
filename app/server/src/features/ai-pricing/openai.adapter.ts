@@ -224,20 +224,42 @@ export class OpenAIPricingAnalyzer implements PricingAnalyzerPort {
         }),
       });
       if (!response.ok) {
-        await response.body?.cancel().catch(() => undefined);
+        // 2026-09-10 추가 — 원래 여기서 상태 코드·응답 본문을 전부 버리고 "UNAVAILABLE"만
+        // 던졌다. 그래서 키가 틀렸는지(401), 모델명이 잘못됐는지(404/400), 한도 초과인지
+        // (429), OpenAI 쪽 장애인지(5xx) 서버 콘솔에서 전혀 구분이 안 됐다 — 클라이언트에도
+        // 502만 내려가고 원인은 완전히 사라졌다. API 키는 절대 로그에 남기지 않고, 응답
+        // 본문(에러 메시지)만 잘라서 남긴다.
+        const bodyText = await response.text().catch(() => '(본문 읽기 실패)');
+        console.error(
+          `[ai-pricing] OpenAI 응답 실패 — status=${response.status} ${response.statusText} model=${this.model} body=${bodyText.slice(0, 500)}`,
+        );
         throw new PricingAnalyzerError("UNAVAILABLE");
       }
       const payload = await readBoundedJson(response);
       const outputText = extractCompletedOutputText(payload);
-      if (!outputText) throw new PricingAnalyzerError("INVALID_RESPONSE");
+      if (!outputText) {
+        console.error(
+          `[ai-pricing] OpenAI 응답에서 결과 텍스트를 못 찾음 — model=${this.model} payload=${JSON.stringify(payload).slice(0, 500)}`,
+        );
+        throw new PricingAnalyzerError("INVALID_RESPONSE");
+      }
       try {
         return JSON.parse(outputText) as unknown;
-      } catch {
+      } catch (parseError) {
+        console.error(
+          `[ai-pricing] OpenAI 결과 텍스트 JSON 파싱 실패 — model=${this.model} outputText=${outputText.slice(0, 500)} error=${String(parseError)}`,
+        );
         throw new PricingAnalyzerError("INVALID_RESPONSE");
       }
     } catch (error) {
       if (error instanceof PricingAnalyzerError) throw error;
-      if (controller.signal.aborted) throw new PricingAnalyzerError("TIMEOUT");
+      if (controller.signal.aborted) {
+        console.error(`[ai-pricing] OpenAI 호출 타임아웃(${this.timeoutMs}ms) — model=${this.model}`);
+        throw new PricingAnalyzerError("TIMEOUT");
+      }
+      // fetch 자체가 던진 에러(네트워크 오류, DNS 실패 등) — 지금까지는 이것도 그냥
+      // "UNAVAILABLE"로 뭉개고 원본 error를 버렸다.
+      console.error(`[ai-pricing] OpenAI 호출 중 예외 — model=${this.model}`, error);
       throw new PricingAnalyzerError("UNAVAILABLE");
     } finally {
       clearTimeout(timeout);

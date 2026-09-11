@@ -10,12 +10,9 @@
  * 지원(`applications`) 자기 자신의 행·멱등·closure·operation·상태 이력만 갖는다.
  *
  * PR #83 이식 범위 — 2026-09-07 대화, RW 결정("카운트 제외하고 나머지만 먼저")에 따라
- * 두 가지를 이번 반영에서 뺐다:
- * 1. `applicationCount`/`pendingApplicationCount` 쓰기 — CR-AP-001(조준영→project-management
- *    유동우)이 아직 승인 대기 중이라, project-management 쪽에 그 카운트를 받아 쓸 포트가
- *    없다. `ProjectApplicationContext`에 두 필드를 추가하지 않는다 — 원본 스토어에는
- *    있지만 app/은 읽지도 쓰지도 않는다. CR-AP-001이 머지되면 이 타입과
- *    `project-application-context.adapter.ts`를 함께 갱신한다.
+ * 프로필 완성도 강제만 이번에도 생략한다. **지원 건수 쓰기(CR-AP-001)는 2026-09-10에
+ * `bumpApplicationCounts` 호출을 연결했다**(create +1/+1, 개별 거절 pending -1).
+ * 1. ~~`applicationCount`/`pendingApplicationCount` 쓰기~~ — 포트 연결 완료(2026-09-10)
  * 2. 프로필 완성도 강제(`ProfileCompletionPort`/`PROFILE_INCOMPLETE`) — user-management에
  *    아직 프로필 관련 코드가 전혀 없다(인증만 있음). 원본 포트 자신의 주석이 "기본 COMPLETE
  *    우회 금지"라고 못박아 뒀으므로, 가짜 어댑터를 만들어 항상 COMPLETE를 반환하게 하는
@@ -235,6 +232,7 @@ export type ApplicationRow = {
 export type ProjectApplicationContext = {
   projectId: string;
   clientId: string;
+  title: string;
   recruitmentStatus: RecruitmentStatus;
   transactionStatus: ProjectTransactionStatus;
   acceptedApplicationId: string | null;

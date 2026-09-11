@@ -91,7 +91,13 @@ export function ProjectDetailPage({
           </h1>
           <p className="caption" style={{ margin: '0 0 20px' }}>
             {data.category.displayName} ·{' '}
-            <DeadlineIndicator deadlineAt={data.recruitmentDeadlineAt} compact />
+            {/* 마감된 프로젝트에 "마감 N일 전"을 붙이지 않는다. 일찍 마감하면 마감일이 아직
+                미래라, 배지는 "모집 마감"인데 옆에서 "마감 15일 전"이라고 말하게 된다 (2026-09-10 QA) */}
+            {data.recruitmentStatus === 'CLOSED' ? (
+              <span>모집 마감</span>
+            ) : (
+              <DeadlineIndicator deadlineAt={data.recruitmentDeadlineAt} compact />
+            )}
           </p>
 
           <div className="card" style={{ marginBottom: 20 }}>
@@ -123,7 +129,12 @@ export function ProjectDetailPage({
             </div>
             <div className="kv">
               <span className="kv__k">지원 현황</span>
-              <span>지원 {data.applicationCount}건</span>
+              <span>
+                지원 {data.applicationCount}건
+                {mine && data.pendingApplicationCount > 0
+                  ? ` · 대기 ${data.pendingApplicationCount}건`
+                  : ''}
+              </span>
             </div>
           </div>
         </div>
@@ -137,7 +148,11 @@ export function ProjectDetailPage({
               {data.client.companyName ?? data.client.name}
             </p>
             <p className="caption" style={{ margin: 0 }}>
-              평점 {data.client.averageRating} · 리뷰 {data.client.reviewCount}건
+              {/* 리뷰가 없으면 "평점 0"이 아니라 "평가 없음"이다. 0 은 "나쁘다"로 읽히고,
+                  "아직 없다"와 다르다 (2026-09-10 QA · engagement 규칙 28 과 같은 원칙) */}
+              {data.client.reviewCount > 0
+                ? `평점 ${data.client.averageRating} · 리뷰 ${data.client.reviewCount}건`
+                : '평가 없음 · 리뷰 0건'}
             </p>
           </div>
 
@@ -160,9 +175,12 @@ export function ProjectDetailPage({
                 </span>
                 {renderBookmark?.(data.projectId)}
               </div>
-              <p className="caption" style={{ textAlign: 'center', margin: 0 }}>
-                지원서는 의뢰인에게 바로 전달됩니다
-              </p>
+              {/* 지원할 수 없는 프로젝트에서 "지원서는 바로 전달됩니다"는 거짓 안내다 (2026-09-10 QA) */}
+              {data.canApply !== false && (
+                <p className="caption" style={{ textAlign: 'center', margin: 0 }}>
+                  지원서는 의뢰인에게 바로 전달됩니다
+                </p>
+              )}
             </>
           )}
         </aside>

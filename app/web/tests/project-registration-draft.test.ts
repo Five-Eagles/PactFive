@@ -29,7 +29,8 @@ test('AI 복귀 → 초안 → 등록 요청이 동일 분석 ID를 전달한다
     description: draft.description,
     category: draft.category,
     recruitmentStartAt: null,
-    recruitmentDeadlineAt: '2026-10-01T23:59:59.000Z',
+    // 입력 날짜는 KST 기준 하루의 끝으로 저장하므로 UTC에서는 14:59:59가 된다.
+    recruitmentDeadlineAt: '2026-10-01T14:59:59.000Z',
     budgetAmount: 5000000,
     skillIds: ['REACT'],
     pricingAnalysisId: 'analysis-test-1',

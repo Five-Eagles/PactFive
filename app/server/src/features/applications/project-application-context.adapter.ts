@@ -29,6 +29,7 @@ export type ProjectContractServiceDelegate = {
   getProjectNegotiationContext(projectId: string): Promise<{
     projectId: string;
     clientId: string;
+    title: string;
     recruitmentStatus: ProjectApplicationContext['recruitmentStatus'];
     transactionStatus: ProjectApplicationContext['transactionStatus'];
     acceptedApplicationId: string | null;
@@ -60,6 +61,7 @@ export function createProjectApplicationContextAdapter(
         return {
           projectId: context.projectId,
           clientId: context.clientId,
+          title: context.title,
           recruitmentStatus: context.recruitmentStatus,
           transactionStatus: context.transactionStatus,
           acceptedApplicationId: context.acceptedApplicationId,

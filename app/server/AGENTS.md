@@ -4,6 +4,10 @@
 지침(권한·통합 절차)은 `app/AGENTS.md` 참고. 아키텍처 결정 근거는
 `docs/decisions/0007-backend-serverless-architecture.md`.
 
+**Prisma 리포지토리 패턴·컨트롤러 에러 처리 관례·로컬 시드 도구 체인·알려진 함정은
+`sdd-framework/backend-integration-notes.md` 참고 (2026-09-10 추가) — 이 파일은 배포 아키텍처만
+다루고, 그 문서가 "포팅 이후 단계"의 실전 패턴을 다룬다.**
+
 ## 배포 아키텍처 (2026-09-07 최종 확정 — Express zero-config + 이름 회피)
 
 Express `app`은 순수 모듈로 작성한다 (`app.listen()`을 이 파일 안에서 호출하지 않는다).

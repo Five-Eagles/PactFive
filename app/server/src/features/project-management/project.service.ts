@@ -274,6 +274,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       description: p.description,
       recruitmentStartAt: p.recruitmentStartAt,
       transactionStatus: p.transactionStatus,
+      acceptedApplicationId: p.acceptedApplicationId,
       budgetSource: p.budgetSource,
       budgetSourceAt: p.budgetSourceAt,
       pendingApplicationCount: p.pendingApplicationCount,

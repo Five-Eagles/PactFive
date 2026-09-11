@@ -2,12 +2,13 @@ import { http } from '../../../shared/http';
 import type {
   CreateReviewInput,
   CreateReviewResponse,
+  GetMyProjectReviewResponse,
   GetUserRatingResponse,
   ListProjectReviewsResponse,
 } from '../review.types';
 
 /**
- * reviews 공개 API 3종. 전부 `shared/http.ts`를 거친다(app/web/AGENTS.md "폴더 간 접점").
+ * reviews 공개 API. 전부 `shared/http.ts`를 거친다(app/web/AGENTS.md "폴더 간 접점").
  * 경로는 `features/reviews/api-contract.md`가 고정한 값 그대로다.
  */
 
@@ -23,6 +24,10 @@ export function createReview(
 
 export function fetchProjectReviews(projectId: string): Promise<ListProjectReviewsResponse> {
   return http.get<ListProjectReviewsResponse>(`/v1/projects/${encodeURIComponent(projectId)}/reviews`);
+}
+
+export function fetchMyProjectReview(projectId: string): Promise<GetMyProjectReviewResponse> {
+  return http.get<GetMyProjectReviewResponse>(`/v1/projects/${encodeURIComponent(projectId)}/reviews/me`);
 }
 
 // review-summary → rating 경로 변경 (이식 지시서 §3).

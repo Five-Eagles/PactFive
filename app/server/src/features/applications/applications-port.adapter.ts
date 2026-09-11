@@ -4,6 +4,8 @@ import type {
   RejectPendingApplicationsResult,
 } from './application.types';
 
+type RestoreAcceptedApplicationResult = { changed: boolean; result: 'DONE' | 'NOT_NEEDED' | 'FAILED' };
+
 /**
  * project-management가 호출하는 포트(`ApplicationsPort.rejectPendingApplications`,
  * project.port.ts) 구현 — 반대 방향 delegate다. 모집 마감·프로젝트 취소 시 대기 지원을
@@ -73,6 +75,42 @@ export function createApplicationsPortAdapter(
       };
       await repository.setClosure(input.closureEventId, done);
       return done;
+    },
+
+    async restoreAcceptedApplication(
+      projectId: string,
+      input: { applicationId: string; occurredAt: string },
+    ): Promise<RestoreAcceptedApplicationResult> {
+      const row = await repository.getApplication(input.applicationId);
+      if (!row || row.projectId !== projectId) return { changed: false, result: 'FAILED' };
+      if (row.status === 'REJECTED' && row.rejectionType === 'AGREEMENT_DECLINED') {
+        return { changed: false, result: 'NOT_NEEDED' };
+      }
+      if (row.status !== 'ACCEPTED') return { changed: false, result: 'FAILED' };
+      await repository.saveApplication({
+        ...row,
+        status: 'REJECTED',
+        rejectionType: 'AGREEMENT_DECLINED',
+        decidedAt: input.occurredAt,
+      });
+      await repository.appendStateEvent({
+        applicationId: row.applicationId,
+        fromStatus: 'ACCEPTED',
+        toStatus: 'REJECTED',
+        rejectionType: 'AGREEMENT_DECLINED',
+        at: input.occurredAt,
+      });
+      try {
+        await notifications.publish({
+          type: 'APPLICATION_REJECTED',
+          projectId,
+          applicationId: row.applicationId,
+          occurredAt: input.occurredAt,
+        });
+      } catch {
+        // 지원 상태 복구는 알림 실패와 분리한다.
+      }
+      return { changed: true, result: 'DONE' };
     },
   };
 }

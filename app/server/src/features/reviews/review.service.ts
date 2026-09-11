@@ -77,7 +77,13 @@ function bodyHash(input: CreateReviewInput, content: string | null): string {
  * undefined는 통과(본문 없는 리뷰 허용)하고, 정의된 값은 trim 후 1~1,000자가 아니면 422다
  * — 공백만 있는 문자열은 trim 후 0자라 422다. */
 function normalizeContent(raw: string | undefined): string | null {
+  // T27 — 숫자·null·객체는 trim TypeError 대신 422.
   if (raw === undefined) return null;
+  if (typeof raw !== 'string') {
+    throw new ReviewApiError('REVIEW_CONTENT_INVALID', '리뷰 내용이 올바르지 않습니다.', [
+      { field: 'content', reason: 'invalid' },
+    ]);
+  }
   const trimmed = raw.trim();
   if (trimmed.length < 1 || trimmed.length > 1000) {
     throw new ReviewApiError('REVIEW_CONTENT_INVALID', '리뷰 내용이 올바르지 않습니다.', [
@@ -249,13 +255,16 @@ export async function createReview(
     if (cached.bodyHash !== hash) {
       throw new ReviewApiError('IDEMPOTENCY_KEY_REUSED', '같은 요청 키로 다른 내용을 보낼 수 없습니다.');
     }
+    // T28 — 멱등 히트여도 공개 marker·평점 후처리가 안 끝났으면 다시 돌린다.
+    await publishNewlyPublic(deps, projectId);
     const row = await deps.repository.getReview(cached.reviewId);
     if (!row) {
       throw new ReviewApiError('PROJECT_NOT_FOUND', '리뷰를 찾을 수 없습니다.');
     }
+    const siblingsAfter = await deps.repository.getReviewsByProject(projectId);
     return {
       httpStatus: 200,
-      body: toCreateBody(row, isReviewPublic(row, siblings, nowIso, window)),
+      body: toCreateBody(row, isReviewPublic(row, siblingsAfter, deps.now(), window)),
     };
   }
 
@@ -302,10 +311,13 @@ export async function listProjectReviews(
 ): Promise<ListProjectReviewsResponse> {
   const actor = requireActor(actorUserId);
   const project = await requireProject(deps, projectId);
+  // T29 — 단독 공개 기한이 지난 뒤 조회 시에도 평점 후처리를 수렴시킨다.
+  await ensureWindowIfCompleted(deps, project);
+  await publishNewlyPublic(deps, projectId);
   // 비당사자는 공개분만, 당사자는 본인 미공개 행도 본다.
   const siblings = await deps.repository.getReviewsByProject(projectId);
   const nowIso = deps.now();
-  const window = await ensureWindowIfCompleted(deps, project);
+  const window = await deps.repository.getWindow(projectId);
   const isParty = actor === project.clientId || actor === project.freelancerId;
   const items = siblings
     .map((row) => {
@@ -353,6 +365,7 @@ export async function getMyProjectReview(
     canReview: reason === null,
     reason,
     reviewDeadlineAt: reviewDeadlineAt(window),
+    myDirection: direction,
     myReview: mine ? toCreateBody(mine, isReviewPublic(mine, siblings, nowIso, window)) : null,
     counterpartyReviewVisibility: counterpartPublic ? 'PUBLISHED' : 'NOT_AVAILABLE',
   };
@@ -394,6 +407,14 @@ export async function getUserRating(
   requireActor(actorUserId);
   if (!(await deps.userExistsPort.userExists(userId))) {
     throw new ReviewApiError('USER_NOT_FOUND', '사용자를 찾을 수 없습니다.');
+  }
+  // T29 — 평점 조회 전에 공개 미표시 행의 consumer를 수렴시킨다.
+  const projectIds = new Set<string>();
+  for (const row of await deps.repository.getAllReviews()) {
+    if (row.revieweeId === userId || row.reviewerId === userId) projectIds.add(row.projectId);
+  }
+  for (const projectId of projectIds) {
+    await publishNewlyPublic(deps, projectId);
   }
   // 평균은 공개분 합계에서 나누고 users 캐시는 읽지 않는다.
   const { ratingSum, reviewCount } = await getPublishedRatingAggregate(deps, userId);

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { AcceptProjectApplicationDelegate } from './application.types';
 import {
   ACCEPT_IDEMPOTENCY_PREFIX,
@@ -52,9 +53,10 @@ import {
  *    `AcceptProjectApplicationDelegate`(requestId·idempotencyKey·occurredAt·actorUserId까지
  *    전달, accept-project-application.adapter.ts)를 갖고 있어 그대로 쓴다 — outbox 이후
  *    단계(잔여 거절·알림·손잡이 확인)만 원본 로직을 옮긴다.
- * 3. 프로필 완성도 검사(`requireProfile`/`PROFILE_INCOMPLETE`)와 카운트 쓰기
- *    (`saveProject({ applicationCount, pendingApplicationCount })`)는 뺐다 — 이유는
- *    application.types.ts 헤더 주석 1·2번 항목 참고(둘 다 아직 없는 외부 포트에 의존한다).
+ * 3. 프로필 완성도 검사(`requireProfile`/`PROFILE_INCOMPLETE`)는 뺐다 — user-management의
+ *    완료도 포트가 아직 통합되지 않았기 때문이다. 지원 건수 쓰기는 PR #106에서
+ *    `ProjectApplicationContextPort.bumpApplicationCounts`가 열렸으므로 app/ 통합 경로에서
+ *    호출한다.
  *
  * 그 외 검증 순서·오류 코드·멱등 판정·outbox 단계는 원본 그대로다.
  */
@@ -177,12 +179,23 @@ function parseCreateInput(input: CreateApplicationBody): CreateApplicationInput 
   };
 }
 
+/**
+ * 2026-09-10 수정 — 원래 이 함수가 JSON.stringify 결과를 그대로 돌려주고 있었다. 이름은
+ * "hash"인데 실제로는 해시가 아니었던 것 — 결과물이 Prisma의 ApplicationIdempotencyKey.bodyHash
+ * 컬럼(schema.prisma, @db.VarChar(64))에 그대로 들어가는데, coverLetter 최소 길이만 100자라
+ * (application.constants.ts COVER_LETTER_MIN) JSON 문자열은 사실상 항상 64자를 넘는다.
+ * 실제로 로컬에서 지원 생성 요청에 Idempotency-Key를 실어 보내자 Postgres가
+ * "value too long for type character varying(64)"(22001)로 거부했고, 이 예외가 컨트롤러
+ * 밖으로 새 나가 서버 프로세스 전체가 죽었다(아래 toHttp() 주석 참고). 지금은 SHA-256
+ * hex digest(정확히 64자)를 저장한다 — 멱등 비교 목적에는 원문 대신 해시로 충분하다.
+ */
 function bodyHash(input: CreateApplicationInput): string {
-  return JSON.stringify({
+  const raw = JSON.stringify({
     coverLetter: input.coverLetter,
     expectedAmount: input.expectedAmount,
     expectedDurationDays: input.expectedDurationDays,
   });
+  return createHash('sha256').update(raw).digest('hex');
 }
 
 function toItem(row: ApplicationRow): CreateApplicationResult['body'] {
@@ -385,9 +398,13 @@ export async function getApplicationEligibility(
   deps: ApplicationServiceDeps,
   projectId: string,
   actorUserId: string | undefined,
+  actorRole?: 'CLIENT' | 'FREELANCER',
 ): Promise<EligibilityResponse> {
   const actor = requireActor(actorUserId);
   const project = await requireProject(deps, projectId);
+  if (actorRole === 'CLIENT') {
+    throw new ApplicationApiError('PROJECT_FORBIDDEN', '프리랜서만 지원할 수 있습니다.');
+  }
   if (actor === project.clientId) {
     throw new ApplicationApiError('PROJECT_FORBIDDEN', '이 프로젝트에 대한 권한이 없습니다.');
   }
@@ -415,8 +432,12 @@ export async function createApplication(
   actorUserId: string | undefined,
   input: CreateApplicationBody,
   idempotencyKey: string | undefined,
+  actorRole?: 'CLIENT' | 'FREELANCER',
 ): Promise<CreateApplicationResult> {
   const actor = requireActor(actorUserId);
+  if (actorRole === 'CLIENT') {
+    throw new ApplicationApiError('PROJECT_FORBIDDEN', '프리랜서만 지원할 수 있습니다.');
+  }
   // 허용 필드·범위부터 검사하고 모집 상태는 그 다음에 본다.
   assertCreateAllowlist(input);
   const parsed = parseCreateInput(input);
@@ -428,15 +449,20 @@ export async function createApplication(
   if (project.recruitmentStatus !== 'OPEN') {
     throw new ApplicationApiError('PROJECT_TRANSITION_CONFLICT', '모집이 마감되었습니다.');
   }
-  if (idempotencyKey) {
-    const cached = await deps.repository.getIdempotency(idempotencyKey);
-    if (cached) {
-      if (cached.bodyHash !== bodyHash(parsed)) {
-        throw new ApplicationApiError('APPLICATION_ALREADY_EXISTS', '이미 지원한 프로젝트입니다.');
-      }
-      const existing = await deps.repository.getApplication(cached.applicationId);
-      if (existing) return { httpStatus: 200, body: toItem(existing) };
+  // A-04 — Idempotency-Key 필수, 사용자·프로젝트로 격리.
+  if (!idempotencyKey) {
+    throw new ApplicationApiError('VALIDATION_ERROR', 'Idempotency-Key가 필요합니다.', [
+      { field: 'Idempotency-Key', reason: 'required' },
+    ]);
+  }
+  const scopedKey = `${projectId}:${actor}:${idempotencyKey}`;
+  const cached = await deps.repository.getIdempotency(scopedKey);
+  if (cached) {
+    if (cached.bodyHash !== bodyHash(parsed)) {
+      throw new ApplicationApiError('APPLICATION_ALREADY_EXISTS', '이미 지원한 프로젝트입니다.');
     }
+    const existing = await deps.repository.getApplication(cached.applicationId);
+    if (existing) return { httpStatus: 200, body: toItem(existing) };
   }
   const duplicate = await deps.repository.findByProjectFreelancer(projectId, actor);
   if (duplicate) {
@@ -457,9 +483,16 @@ export async function createApplication(
   };
   await deps.repository.insertApplication(row);
   await recordTransition(deps.repository, row, null, nowIso);
-  // 누적·대기 카운트 증가는 이번 반영에서 빠졌다 — application.types.ts 헤더 주석 1번 항목
-  // (CR-AP-001 승인 대기, project-management 쪽 쓰기 포트 미존재).
-  if (idempotencyKey) await deps.repository.setIdempotency(idempotencyKey, bodyHash(parsed), row.applicationId);
+  // A-03 — CR-AP-001 포트로 누적·대기 카운트를 올린다. 실패해도 지원 자체는 유지한다.
+  try {
+    await deps.projectContext.bumpApplicationCounts(projectId, {
+      applicationCount: 1,
+      pendingApplicationCount: 1,
+    });
+  } catch {
+    // 카운트 드리프트는 운영 재대조로 맞춘다 — 지원 INSERT를 롤백하지 않는다.
+  }
+  await deps.repository.setIdempotency(scopedKey, bodyHash(parsed), row.applicationId);
   await publish(deps, {
     type: 'APPLICATION_SUBMITTED',
     projectId,
@@ -590,6 +623,9 @@ export async function acceptApplication(
   if (project.acceptedApplicationId && project.acceptedApplicationId !== applicationId) {
     throw new ApplicationApiError('PROJECT_TRANSITION_CONFLICT', '다른 지원자가 먼저 수락되었습니다');
   }
+  if (row.status !== 'PENDING') {
+    throw new ApplicationApiError('PROJECT_TRANSITION_CONFLICT', '대기 중인 지원만 수락할 수 있습니다.');
+  }
   if (project.recruitmentStatus !== 'OPEN' || project.transactionStatus !== 'NONE') {
     throw new ApplicationApiError('PROJECT_TRANSITION_CONFLICT', '다른 지원자가 먼저 수락되었습니다');
   }
@@ -666,7 +702,12 @@ export async function rejectApplication(
   const rejected: ApplicationRow = { ...row, status: 'REJECTED', rejectionType: 'DIRECT', decidedAt: nowIso };
   await deps.repository.saveApplication(rejected);
   await recordTransition(deps.repository, rejected, 'PENDING', nowIso);
-  // 대기 카운트 감소는 이번 반영에서 빠졌다 — application.types.ts 헤더 주석 1번 항목.
+  // A-03 — 개별 거절은 대기 건수만 -1 (CR-AP-001). 수락·일괄 거절은 PM이 0으로 맞춘다.
+  try {
+    await deps.projectContext.bumpApplicationCounts(row.projectId, { pendingApplicationCount: -1 });
+  } catch {
+    // 카운트 드리프트는 운영 재대조로 맞춘다.
+  }
 
   const operation: ApplicationOperation = {
     operationId: await deps.repository.nextOperationId(),

@@ -419,6 +419,13 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       projectVersion: p.projectVersion + 1,
     });
 
+    if (p.acceptedApplicationId && ports.applications.restoreAcceptedApplication) {
+      await ports.applications.restoreAcceptedApplication(projectId, {
+        applicationId: p.acceptedApplicationId,
+        occurredAt: at,
+      });
+    }
+
     const result: RestorePreContractResult = {
       projectId,
       negotiationId: input.negotiationId,

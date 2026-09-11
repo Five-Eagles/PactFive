@@ -9,6 +9,63 @@ affected_features: [notifications, applications, project-management, contracts-p
 
 # 스펙 변경 신청
 
+## 2026-09-10 ID 호환성 후속 — 담당 원본 수정안 / 팀장 검토 요청
+
+기준: develop `5278c58`을 `fix/owner-qa-handoff`에 동기화. **FACT:**
+`features/project-management/change-requests/0013-generated-ids-exceed-varchar-30.md`와
+`feedback_loop/2026-09-09/project-management-cr-0013-id-length.md`에서 팀장은 ID를 줄이지 않고
+PK/FK를 40자로 확장하는 안을 채택했다. Notification의 id/recipientId/resourceId도 해당한다.
+`resourceType`은 명시적으로 30자를 유지한 예외다. 실제 DB 마이그레이션은 해당 기록에서 미검증이다.
+
+**수정안:** DB 확장 결정에 맞춰 알림 담당 원본의 식별자/프로젝트 링크 수용 길이만 30→40으로
+보정한다(spec 규칙21, API 계약 공통). 엔드포인트·DTO 필드·문구·종류·기존 생성기·dedupe 방식은
+변경하지 않는다. 41자 이상과 기존 불허 문자는 계속 거부하고 resourceType30/eventId120은 유지한다.
+**알림 API40 공유 승인 완료라고 해석하지 않는다.** app/공유 문서/배포 DB 변경은 이 PR에 없다.
+
+| 팀장 검토·이식 항목 | 원본/대상 | 완료 조건 |
+|---|---|---|
+| API40 수정안 채택 여부 | 이 spec 규칙21 + api-contract 공통 → 공유 API 사본 | 허용 ID 범위·기존 ID 보존·resourceType30·사건 키120에 동의 또는 대안 회신 |
+| 서버 길이/링크 검증 | prototype/server/notification.service.ts → app 동명 서비스 | 기존 app의 제어문자 검사와 DB adapter를 유지하고 ID/링크 길이만 반영 |
+| 웹 DTO/읽음 ID/링크 검증 | prototype/web/api/notifications.ts → app 웹 API | 공용 HTTP/ApiError 연결을 보존. resourceType은 ID와 함께40으로 늘리지 않음 |
+| 배포 전 정합성 | CR-0013 migration + 실제 DB + 원천 port | DB40 적용 확인 후 36/38/40 ID 사건→목록→읽음→링크 및 타인404 검증 |
+
+**팀장에게 전달할 요청:**
+
+> 알림 DB ID 컬럼40 확장(CR-0013)은 반영됐지만 서비스·웹 검증은30이라 실제36자 프로젝트
+> 알림을 거부합니다. 담당 원본에 40자 호환 수정안과 경계/HTTP 왕복 회귀를 준비했습니다.
+> API40 수용안을 검토해 주시고, 승인 시 app 서버·웹 검증과 원천 delivery 연결, 헤더·목록
+> 단일 snapshot 연결을 부탁드립니다. 로그인 공유 상태 수정도 같은 브랜치에 있습니다.
+> 실제 수신 QA는 배포 후 전용 사건·수신자로 재실행하겠습니다. AI 정상 견적은 마지막 확인에서
+> 503 PRICING_ANALYZER_UNAVAILABLE였으므로 분석기 설정 확인도 부탁드립니다.
+
+다음 절의 “ID 정책 결정/원본30”은 이 수정안을 만들기 전 배포 QA 기록이다. 현재 원본 제안과
+미수정 app을 구분한다. 실제 수신·마감 정책·worker·10분 SLA가 해결되지 않았으므로 이 CR의
+전체 상태 및 기존 feedback 상태를 종결하지 않는다.
+
+## 2026-09-10 실제 배포 QA 후 통합 인계
+
+최신 develop `38ab13c`에는 app 알림 조회/읽음 API와 화면이 존재한다. 아래 과거의
+“브랜치 준비, develop merge 아직”은 9/9 작성 당시 이력이다. 단, 현재 소스의 존재를
+운영 수신 완료로 해석하지 않는다. 실제 배포 QA와 HTTP/문구는 `../test-report.md`의 9/10 절.
+
+| 우선순위 / 조치 담당 | 확인 근거 | 필요한 조치·완료 조건 |
+|---|---|---|
+| P1 · 팀장 + applications/project-management | `app/server/src/express-app.ts`에서 notifications.delivery 미사용, applications에는 InMemoryApplicationNotificationPort 주입. seed 계정 10개 실제 목록 모두 0건 | 정규화 사건을 영속 알림 port에 연결. eventId/closureEventId·projectTitle·상태 변경 전 수신자 스냅샷을 보존하고 delivery 결과에 따라 재시도/ACK. 메모리 수집 성공을 알림 저장 성공으로 보지 않음 |
+| P1 · 팀장 + 원천/notifications 담당 | DB Notification id/recipientId/resourceId는 varchar(40), 프로젝트 기본 생성기는 36자. 알림 서비스와 웹 ID·linkUrl validator는 최대 30자 | 공유 ID 정책을 확정해 원본 계약/검증·app 서버/웹을 같이 맞춤. 기존 36자 사용자/프로젝트를 포함한 생성→목록→링크→읽음 회귀 필요. 기존 데이터를 임의 재작성하지 않음 |
+| P1 · 팀장 app 웹 통합 | App.tsx 헤더와 NotificationListPage가 각각 useNotifications를 호출하고 훅은 각각 store를 생성 | API 계약의 조립 예시대로 한 store/snapshot을 헤더·NotificationListView에 주입. 개별/전체 읽음 시 헤더·목록·배지가 즉시 일치하는 양성 UI 검증 필요 |
+| P1 · 팀장 인증 통합 | 실제 로그인 복귀가 `/notifications` 대신 `/`로 이동하고 로그인 CTA가 남음. 원본과 app 훅 상태가 인스턴스별로 분리 | user-management CR-0001의 공유 인증 상태 보정을 app 방식으로 이식하고 returnTo 전달도 확인. bootstrap 중 임시 로그인 요구 UI·계정 전환 때 알림 상태를 함께 검증 |
+| P1 · 팀장/원천 QA 데이터 담당 | 제공된 10계정에 알림 행 없음. 읽음·수신·타인 행 404 양성 검증 불가 | QA 전용 프로젝트/지원자와 허용된 상태 변경 범위를 지정. 제출/수락/직접 거절/다른 지원자 수락으로 자동 미선정/자연 마감을 분리한 사건 fixture 제공 |
+
+ID 충돌은 메모리 원본 delivery에서 직접 재현했다. 같은 APPLICATION_SUBMITTED 사건이
+12자 프로젝트 ID면 `delivered`/저장 1건, 실제 생성 형식의 36자 ID면 `retry_required`/저장 0건이다.
+DB 확장만으로 호환 문제가 끝난 상태가 아니다. 식별자 정책을 바꾸는 구현은 이번 QA 범위에서
+하지 않았으며, 결정 후 담당 원본과 app 사본을 함께 검증해야 한다.
+
+원천 통합 때 자연 마감/취소를 APPLICATION_AUTO_REJECTED로 중복 전달하지 않는다.
+자동 미선정은 다른 지원자가 수락된 경우다. 마감 수신자 정책·영속 재시도·성공 후 deadline 표식·
+10분 SLA는 이 CR의 기존 §2~4대로 열린 항목이다. 원천 상태 변경이나 DB 직접 알림 삽입 없이
+검증했으며, app/공유 문서/배포 설정/피드백 상태는 수정하지 않았다. CR 상태는 `제안` 유지.
+
 ## 배경 (왜 필요한가)
 
 2026-09-07 오민혁 사용자가 notifications 범위 직접 구현을 요청했다. 다른 담당자의 로컬
@@ -115,6 +172,8 @@ freelancerId를 확인할 수 있다. clientId/acceptedApplicationId는
 - scheduler 간격+재시도 지연을 합쳐 deadline→알림 저장 10분 이내임을 운영 환경에서 검증한다.
 
 ### 5. 공통 식별자 길이 블로커
+
+아래는 최초 제기 이력이다. DB40 채택과 담당 원본 호환성 후속은 문서 상단 9/10 절을 따른다.
 
 `app/server/src/features/user-management/auth.service.ts:243`의 기본 사용자 ID 생성은
 `usr_` + UUID 32자리로 36자다. `app/server/prisma/schema.prisma:325`의 User.id와 `:603`의

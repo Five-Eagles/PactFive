@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type {
   AuthenticatedSessionResponse,
   CompleteRegistrationInput,
@@ -27,7 +27,38 @@ export type AuthViewState =
   | { status: "authenticated"; message: null; action: null; session: AuthenticatedSessionResponse }
   | { status: "retryable"; message: string; action: "RETRY" };
 
+const initialAuthState: AuthViewState = { status: "anonymous", message: null, action: null };
+
+export function createAuthViewStore() {
+  let snapshot: AuthViewState = initialAuthState;
+  const listeners = new Set<() => void>();
+  return {
+    getSnapshot: () => snapshot,
+    // SSR must not expose a different request's module-level browser session.
+    getServerSnapshot: () => initialAuthState,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+    publish: (state: AuthViewState) => {
+      snapshot = state;
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
+// All consumers in one browser document share state as well as the memory token.
+// This is not cross-tab coordination or a server-side auth store.
+const authViewStore = createAuthViewStore();
+let hasRequestedInitialRestore = false;
 let accessTokenInMemory: string | null = null;
+
+function setState(state: AuthViewState): void {
+  if (state.status === "authenticated") accessTokenInMemory = state.session.accessToken;
+  else if (state.status === "anonymous" || state.status === "submitting") accessTokenInMemory = null;
+  // A retryable restore failure must not revoke the existing memory token (R16).
+  authViewStore.publish(state);
+}
 
 export function createAuthEpochGuard() {
   let epoch = 0;
@@ -61,7 +92,7 @@ export function getAccessTokenInMemory(): string | null {
 }
 
 export function clearAccessTokenInMemory(): void {
-  accessTokenInMemory = null;
+  setState(initialAuthState);
 }
 
 export function callProtectedApi<T>(
@@ -151,7 +182,11 @@ export function createReturnNavigator(navigate: (path: string) => void): (path: 
 
 export function useAuth(options: { restoreOnMount?: boolean } = {}) {
   const restoreOnMount = options.restoreOnMount ?? true;
-  const [state, setState] = useState<AuthViewState>({ status: "anonymous", message: null, action: null });
+  const state = useSyncExternalStore(
+    authViewStore.subscribe,
+    authViewStore.getSnapshot,
+    authViewStore.getServerSnapshot,
+  );
 
   const publishSession = useCallback((capturedEpoch: number, session: AuthenticatedSessionResponse) => {
     if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
@@ -269,22 +304,22 @@ export function useAuth(options: { restoreOnMount?: boolean } = {}) {
 
   const logout = useCallback(async () => {
     const accessToken = accessTokenInMemory ?? undefined;
-    authEpoch.advance();
+    const capturedEpoch = authEpoch.advance();
     clearAccessTokenInMemory();
-    setState({ status: "anonymous", message: null, action: null });
     try {
       await deleteCurrentAuthSession(accessToken);
-      setState({ status: "anonymous", message: null, action: null });
+      if (authEpoch.isCurrent(capturedEpoch)) setState(initialAuthState);
     } catch (error) {
-      setState(reduceLogoutFailure(error));
+      if (authEpoch.isCurrent(capturedEpoch)) setState(reduceLogoutFailure(error));
       throw error;
-    } finally {
-      clearAccessTokenInMemory();
     }
   }, []);
 
   useEffect(() => {
-    if (restoreOnMount) void restore().catch(() => undefined);
+    if (!restoreOnMount || hasRequestedInitialRestore) return;
+    hasRequestedInitialRestore = true;
+    // A later-mounted header/page must not overwrite an active login or force a refresh.
+    if (authViewStore.getSnapshot().status === "anonymous") void restore().catch(() => undefined);
   }, [restore, restoreOnMount]);
 
   return {

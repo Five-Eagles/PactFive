@@ -136,7 +136,7 @@ export async function runNotificationServerTests(check: Check) {
   await check("규칙 12: 잘못된 ID·시각·event 키 입력 전체 검증 후 저장", async () => {
     const { service, repository } = setup();
     for (const event of [{ ...submitted(), projectId: "../admin" }, { ...submitted(), occurredAt: "invalid" },
-      { ...submitted(), eventId: "x".repeat(121) }, { ...submitted(), clientId: "x".repeat(31) },
+      { ...submitted(), eventId: "x".repeat(121) }, { ...submitted(), clientId: "x".repeat(41) },
       { ...submitted(), projectTitle: "프".repeat(101) }, { ...submitted(), occurredAt: "2026-02-30T00:00:00Z" },
       { ...base, type: "PROJECT_RECRUITMENT_CLOSED", closureEventId: "close:1", recipientIds: ["usr_f1", "../bad"] }]) {
       await assert.rejects(() => service.publishEvent(event as NotificationEventInput), hasCode("VALIDATION_ERROR"));

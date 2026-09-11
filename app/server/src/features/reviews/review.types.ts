@@ -104,6 +104,8 @@ export type GetMyProjectReviewResponse = {
   reason: MyProjectReviewReason | null;
   /** window가 없으면(프로젝트가 아직 COMPLETED가 아니면) null. 있으면 그 deadlineAt. */
   reviewDeadlineAt: string | null;
+  /** 당사자면 작성 방향, 아니면 null — R-07 태그 목록 축소용. */
+  myDirection: ReviewDirection | null;
   myReview: CreateReviewResponse | null;
   counterpartyReviewVisibility: 'NOT_AVAILABLE' | 'PUBLISHED';
 };

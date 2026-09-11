@@ -53,7 +53,7 @@ import { OpenAIPricingAnalyzer } from './features/ai-pricing/openai.adapter';
 import { createPricingAnalysisRouter } from './features/ai-pricing/pricing-analysis.router';
 import { InMemoryApplicationRepository } from './features/applications/in-memory-application.repository';
 import { PrismaApplicationRepository } from './features/applications/prisma-application.repository';
-import { InMemoryApplicationNotificationPort } from './features/applications/in-memory-application-notification';
+import { NotificationApplicationAdapter } from './features/applications/notification.adapter';
 import { createApplicationsPortAdapter } from './features/applications/applications-port.adapter';
 import { createProjectApplicationContextAdapter } from './features/applications/project-application-context.adapter';
 import { createAcceptProjectApplicationAdapter } from './features/applications/accept-project-application.adapter';
@@ -327,8 +327,6 @@ projectPorts.pricing = createPricingAnalysisClaimPort(pricingAnalysisRepository)
 const applicationRepository = isPrismaConfigured(authProviderMode)
   ? new PrismaApplicationRepository(getPrismaClient())
   : new InMemoryApplicationRepository();
-const applicationNotifications = new InMemoryApplicationNotificationPort();
-projectPorts.applications = createApplicationsPortAdapter(applicationRepository, applicationNotifications);
 
 const projectService = createProjectService({
   repo: projectRepository,
@@ -342,6 +340,15 @@ const projectContractService = createProjectContractService({
   ports: projectPorts,
   now: projectNow,
 });
+
+// applications가 project-management의 프로젝트 문맥·카운트 포트를 조립 지점에서 사용한다.
+const projectApplicationContext = createProjectApplicationContextAdapter(projectContractService);
+const applicationNotifications = new NotificationApplicationAdapter(
+  applicationRepository,
+  projectApplicationContext,
+  notifications.delivery,
+);
+projectPorts.applications = createApplicationsPortAdapter(applicationRepository, applicationNotifications);
 
 const projectReadService = createProjectReadService({
   repo: projectRepository,
@@ -426,7 +433,6 @@ app.use(
 // projectContractService가 만들어진 **뒤에** 구성한다.
 // ---------------------------------------------------------------------------
 
-const projectApplicationContext = createProjectApplicationContextAdapter(projectContractService);
 const acceptProjectApplicationDelegate = createAcceptProjectApplicationAdapter(projectContractService);
 
 app.use(
@@ -535,6 +541,11 @@ const publicApiService = createPublicApiService({
   coordinator: transactionLifecycleCoordinator,
   now: projectNow,
   randomId: contractsPaymentsRandomId,
+  // C-01 — 선정 지원서의 freelancerId로 협상 당사자를 가른다.
+  resolveApplicationFreelancer: async (applicationId) => {
+    const row = await applicationRepository.getApplication(applicationId);
+    return row?.freelancerId ?? null;
+  },
 });
 
 app.use(

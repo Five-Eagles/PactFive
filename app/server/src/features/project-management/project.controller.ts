@@ -31,6 +31,12 @@ function sendDomainError(res: Response, error: unknown): void {
     res.status(error.status).json(error.body);
     return;
   }
+  // 2026-09-10 추가 — 여기서 원인을 로깅하지 않으면 500만 클라이언트에 남고 서버 콘솔에는
+  // 아무 흔적도 없다. 실제로 skills 테이블 FK 위반(project_skills.skill_id가 참조하는
+  // skills 행이 없음)이 이 경로로 조용히 뭉개져서, "예상하지 못한 오류입니다"만 보고
+  // 원인을 알 수 없었다(2026-09-10 재현·진단). user-management의 providerError()에
+  // 이미 같은 이유로 로깅을 추가한 전례가 있다(supabase-auth.adapter.ts).
+  console.error('[project-management] 예상하지 못한 오류:', error);
   res
     .status(500)
     .json({ error: { code: 'INTERNAL_ERROR', message: '예상하지 못한 오류입니다.', details: null } });
