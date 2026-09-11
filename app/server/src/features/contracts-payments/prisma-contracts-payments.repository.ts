@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type {
   Prisma,
   PrismaClient,
@@ -28,35 +28,15 @@ import type {
  * 이 파일 안에서 흡수했다(schema.prisma는 이번 6기능 트랙의 스코프 밖):
  *
  * 1. `AgreementRow.offers`(중첩 배열) ↔ `NegotiationOffer`(자식 테이블, applicationId로 연결).
- *    project-management의 projectSkills·applications의 operation steps와 같은 전량 삭제 후
- *    재삽입 패턴 — `saveAgreement`가 항상 "다음 상태의 전체 offers 배열"을 받는다
- *    (public-api.service.ts가 매번 배열 전체를 다시 만들어 넘긴다).
  * 2. `Payment.clientId`/`freelancerId`는 schema에서 NOT NULL이지만 도메인 `PaymentRow`는
- *    이 두 필드를 갖지 않는다(계약에 이미 있는 정보라 중복을 안 옮긴 것으로 보인다) —
- *    `savePayment`가 최초 삽입 시 `contractId`로 Contract를 찾아 채운다.
- * 3. `PaymentRow.clientKey`는 여전히 schema에 저장 컬럼이 없다 — 애초에 저장 대상이
- *    아니다. `process.env.PG_CLIENT_KEY`(서버 시크릿이 아니다, public-api.service.ts 원본
- *    주석)라 읽을 때마다 다시 채운다.
+ *    이 두 필드를 갖지 않는다 — `savePayment`가 최초 삽입 시 `contractId`로 Contract를 찾아 채운다.
+ * 3. `PaymentRow.clientKey`는 여전히 schema에 저장 컬럼이 없다 — `process.env.PG_CLIENT_KEY`.
  *
- *    **2026-09-09 CR-CP-002(조준영) 반영으로 해소** — `platformFeeRateBps`는 저장 컬럼이
- *    없어 `platformFeeAmount`/`paymentAmount`로 역산했었다. 고정 요율 하나만 쓰는 동안은
- *    우연히 정확했지만(버림 오차가 반올림에 덮인다), 요율이 결제마다 달라지면 조용히
- *    틀렸을 것이다. `payments.platform_fee_rate_bps`(+`fee_policy_version`·`pg_cost_amount`)
- *    컬럼을 추가해 `toPaymentRow`가 이제 저장된 값을 그대로 읽는다 — 역산 없음.
- *    `feePolicyVersion`·`pgCostAmount`는 스키마 기본값(`fee-policy-v1`·`0`)만 쓴다 — 이
- *    값을 실제로 바꿔 쓰는 흐름(정책 버전 교체·PG 비용 기록)은 아직 `app/`에 없어
- *    도메인 `PaymentRow`에도 아직 없다(CR-CP-002 영향 범위 밖 — 그 흐름이 생기면 이
- *    파일과 `PaymentRow`를 함께 넓힌다).
+ * **2026-09-09 CR-CP-002** — `platformFeeRateBps` 저장 컬럼 반영.
  *
- * `getIdempotent`/`setIdempotent`는 negotiation·서명·납품·취소 등 서로 다른 응답 모양을 담는
- * 범용 캐시다. `PaymentIdempotencyRecord`는 bodyHash(64자)만 있어 전체 응답 JSON을 담지
- * 못하므로, 프로세스 공유 Map에 값을 두고 DB에는 키·scope·해시 마커만 upsert한다
- * (T13: repository 인스턴스 재생성 후에도 동일 프로세스 내 조회 유지). 프로세스 재시작
- * 후 값 복원은 payload 컬럼 추가가 필요하다.
+ * **2026-09-11 CR-CP-003** — `getIdempotent`/`setIdempotent`를 `payment_idempotency_records`
+ * (`payload` Json · PK `(scope, idempotency_key)`)로 옮긴다. 프로세스 Map은 제거한다.
  */
-/** 인스턴스 간 공유 — Prisma 재생성(T13)에서도 같은 프로세스면 유지. */
-const sharedIdempotency = new Map<string, unknown>();
-
 export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -285,39 +265,23 @@ export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepos
   }
 
   async getIdempotent<T>(namespace: string, key: string): Promise<T | undefined> {
-    const id = `${namespace}:${key}`;
-    const cached = sharedIdempotency.get(id);
-    if (cached !== undefined) return cached as T;
-    // DB 마커만 있어도 값은 없으므로 undefined — 재시작 복구는 payload 컬럼 필요.
-    try {
-      const row = await this.prisma.paymentIdempotencyRecord.findUnique({
-        where: { idempotencyKey: id },
-      });
-      if (!row) return undefined;
-    } catch {
-      // fake prisma(T13) 등에서는 Map만 사용.
-    }
-    return undefined;
+    // CR-CP-003 — scope+key 복합 PK. 예전에 Map에 쓰던 `${namespace}:${key}` 단일 키와 같다.
+    const scope = namespace.slice(0, 40);
+    const row = await this.prisma.paymentIdempotencyRecord.findUnique({
+      where: { scope_idempotencyKey: { scope, idempotencyKey: key } },
+    });
+    if (!row) return undefined;
+    return row.payload as T;
   }
 
   async setIdempotent<T>(namespace: string, key: string, value: T): Promise<void> {
-    const id = `${namespace}:${key}`;
-    sharedIdempotency.set(id, value);
-    const payload = JSON.stringify(value);
-    const bodyHash =
-      payload.length <= 64
-        ? payload
-        : // sha256 hex 64자 — 마커용. 값 자체는 shared Map에만 있다.
-          createHash('sha256').update(payload).digest('hex');
-    try {
-      await this.prisma.paymentIdempotencyRecord.upsert({
-        where: { idempotencyKey: id },
-        create: { idempotencyKey: id, scope: namespace.slice(0, 40), bodyHash },
-        update: { scope: namespace.slice(0, 40), bodyHash },
-      });
-    } catch {
-      // fake prisma 또는 미마이그레이션 — Map만으로도 T13·동일 프로세스 멱등은 유지.
-    }
+    const scope = namespace.slice(0, 40);
+    const payload = value as Prisma.InputJsonValue;
+    await this.prisma.paymentIdempotencyRecord.upsert({
+      where: { scope_idempotencyKey: { scope, idempotencyKey: key } },
+      create: { scope, idempotencyKey: key, payload, bodyHash: null },
+      update: { payload, bodyHash: null },
+    });
   }
 
   private async toAgreementRow(row: AgreementModel, projectId: string): Promise<AgreementRow> {

@@ -16,7 +16,6 @@
 | # | 증상 / 항목 | 원인 | 담당 | 다음 행동 |
 |---|---|---|---|---|
 | 2 | 프로필 게이트 꺼짐 | **RW 보류** (ADR-0014) | 오민혁 → 팀장 | 화면 후 배선. **켜지 말 것** |
-| 3 | 결제 멱등 — 재시작 후 값 복원 | Map+DB 마커. **payload 없음** (CR-CP-003) | 팀장 | [CR-CP-003](../change-requests/0003-idempotency-map-to-db.md) |
 | 4 | 리뷰 태그 방향 (화면) | R4. `/me`·myDirection 반영됨 | (선택) QA | 차단 아님 |
 
 ## 오늘(9/11) 닫은 것
@@ -24,6 +23,7 @@
 | # | 항목 | 근거 |
 |---|---|---|
 | 1 | 지원 건수 0 · 잠금 | app `bumpApplicationCounts` 호출됨 (AP PR #114). prototype 97 |
+| 3 | 결제 멱등 재시작 복원 | **CR-CP-003** payload·복합 PK·repo 배선. migration `20260911140000_…` |
 
 ## Increment 밖 / backlog
 
