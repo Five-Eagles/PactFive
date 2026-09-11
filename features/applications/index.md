@@ -12,8 +12,8 @@
   `npx tsx prototype/run.tsx` → PASS 97.
 - design/: high-fi. 프로필 잠금 · 후속 처리 · 취소됨 포함.
 - review/: 팀장 통합 요청 `review/teamlead-public-api-panels-2026-09-03.md`.
-- change-requests/: `0001` PM 포트 완료 · app 호출 배선 대기(2026-09-10 지시서).
-  `0002` applications 완료 · `app/`·ERD·프로필 포트 대기.
+- change-requests/: `0001` PM 포트 + **app 호출 배선 완료**(2026-09-11 확인). 트랜잭션 경계는 ADR-0015 R-001.
+  `0002` applications 완료 · `app/`·ERD·프로필 포트는 RW 보류(ADR-0014).
   `0003`·`0004` 반영 완료.
 
 ## 교차 담당
@@ -48,3 +48,4 @@
 | 2026-09-08 | feedback 항목 2 반영완료. CR-AP-001 쓰기 포트. Mock만. |
 | 2026-09-10 | CR-AP-001: PM 포트는 열림. app service 호출 미배선 → 팀장 지시서 09-10 |
 | 2026-09-10 | GAP-04 프로필: 포트 이식·게이트 보류(RW) 확인. 화면 전 배선 요청 안 함 |
+| 2026-09-11 | CR-AP-001 app 호출 배선 develop 반영 확인. prototype PASS 97. 현황판 #1 닫음 |
