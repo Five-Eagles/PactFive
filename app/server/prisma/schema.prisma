@@ -957,16 +957,18 @@ model Invalidation {
 /// [PRISMA-GAP-18] E-49 신설, 2026-09-09. CR-CP-002(조준영) — 합의·서명·납품·취소 4개
 /// 흐름이 공용으로 쓰는 멱등 캐시의 "같은 키·다른 본문 409" 판정(spec.md 규칙 23·25)을
 /// 위한 몸통 해시만 저장한다. `getIdempotent`/`setIdempotent`(PrismaContractsPaymentsRepository)
-/// 자체는 응답 전체를 담는 범용 캐시라 여전히 in-memory Map으로 남아 있다 — 재시작하면
-/// 응답 재사용은 안 되지만(CAS·유니크 제약으로 데이터 정합성은 지켜진다), 이 테이블이 있으면
-/// 재시작 후에도 같은 키·다른 본문 거부는 계속 동작한다. 응답 모양은 흐름마다 달라 컬럼
-/// 계약이 흐려지므로 해시만 남긴다(CR-CP-002 "대안으로 검토했던 것").
+/// 합의·서명·납품·취소·결제 공용 멱등 캐시 (CR-CP-002 신설 → CR-CP-003 payload 영속화).
+/// `getIdempotent`/`setIdempotent`가 응답(또는 `{input,response}`) JSON을 `payload`에 두고,
+/// PK는 `(scope, idempotency_key)`다 — 앱 Map 키 `` `${namespace}:${key}` ``와 같다.
 model PaymentIdempotencyRecord {
-  idempotencyKey String   @id @map("idempotency_key") @db.VarChar(120)
   scope          String   @map("scope") @db.VarChar(40)
-  bodyHash       String   @map("body_hash") @db.VarChar(64)
+  idempotencyKey String   @map("idempotency_key") @db.VarChar(120)
+  /// 호출부가 넣을 때만 채운다. payload로 본문 비교가 가능하면 null이어도 된다(CR-CP-003 A3).
+  bodyHash       String?  @map("body_hash") @db.VarChar(64)
+  payload        Json     @map("payload")
   createdAt      DateTime @default(now()) @map("created_at")
 
+  @@id([scope, idempotencyKey])
   @@map("payment_idempotency_records")
 }
 
