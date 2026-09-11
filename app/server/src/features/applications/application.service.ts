@@ -483,15 +483,11 @@ export async function createApplication(
   };
   await deps.repository.insertApplication(row);
   await recordTransition(deps.repository, row, null, nowIso);
-  // A-03 — CR-AP-001 포트로 누적·대기 카운트를 올린다. 실패해도 지원 자체는 유지한다.
-  try {
-    await deps.projectContext.bumpApplicationCounts(projectId, {
-      applicationCount: 1,
-      pendingApplicationCount: 1,
-    });
-  } catch {
-    // 카운트 드리프트는 운영 재대조로 맞춘다 — 지원 INSERT를 롤백하지 않는다.
-  }
+  // A-03 — CR-AP-001 포트로 누적·대기 카운트를 올린다. 실패를 삼키면 행만 남고 건수는 0이 된다(R-001).
+  await deps.projectContext.bumpApplicationCounts(projectId, {
+    applicationCount: 1,
+    pendingApplicationCount: 1,
+  });
   await deps.repository.setIdempotency(scopedKey, bodyHash(parsed), row.applicationId);
   await publish(deps, {
     type: 'APPLICATION_SUBMITTED',
@@ -703,11 +699,7 @@ export async function rejectApplication(
   await deps.repository.saveApplication(rejected);
   await recordTransition(deps.repository, rejected, 'PENDING', nowIso);
   // A-03 — 개별 거절은 대기 건수만 -1 (CR-AP-001). 수락·일괄 거절은 PM이 0으로 맞춘다.
-  try {
-    await deps.projectContext.bumpApplicationCounts(row.projectId, { pendingApplicationCount: -1 });
-  } catch {
-    // 카운트 드리프트는 운영 재대조로 맞춘다.
-  }
+  await deps.projectContext.bumpApplicationCounts(row.projectId, { pendingApplicationCount: -1 });
 
   const operation: ApplicationOperation = {
     operationId: await deps.repository.nextOperationId(),

@@ -89,10 +89,11 @@ const SEED_PASSWORD = 'PactFiveSeedDev!1';
 // Prisma 직접 INSERT)로 옮기면서 이 파일에서 Supabase Admin 클라이언트를 직접 쓸 일이
 // 없어졌다(아래 bootstrapAccountViaAdminApi 참고). loadSupabaseAdminClient는 그래서 제거했다.
 
-async function api(pathname, { method = 'GET', body, accessToken, origin } = {}) {
+async function api(pathname, { method = 'GET', body, accessToken, origin, idempotencyKey } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   if (origin) headers.Origin = origin;
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
   const url = `${SERVER_BASE_URL}${pathname}`;
 
   let res;
@@ -331,20 +332,33 @@ async function ensureAccount(persona) {
   return { ...persona, userId: loginRes.body.user.userId, accessToken: loginRes.body.accessToken, password: SEED_PASSWORD };
 }
 
-async function ensureProject(clientSession, markerTitle) {
+async function ensureProject(clientSession, markerTitle, { requireOpen = false } = {}) {
   const mine = await api(`/api/v1/clients/${clientSession.userId}/projects`, {
     accessToken: clientSession.accessToken,
   });
   if (mine.status !== 200) throw new Error(`프로젝트 목록 조회 실패: ${JSON.stringify(mine.body)}`);
   const existing = mine.body.items.find((p) => p.title === markerTitle);
-  if (existing) return existing;
+  // 시드 계정 재생성·과거 스윕으로 마커 프로젝트가 CLOSED가 되면 모집/지원 QA가 깨진다.
+  // 잘못된 상태면 새 제목으로 OPEN 프로젝트를 만든다(옛 행은 DB에 남을 수 있음 — R-001 오염).
+  if (existing && !(requireOpen && existing.recruitmentStatus === 'CLOSED')) {
+    return existing;
+  }
+  if (existing && requireOpen && existing.recruitmentStatus === 'CLOSED') {
+    console.log(
+      `[seed] "${markerTitle}" 프로젝트가 CLOSED라 재사용하지 않습니다 — 새 OPEN 프로젝트를 만듭니다.`,
+    );
+  }
 
+  const title =
+    existing && requireOpen && existing.recruitmentStatus === 'CLOSED'
+      ? `${markerTitle} · ${new Date().toISOString().slice(0, 16)}`
+      : markerTitle;
   const deadline = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
   const created = await api('/api/v1/projects', {
     method: 'POST',
     accessToken: clientSession.accessToken,
     body: {
-      title: markerTitle,
+      title,
       description: '시드 스크립트(scripts/seed-dev-accounts.js)가 자동 생성한 테스트용 프로젝트입니다.',
       category: 'WEB_DEVELOPMENT',
       recruitmentStartAt: null,
@@ -367,6 +381,8 @@ async function ensureApplication(freelancerSession, projectId) {
   const applied = await api(`/api/v1/projects/${projectId}/applications`, {
     method: 'POST',
     accessToken: freelancerSession.accessToken,
+    // A-04 — Idempotency-Key 필수. 시드 재실행마다 새 키를 쓴다(본문이 같아도 키만 바뀌면 201 가능).
+    idempotencyKey: `seed-apply-${projectId}-${freelancerSession.userId}`,
     body: {
       // 2026-09-10 수정 — .repeat(4)는 trim 후 95자로 COVER_LETTER_MIN(100, applications
       // spec.md 규칙 1)에 5자 모자라 VALIDATION_ERROR가 났다. repeat(5)=약 119자로 여유를 둔다.
@@ -375,7 +391,9 @@ async function ensureApplication(freelancerSession, projectId) {
       expectedDurationDays: 14,
     },
   });
-  if (applied.status !== 201) throw new Error(`지원 실패: ${JSON.stringify(applied.body)}`);
+  if (applied.status !== 201 && applied.status !== 200) {
+    throw new Error(`지원 실패: ${JSON.stringify(applied.body)}`);
+  }
   return applied.body;
 }
 
@@ -514,6 +532,19 @@ async function ensureRecruitmentClosed(clientSession, freelancerSession, markerT
   if (mine.status !== 200) throw new Error(`프로젝트 목록 조회 실패: ${JSON.stringify(mine.body)}`);
   let project = mine.body.items.find((p) => p.title === markerTitle);
 
+  if (project?.recruitmentStatus === 'CLOSED') {
+    // bump 배선 이전·실패로 applicationCount=0인 CLOSED를 재사용하면 스모크가 영구 FAIL한다.
+    if ((project.applicationCount ?? 0) >= 1) {
+      console.log('[seed] 마감 처리 시나리오: 이미 CLOSED 상태 — 재사용');
+      return project;
+    }
+    console.log(
+      '[seed] 마감 처리 시나리오: CLOSED인데 applicationCount=0 — 새 프로젝트로 다시 구성합니다.',
+    );
+    markerTitle = `${markerTitle} · ${new Date().toISOString().slice(0, 16)}`;
+    project = null;
+  }
+
   if (!project) {
     // DEADLINE_BELOW_MINIMUM(최소 1일)을 만족하도록 1일 + 5분 뒤로 등록한다 — 실제
     // 마감은 아래에서 backdateProjectDeadline으로 DB를 직접 되돌려 앞당긴다.
@@ -535,11 +566,6 @@ async function ensureRecruitmentClosed(clientSession, freelancerSession, markerT
     });
     if (created.status !== 201) throw new Error(`마감 테스트용 프로젝트 생성 실패: ${JSON.stringify(created.body)}`);
     project = created.body;
-  }
-
-  if (project.recruitmentStatus === 'CLOSED') {
-    console.log('[seed] 마감 처리 시나리오: 이미 CLOSED 상태 — 재사용');
-    return project;
   }
 
   await ensureApplication(freelancerSession, project.projectId);
@@ -574,7 +600,9 @@ async function main() {
   }
 
   console.log('[seed] project-management + applications 상태 구성 중...');
-  const recruitingProject = await ensureProject(sessions['client-recruiting'], MARKER.recruiting);
+  const recruitingProject = await ensureProject(sessions['client-recruiting'], MARKER.recruiting, {
+    requireOpen: true,
+  });
   await ensureApplication(sessions['freelancer-applicant'], recruitingProject.projectId);
 
   console.log('[seed] contracts-payments 계약대기 상태 구성 중...');

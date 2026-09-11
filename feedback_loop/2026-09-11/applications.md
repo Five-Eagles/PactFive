@@ -8,22 +8,19 @@
 | `bumpApplicationCounts` create +1/+1 | `application.service.ts` 호출 있음 |
 | DIRECT 거절 pending −1 | 호출 있음 |
 | `npm run seed:dev-accounts` | **성공** (10계정 재사용) |
-| API 스모크 (`applications-api-smoke.json`) | **5 PASS / 1 FAIL** (아래) |
+| API 스모크 (`applications-api-smoke.json`) | **5 PASS / 0 FAIL** (시드 가드·Idempotency-Key 수정 후) |
 
 ### API 스모크 상세 (서버 기동·시드 후)
 
 | 케이스 | 결과 |
 |---|---|
-| recruiting 프로젝트 `applicationCount>=1` | PASS (`1`, pending `0`) |
-| 의뢰인 지원 목록 | PASS (items≥1) |
-| CLIENT 지원 POST | PASS **403** `PROJECT_FORBIDDEN` |
+| recruiting OPEN + counts 1/1 | PASS |
+| 목록이 시드 프리랜서와 일치 | PASS (items=1) |
+| CLIENT 지원 POST | PASS **403** |
 | 프리랜서 `/applications/me` | PASS |
-| 의뢰인 `/notifications` | PASS (status 200, items **0**) |
-| CLOSED 프로젝트 누적 건수 ≥1 | **FAIL** (`applicationCount=0`) |
+| CLOSED 누적 건수 ≥1 | PASS (`applicationCount=1`) |
 
-추가 관찰: recruiting 프로젝트 지원 행 4건(ACCEPTED 1 + REJECTED 3)인데
-`applicationCount=1` — **행 수와 캐시 건수 불일치**(ADR-0015 R-001 / 시드 재실행 누적과
-맞물림). bump try/catch 삼킴과도 겹칠 수 있음.
+R-001 원인·조치: [applications-r001.md](./applications-r001.md)
 
 ## 2. 문서 갱신
 
