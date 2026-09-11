@@ -499,21 +499,18 @@ feedback_loop/2026-08-28/user-management.md 항목 3에서 담당자가 직접 �
 있으나 별도 영속 테이블로 만든 건 팀장 판단이다 — spec.md 규칙 25(취소 시 GET으로 마지막 무효화
 결과 조회) 근거. 조준영 확인 필요.
 
-#### `payment_idempotency_records` (v1.8 신설 — E-49, CR-CP-002, 2026-09-09)
+#### `payment_idempotency_records` (v1.8 신설 — E-49, CR-CP-002 · **CR-CP-003 payload**, 2026-09-11)
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |---|---|---|---|
-| `idempotency_key` | varchar(120) | PK | 합의·서명·납품·취소 4개 흐름 공용 |
-| `scope` | varchar(40) | NOT NULL | 어느 흐름의 키인지 |
-| `body_hash` | varchar(64) | NOT NULL | 같은 키·다른 본문 409 판정용 |
+| `scope` | varchar(40) | PK(복합) | namespace (`accept`·`sign`·`delivery-request` …) |
+| `idempotency_key` | varchar(120) | PK(복합) | 흐름별 멱등 키 |
+| `body_hash` | varchar(64) | NULL | 선택. payload로 본문 비교 가능하면 비워도 됨 |
+| `payload` | jsonb | NOT NULL | `setIdempotent` 값 전체(응답 또는 `{input,response}`) |
 | `created_at` | timestamptz | NOT NULL | 생성 시각 |
 
-**(Fact, 조준영 요청)** `getIdempotent`/`setIdempotent`(`PrismaContractsPaymentsRepository`)가
-응답 전체를 담는 범용 캐시라 여전히 in-memory Map으로만 남아 있다 — 재시작하면 응답
-재사용은 안 되지만 CAS·유니크 제약으로 데이터 정합성은 지켜진다. 받아들일 수 없는 것은
-"같은 키·다른 본문인데 409를 못 던지는 것"(spec.md 규칙 23·25)이다 — 이 테이블은 몸통
-해시만 남겨 그 판정만 재시작 후에도 복구한다. 2026-09-09 시점에는 스키마만 추가했다 —
-`getIdempotent`/`setIdempotent`를 이 테이블로 옮겨 붙이는 배선은 별도 작업으로 남아 있다.
+**(Fact, CR-CP-003)** `PrismaContractsPaymentsRepository.getIdempotent`/`setIdempotent`가
+이 테이블의 `payload`를 읽고 쓴다. 프로세스 Map은 제거했다. PK는 `(scope, idempotency_key)`.
 
 #### `reviews`
 

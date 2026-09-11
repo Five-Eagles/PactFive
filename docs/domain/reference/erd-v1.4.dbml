@@ -1130,20 +1130,19 @@ Table invalidations {
 }
 
 Table payment_idempotency_records {
-  idempotency_key varchar(120) [pk, note: '합의·서명·납품·취소 4개 흐름 공용']
-  scope           varchar(40)  [not null, note: '어느 흐름의 키인지']
-  body_hash       varchar(64)  [not null, note: '같은 키·다른 본문 409 판정용']
+  scope           varchar(40)  [not null, note: 'namespace (accept/sign/delivery-…)']
+  idempotency_key varchar(120) [not null, note: '흐름별 멱등 키']
+  body_hash       varchar(64)  [null, note: '선택 — payload로 비교 가능하면 null']
+  payload         jsonb        [not null, note: 'setIdempotent 값 전체 (CR-CP-003)']
   created_at      timestamptz  [not null, default: `now()`]
 
+  indexes {
+    (scope, idempotency_key) [pk]
+  }
+
   note: '''
-  멱등 캐시 본문 해시. (2026-09-09 신설, E-49, CR-CP-002, 조준영)
-  [F] getIdempotent/setIdempotent(PrismaContractsPaymentsRepository)가 응답 전체를 담는
-      범용 캐시라 여전히 in-memory Map으로만 남아 있다 — 재시작하면 응답 재사용은 안
-      되지만 CAS·유니크 제약으로 데이터 정합성은 지켜진다. 받아들일 수 없는 것은 "같은
-      키·다른 본문인데 409를 못 던지는 것"(spec.md 규칙 23·25)이다 — 이 테이블은 몸통
-      해시만 남겨 그 판정만 재시작 후에도 복구한다.
-  [A] 2026-09-09 시점에는 스키마만 추가했다 — getIdempotent/setIdempotent를 이 테이블로
-      옮겨 붙이는 배선은 별도 작업으로 남아 있다.
+  멱등 캐시 영속화. (2026-09-09 E-49 CR-CP-002 → 2026-09-11 CR-CP-003 payload)
+  [F] getIdempotent/setIdempotent가 payload Json을 읽고 쓴다. PK=(scope, idempotency_key).
   '''
 }
 
