@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { createContext, createElement, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { ApiError, setAuthTokenProvider } from '../../shared/http';
 import type {
   AuthenticatedSessionResponse,
@@ -171,7 +171,7 @@ export function createReturnNavigator(navigate: (path: string) => void): (path: 
   };
 }
 
-export function useAuth(options: { restoreOnMount?: boolean } = {}) {
+function useAuthController(options: { restoreOnMount?: boolean } = {}) {
   const restoreOnMount = options.restoreOnMount ?? true;
   const [state, setState] = useState<AuthViewState>({ status: 'anonymous', message: null, action: null });
 
@@ -353,4 +353,28 @@ export function useAuth(options: { restoreOnMount?: boolean } = {}) {
     devLoginAsMock,
     devLogoutMock,
   };
+}
+
+type AuthContextValue = ReturnType<typeof useAuthController>;
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * 앱 전체가 하나의 인증 상태를 공유하도록 하는 전역 경계.
+ *
+ * 로그인 화면과 AppRoutes가 각각 useAuth()를 만들면 로그인 성공 시 폼만
+ * authenticated가 되고 헤더는 anonymous로 남는다. 서버 세션은 HttpOnly
+ * cookie에 있으므로 브라우저 라우트 어디서든 같은 controller를 읽어야 한다.
+ */
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const auth = useAuthController();
+  return createElement(AuthContext.Provider, { value: auth }, children);
+}
+
+export function useAuth(): AuthContextValue {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
 }
