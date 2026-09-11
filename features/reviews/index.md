@@ -58,3 +58,4 @@
 | 2026-09-09 | 재이식 지시서 발행. app/이 v2.0 이전 이식본 — 태그·필드·경로·window 15건 |
 | 2026-09-10 | R4 후속: `/me`에 `myDirection` 추가(계약·Mock). 팀장 태그 방향 지시서 09-10 |
 | 2026-09-10 | 9/9 확인 2건 닫음. R4 라벨 동의·방향 후속. CR-RV-002 completed_at·Projection 합의 |
+| 2026-09-11 | QA: prototype 69 · API 스모크 7/7(R-02·myDirection). COMPLETED 전 PROJECT_NOT_COMPLETED |
