@@ -18,7 +18,6 @@
 | 2 | 프로필 미완성인데 지원 통과 (게이트 꺼짐) | **의도적 보류(RW).** ADR-0014 §2.3 · 포트는 UM에 있음 | 오민혁(화면) → 팀장 | 화면 후 배선. **지금은 켜지 말 것** |
 | 3 | 결제 멱등 — 재시작 후 값 복원 | Map+DB 마커만. payload 컬럼 없음 (CR-CP-003) | 팀장 | [CR-CP-003](../change-requests/0003-idempotency-map-to-db.md) |
 | 4 | 리뷰 태그 방향 라벨 (화면) | R4. `/me`·`myDirection`은 서버·웹에 반영됨 — 배포본 스모크만 | (선택) QA | 차단 아님 |
-| 5 | 지원 행 vs count drift · CLOSED 건수 0 | 시드 오염·CLOSED 재사용 (R-001 본령은 ADR backlog) | 조준영 | 9/11 시드 가드·bump 실패 전파 수정. 분석: [applications-r001.md](../../../feedback_loop/2026-09-11/applications-r001.md) |
 
 ## 오늘(9/11) 닫은 것
 
