@@ -1,0 +1,35 @@
+{
+  "ranAt": "2026-09-11T04:13:42.941Z",
+  "results": [
+    {
+      "name": "recruiting project counts",
+      "pass": true,
+      "detail": "status=200 applicationCount=1 pending=0"
+    },
+    {
+      "name": "client list applications",
+      "pass": true,
+      "detail": "status=200 items=4"
+    },
+    {
+      "name": "CLIENT apply blocked",
+      "pass": true,
+      "detail": "status=403 code=PROJECT_FORBIDDEN"
+    },
+    {
+      "name": "freelancer applications/me",
+      "pass": true,
+      "detail": "status=200 items=5"
+    },
+    {
+      "name": "client notifications reachable",
+      "pass": true,
+      "detail": "status=200 items=0"
+    },
+    {
+      "name": "closed project keeps cumulative count",
+      "pass": false,
+      "detail": "status=200 applicationCount=0"
+    }
+  ]
+}

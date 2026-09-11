@@ -7,10 +7,23 @@
 | `npx tsx features/applications/prototype/run.tsx` | **PASS 97 / FAIL 0** |
 | `bumpApplicationCounts` create +1/+1 | `application.service.ts` 호출 있음 |
 | DIRECT 거절 pending −1 | 호출 있음 |
-| 브라우저/시드 E2E | **미실행** — 로컬 API(`localhost:3000`) 미기동. 별도 `npm run dev`(Supabase) + seed 필요 |
+| `npm run seed:dev-accounts` | **성공** (10계정 재사용) |
+| API 스모크 (`applications-api-smoke.json`) | **5 PASS / 1 FAIL** (아래) |
 
-참고: 지시서는 bump 실패 시 throw를 권했지만, 현재 develop 코드는 try/catch로 삼킨다.
-지원 INSERT와 건수 갱신의 원자성은 ADR-0015 **R-001**로 남아 있다.
+### API 스모크 상세 (서버 기동·시드 후)
+
+| 케이스 | 결과 |
+|---|---|
+| recruiting 프로젝트 `applicationCount>=1` | PASS (`1`, pending `0`) |
+| 의뢰인 지원 목록 | PASS (items≥1) |
+| CLIENT 지원 POST | PASS **403** `PROJECT_FORBIDDEN` |
+| 프리랜서 `/applications/me` | PASS |
+| 의뢰인 `/notifications` | PASS (status 200, items **0**) |
+| CLOSED 프로젝트 누적 건수 ≥1 | **FAIL** (`applicationCount=0`) |
+
+추가 관찰: recruiting 프로젝트 지원 행 4건(ACCEPTED 1 + REJECTED 3)인데
+`applicationCount=1` — **행 수와 캐시 건수 불일치**(ADR-0015 R-001 / 시드 재실행 누적과
+맞물림). bump try/catch 삼킴과도 겹칠 수 있음.
 
 ## 2. 문서 갱신
 
@@ -18,17 +31,18 @@
 - [건수 지시서](../../features/applications/review/teamlead-port-instructions-2026-09-10-application-count.md) 상태: 반영 확인
 - `features/applications/index.md` changelog
 
-## 3. 신규·잔여 이슈 (우선순위 제안)
+## 3. 신규·잔여 이슈 (우선순위)
 
 | ID | 내용 | 출처 | 제안 |
 |---|---|---|---|
-| **R-001** | 지원 행↔건수 bump 동일 `$transaction` 미적용 | ADR-0015 | 팀장 결정 후 app 작업 — 오늘 담당 범위면 CR/피드백으로 요청 |
-| **A-02 / ADR-0014 §2.3** | 프로필 게이트 RW 보류 | 현황판 #2 | 화면(오민혁) 대기 — **켜지 말 것** |
-| **알림 연결** | applications→notifications delivery 어댑터 | ADR-0015 · #112 | develop에 어댑터 있음 — 시드+브라우저로 목록 비어 있지 않은지 스모크 |
-| **역할 차단** | CLIENT 지원 생성 403 | ADR-0015 검증 체크리스트 | 브라우저/시드 때 함께 확인 |
-| **CR-CP-003** | 멱등 payload | 현황판 #3 | CP 트랙 — 오늘 AP 밖 |
+| **R-001** | 지원 행↔건수 bump 동일 `$transaction` 미적용 + 실측 drift | ADR-0015 · 오늘 스모크 | **다음 app 작업 후보** |
+| **CLOSED 건수 0** | 마감 시나리오 누적 건수 미유지 | 오늘 스모크 FAIL | 시드·스윕·표시 경로 추적 |
+| **알림 items=0** | delivery 연결됐으나 목록 비어 있음 | ADR-0015 | 사건 발행 여부 추가 확인 |
+| **A-02 / ADR-0014 §2.3** | 프로필 게이트 RW 보류 | 현황판 #2 | 화면 대기 — **켜지 말 것** |
+| **CR-CP-003** | 멱등 payload | 현황판 #3 | CP 트랙 |
 
-### 바로 이어서 할 일 (추천)
+### 다음 액션
 
-1. `npm run dev`(Supabase) → `seed:dev-accounts` → 의뢰인/프리랜서로 **건수 1/1·CLIENT 403·알림** 스모크  
-2. R-001을 오늘 손볼지 팀장에 확인 (트랜잭션 경계는 app/ 팀장 영역)
+1. R-001 + CLOSED 건수 0 을 팀장/app 트랙으로 올릴지 결정  
+2. 알림 0건은 notifications 어댑터 호출 로그로 추가 확인  
+3. 프로필 게이트는 계속 보류
