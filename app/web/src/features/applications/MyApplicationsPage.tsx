@@ -95,9 +95,9 @@ export function MyApplicationsPage() {
             <div className="row" key={item.applicationId}>
               <div className="row__main">
                 {item.projectNotice === 'DELETED' ? (
-                  <span>프로젝트</span>
+                  <span>삭제된 프로젝트</span>
                 ) : (
-                  <Link to={PROJECT_ROUTES.detail(item.projectId)}>{item.projectId}</Link>
+                  <Link to={PROJECT_ROUTES.detail(item.projectId)}>{item.projectTitle ?? '프로젝트'}</Link>
                 )}
                 <span className="row__sub">지원일 {item.createdAt.slice(0, 10).replace(/-/g, '.')}</span>
                 {item.projectNotice === 'DELETED' && (

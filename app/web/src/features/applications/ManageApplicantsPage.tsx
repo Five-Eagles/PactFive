@@ -139,7 +139,7 @@ export function ManageApplicantsPage() {
               <dl className="facts" key={item.applicationId}>
                 <dt>지원자</dt>
                 <dd>
-                  {item.freelancerId ?? '알 수 없음'} · {item.expectedAmount?.toLocaleString('ko-KR')}원 ·{' '}
+                  {item.freelancerName ?? '지원자'} · {item.expectedAmount?.toLocaleString('ko-KR')}원 ·{' '}
                   {item.expectedDurationDays}일
                 </dd>
                 <dt>자기소개</dt>
@@ -171,7 +171,7 @@ export function ManageApplicantsPage() {
                   <dl className="facts" key={item.applicationId}>
                     <dt>지원자</dt>
                     <dd>
-                      {item.freelancerId ?? '알 수 없음'} · {STATUS_LABEL[item.status]}
+                      {item.freelancerName ?? '지원자'} · {STATUS_LABEL[item.status]}
                     </dd>
                   </dl>
                 ))}
@@ -240,7 +240,7 @@ function AcceptConfirmDialog({
           이 지원자를 수락할까요?
         </h2>
         <p className="status-copy">
-          {target.freelancerId ?? '이 지원자'}를 수락하면 나머지 지원은 거절되고{' '}
+          {target.freelancerName ?? '이 지원자'}를 수락하면 나머지 지원은 거절되고{' '}
           <strong>되돌릴 수 없습니다</strong>.
         </p>
         <div className="btn-row">

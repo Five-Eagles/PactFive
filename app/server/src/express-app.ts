@@ -442,6 +442,12 @@ app.use(
       projectContext: projectApplicationContext,
       notifications: applicationNotifications,
       projectApplications: acceptProjectApplicationDelegate,
+      userDisplay: {
+        async getUserDisplayName(userId: string) {
+          const user = await authRepositories?.findById(userId);
+          return user?.name ?? null;
+        },
+      },
       now: projectNow,
       nextRequestId: () => randomId(),
     },
