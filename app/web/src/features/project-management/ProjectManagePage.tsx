@@ -18,6 +18,7 @@ import { PROJECT_ROUTES } from './project.routes';
 import { ReopenRecruitmentDialog } from './ReopenRecruitmentDialog';
 import { DestructiveActionSummary, type DestructiveActionId } from './DestructiveActionSummary';
 import type { ClientProjectDetail } from './project.types';
+import { CONTRACT_ROUTES } from '../contracts-payments/contract.routes';
 
 /**
  * SCR-B07 — 내 프로젝트 (관리)
@@ -261,6 +262,13 @@ export function ProjectManagePage({ clientId, applicantsHref }: ProjectManagePag
                   {applicantsHref && (
                     <div>
                       <Link to={applicantsHref(project.projectId)}>지원자 관리</Link>
+                    </div>
+                  )}
+                  {project.transactionStatus === 'CONTRACT_PENDING' && (
+                    <div className="btn-row" style={{ marginTop: 8 }}>
+                      <Link className="btn btn--primary" to={CONTRACT_ROUTES.agreement(project.projectId)}>
+                        금액 합의 계속하기
+                      </Link>
                     </div>
                   )}
                 </div>

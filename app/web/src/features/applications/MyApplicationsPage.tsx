@@ -3,6 +3,7 @@ import { PageBody } from '../../shared/ui/AppShell';
 import { Button, EmptyState, Notice } from '../../shared/ui/primitives';
 import { PROJECT_ROUTES } from '../project-management/project.routes';
 import { REVIEW_ROUTES } from '../reviews/review.routes';
+import { CONTRACT_ROUTES } from '../contracts-payments/contract.routes';
 import { useMyApplications } from './useApplications';
 import type { ApplicationRejectionType, MyApplicationItem } from './application.types';
 
@@ -114,6 +115,15 @@ export function MyApplicationsPage() {
                     </Link>
                   </div>
                 )}
+                {item.status === 'ACCEPTED' &&
+                  item.transactionStatus === 'CONTRACT_PENDING' &&
+                  item.projectNotice === 'NONE' && (
+                    <div className="btn-row">
+                      <Link to={CONTRACT_ROUTES.agreement(item.projectId)}>
+                        <Button variant="primary">금액 합의 참여</Button>
+                      </Link>
+                    </div>
+                  )}
               </div>
               <span
                 className={`badge ${
