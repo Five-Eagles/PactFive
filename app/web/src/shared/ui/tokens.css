@@ -182,6 +182,46 @@ body {
   margin-left: auto;
   display: flex;
   align-items: center;
+  gap: 16px;
+}
+
+.app-shell-session {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.app-shell-session a {
+  color: var(--content-secondary);
+  text-decoration: none;
+}
+
+.app-shell-session a:hover,
+.app-shell-session__login:hover {
+  color: var(--action);
+}
+
+.app-shell-session button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--content-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.app-shell-session button:hover {
+  color: var(--content);
+}
+
+.app-shell-session__login {
+  color: var(--content-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
 }
 
 .body-pad {
