@@ -103,6 +103,17 @@ function AppRoutes() {
     />
   ) : null;
 
+  const appShellSessionActions = viewer ? (
+    <div className="app-shell-session">
+      <Link to={viewer.role === 'FREELANCER' ? ENGAGEMENT_ROUTES.myBookmarks : PROJECT_ROUTES.manage}>
+        {viewer.email} 님
+      </Link>
+      <button type="button" onClick={() => void logout()}>로그아웃</button>
+    </div>
+  ) : (
+    <Link className="app-shell-session__login" to={AUTH_ROUTES.login}>로그인</Link>
+  );
+
   // 카드마다 북마크 초기 상태를 넘긴다 (CR-0008) — `PublicProjectItem` 에는
   // `isBookmarked` 가 없어 engagement 의 `GET /bookmarks/ids` 로 화면이 직접 대조한다.
   // 프리랜서가 아니면 부르지 않는다 — 서버가 401·403 을 주기 전에 막는다.
@@ -122,7 +133,10 @@ function AppRoutes() {
       projectId={projectId}
       viewer={viewer ? { role: viewer.role } : null}
       initialBookmarked={bookmarkedIds.has(projectId)}
-      onRequireLogin={() => navigate(AUTH_ROUTES.login)}
+      onRequireLogin={() => {
+        const returnTo = `${location.pathname}${location.search}${location.hash}`;
+        navigate(`${AUTH_ROUTES.login}?returnTo=${encodeURIComponent(returnTo)}`);
+      }}
     />
   );
 
@@ -207,7 +221,11 @@ function AppRoutes() {
     location.pathname === APP_ROUTES.home ? (
       routes
     ) : (
-      <AppShell items={navItems} homeHref={APP_ROUTES.home} headerExtra={notificationBell}>
+        <AppShell
+          items={navItems}
+          homeHref={APP_ROUTES.home}
+          headerExtra={<>{appShellSessionActions}{notificationBell}</>}
+        >
         {routes}
       </AppShell>
     );
