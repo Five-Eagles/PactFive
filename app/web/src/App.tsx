@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import './shared/ui/tokens.css';
 import { APP_ROUTES } from './shared/routes';
@@ -9,7 +8,7 @@ import { ComingSoonOverlay } from './shared/ui/ComingSoonOverlay';
 import type { NotYetScreenKey } from './shared/notYetScreens';
 import { Button, EmptyState } from './shared/ui/primitives';
 import { authRoutes, AUTH_ROUTES } from './features/user-management/auth.routes';
-import { useAuth } from './features/user-management/useAuth';
+import { AuthProvider, useAuth } from './features/user-management/useAuth';
 import { DevAuthToggle } from './features/user-management/DevAuthToggle';
 import { captureInitialEmailConfirmation } from './features/user-management/auth.bootstrap';
 import { projectRoutes, PROJECT_ROUTES } from './features/project-management/project.routes';
@@ -89,14 +88,7 @@ function NotFoundPage() {
 function AppRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, restore, logout, login, devLoginAsMock, devLogoutMock } = useAuth();
-
-  // 새로고침 후에도 로그인 상태를 이어간다 — Refresh Token은 HttpOnly 쿠키에 있고
-  // Access Token은 메모리에만 있으므로, 앱이 뜰 때 한 번 복원해야 한다.
-  // 실패는 정상적인 경우다(비로그인). useAuth가 anonymous로 되돌린다.
-  useEffect(() => {
-    void restore().catch(() => undefined);
-  }, [restore]);
+  const { state, logout, login, devLoginAsMock, devLogoutMock } = useAuth();
 
   const viewer = state.status === 'authenticated' ? state.session.user : null;
 
@@ -111,18 +103,32 @@ function AppRoutes() {
     />
   ) : null;
 
+  const appShellSessionActions = viewer ? (
+    <div className="app-shell-session">
+      <Link to={viewer.role === 'FREELANCER' ? APPLICATION_ROUTES.mine : PROJECT_ROUTES.manage}>
+        {viewer.email} 님
+      </Link>
+      <button type="button" onClick={() => void logout()}>로그아웃</button>
+    </div>
+  ) : (
+    <Link className="app-shell-session__login" to={AUTH_ROUTES.login}>로그인</Link>
+  );
+
   // 카드마다 북마크 초기 상태를 넘긴다 (CR-0008) — `PublicProjectItem` 에는
   // `isBookmarked` 가 없어 engagement 의 `GET /bookmarks/ids` 로 화면이 직접 대조한다.
   // 프리랜서가 아니면 부르지 않는다 — 서버가 401·403 을 주기 전에 막는다.
   const bookmarkedIds = useBookmarkedIds(viewer?.role === 'FREELANCER');
 
-  // 시안의 nav는 "프로젝트 찾기 · 내 프로젝트" 두 개다. 프리랜서에게는 "내 프로젝트"가
-  // 의뢰인 전용이라 대신 "내 북마크"를 둔다 — 누를 수 없는 메뉴를 두지 않는다.
+  // 역할별 핵심 활동 화면을 전역 메뉴에 둔다. 프리랜서도 지원 현황과 북마크를 언제든
+  // 다시 열 수 있어야 한다.
   const navItems = [
     { label: '프로젝트 찾기', to: PROJECT_ROUTES.browse },
     viewer?.role === 'FREELANCER'
-      ? { label: '내 북마크', to: ENGAGEMENT_ROUTES.myBookmarks }
+      ? { label: '내 지원 현황', to: APPLICATION_ROUTES.mine }
       : { label: '내 프로젝트', to: PROJECT_ROUTES.manage },
+    ...(viewer?.role === 'FREELANCER'
+      ? [{ label: '내 북마크', to: ENGAGEMENT_ROUTES.myBookmarks }]
+      : []),
   ];
 
   const renderBookmark = (projectId: string) => (
@@ -130,7 +136,10 @@ function AppRoutes() {
       projectId={projectId}
       viewer={viewer ? { role: viewer.role } : null}
       initialBookmarked={bookmarkedIds.has(projectId)}
-      onRequireLogin={() => navigate(AUTH_ROUTES.login)}
+      onRequireLogin={() => {
+        const returnTo = `${location.pathname}${location.search}${location.hash}`;
+        navigate(`${AUTH_ROUTES.login}?returnTo=${encodeURIComponent(returnTo)}`);
+      }}
     />
   );
 
@@ -167,7 +176,7 @@ function AppRoutes() {
         // 대표 페이지 전용(Option C — 아래 참고).
         homeViewer: viewer ? { email: viewer.email, role: viewer.role, userId: viewer.userId } : null,
         homeMyActivityHref:
-          viewer?.role === 'FREELANCER' ? ENGAGEMENT_ROUTES.myBookmarks : PROJECT_ROUTES.manage,
+          viewer?.role === 'FREELANCER' ? APPLICATION_ROUTES.mine : PROJECT_ROUTES.manage,
         onHomeLogout: () => {
           void logout();
         },
@@ -183,7 +192,7 @@ function AppRoutes() {
         detailHref: PROJECT_ROUTES.detail,
       })}
 
-      {contractRoutes({ viewerId: viewer?.userId ?? null })}
+      {contractRoutes({ viewerId: viewer?.userId ?? null, viewerRole: viewer?.role ?? null })}
 
       {pricingAnalysisRoutes({ projectDetailHref: PROJECT_ROUTES.detail, registerHref: PROJECT_ROUTES.register })}
 
@@ -215,7 +224,11 @@ function AppRoutes() {
     location.pathname === APP_ROUTES.home ? (
       routes
     ) : (
-      <AppShell items={navItems} homeHref={APP_ROUTES.home} headerExtra={notificationBell}>
+        <AppShell
+          items={navItems}
+          homeHref={APP_ROUTES.home}
+          headerExtra={<>{appShellSessionActions}{notificationBell}</>}
+        >
         {routes}
       </AppShell>
     );
@@ -241,7 +254,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppRoutes />
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

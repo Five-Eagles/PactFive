@@ -18,6 +18,8 @@ import { PROJECT_ROUTES } from './project.routes';
 import { ReopenRecruitmentDialog } from './ReopenRecruitmentDialog';
 import { DestructiveActionSummary, type DestructiveActionId } from './DestructiveActionSummary';
 import type { ClientProjectDetail } from './project.types';
+import { CONTRACT_ROUTES } from '../contracts-payments/contract.routes';
+import { REVIEW_ROUTES } from '../reviews/review.routes';
 
 /**
  * SCR-B07 — 내 프로젝트 (관리)
@@ -261,6 +263,37 @@ export function ProjectManagePage({ clientId, applicantsHref }: ProjectManagePag
                   {applicantsHref && (
                     <div>
                       <Link to={applicantsHref(project.projectId)}>지원자 관리</Link>
+                    </div>
+                  )}
+                  {project.transactionStatus === 'CONTRACT_PENDING' && (
+                    <div className="btn-row" style={{ marginTop: 8 }}>
+                      <Link className="btn btn--primary" to={CONTRACT_ROUTES.agreement(project.projectId)}>
+                        금액 합의 계속하기
+                      </Link>
+                    </div>
+                  )}
+                  {project.transactionStatus === 'IN_PROGRESS' && (
+                    <div className="btn-row" style={{ marginTop: 8 }}>
+                      <Link className="btn btn--primary" to={CONTRACT_ROUTES.resume(project.projectId)}>
+                        거래 계속하기
+                      </Link>
+                    </div>
+                  )}
+                  {project.transactionStatus === 'COMPLETED' && (
+                    <div className="btn-row" style={{ marginTop: 8 }}>
+                      <Link className="btn btn--primary" to={REVIEW_ROUTES.project(project.projectId)}>
+                        리뷰 작성
+                      </Link>
+                      <Link className="btn btn--secondary" to={CONTRACT_ROUTES.resume(project.projectId)}>
+                        정산 확인
+                      </Link>
+                    </div>
+                  )}
+                  {project.transactionStatus === 'CANCELED' && (
+                    <div className="btn-row" style={{ marginTop: 8 }}>
+                      <Link className="btn btn--secondary" to={CONTRACT_ROUTES.cancellation(project.projectId)}>
+                        취소 결과 보기
+                      </Link>
                     </div>
                   )}
                 </div>

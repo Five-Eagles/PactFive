@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
 import { ApiError } from '../../shared/http';
 import { PaymentPanel, type PaymentView } from './PaymentPanel';
+import { CONTRACT_ROUTES } from './contract.routes';
 import { confirmPayment, preparePayment } from './api/contract';
 import type { PreparePaymentResponse } from './contract.types';
 import './panel.css';
@@ -51,6 +52,7 @@ function loadTossSdk(): Promise<void> {
  */
 export function PaymentPage() {
   const { contractId = '' } = useParams();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const [prepared, setPrepared] = useState<PreparePaymentResponse | null>(null);
@@ -151,6 +153,7 @@ export function PaymentPage() {
           setLoaded(false);
           setRetryToken((token) => token + 1);
         }}
+        onContinue={() => navigate(CONTRACT_ROUTES.delivery(contractId))}
       />
     </PageBody>
   );

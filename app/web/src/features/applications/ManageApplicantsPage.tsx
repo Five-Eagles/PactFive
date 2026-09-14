@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
 import { Button, EmptyState, Notice } from '../../shared/ui/primitives';
 import { useApplicationDecision, useProjectApplications } from './useApplications';
 import type { ApplicationItem } from './application.types';
+import { CONTRACT_ROUTES } from '../contracts-payments/contract.routes';
 
 /**
  * 지원자 관리(규칙 10, 의뢰인) — `features/applications/prototype/web/ApplicationPanel.tsx`의
@@ -41,6 +42,7 @@ export function ManageApplicantsPage() {
   const [rejectTarget, setRejectTarget] = useState<ApplicationItem | null>(null);
   const [conflict, setConflict] = useState(false);
   const [postActionsNotice, setPostActionsNotice] = useState<'pending' | 'failed' | null>(null);
+  const [agreementProjectId, setAgreementProjectId] = useState<string | null>(null);
 
   async function handleAcceptConfirmed() {
     if (!confirmTarget) return;
@@ -54,6 +56,7 @@ export function ManageApplicantsPage() {
       } else {
         setPostActionsNotice(null);
       }
+      setAgreementProjectId(projectId);
       reload();
     } else {
       setConflict(true);
@@ -117,6 +120,16 @@ export function ManageApplicantsPage() {
         {postActionsNotice === 'pending' && (
           <Notice tone="warning">선정은 완료되었으며 후속 처리를 진행 중입니다. 잠시 후 목록을 새로 고쳐 확인해 주세요.</Notice>
         )}
+        {agreementProjectId && (
+          <Notice tone="info">
+            선정이 완료되었습니다. 프리랜서와 금액을 합의한 뒤 계약을 진행해 주세요.
+            <div className="btn-row" style={{ marginTop: 12 }}>
+              <Link className="btn btn--primary" to={CONTRACT_ROUTES.agreement(agreementProjectId)}>
+                금액 합의 시작
+              </Link>
+            </div>
+          </Notice>
+        )}
         {postActionsNotice === 'failed' && (
           <Notice tone="danger">
             선정은 완료됐지만 나머지 지원 거절·알림 처리 중 문제가 발생했습니다. 새로고침 후에도 남아 있으면 팀장에게 알려 주세요.
@@ -139,7 +152,7 @@ export function ManageApplicantsPage() {
               <dl className="facts" key={item.applicationId}>
                 <dt>지원자</dt>
                 <dd>
-                  {item.freelancerId ?? '알 수 없음'} · {item.expectedAmount?.toLocaleString('ko-KR')}원 ·{' '}
+                  {item.freelancerName ?? '지원자'} · {item.expectedAmount?.toLocaleString('ko-KR')}원 ·{' '}
                   {item.expectedDurationDays}일
                 </dd>
                 <dt>자기소개</dt>
@@ -171,8 +184,15 @@ export function ManageApplicantsPage() {
                   <dl className="facts" key={item.applicationId}>
                     <dt>지원자</dt>
                     <dd>
-                      {item.freelancerId ?? '알 수 없음'} · {STATUS_LABEL[item.status]}
+                      {item.freelancerName ?? '지원자'} · {STATUS_LABEL[item.status]}
                     </dd>
+                    {item.status === 'ACCEPTED' && (
+                      <div className="btn-row">
+                        <Link className="btn btn--primary" to={CONTRACT_ROUTES.agreement(projectId)}>
+                          금액 합의 {agreementProjectId === projectId ? '계속하기' : '시작'}
+                        </Link>
+                      </div>
+                    )}
                   </dl>
                 ))}
               </>
@@ -240,7 +260,7 @@ function AcceptConfirmDialog({
           이 지원자를 수락할까요?
         </h2>
         <p className="status-copy">
-          {target.freelancerId ?? '이 지원자'}를 수락하면 나머지 지원은 거절되고{' '}
+          {target.freelancerName ?? '이 지원자'}를 수락하면 나머지 지원은 거절되고{' '}
           <strong>되돌릴 수 없습니다</strong>.
         </p>
         <div className="btn-row">

@@ -34,6 +34,7 @@ export type ApplicationItem = {
   applicationId: string;
   projectId?: string;
   freelancerId?: string;
+  freelancerName?: string | null;
   coverLetter?: string;
   expectedAmount?: number;
   expectedDurationDays?: number;
@@ -59,6 +60,7 @@ export type ListProjectApplicationsResponse = ListPageMeta & {
 export type MyApplicationItem = {
   applicationId: string;
   projectId: string;
+  projectTitle: string | null;
   status: ApplicationStatus;
   rejectionType: ApplicationRejectionType | null;
   createdAt: string;

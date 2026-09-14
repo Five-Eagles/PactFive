@@ -70,7 +70,7 @@ export async function completeProjectTransactionIfSettled(
   input: CompleteProjectTransactionInput,
   deliveryStatus: DeliveryStatus,
   paymentStatus: PaymentStatus,
-  notify?: { notifications: NotificationTriggerPort; freelancerId: string },
+  notify?: { notifications: NotificationTriggerPort; freelancerId: string; projectTitle: string; contractId: string },
 ) {
   if (deliveryStatus !== "APPROVED" || paymentStatus !== "RELEASED") {
     throw new CallerGuardError("I30_NOT_SATISFIED");
@@ -107,6 +107,8 @@ export async function completeProjectTransactionIfSettled(
       notify.notifications.publishReviewRequested({
         type: "REVIEW_REQUESTED",
         projectId,
+        projectTitle: notify.projectTitle,
+        contractId: notify.contractId,
         clientId: context.clientId,
         freelancerId: notify.freelancerId,
         occurredAt: input.occurredAt,

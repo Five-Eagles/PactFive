@@ -124,7 +124,7 @@ function navigateInBrowser(path: string): void {
 }
 
 export function EmailConfirmationPage({ tokenHash, onNavigate = navigateInBrowser }: EmailConfirmationPageProps) {
-  const { confirmEmail, logout } = useAuth({ restoreOnMount: false });
+  const { confirmEmail, logout } = useAuth();
   const [phase, setPhase] = useState<EmailConfirmationPhase>(
     tokenHash && tokenHash.trim().length >= 8 ? 'ready' : 'missing',
   );
