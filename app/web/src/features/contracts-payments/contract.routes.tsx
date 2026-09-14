@@ -34,14 +34,15 @@ export const CONTRACT_ROUTES = {
 
 export type ContractRouteProps = {
   viewerId: string | null;
+  viewerRole: 'CLIENT' | 'FREELANCER' | null;
 };
 
-export function contractRoutes({ viewerId }: ContractRouteProps) {
+export function contractRoutes({ viewerId, viewerRole }: ContractRouteProps) {
   return (
     <>
       <Route path="/projects/:projectId/agreements" element={<AgreementPage viewerId={viewerId} />} />
       <Route path="/projects/:projectId/transaction" element={<TransactionResumePage />} />
-      <Route path="/contracts/:contractId/sign" element={<ContractSignPage />} />
+      <Route path="/contracts/:contractId/sign" element={<ContractSignPage viewerRole={viewerRole} />} />
       <Route path="/contracts/:contractId/payment" element={<PaymentPage />} />
       <Route path="/contracts/:contractId/delivery" element={<DeliveryPage />} />
       <Route path="/contracts/:contractId/settlement" element={<SettlementPage />} />
