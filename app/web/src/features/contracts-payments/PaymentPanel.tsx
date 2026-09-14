@@ -126,7 +126,7 @@ export function PaymentPanel({
         <p className="status-copy">실패한 결제는 쓰지 않고, 같은 결제로 다시 시도합니다.</p>
         <PaymentFacts amount={amount} projectTitle={projectTitle} />
         <div className="btn-row">
-          <Button variant="primary" onClick={onPay}>
+          <Button variant="primary" onClick={onRetry ?? onPay}>
             다시 결제
           </Button>
         </div>

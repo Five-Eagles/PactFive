@@ -173,8 +173,12 @@ export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepos
       clientId = contract.clientId;
       freelancerId = contract.freelancerId;
     }
+    // Payment는 계약당 한 건만 존재한다. id만 기준으로 upsert하면 두 개의
+    // preparePayment 요청이 동시에 paymentId를 새로 생성할 때 서로 다른 id로
+    // INSERT를 시도하여 payments_contract_id_key(P2002)가 발생한다. 계약 유니크
+    // 키를 기준으로 upsert해야 재시도·더블클릭도 같은 결제 원장을 갱신한다.
     await this.prisma.payment.upsert({
-      where: { id: row.paymentId },
+      where: { contractId: row.contractId },
       create: {
         id: row.paymentId,
         contractId: row.contractId,

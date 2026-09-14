@@ -587,7 +587,17 @@ export function createPublicApiService({
         );
       }
       const existing = await repo.findPaymentByContractId(input.contractId);
-      if (existing && (existing.status === 'READY' || existing.status === 'PAID')) {
+      if (existing && existing.status === 'PAID') {
+        return {
+          paymentId: existing.paymentId,
+          orderId: existing.orderId,
+          amount: existing.amount,
+          clientKey: existing.clientKey,
+        };
+      }
+      // 브라우저 SDK가 결제창을 열기 전에 실패하면 READY 원장은 남는다.
+      // 명시적인 재시도에서는 Toss가 이미 본 주문번호를 재사용하지 않도록 새 주문번호를 만든다.
+      if (existing && existing.status === 'READY' && !input.refreshOrder) {
         return {
           paymentId: existing.paymentId,
           orderId: existing.orderId,

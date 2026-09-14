@@ -60,12 +60,25 @@ export function PaymentPage() {
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [loaded, setLoaded] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
+  const [tossReady, setTossReady] = useState(false);
   const confirmingRef = useRef(false);
+  const paymentRequestingRef = useRef(false);
 
   const returnedPaymentKey = searchParams.get('paymentKey');
   const returnedOrderId = searchParams.get('orderId');
   const returnedAmount = searchParams.get('amount');
   const returnedFailCode = searchParams.get('code');
+
+  // 결제 버튼 클릭 직전에 SDK를 로드하면 비동기 로딩으로 사용자 제스처가
+  // 끊겨 결제창(popup/redirect)이 브라우저에서 차단될 수 있다. 페이지 진입
+  // 시점에 미리 로드해 클릭 핸들러에서는 이미 준비된 SDK만 호출한다.
+  useEffect(() => {
+    loadTossSdk()
+      .then(() => setTossReady(true))
+      .catch((error: unknown) => {
+        setErrorMessage(error instanceof Error ? error.message : '결제 모듈을 불러오지 못했습니다.');
+      });
+  }, []);
 
   useEffect(() => {
     if (returnedFailCode) {
@@ -91,7 +104,7 @@ export function PaymentPage() {
       return;
     }
 
-    preparePayment(contractId)
+    preparePayment(contractId, retryToken > 0)
       .then((result) => {
         setPrepared(result);
         setErrorMessage(undefined);
@@ -111,10 +124,15 @@ export function PaymentPage() {
   }, [contractId, retryToken]);
 
   async function handlePay() {
-    if (!prepared) return;
+    if (!prepared || paymentRequestingRef.current) return;
+    if (!tossReady || !window.TossPayments) {
+      setErrorMessage('결제 모듈을 아직 준비하는 중입니다. 잠시 후 다시 시도해 주세요.');
+      setView('failed');
+      return;
+    }
+    paymentRequestingRef.current = true;
+    const origin = window.location.origin;
     try {
-      await loadTossSdk();
-      const origin = window.location.origin;
       const pathname = window.location.pathname;
       const toss = window.TossPayments?.(prepared.clientKey);
       if (!toss) {
@@ -134,12 +152,16 @@ export function PaymentPage() {
         error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
           ? error.message
           : '결제 요청을 처리하지 못했습니다.';
-      console.error('[contracts-payments] Toss payment request failed', {
+      console.error('[contracts-payments] Toss payment request failed', JSON.stringify({
         code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
         message: providerMessage,
-      });
+        origin,
+        orderId: prepared.orderId,
+      }));
       setErrorMessage(providerMessage);
       setView('failed');
+    } finally {
+      paymentRequestingRef.current = false;
     }
   }
 
@@ -159,7 +181,7 @@ export function PaymentPage() {
 
   return (
     <PageBody>
-      <PaymentPanel
+        <PaymentPanel
         view={view}
         amount={prepared?.amount}
         projectTitle="프로젝트"

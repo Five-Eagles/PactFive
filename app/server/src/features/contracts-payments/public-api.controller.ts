@@ -141,6 +141,7 @@ export function createPublicApiController(service: PublicApiService) {
         const body = req.body as Record<string, unknown>;
         const result = await service.preparePayment(toAuth(req), {
           contractId: String(body.contractId ?? ''),
+          refreshOrder: body.refreshOrder === true,
         });
         res.status(200).json(result);
       } catch (error) {
