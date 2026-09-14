@@ -88,7 +88,8 @@ export function NotificationListView({ snapshot, onRefresh, onMarkRead, onMarkAl
   const pendingFocus = useRef<{ button: HTMLButtonElement; id?: string; refresh?: boolean } | null>(null);
   const busy = snapshot.isRefreshing || snapshot.isMarkingAllRead || snapshot.pendingNotificationId !== null;
   const sessionExpired = snapshot.status === 'session-expired';
-  const isRead = (id: string, readAt: string | null) => readAt !== null || snapshot.confirmedReadIds.includes(id);
+  const isRead = (id: string, readAt: string | null) =>
+    readAt !== null || snapshot.confirmedReadIds.includes(id) || snapshot.optimisticReadIds.includes(id);
   const visible = sessionExpired ? [] : snapshot.items.filter((entry) => filter === 'all' || !isRead(entry.id, entry.readAt));
   useEffect(() => {
     if (busy || !pendingFocus.current) return;
