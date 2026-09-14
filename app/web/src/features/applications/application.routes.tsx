@@ -1,4 +1,5 @@
 import { Route } from 'react-router-dom';
+import type { ReactNode } from 'react';
 import { ApplyPage } from './ApplyPage';
 import { ManageApplicantsPage } from './ManageApplicantsPage';
 import { MyApplicationsPage } from './MyApplicationsPage';
@@ -14,10 +15,10 @@ export const APPLICATION_ROUTES = {
   mine: '/applications/me',
 } as const;
 
-export function applicationRoutes() {
+export function applicationRoutes(options: { applyElement?: ReactNode } = {}) {
   return (
     <>
-      <Route path="/projects/:projectId/apply" element={<ApplyPage />} />
+      <Route path="/projects/:projectId/apply" element={options.applyElement ?? <ApplyPage />} />
       <Route path="/projects/:projectId/applicants" element={<ManageApplicantsPage />} />
       <Route path={APPLICATION_ROUTES.mine} element={<MyApplicationsPage />} />
     </>
