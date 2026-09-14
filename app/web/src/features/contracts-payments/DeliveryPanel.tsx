@@ -64,13 +64,14 @@ export function DeliveryPanel({
 }: DeliveryPanelProps) {
   if (view === 'loading') {
     return (
-      <article className="panel" aria-busy="true">
+      <article className="panel" role="status" aria-busy="true">
         <div className="panel-head">
           <h2 className="title">납품</h2>
         </div>
-        <p className="helper">납품 정보를 불러오는 중입니다.</p>
+        <span className="sr-only">납품 정보를 불러오는 중입니다</span>
+        <div className="skeleton" style={{ width: '40%' }} />
         <div className="skeleton" />
-        <div className="skeleton" />
+        <div className="skeleton" style={{ width: '60%' }} />
       </article>
     );
   }

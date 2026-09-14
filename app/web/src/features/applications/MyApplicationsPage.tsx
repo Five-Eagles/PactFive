@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
-import { Button, EmptyState, Notice } from '../../shared/ui/primitives';
+import { Button, EmptyState, ListRowSkeleton, Notice, SkeletonGroup } from '../../shared/ui/primitives';
 import { PROJECT_ROUTES } from '../project-management/project.routes';
 import { REVIEW_ROUTES } from '../reviews/review.routes';
 import { CONTRACT_ROUTES } from '../contracts-payments/contract.routes';
@@ -43,9 +43,11 @@ export function MyApplicationsPage() {
   if (loading) {
     return (
       <PageBody>
-        <p className="status-line" role="status">
-          불러오는 중입니다…
-        </p>
+        {/* 실제 .card > .row 구조를 그대로 재사용한다 (2026-09-14 수정) */}
+        <SkeletonGroup
+          className="card"
+          renderItem={(i) => <ListRowSkeleton key={i} subLines={1} badges={1} />}
+        />
       </PageBody>
     );
   }

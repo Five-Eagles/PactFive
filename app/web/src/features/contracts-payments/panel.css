@@ -124,11 +124,42 @@
 .panel .btn-row { margin-top: 4px; }
 .panel .helper { margin-top: 0; margin-bottom: 16px; }
 
+/* 로딩 중 자리 채우기 (design-tokens.md §14, ADR-0018 — 2026-09-14 업그레이드).
+ * 이전에는 고정 회색 막대 하나였다 — 애니메이션이 없어 "로딩 중"이라는 신호가 약했고,
+ * 높이 12px 하나뿐이라 실제 패널 내용(제목 줄·본문 줄)과 크기가 안 맞았다. shared/ui의
+ * `.ui-skeleton`과 시각 규격은 같지만, 이 기능은 BEM을 쓰지 않는다는 기존 결정
+ * (feedback_loop/2026-09-03/contracts-payments.md)을 지켜 여기서는 modifier 클래스 없이
+ * 공백 구분(`skeleton wide`)과 인라인 width로만 크기를 바꾼다. */
 .skeleton {
-  height: 12px;
+  position: relative;
+  overflow: hidden;
+  display: block;
+  height: 16px;
   border-radius: 4px;
-  background: var(--surface-subtle);
+  background: var(--surface-muted);
   margin-bottom: 8px;
+}
+.skeleton:last-child {
+  margin-bottom: 0;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: skeleton-shimmer var(--skeleton-shimmer-duration) linear infinite;
+}
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+    content: none;
+  }
 }
 
 /*

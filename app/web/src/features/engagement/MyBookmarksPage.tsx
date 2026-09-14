@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
-import { Button, Chip, EmptyState, Money, RecruitmentBadge } from '../../shared/ui/primitives';
+import {
+  Button,
+  Chip,
+  EmptyState,
+  Money,
+  ProjectCardSkeleton,
+  RecruitmentBadge,
+  SkeletonGroup,
+} from '../../shared/ui/primitives';
 import { ApiError } from '../../shared/http';
 import { removeBookmark } from './api/bookmark';
 import { useMyBookmarks } from './useBookmark';
@@ -67,10 +75,13 @@ export function MyBookmarksPage({ isFreelancer, browseHref, detailHref }: MyBook
     <PageBody>
       <h1 className="h3">내 북마크</h1>
 
+      {/* 실제 북마크 카드는 카테고리 캡션 줄이 없다 (MyBookmarksPage 실제 마크업 기준) */}
       {loading && (
-        <p className="status-line" role="status">
-          불러오는 중입니다…
-        </p>
+        <SkeletonGroup
+          as="ul"
+          className="grid"
+          renderItem={(i) => <ProjectCardSkeleton key={i} withCategory={false} />}
+        />
       )}
 
       {(error || removeError) && (

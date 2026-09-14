@@ -7,6 +7,7 @@ import {
   DeadlineIndicator,
   Money,
   RecruitmentBadge,
+  SkeletonStack,
   TransactionBadge,
 } from '../../shared/ui/primitives';
 import { isClientDetail, useProject } from './useProject';
@@ -60,9 +61,11 @@ export function ProjectDetailPage({
   if (loading) {
     return (
       <PageBody>
-        <p className="status-line" role="status">
-          불러오는 중입니다…
-        </p>
+        {/* 시안 2단 구조(제목·설명·모집정보)를 흉내 낸 글줄 스택 (ADR-0018) */}
+        <SkeletonStack
+          widths={['25%', '55%', '20%', '100%', '100%', '80%']}
+          label="불러오는 중입니다"
+        />
       </PageBody>
     );
   }
