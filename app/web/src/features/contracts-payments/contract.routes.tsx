@@ -5,6 +5,7 @@ import { PaymentPage } from './PaymentPage';
 import { DeliveryPage } from './DeliveryPage';
 import { SettlementPage } from './SettlementPage';
 import { CancellationPage } from './CancellationPage';
+import { TransactionResumePage } from './TransactionResumePage';
 
 /**
  * contracts-payments 라우트 정의 + 경로 상수.
@@ -28,6 +29,7 @@ export const CONTRACT_ROUTES = {
   delivery: (contractId: string) => `/contracts/${contractId}/delivery`,
   settlement: (contractId: string) => `/contracts/${contractId}/settlement`,
   cancellation: (projectId: string) => `/projects/${projectId}/cancellation`,
+  resume: (projectId: string) => `/projects/${projectId}/transaction`,
 } as const;
 
 export type ContractRouteProps = {
@@ -38,6 +40,7 @@ export function contractRoutes({ viewerId }: ContractRouteProps) {
   return (
     <>
       <Route path="/projects/:projectId/agreements" element={<AgreementPage viewerId={viewerId} />} />
+      <Route path="/projects/:projectId/transaction" element={<TransactionResumePage />} />
       <Route path="/contracts/:contractId/sign" element={<ContractSignPage />} />
       <Route path="/contracts/:contractId/payment" element={<PaymentPage />} />
       <Route path="/contracts/:contractId/delivery" element={<DeliveryPage />} />

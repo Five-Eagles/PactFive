@@ -48,6 +48,10 @@ export type NotificationEventInput = EventBase &
         pendingFreelancerIds: string[];
         acceptedFreelancerId: string | null;
       }
+    | { type: 'PAYMENT_COMPLETED'; freelancerId: string; paymentId: string }
+    | { type: 'DELIVERY_REQUESTED'; clientId: string; contractId: string }
+    | { type: 'DELIVERY_APPROVED'; freelancerId: string; contractId: string }
+    | { type: 'REVIEW_REQUESTED'; clientId: string; freelancerId: string; contractId: string }
   );
 export type PublishNotificationResponse = { createdCount: number; duplicateCount: number };
 export type SafeNotificationDeliveryResponse =

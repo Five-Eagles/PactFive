@@ -113,14 +113,24 @@ export function MyApplicationsPage() {
                     <Link to={REVIEW_ROUTES.project(item.projectId)}>
                       <Button variant="primary">리뷰 작성</Button>
                     </Link>
+                    <Link to={CONTRACT_ROUTES.resume(item.projectId)}>
+                      <Button variant="secondary">정산 확인</Button>
+                    </Link>
                   </div>
                 )}
                 {item.status === 'ACCEPTED' &&
-                  item.transactionStatus === 'CONTRACT_PENDING' &&
+                  item.transactionStatus &&
+                  item.transactionStatus !== 'COMPLETED' &&
                   item.projectNotice === 'NONE' && (
                     <div className="btn-row">
-                      <Link to={CONTRACT_ROUTES.agreement(item.projectId)}>
-                        <Button variant="primary">금액 합의 참여</Button>
+                      <Link to={
+                        item.transactionStatus === 'CONTRACT_PENDING'
+                          ? CONTRACT_ROUTES.agreement(item.projectId)
+                          : CONTRACT_ROUTES.resume(item.projectId)
+                      }>
+                        <Button variant="primary">
+                          {item.transactionStatus === 'CONTRACT_PENDING' ? '금액 합의 참여' : '거래 계속하기'}
+                        </Button>
                       </Link>
                     </div>
                   )}

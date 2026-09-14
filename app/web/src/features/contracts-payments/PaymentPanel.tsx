@@ -12,6 +12,7 @@ export type PaymentPanelProps = {
   projectTitle?: string;
   onPay?: () => void;
   onRetry?: () => void;
+  onContinue?: () => void;
 };
 
 const DEFAULT_TITLE = '쇼핑몰 웹사이트 구축';
@@ -53,6 +54,7 @@ export function PaymentPanel({
   projectTitle = DEFAULT_TITLE,
   onPay,
   onRetry,
+  onContinue,
 }: PaymentPanelProps) {
   if (view === 'keyMissing') {
     // 시크릿을 읽지 않는다. 결제하기와 가짜 성공을 두지 않는다.
@@ -104,6 +106,9 @@ export function PaymentPanel({
           결제가 완료되었습니다. 거래가 <strong>진행 중</strong>입니다.
         </p>
         <PaymentFacts amount={amount} projectTitle={projectTitle} />
+        <div className="btn-row">
+          <Button variant="primary" onClick={onContinue}>납품 진행 보기</Button>
+        </div>
       </article>
     );
   }

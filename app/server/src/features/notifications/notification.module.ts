@@ -21,11 +21,8 @@ export type NotificationModuleOptions = {
  * 담당자 통합 초안: DB·실인증을 필수 주입하고 조회 라우터와 생성 포트를 같은 저장소에 연결한다.
  * Mock 기본값, 앱 listen, 원천 이벤트 보강, scheduler, durable queue는 제공하지 않는다.
  *
- * 2026-09-09 통합 범위 — express-app.ts는 이 모듈의 router만 마운트한다. `delivery`
- * (원천 사건 생성 접점)는 applications/project-management/contracts-payments가 정규화된
- * eventId/수신자 스냅샷을 아직 만들지 않아(change-requests/CR-0001-notifications-integration.md
- * §3·§4) 이번 반영에서 어디에도 연결하지 않는다 — 조회/읽음 4종 API만 실제로 쓰인다.
- * feedback_loop/2026-09-09/notifications.md 참고.
+ * applications와 contracts-payments는 조립 지점에서 이 모듈의 `delivery`로 사건을 전달한다.
+ * 알림 저장 실패는 각 도메인의 트랜잭션을 되돌리지 않는다.
  */
 export function createNotificationModule(options: NotificationModuleOptions) {
   const service = new NotificationService(options.repository, options.clock);

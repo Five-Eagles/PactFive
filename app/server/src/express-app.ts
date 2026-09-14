@@ -40,7 +40,7 @@ import {
   createPublicApiService,
 } from './features/contracts-payments/public-api.service';
 import { createPublicApiRouter } from './features/contracts-payments/public-api.routes';
-import { InMemoryNotificationTriggerAdapter } from './features/contracts-payments/in-memory-notification.adapter';
+import { NotificationContractAdapter } from './features/contracts-payments/notification.adapter';
 import { createTransactionLifecycleCoordinator } from './features/contracts-payments/transaction-lifecycle.coordinator';
 import { hasPgSecretKey, createTossPaymentsAdapter } from './features/contracts-payments/toss-payments.adapter';
 import type { PaymentGateway } from './features/contracts-payments/payment.port';
@@ -133,10 +133,8 @@ const authProviderMode = process.env.AUTH_PROVIDER_MODE ?? (isProduction ? 'supa
 // 참조한다 — 실제로 호출되는 시점(요청이 들어올 때)에는 이미 초기화가 끝나 있으므로 문제
 // 없다(모듈 최상단 코드가 전부 실행된 뒤에야 서버가 요청을 받기 시작한다).
 //
-// applications/project-management/contracts-payments가 정규화된 eventId·수신자 스냅샷을 아직
-// 만들지 않아(change-requests/CR-0001-notifications-integration.md §3·§4) `notifications.delivery`
-// (원천 사건 생성 접점)는 이번 반영에서 아무 곳에도 연결하지 않는다 — router만 마운트한다.
-// feedback_loop/2026-09-09/notifications.md 참고.
+// applications와 contracts-payments가 정규화한 사건은 아래 조립 지점에서
+// `notifications.delivery`로 전달한다. 이 라우터 자체는 인증된 조회·읽음 API를 담당한다.
 // ---------------------------------------------------------------------------
 
 const resolveNotificationAuth: NotificationAuthResolver = async (request) => {
@@ -527,11 +525,9 @@ function contractsPaymentsRandomId(prefix: string): string {
   return `${prefix}_${randomId()}`;
 }
 
-// 2026-09-07 팀장 반영 — sync-log.md 2026-09-03(67207c8) 이후 develop에 쌓인 #53·#66·#58·#80
-// 4개 PR 분량(재제안 AGR-02/03·납품 DLV-01·정산 조회 SET-01 v2·취소 조회 CAN-01 v2·교차
-// 생명주기 Coordinator)을 여기서 처음 배선한다. 알림 발행은 notifications가 아직 app/에
-// 실제 인바운드를 붙이지 않아(위 reviews 섹션 주석과 같은 이유) 인메모리로 로그만 남긴다.
-const contractsPaymentsNotifications = new InMemoryNotificationTriggerAdapter();
+// contracts-payments 사건도 notifications의 영속 저장소로 전달한다. 알림 실패는
+// notification.port.ts의 정책대로 본 거래 전이를 되돌리지 않는다.
+const contractsPaymentsNotifications = new NotificationContractAdapter(notifications.delivery);
 
 const transactionLifecycleCoordinator = createTransactionLifecycleCoordinator({
   projects: projectTransactionPort,
