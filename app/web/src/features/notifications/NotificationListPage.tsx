@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import type { NotificationApi, NotificationType } from './notifications.types';
-import { isNotificationProjectLink } from './api/notifications';
+import { isNotificationInternalLink } from './api/notifications';
 import { NotificationBell, NotificationBellIcon } from './NotificationBell';
 import type { NotificationSnapshot } from './notification.store';
 import { useNotifications, type NotificationInitialSnapshot } from './useNotifications';
@@ -52,6 +52,21 @@ const category: Record<NotificationType, string> = {
   DELIVERY_REQUESTED: '납품',
   DELIVERY_APPROVED: '납품',
   REVIEW_REQUESTED: '후기',
+};
+const actionLabel: Record<NotificationType, string> = {
+  APPLICATION_SUBMITTED: '지원자 관리',
+  APPLICATION_ACCEPTED: '내 지원 확인',
+  APPLICATION_REJECTED: '내 지원 확인',
+  APPLICATION_AUTO_REJECTED: '내 지원 확인',
+  PROJECT_RECRUITMENT_CLOSED: '프로젝트 보기',
+  PROJECT_CANCELED: '취소 결과 보기',
+  AGREEMENT_ACCEPTED: '거래 진행하기',
+  AGREEMENT_REJECTED: '금액 합의 보기',
+  CONTRACT_SIGNED: '계약 확인',
+  PAYMENT_COMPLETED: '납품 진행하기',
+  DELIVERY_REQUESTED: '납품 검토하기',
+  DELIVERY_APPROVED: '정산 확인하기',
+  REVIEW_REQUESTED: '후기 작성하기',
 };
 export function formatNotificationTime(iso: string): string {
   return new Intl.DateTimeFormat('ko-KR', {
@@ -263,7 +278,7 @@ export function NotificationListView({ snapshot, onRefresh, onMarkRead, onMarkAl
                               >
                                 {snapshot.pendingNotificationId === entry.id ? '처리 중…' : read ? '읽음' : '읽음 처리'}
                               </button>
-                              {isNotificationProjectLink(entry.linkUrl) && (
+                              {isNotificationInternalLink(entry.linkUrl) && (
                                 <Link
                                   ref={(node) => {
                                     if (node) rowLinks.current.set(entry.id, node);
@@ -271,9 +286,9 @@ export function NotificationListView({ snapshot, onRefresh, onMarkRead, onMarkAl
                                   }}
                                   className="ntf-link"
                                   to={entry.linkUrl}
-                                  aria-label={`${entry.title}: 프로젝트 보기`}
+                                  aria-label={`${entry.title}: ${actionLabel[entry.type]}`}
                                 >
-                                  프로젝트 보기 <span aria-hidden="true">→</span>
+                                  {actionLabel[entry.type]} <span aria-hidden="true">→</span>
                                 </Link>
                               )}
                             </div>

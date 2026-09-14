@@ -16,9 +16,17 @@ import type {
  */
 
 const identifier = /^[A-Za-z0-9][A-Za-z0-9_-]{0,29}(?![\s\S])/;
-export function isNotificationProjectLink(value: string): boolean {
-  return /^\/projects\/[A-Za-z0-9][A-Za-z0-9_-]{0,29}(?![\s\S])/.test(value);
+/** 알림은 서버가 만든 내부 경로만 이동시킨다. 외부 URL과 임의 경로는 거부한다. */
+export function isNotificationInternalLink(value: string): boolean {
+  return (
+    /^\/projects\/[A-Za-z0-9][A-Za-z0-9_-]{0,29}(?:\/(?:applicants|agreements|transaction|reviews|cancellation))?$/.test(value) ||
+    /^\/applications\/me$/.test(value) ||
+    /^\/contracts\/[A-Za-z0-9][A-Za-z0-9_-]{0,29}\/(?:payment|delivery|settlement|sign)$/.test(value)
+  );
 }
+
+/** 기존 호출부와의 호환을 위한 이름. 신규 코드는 내부 링크 검증기를 사용한다. */
+export const isNotificationProjectLink = isNotificationInternalLink;
 
 export class NotificationClientError extends Error {
   constructor(
@@ -64,7 +72,7 @@ function item(value: unknown): NotificationItem {
   const dto = record(value);
   const id = nullableIdentifier(dto.id);
   if (id === null || !NOTIFICATION_TYPES.includes(dto.type as NotificationType)) return invalidResponse();
-  if (typeof dto.linkUrl !== 'string' || !isNotificationProjectLink(dto.linkUrl)) return invalidResponse();
+  if (typeof dto.linkUrl !== 'string' || !isNotificationInternalLink(dto.linkUrl)) return invalidResponse();
   // 명시적 allowlist — 내부 recipientId/dedupeKey는 UI 상태로 절대 새지 않는다.
   return {
     id,
