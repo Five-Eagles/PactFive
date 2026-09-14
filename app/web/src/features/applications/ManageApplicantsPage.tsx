@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
-import { Button, EmptyState, Notice } from '../../shared/ui/primitives';
+import { Button, EmptyState, FactsSkeleton, Notice, SkeletonGroup } from '../../shared/ui/primitives';
 import { useApplicationDecision, useProjectApplications } from './useApplications';
 import type { ApplicationItem } from './application.types';
 import { CONTRACT_ROUTES } from '../contracts-payments/contract.routes';
@@ -73,13 +73,17 @@ export function ManageApplicantsPage() {
   if (loading) {
     return (
       <PageBody>
-        <article className="panel" aria-busy="true">
+        <article className="panel">
           <div className="panel-head">
             <h2 className="title">지원자 관리</h2>
           </div>
-          <p className="helper">지원자 목록을 불러오는 중입니다.</p>
-          <div className="skeleton" />
-          <div className="skeleton" />
+          {/* 지원자가 몇 명 올지 몰라도 최대 3명 자리만 예약한다 (ADR-0018). 실제 화면은
+              `.row`가 아니라 `.facts`(dl/dt/dd)를 그린다 — 이전 수정에서 모양이 어긋났던
+              부분을 바로잡았다 (2026-09-14). */}
+          <SkeletonGroup
+            label="지원자 목록을 불러오는 중입니다"
+            renderItem={(i) => <FactsSkeleton key={i} />}
+          />
         </article>
       </PageBody>
     );

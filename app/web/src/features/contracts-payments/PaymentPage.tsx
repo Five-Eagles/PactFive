@@ -168,11 +168,12 @@ export function PaymentPage() {
   if (!loaded) {
     return (
       <PageBody>
-        <article className="panel" aria-busy="true">
+        <article className="panel" role="status" aria-busy="true">
           <div className="panel-head">
             <h2 className="title">결제</h2>
           </div>
-          <p className="helper">결제 정보를 불러오는 중입니다.</p>
+          <span className="sr-only">결제 정보를 불러오는 중입니다</span>
+          <div className="skeleton" style={{ width: '40%' }} />
           <div className="skeleton" />
         </article>
       </PageBody>

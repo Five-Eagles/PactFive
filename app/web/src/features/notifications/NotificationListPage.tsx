@@ -5,6 +5,7 @@ import { isNotificationInternalLink } from './api/notifications';
 import { NotificationBell, NotificationBellIcon } from './NotificationBell';
 import type { NotificationSnapshot } from './notification.store';
 import { useNotifications, type NotificationInitialSnapshot } from './useNotifications';
+import { SkeletonList } from '../../shared/ui/primitives';
 import './notifications.css';
 
 /**
@@ -212,12 +213,10 @@ export function NotificationListView({ snapshot, onRefresh, onMarkRead, onMarkAl
                   </Link>
                 </div>
               ) : (snapshot.status === 'loading' || snapshot.isRefreshing) && !snapshot.hasLoaded ? (
-                <div className="ntf-status" role="status" data-testid="notification-loading">
-                  <div className="ntf-symbol">
-                    <NotificationBellIcon />
-                  </div>
-                  <h2>알림을 불러오고 있습니다.</h2>
-                  <p>잠시만 기다려 주세요.</p>
+                // 알림 몇 건이 올지 몰라도 목록행 자리는 최대 3개까지만 예약한다 (ADR-0018).
+                // 아이콘+문구가 깜빡이던 이전 방식 대신, 실제 알림 카드 크기의 자리를 채운다.
+                <div data-testid="notification-loading">
+                  <SkeletonList shape="row" label="알림을 불러오고 있습니다" />
                 </div>
               ) : snapshot.status === 'error' && !snapshot.hasLoaded ? (
                 <div className="ntf-status" data-testid="notification-error">
