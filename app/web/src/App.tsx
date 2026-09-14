@@ -192,7 +192,7 @@ function AppRoutes() {
         detailHref: PROJECT_ROUTES.detail,
       })}
 
-      {contractRoutes({ viewerId: viewer?.userId ?? null })}
+      {contractRoutes({ viewerId: viewer?.userId ?? null, viewerRole: viewer?.role ?? null })}
 
       {pricingAnalysisRoutes({ projectDetailHref: PROJECT_ROUTES.detail, registerHref: PROJECT_ROUTES.register })}
 
