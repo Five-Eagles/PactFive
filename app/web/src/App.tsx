@@ -105,7 +105,7 @@ function AppRoutes() {
 
   const appShellSessionActions = viewer ? (
     <div className="app-shell-session">
-      <Link to={viewer.role === 'FREELANCER' ? ENGAGEMENT_ROUTES.myBookmarks : PROJECT_ROUTES.manage}>
+      <Link to={viewer.role === 'FREELANCER' ? APPLICATION_ROUTES.mine : PROJECT_ROUTES.manage}>
         {viewer.email} 님
       </Link>
       <button type="button" onClick={() => void logout()}>로그아웃</button>
@@ -119,13 +119,16 @@ function AppRoutes() {
   // 프리랜서가 아니면 부르지 않는다 — 서버가 401·403 을 주기 전에 막는다.
   const bookmarkedIds = useBookmarkedIds(viewer?.role === 'FREELANCER');
 
-  // 시안의 nav는 "프로젝트 찾기 · 내 프로젝트" 두 개다. 프리랜서에게는 "내 프로젝트"가
-  // 의뢰인 전용이라 대신 "내 북마크"를 둔다 — 누를 수 없는 메뉴를 두지 않는다.
+  // 역할별 핵심 활동 화면을 전역 메뉴에 둔다. 프리랜서도 지원 현황과 북마크를 언제든
+  // 다시 열 수 있어야 한다.
   const navItems = [
     { label: '프로젝트 찾기', to: PROJECT_ROUTES.browse },
     viewer?.role === 'FREELANCER'
-      ? { label: '내 북마크', to: ENGAGEMENT_ROUTES.myBookmarks }
+      ? { label: '내 지원 현황', to: APPLICATION_ROUTES.mine }
       : { label: '내 프로젝트', to: PROJECT_ROUTES.manage },
+    ...(viewer?.role === 'FREELANCER'
+      ? [{ label: '내 북마크', to: ENGAGEMENT_ROUTES.myBookmarks }]
+      : []),
   ];
 
   const renderBookmark = (projectId: string) => (
@@ -173,7 +176,7 @@ function AppRoutes() {
         // 대표 페이지 전용(Option C — 아래 참고).
         homeViewer: viewer ? { email: viewer.email, role: viewer.role, userId: viewer.userId } : null,
         homeMyActivityHref:
-          viewer?.role === 'FREELANCER' ? ENGAGEMENT_ROUTES.myBookmarks : PROJECT_ROUTES.manage,
+          viewer?.role === 'FREELANCER' ? APPLICATION_ROUTES.mine : PROJECT_ROUTES.manage,
         onHomeLogout: () => {
           void logout();
         },

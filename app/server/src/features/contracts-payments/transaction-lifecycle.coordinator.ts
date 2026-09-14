@@ -24,6 +24,7 @@ export type CoordinatorDeliveryStatus = "IN_PROGRESS" | "DELIVERY_REQUESTED" | "
 export type TransactionLifecycleSnapshot = {
   projectId: string;
   contractId: string;
+  projectTitle: string;
   contractApplicationId: string;
   freelancerId: string;
   contractStatus: CoordinatorContractStatus;
@@ -136,6 +137,8 @@ export function createTransactionLifecycleCoordinator(
         {
           notifications: deps.notifications,
           freelancerId: snapshot.freelancerId,
+          projectTitle: snapshot.projectTitle,
+          contractId: snapshot.contractId,
         },
       );
       seenEventIds.add(event.eventId);

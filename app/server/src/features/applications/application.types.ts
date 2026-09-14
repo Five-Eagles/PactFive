@@ -64,6 +64,8 @@ export type ApplicationItem = {
   applicationId: string;
   projectId?: string;
   freelancerId?: string;
+  /** 화면 표시용 이름. 내부 식별자는 API 호환을 위해 유지하되 UI에 직접 노출하지 않는다. */
+  freelancerName?: string | null;
   coverLetter?: string;
   expectedAmount?: number;
   expectedDurationDays?: number;
@@ -98,6 +100,7 @@ export type ListProjectApplicationsResponse = ListPageMeta & {
 export type MyApplicationItem = {
   applicationId: string;
   projectId: string;
+  projectTitle: string | null;
   status: ApplicationStatus;
   rejectionType: ApplicationRejectionType | null;
   createdAt: string;
@@ -368,6 +371,11 @@ export type ProjectApplicationContextPort = {
     projectId: string,
     delta: { applicationCount?: number; pendingApplicationCount?: number },
   ): Promise<{ applicationCount: number; pendingApplicationCount: number }>;
+};
+
+/** applications 화면에서 식별자 대신 표시 이름을 채우기 위한 user-management 접점. */
+export type UserDisplayPort = {
+  getUserDisplayName(userId: string): Promise<string | null>;
 };
 
 /** 지원 수락 — project-management delegate. 실 검증(권한·잠금·버전)은 그쪽 소유. */

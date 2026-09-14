@@ -2,15 +2,14 @@
  * 알림 트리거 포트 — 조준영이 발행하고, 발송·Kakao 연동은 최윤석(notifications)이 구현한다.
  *
  * 원본: features/contracts-payments/prototype/server/notification.port.ts (28471d6, #80).
- * app/에는 아직 notifications 기능의 발행 인바운드가 없어(2026-09-07 기준), 발행은
- * `express-app.ts`가 조립하는 인메모리 어댑터가 로그만 남기고 성공 처리한다 — 실제 발송이
- * 붙기 전까지는 `ignoreNotificationFailure`가 감싸므로 실패해도 본 트랜잭션(결제 확정·거래
- * 완료·납품)을 막지 않는다.
+ * notifications의 저장 포트로 전달되며, `ignoreNotificationFailure`가 감싸므로 실패해도
+ * 본 트랜잭션(결제 확정·거래 완료·납품)을 막지 않는다.
  */
 
 export type PaymentCompletedEvent = {
   type: 'PAYMENT_COMPLETED';
   projectId: string;
+  projectTitle: string;
   paymentId: string;
   freelancerId: string;
   occurredAt: string;
@@ -20,6 +19,8 @@ export type PaymentCompletedEvent = {
 export type ReviewRequestedEvent = {
   type: 'REVIEW_REQUESTED';
   projectId: string;
+  projectTitle: string;
+  contractId: string;
   clientId: string;
   freelancerId: string;
   occurredAt: string;
@@ -29,6 +30,8 @@ export type ReviewRequestedEvent = {
 export type DeliveryRequestedEvent = {
   type: 'DELIVERY_REQUESTED';
   projectId: string;
+  projectTitle: string;
+  contractId: string;
   clientId: string;
   occurredAt: string;
 };
@@ -37,6 +40,8 @@ export type DeliveryRequestedEvent = {
 export type DeliveryApprovedEvent = {
   type: 'DELIVERY_APPROVED';
   projectId: string;
+  projectTitle: string;
+  contractId: string;
   freelancerId: string;
   occurredAt: string;
 };

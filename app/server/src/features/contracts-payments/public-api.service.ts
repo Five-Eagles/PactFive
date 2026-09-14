@@ -148,6 +148,7 @@ export function createContractsPaymentsSnapshotReader(
       return {
         projectId,
         contractId: contract.contractId,
+        projectTitle: contract.projectTitleSnapshot,
         contractApplicationId: agreement?.applicationId ?? '',
         freelancerId: contract.freelancerId,
         contractStatus: contract.status,
@@ -657,6 +658,16 @@ export function createPublicApiService({
             row.failedAt = null;
             row.failureCode = null;
             await repo.savePayment(row);
+            await ignoreNotificationFailure(() =>
+              notifications.publishPaymentCompleted({
+                type: 'PAYMENT_COMPLETED',
+                projectId: contract.projectId,
+                projectTitle: contract.projectTitleSnapshot,
+                paymentId: row.paymentId,
+                freelancerId: contract.freelancerId,
+                occurredAt: now(),
+              }),
+            );
             await coordinator.onPaymentPaid({
               eventId: randomId('evt_paid_reconciled'),
               projectId: contract.projectId,
@@ -739,6 +750,16 @@ export function createPublicApiService({
         row.failedAt = null;
         row.failureCode = null;
         await repo.savePayment(row);
+        await ignoreNotificationFailure(() =>
+          notifications.publishPaymentCompleted({
+            type: 'PAYMENT_COMPLETED',
+            projectId: contract.projectId,
+            projectTitle: contract.projectTitleSnapshot,
+            paymentId: row.paymentId,
+            freelancerId: contract.freelancerId,
+            occurredAt: now(),
+          }),
+        );
 
         // 교차 생명주기 Coordinator(규칙 26) — SIGNED∧PAID일 때만 start를 부른다. 실패해도
         // PAID 원장은 유지하고(규칙 7), 재시도는 다음 사건(재confirm 폴링 등) 때 다시 평가한다.
@@ -1097,6 +1118,8 @@ export function createPublicApiService({
         notifications.publishDeliveryRequested({
           type: 'DELIVERY_REQUESTED',
           projectId: contract.projectId,
+          projectTitle: contract.projectTitleSnapshot,
+          contractId: contract.contractId,
           clientId: contract.clientId,
           occurredAt: delivery.requestedAt!,
         }),
@@ -1161,6 +1184,8 @@ export function createPublicApiService({
         notifications.publishDeliveryApproved({
           type: 'DELIVERY_APPROVED',
           projectId: contract.projectId,
+          projectTitle: contract.projectTitleSnapshot,
+          contractId: contract.contractId,
           freelancerId: contract.freelancerId,
           occurredAt: delivery.approvedAt!,
         }),
