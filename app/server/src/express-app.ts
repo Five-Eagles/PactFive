@@ -516,6 +516,16 @@ if (paymentGatewayConfigured) {
   }
 }
 
+// 결제 키 자체는 절대 로그에 남기지 않는다. Vercel 환경 범위(Production/Preview)나
+// 재배포 누락으로 런타임에 키가 주입되지 않는 문제를 확인할 수 있도록 존재 여부만 기록한다.
+console.info('[contracts-payments] payment config', {
+  clientKeyConfigured: Boolean(process.env.PG_CLIENT_KEY?.trim()),
+  secretKeyConfigured: Boolean(process.env.PG_SECRET_KEY?.trim()),
+  gatewayConfigured: paymentGateway !== null,
+  vercelEnvironment: process.env.VERCEL_ENV ?? null,
+  nodeEnvironment: process.env.NODE_ENV ?? null,
+});
+
 // 2026-09-08: 다른 기능과 같은 isPrismaConfigured(authProviderMode) 게이트.
 const contractsPaymentsRepository = isPrismaConfigured(authProviderMode)
   ? new PrismaContractsPaymentsRepository(getPrismaClient())
