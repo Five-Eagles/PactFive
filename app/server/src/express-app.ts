@@ -71,6 +71,8 @@ import { createNotificationModule } from './features/notifications/notification.
 import type { NotificationAuthResolver } from './features/notifications/notification.routes';
 import { InMemoryNotificationRepository } from './features/notifications/in-memory-notification.repository';
 import { PrismaNotificationRepository } from './features/notifications/prisma-notification.repository';
+import { createProfileRouter } from './features/user-management/profile.routes';
+import { InMemoryProfileRepository, PrismaProfileRepository } from './features/user-management/profile.repository';
 
 /**
  * Express 앱 — 순수 모듈. 여기서 `app.listen()`을 호출하지 않는다.
@@ -280,6 +282,10 @@ const verifyAccessToken = async (accessToken: string) => {
 };
 
 export const requireAuth = createRequireAuth(verifyAccessToken);
+const profileRepository = isPrismaConfigured(authProviderMode)
+  ? new PrismaProfileRepository(getPrismaClient())
+  : new InMemoryProfileRepository(new Map());
+app.use(createProfileRouter(profileRepository, requireAuth));
 // 토큰이 있으면 읽고 없으면 통과 — 공개 상세·추천처럼 "비로그인도 보되 로그인하면 더 보여주는"
 // 라우트에 쓴다 (shared/optional-auth.ts 주석 참고).
 const optionalAuth = createOptionalAuth(verifyAccessToken);
@@ -300,7 +306,20 @@ const requireServiceToken = createRequireServiceToken(process.env.INTERNAL_SERVI
 const projectRepository = isPrismaConfigured(authProviderMode)
   ? new PrismaProjectRepository(getPrismaClient())
   : new InMemoryProjectRepository();
-const projectPorts = createInMemoryExternalPorts();
+// 프로젝트 공개 카드의 의뢰인 이름은 user-management가 정본이다. 프로젝트 도메인은
+// 저장소를 직접 조회하지 않고 이 조립 지점에서 읽기 포트만 연결한다.
+const projectPorts = createInMemoryExternalPorts(async (clientId) => {
+  const user = await authRepositories?.findById(clientId);
+  if (!user || user.deletedAt) return null;
+  return {
+    userId: user.id,
+    name: user.name,
+    companyName: null,
+    profileImageUrl: user.profileImageUrl,
+    averageRating: 0,
+    reviewCount: 0,
+  };
+});
 const projectNow = () => new Date().toISOString();
 
 // ai-pricing의 저장소는 project-management보다 먼저 만든다 — 아래 CR-0003 회신(연결 포트)이

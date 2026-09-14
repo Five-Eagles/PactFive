@@ -192,7 +192,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
   /* ═══════════ 응답 조립 ═══════════ */
 
-  function toPublicItem(p: ProjectRecord, at: string): PublicProjectItem {
+  async function toPublicItem(p: ProjectRecord, at: string): Promise<PublicProjectItem> {
     return {
       projectId: p.projectId,
       title: p.title,
@@ -202,17 +202,17 @@ export function createProjectService(deps: ProjectServiceDeps) {
       recruitmentStatus: effectiveRecruitmentStatus(p, at),
       skills: ports.catalog.toSkillRefs(p.skillIds),
       applicationCount: p.applicationCount,
-      client: ports.catalog.toClientProfile(p.clientId),
+      client: await ports.catalog.toClientProfile(p.clientId),
     };
   }
 
-  function toPublicDetail(
+  async function toPublicDetail(
     p: ProjectRecord,
     at: string,
     auth: AuthContext | null,
-  ): PublicProjectDetail {
+  ): Promise<PublicProjectDetail> {
     const detail: PublicProjectDetail = {
-      ...toPublicItem(p, at),
+      ...(await toPublicItem(p, at)),
       description: p.description,
       recruitmentStartAt: p.recruitmentStartAt,
     };
@@ -268,9 +268,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return actions;
   }
 
-  function toClientDetail(p: ProjectRecord, at: string): ClientProjectDetail {
+  async function toClientDetail(p: ProjectRecord, at: string): Promise<ClientProjectDetail> {
     return {
-      ...toPublicItem(p, at),
+      ...(await toPublicItem(p, at)),
       description: p.description,
       recruitmentStartAt: p.recruitmentStartAt,
       transactionStatus: p.transactionStatus,
@@ -377,7 +377,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
 
     const final = (await repo.findById(projectId)) ?? created;
-    return { status: 201, body: toClientDetail(final, at) };
+    return { status: 201, body: await toClientDetail(final, at) };
   }
 
   /* ═══════════ A-02. 목록 · 검색 ═══════════ */
@@ -456,7 +456,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return {
       status: 200,
       body: {
-        items: rows.slice(start, start + pageSize).map((p) => toPublicItem(p, at)),
+        items: await Promise.all(rows.slice(start, start + pageSize).map((p) => toPublicItem(p, at))),
         page,
         pageSize,
         totalCount,
@@ -475,9 +475,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
     const project = await mustFind(projectId);
     // 등록 의뢰인에게만 거래 상태가 나간다. 그 외에는 키 자체가 없다 (규칙 9).
     if (auth && project.clientId === auth.userId) {
-      return { status: 200, body: toClientDetail(project, at) };
+      return { status: 200, body: await toClientDetail(project, at) };
     }
-    return { status: 200, body: toPublicDetail(project, at, auth) };
+    return { status: 200, body: await toPublicDetail(project, at, auth) };
   }
 
   /* ═══════════ A-04. 수정 ═══════════ */
@@ -551,7 +551,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       ...(scheduleChanged && { recruitmentStatus: startsLater ? 'SCHEDULED' : 'OPEN' }),
       ...(input.skillIds !== undefined && { skillIds: [...input.skillIds] }),
     });
-    return { status: 200, body: toClientDetail(next, at) };
+    return { status: 200, body: await toClientDetail(next, at) };
   }
 
   /* ═══════════ A-05. 삭제 ═══════════ */
@@ -761,7 +761,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return {
       status: 200,
       body: {
-        items: rows.slice(start, start + pageSize).map((p) => toClientDetail(p, at)),
+        items: await Promise.all(rows.slice(start, start + pageSize).map((p) => toClientDetail(p, at))),
         page,
         pageSize,
         totalCount,

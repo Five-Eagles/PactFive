@@ -1,9 +1,10 @@
-import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import './shared/ui/tokens.css';
 import { APP_ROUTES } from './shared/routes';
 import { setUnauthorizedHandler } from './shared/http';
 import { NotIntegratedPage } from './shared/NotIntegratedPage';
-import { AppShell, PageBody } from './shared/ui/AppShell';
+import { AppShell, PageBody, type NavItem } from './shared/ui/AppShell';
 import { ComingSoonOverlay } from './shared/ui/ComingSoonOverlay';
 import type { NotYetScreenKey } from './shared/notYetScreens';
 import { Button, EmptyState } from './shared/ui/primitives';
@@ -16,6 +17,7 @@ import { engagementRoutes, ENGAGEMENT_ROUTES } from './features/engagement/bookm
 import { contractRoutes } from './features/contracts-payments/contract.routes';
 import { pricingAnalysisRoutes, PRICING_ANALYSIS_ROUTES } from './features/ai-pricing/pricing-analysis.routes';
 import { applicationRoutes, APPLICATION_ROUTES } from './features/applications/application.routes';
+import { ApplyPage } from './features/applications/ApplyPage';
 import { reviewRoutes } from './features/reviews/review.routes';
 import { BookmarkButton } from './features/engagement/BookmarkButton';
 import { RecommendationSection } from './features/engagement/RecommendationSection';
@@ -24,6 +26,9 @@ import { notificationRoutes } from './features/notifications/notifications.route
 import { createNotificationApi } from './features/notifications/api/notifications';
 import { useNotifications } from './features/notifications/useNotifications';
 import { NotificationBell } from './features/notifications/NotificationBell';
+import { profileRoutes, PROFILE_ROUTES } from './features/user-management/profile.routes';
+import { profileApi } from './features/user-management/api/profile';
+import { ProjectRegisterForm } from './features/project-management/ProjectRegisterForm';
 
 // createNotificationApi()는 shared/http.ts만 감싸는 상태 없는 팩토리라 모듈 스코프에서 한 번만
 // 만든다 — 매 렌더 재생성을 피한다 (2026-09-09).
@@ -91,6 +96,19 @@ function AppRoutes() {
   const { state, logout, login, devLoginAsMock, devLogoutMock } = useAuth();
 
   const viewer = state.status === 'authenticated' ? state.session.user : null;
+  function ProfileGatedRegister() {
+    const [checking, setChecking] = useState(true);
+    const navigate = useNavigate();
+    useEffect(() => { if (!viewer || viewer.role !== 'CLIENT') { setChecking(false); return; } void profileApi.get().then(({ complete }) => { if (!complete) navigate(`${PROFILE_ROUTES.me}?returnTo=${encodeURIComponent('/projects/new')}`, { replace: true }); }).finally(() => setChecking(false)); }, []);
+    if (checking) return <PageBody narrow><p className="helper">프로필 상태를 확인하는 중입니다…</p></PageBody>;
+    return <ProjectRegisterForm pricingAnalysisHref={pricingAnalysisHref} />;
+  }
+  function ProfileGatedApply() {
+    const [checking, setChecking] = useState(true); const navigate = useNavigate(); const { projectId = '' } = useParams();
+    useEffect(() => { if (!viewer || viewer.role !== 'FREELANCER') { setChecking(false); return; } void profileApi.get().then(({ complete }) => { if (!complete) navigate(`${PROFILE_ROUTES.me}?returnTo=${encodeURIComponent(`/projects/${projectId}/apply`)}`, { replace: true }); }).finally(() => setChecking(false)); }, [projectId]);
+    if (checking) return <PageBody><p className="helper">프로필 상태를 확인하는 중입니다…</p></PageBody>;
+    return <ApplyPage />;
+  }
 
   // notifications — AppShell·HomeHeader 두 헤더 모두 같은 상태를 보여줘야 해서
   // (api-contract.md) 여기 한 곳에서만 훅을 부르고 결과를 두 슬롯에 내려준다.
@@ -105,7 +123,7 @@ function AppRoutes() {
 
   const appShellSessionActions = viewer ? (
     <div className="app-shell-session">
-      <Link to={viewer.role === 'FREELANCER' ? APPLICATION_ROUTES.mine : PROJECT_ROUTES.manage}>
+      <Link to={PROFILE_ROUTES.me}>
         {viewer.email} 님
       </Link>
       <button type="button" onClick={() => void logout()}>로그아웃</button>
@@ -121,15 +139,16 @@ function AppRoutes() {
 
   // 역할별 핵심 활동 화면을 전역 메뉴에 둔다. 프리랜서도 지원 현황과 북마크를 언제든
   // 다시 열 수 있어야 한다.
-  const navItems = [
+  const navItems: NavItem[] = [
     { label: '프로젝트 찾기', to: PROJECT_ROUTES.browse },
     viewer?.role === 'FREELANCER'
       ? { label: '내 지원 현황', to: APPLICATION_ROUTES.mine }
-      : { label: '내 프로젝트', to: PROJECT_ROUTES.manage },
+    : { label: '내 프로젝트', to: PROJECT_ROUTES.manage },
     ...(viewer?.role === 'FREELANCER'
       ? [{ label: '내 북마크', to: ENGAGEMENT_ROUTES.myBookmarks }]
       : []),
   ];
+  if (viewer) navItems.push({ label: '내 프로필', to: PROFILE_ROUTES.me });
 
   const renderBookmark = (projectId: string) => (
     <BookmarkButton
@@ -164,6 +183,7 @@ function AppRoutes() {
   const routes = (
     <Routes>
       {authRoutes}
+      {profileRoutes}
 
       {projectRoutes({
         // 대표페이지는 project-management 화면이다. 다만 `/` 라는 **주소**는
@@ -183,6 +203,7 @@ function AppRoutes() {
         applyHref,
         applicantsHref,
         pricingAnalysisHref,
+        registerElement: <ProfileGatedRegister />,
         homeHeaderExtra: notificationBell,
       })}
 
@@ -196,7 +217,7 @@ function AppRoutes() {
 
       {pricingAnalysisRoutes({ projectDetailHref: PROJECT_ROUTES.detail, registerHref: PROJECT_ROUTES.register })}
 
-      {applicationRoutes()}
+      {applicationRoutes({ applyElement: <ProfileGatedApply /> })}
 
       {reviewRoutes()}
 

@@ -142,7 +142,8 @@ export interface ProjectCatalogPort {
   isOfficialSkill(skillId: string): boolean;
   toCategoryRef(category: string): CategoryRef;
   toSkillRefs(skillIds: string[]): SkillRef[];
-  toClientProfile(clientId: string): ClientPublicProfile;
+  /** user-management 정본에서 의뢰인 공개 프로필을 읽는다. */
+  toClientProfile(clientId: string): Promise<ClientPublicProfile>;
 }
 
 /* ═══════════ 인증 컨텍스트 ═══════════ */
