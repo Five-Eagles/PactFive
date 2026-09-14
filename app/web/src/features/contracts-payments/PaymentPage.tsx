@@ -57,6 +57,7 @@ export function PaymentPage() {
 
   const [prepared, setPrepared] = useState<PreparePaymentResponse | null>(null);
   const [view, setView] = useState<PaymentView>('checkout');
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [loaded, setLoaded] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
   const confirmingRef = useRef(false);
@@ -82,7 +83,10 @@ export function PaymentPage() {
         paymentKey: returnedPaymentKey,
       })
         .then(() => setView('paid'))
-        .catch(() => setView('failed'))
+        .catch((error: unknown) => {
+          setErrorMessage(error instanceof ApiError ? error.message : '결제 승인에 실패했습니다.');
+          setView('failed');
+        })
         .finally(() => setLoaded(true));
       return;
     }
@@ -90,12 +94,14 @@ export function PaymentPage() {
     preparePayment(contractId)
       .then((result) => {
         setPrepared(result);
+        setErrorMessage(undefined);
         setView('checkout');
       })
       .catch((error: unknown) => {
         if (error instanceof ApiError && error.status === 503) {
           setView('keyMissing');
         } else {
+          setErrorMessage(error instanceof ApiError ? error.message : '결제 정보를 불러오지 못했습니다.');
           setView('failed');
         }
       })
@@ -123,7 +129,16 @@ export function PaymentPage() {
         failUrl: `${origin}${pathname}`,
       });
       // requestPayment는 브라우저를 Toss 결제창으로 이동시킨다 — 이 아래는 보통 실행되지 않는다.
-    } catch {
+    } catch (error: unknown) {
+      const providerMessage =
+        error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+          ? error.message
+          : '결제 요청을 처리하지 못했습니다.';
+      console.error('[contracts-payments] Toss payment request failed', {
+        code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
+        message: providerMessage,
+      });
+      setErrorMessage(providerMessage);
       setView('failed');
     }
   }
@@ -149,6 +164,7 @@ export function PaymentPage() {
         amount={prepared?.amount}
         projectTitle="프로젝트"
         onPay={handlePay}
+        errorMessage={errorMessage}
         onRetry={() => {
           setLoaded(false);
           setRetryToken((token) => token + 1);

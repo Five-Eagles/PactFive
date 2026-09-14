@@ -36,6 +36,8 @@ export class PaymentGatewayError extends Error {
   constructor(
     public readonly code: PaymentGatewayErrorCode,
     message: string,
+    public readonly providerStatus?: number,
+    public readonly providerCode?: string,
   ) {
     super(message);
     this.name = 'PaymentGatewayError';
