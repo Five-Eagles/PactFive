@@ -2727,8 +2727,9 @@ COMPLETED    ⇐  deliveries.status = 'APPROVED'  AND  payments.status = 'RELEAS
 </table>
 <div class="co co-ok">
 <p>✅ <strong>태그 코드 10종 확정 (v1.2) — PM 승인요청서 2026-08-20</strong></p>
-<p><strong>의뢰인 → 프리랜서</strong>: RESPONSIBILITY(책임감이 있어요) · COMMUNICATION(소통이 원활해요) · TECHNICAL_SKILL(기술력이 뛰어나요) · SCHEDULE_COMPLIANCE(일정을 잘 지켜요) · DELIVERABLE_QUALITY(결과물 품질이 좋아요)</p>
-<p><strong>프리랜서 → 의뢰인</strong>: REQUIREMENT_CLARITY(요구사항이 명확해요) · COMMUNICATION(소통이 원활해요) · FEEDBACK_SPEED(피드백이 빨라요) · SCOPE_STABILITY(업무 범위가 안정적이에요) · PAYMENT_RELIABILITY(결제 과정이 신뢰할 만해요)</p>
+<p><strong>(2026-09-07 E-38 개정 — CR-RV-001)</strong> 아래 코드 10종은 2026-08-20 E-19 확정본이며, 2026-09-07 CR-RV-001로 「PactFive_상호_리뷰_평균_별점_설계서」v2.0 §10 코드로 전량 교체됐다. 새 코드는 <strong>의뢰인 → 프리랜서</strong>: WORK_QUALITY · ON_TIME_DELIVERY · GOOD_COMMUNICATION · REQUIREMENT_UNDERSTANDING · PROFESSIONAL_ATTITUDE, <strong>프리랜서 → 의뢰인</strong>: CLEAR_REQUIREMENTS · FAST_FEEDBACK · GOOD_COMMUNICATION · SCOPE_STABILITY · PROFESSIONAL_ATTITUDE (한글 표시 문구는 설계서 원문에 없어 표기하지 않음, DBML 참고). 아래는 참고용으로 남기는 구(舊) E-19 코드다.</p>
+<p><strong>의뢰인 → 프리랜서 (구 E-19, 폐기됨)</strong>: RESPONSIBILITY(책임감이 있어요) · COMMUNICATION(소통이 원활해요) · TECHNICAL_SKILL(기술력이 뛰어나요) · SCHEDULE_COMPLIANCE(일정을 잘 지켜요) · DELIVERABLE_QUALITY(결과물 품질이 좋아요)</p>
+<p><strong>프리랜서 → 의뢰인 (구 E-19, 폐기됨)</strong>: REQUIREMENT_CLARITY(요구사항이 명확해요) · COMMUNICATION(소통이 원활해요) · FEEDBACK_SPEED(피드백이 빨라요) · SCOPE_STABILITY(업무 범위가 안정적이에요) · PAYMENT_RELIABILITY(결제 과정이 신뢰할 만해요)</p>
 <p>DB는 jsonb 배열 형식만 강제하고, 방향별 허용 코드·중복 금지 검증은 Review 서비스(API)가 담당합니다(422 응답).</p>
 </div>
 <div class="co co-warn">

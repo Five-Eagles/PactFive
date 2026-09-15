@@ -1,0 +1,194 @@
+{
+  "ranAt": "2026-09-10T00:45:09.482Z",
+  "total": 31,
+  "pass": 30,
+  "fail": 1,
+  "results": [
+    {
+      "id": "T01",
+      "name": "지원 입력 범위 위반 거부",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T02",
+      "name": "동일 프로젝트·프리랜서 중복 지원 거부",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T03",
+      "name": "지원 멱등키는 사용자·프로젝트별 격리",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T04",
+      "name": "프로필 확인 불가 시 지원 차단",
+      "result": "FAIL",
+      "details": "프로필 포트 없이 canApply=true, profileCompletion=null\n\ntrue !== false\n"
+    },
+    {
+      "id": "T05",
+      "name": "지원 멱등키 필수",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T06",
+      "name": "실제 ID 생성값은 스키마 varchar(40) 이내",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T07",
+      "name": "선정되지 않은 사용자의 합의 수락 차단",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T08",
+      "name": "선정된 당사자의 양측 서명",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T09",
+      "name": "SIGNED+PAID이면 프로젝트 시작",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T10",
+      "name": "결제 승인 재요청은 멱등 성공",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T11",
+      "name": "납품 승인 전 정산 RELEASED 차단",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T12",
+      "name": "실제 업로드 없이 납품 요청 거부",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T13",
+      "name": "Prisma 멱등 기록은 repository 재생성 후 유지",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T14",
+      "name": "Prisma 재저장 시 기존 offer ID 보존",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T15",
+      "name": "프로젝트 취소 확정 후 후처리 무효화 허용",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T16",
+      "name": "리뷰 양측 제출 전 상대 리뷰 비공개",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T17",
+      "name": "리뷰 양측 작성 시 공개분 평균",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T18",
+      "name": "완료일+14일 이후 신규 리뷰 차단",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T19",
+      "name": "최신 리뷰 태그 WORK_QUALITY 허용",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T20",
+      "name": "리뷰 content 필드 보존",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T21",
+      "name": "리뷰 과도한 본문 거부",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T22",
+      "name": "정산 수수료 계산",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T23",
+      "name": "최신 /reviews/me 라우트 연결",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T24",
+      "name": "최신 /users/:id/rating 라우트 연결",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T25",
+      "name": "리뷰 수정 요청은 명세대로 405",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T26",
+      "name": "사용자 공개 리뷰 목록 라우트",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T27",
+      "name": "리뷰 content 잘못된 타입은 업무 검증 오류",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T28",
+      "name": "공개 평점 소비 실패 후 동일 요청으로 복구",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T29",
+      "name": "마감 후 단독 공개와 평점 후처리 동기화",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T30",
+      "name": "계약 제목 스냅샷 저장",
+      "result": "PASS",
+      "details": ""
+    },
+    {
+      "id": "T31",
+      "name": "계약 프리랜서의 결제 준비 차단",
+      "result": "PASS",
+      "details": ""
+    }
+  ]
+}

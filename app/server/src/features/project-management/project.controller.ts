@@ -31,6 +31,12 @@ function sendDomainError(res: Response, error: unknown): void {
     res.status(error.status).json(error.body);
     return;
   }
+  // 2026-09-10 추가 — 여기서 원인을 로깅하지 않으면 500만 클라이언트에 남고 서버 콘솔에는
+  // 아무 흔적도 없다. 실제로 skills 테이블 FK 위반(project_skills.skill_id가 참조하는
+  // skills 행이 없음)이 이 경로로 조용히 뭉개져서, "예상하지 못한 오류입니다"만 보고
+  // 원인을 알 수 없었다(2026-09-10 재현·진단). user-management의 providerError()에
+  // 이미 같은 이유로 로깅을 추가한 전례가 있다(supabase-auth.adapter.ts).
+  console.error('[project-management] 예상하지 못한 오류:', error);
   res
     .status(500)
     .json({ error: { code: 'INTERNAL_ERROR', message: '예상하지 못한 오류입니다.', details: null } });
@@ -86,7 +92,7 @@ export function createProjectController(service: ProjectService) {
     },
 
     /** A-02 GET /api/v1/projects */
-    list(req: Request, res: Response): void {
+    async list(req: Request, res: Response): Promise<void> {
       try {
         const q = req.query;
         const query: ProjectListQuery = {
@@ -102,7 +108,7 @@ export function createProjectController(service: ProjectService) {
           page: readNumber(q.page),
           pageSize: readNumber(q.pageSize),
         };
-        const result = service.listProjects(query);
+        const result = await service.listProjects(query);
         res.status(result.status).json(result.body);
       } catch (error) {
         sendDomainError(res, error);
@@ -110,9 +116,9 @@ export function createProjectController(service: ProjectService) {
     },
 
     /** A-03 GET /api/v1/projects/:projectId */
-    get(req: Request, res: Response): void {
+    async get(req: Request, res: Response): Promise<void> {
       try {
-        const result = service.getProject(toAuth(req), req.params.projectId);
+        const result = await service.getProject(toAuth(req), req.params.projectId);
         res.status(result.status).json(result.body);
       } catch (error) {
         sendDomainError(res, error);
@@ -120,7 +126,7 @@ export function createProjectController(service: ProjectService) {
     },
 
     /** A-04 PATCH /api/v1/projects/:projectId */
-    update(req: Request, res: Response): void {
+    async update(req: Request, res: Response): Promise<void> {
       try {
         const body = req.body as Record<string, unknown>;
         // **보낸 키만 넘긴다.** 안 보낸 필드를 undefined 로 채워 넘기면 잠금 판정
@@ -137,7 +143,7 @@ export function createProjectController(service: ProjectService) {
         ] as const) {
           if (body[field] !== undefined) input[field] = body[field];
         }
-        const result = service.updateProject(toAuth(req), req.params.projectId, input);
+        const result = await service.updateProject(toAuth(req), req.params.projectId, input);
         res.status(result.status).json(result.body);
       } catch (error) {
         sendDomainError(res, error);
@@ -145,9 +151,9 @@ export function createProjectController(service: ProjectService) {
     },
 
     /** A-05 DELETE /api/v1/projects/:projectId */
-    remove(req: Request, res: Response): void {
+    async remove(req: Request, res: Response): Promise<void> {
       try {
-        const result = service.deleteProject(toAuth(req), req.params.projectId);
+        const result = await service.deleteProject(toAuth(req), req.params.projectId);
         res.status(result.status).end();
       } catch (error) {
         sendDomainError(res, error);
@@ -175,7 +181,7 @@ export function createProjectController(service: ProjectService) {
     },
 
     /** A-08 GET /api/v1/clients/:clientId/projects */
-    listMine(req: Request, res: Response): void {
+    async listMine(req: Request, res: Response): Promise<void> {
       try {
         const q = req.query;
         const query: MyProjectListQuery = {
@@ -186,7 +192,7 @@ export function createProjectController(service: ProjectService) {
           page: readNumber(q.page),
           pageSize: readNumber(q.pageSize),
         };
-        const result = service.listMyProjects(toAuth(req), req.params.clientId, query);
+        const result = await service.listMyProjects(toAuth(req), req.params.clientId, query);
         res.status(result.status).json(result.body);
       } catch (error) {
         sendDomainError(res, error);
@@ -194,10 +200,10 @@ export function createProjectController(service: ProjectService) {
     },
 
     /** A-13 POST /api/v1/projects/:projectId/reopen-recruitment */
-    reopenRecruitment(req: Request, res: Response): void {
+    async reopenRecruitment(req: Request, res: Response): Promise<void> {
       try {
         const body = req.body as Record<string, unknown>;
-        const result = service.reopenRecruitment(toAuth(req), req.params.projectId, {
+        const result = await service.reopenRecruitment(toAuth(req), req.params.projectId, {
           recruitmentDeadlineAt: String(body.recruitmentDeadlineAt ?? ''),
           expectedProjectVersion:
             body.expectedProjectVersion === undefined

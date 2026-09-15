@@ -6,8 +6,10 @@ import {
   EmptyState,
   Notice,
   PermissionAwareActions,
+  ListRowSkeleton,
   RecruitmentBadge,
   ReopenBadge,
+  SkeletonGroup,
   TransactionBadge,
   type ActionSpec,
 } from '../../shared/ui/primitives';
@@ -18,6 +20,8 @@ import { PROJECT_ROUTES } from './project.routes';
 import { ReopenRecruitmentDialog } from './ReopenRecruitmentDialog';
 import { DestructiveActionSummary, type DestructiveActionId } from './DestructiveActionSummary';
 import type { ClientProjectDetail } from './project.types';
+import { CONTRACT_ROUTES } from '../contracts-payments/contract.routes';
+import { REVIEW_ROUTES } from '../reviews/review.routes';
 
 /**
  * SCR-B07 — 내 프로젝트 (관리)
@@ -69,17 +73,32 @@ function blockedReason(action: string, project: ClientProjectDetail): string | u
   return undefined;
 }
 
-/** 시안의 `.row__sub` — "5,000,000원 · 지원 3건 · 마감 5일 전" */
+/**
+ * 시안의 `.row__sub` — "5,000,000원 · 지원 3건 · 마감 5일 전"
+ *
+ * 2026-09-10 QA 로 두 곳을 고쳤다.
+ *
+ * "지원 N건"은 **누적**이다(`applicationCount`). 전에는 대기 수를 썼는데, 그러면 지원을
+ * 받고 마감한 프로젝트가 "지원 0건"으로 보인다 — 아무도 지원하지 않은 것처럼 읽힌다.
+ * 공개 상세의 "지원 현황"도 누적을 쓴다. 두 화면이 같은 말을 해야 한다.
+ *
+ * 마감된 프로젝트에 "협상이 끝났으나 마감일이 지났습니다"를 붙이지 않는다. 그 문구는
+ * 시안에서 **협상 결렬 뒤 복귀한 카드** 하나를 위한 것이었는데, 조건이 "재모집 가능"이라
+ * 그냥 마감한 프로젝트에도 전부 붙었다. 데이터로는 협상이 있었는지 알 수 없으므로
+ * 어느 경우에나 참인 말만 한다.
+ */
 function summaryOf(project: ClientProjectDetail): string {
   const parts = [`${project.budgetAmount.toLocaleString('ko-KR')}원`];
-  parts.push(`지원 ${project.pendingApplicationCount}건`);
+  parts.push(`지원 ${project.applicationCount}건`);
+
+  const deadlinePassed = new Date(project.recruitmentDeadlineAt).getTime() <= Date.now();
 
   if (project.transactionStatus === 'CONTRACT_PENDING') {
     parts.push('선정된 프리랜서와 금액 합의 중');
   } else if (project.canceledAt !== null) {
     parts.push('취소된 프로젝트입니다');
-  } else if (project.availableActions.includes('REOPEN_RECRUITMENT')) {
-    parts.push('협상이 끝났으나 마감일이 지났습니다');
+  } else if (project.recruitmentStatus === 'CLOSED') {
+    parts.push(deadlinePassed ? '마감일이 지났습니다' : '모집을 마감했습니다');
   } else {
     const days = Math.ceil(
       (new Date(project.recruitmentDeadlineAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
@@ -92,9 +111,12 @@ function summaryOf(project: ClientProjectDetail): string {
 export type ProjectManagePageProps = {
   /** 로그인한 의뢰인의 id. 없으면 목록을 부를 수 없다 */
   clientId: string | null;
+  /** applications 소유 — 지원자 관리 화면 경로. 슬롯이라 이 폴더는 applications를 import하지
+   * 않는다 (app/web/AGENTS.md "폴더 간 접점"). */
+  applicantsHref?: (projectId: string) => string;
 };
 
-export function ProjectManagePage({ clientId }: ProjectManagePageProps) {
+export function ProjectManagePage({ clientId, applicantsHref }: ProjectManagePageProps) {
   const navigate = useNavigate();
   const { data, loading, error, reload } = useMyProjects(clientId);
   const [notice, setNotice] = useState<string | null>(null);
@@ -212,10 +234,13 @@ export function ProjectManagePage({ clientId }: ProjectManagePageProps) {
         </p>
       )}
 
+      {/* 내 프로젝트가 몇 건일지 몰라도 목록행 자리는 최대 3개까지만 예약한다 (ADR-0018).
+          실제 .card > .row 구조를 그대로 재사용한다 (2026-09-14 수정). */}
       {loading && (
-        <p className="status-line" role="status">
-          불러오는 중입니다…
-        </p>
+        <SkeletonGroup
+          className="card"
+          renderItem={(i) => <ListRowSkeleton key={i} subLines={1} badges={2} actions={1} />}
+        />
       )}
 
       {!loading && !error && data && data.length === 0 && (
@@ -240,6 +265,42 @@ export function ProjectManagePage({ clientId }: ProjectManagePageProps) {
                     <Link to={PROJECT_ROUTES.detail(project.projectId)}>{project.title}</Link>
                   </h3>
                   <span className="row__sub">{summaryOf(project)}</span>
+                  {applicantsHref && (
+                    <div>
+                      <Link to={applicantsHref(project.projectId)}>지원자 관리</Link>
+                    </div>
+                  )}
+                  {project.transactionStatus === 'CONTRACT_PENDING' && (
+                    <div className="btn-row" style={{ marginTop: 8 }}>
+                      <Link className="btn btn--primary" to={CONTRACT_ROUTES.agreement(project.projectId)}>
+                        금액 합의 계속하기
+                      </Link>
+                    </div>
+                  )}
+                  {project.transactionStatus === 'IN_PROGRESS' && (
+                    <div className="btn-row" style={{ marginTop: 8 }}>
+                      <Link className="btn btn--primary" to={CONTRACT_ROUTES.resume(project.projectId)}>
+                        거래 계속하기
+                      </Link>
+                    </div>
+                  )}
+                  {project.transactionStatus === 'COMPLETED' && (
+                    <div className="btn-row" style={{ marginTop: 8 }}>
+                      <Link className="btn btn--primary" to={REVIEW_ROUTES.project(project.projectId)}>
+                        리뷰 작성
+                      </Link>
+                      <Link className="btn btn--secondary" to={CONTRACT_ROUTES.resume(project.projectId)}>
+                        정산 확인
+                      </Link>
+                    </div>
+                  )}
+                  {project.transactionStatus === 'CANCELED' && (
+                    <div className="btn-row" style={{ marginTop: 8 }}>
+                      <Link className="btn btn--secondary" to={CONTRACT_ROUTES.cancellation(project.projectId)}>
+                        취소 결과 보기
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
                 <div className="row__badges">

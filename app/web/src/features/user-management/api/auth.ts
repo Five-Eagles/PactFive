@@ -2,10 +2,13 @@ import { http } from '../../../shared/http';
 import type {
   AuthContext,
   AuthenticatedSessionResponse,
+  CompleteRegistrationInput,
   CreateAuthSessionInput,
   CreateOAuthAuthorizationInput,
   CreateOAuthAuthorizationResponse,
   RefreshAuthSessionResponse,
+  RegisterInput,
+  RegisterResponse,
   RequestEmailConfirmationResponse,
 } from '../auth.types';
 
@@ -54,7 +57,14 @@ export function createRefreshCoordinator(
 }
 
 export function createAuthSession(input: CreateAuthSessionInput): Promise<AuthenticatedSessionResponse> {
-  return runAuthMutation(() => http.post<AuthenticatedSessionResponse>('/v1/auth/sessions', input));
+  // 잘못된 비밀번호의 401은 세션 만료가 아니라 로그인 폼이 보여줘야 하는 입력 오류다.
+  // 전역 401 이동을 태우면 /login이 다시 마운트되며 오류 문구가 "세션이 만료되었습니다"
+  // 로 덮인다(9/11 배포 QA). 보호 API의 401 처리와 로그인 시도의 401을 분리한다.
+  return runAuthMutation(() =>
+    http.post<AuthenticatedSessionResponse>('/v1/auth/sessions', input, {
+      skipUnauthorizedHandler: true,
+    }),
+  );
 }
 
 // `skipUnauthorizedHandler` — 이 호출의 401은 "세션이 만료됐다"가 아니라 대개 "로그인한 적이
@@ -82,6 +92,27 @@ export function getCurrentAuthContext(accessToken: string): Promise<AuthContext>
     authToken: accessToken,
     skipUnauthorizedHandler: true,
   });
+}
+
+// 2026-09-05 — 회원가입 3종 추가(등록·이메일 확인·가입 완료). 원본
+// (`features/user-management/prototype/web/api/auth.ts`)은 `fetch`를 직접 호출했지만, 다른
+// 함수들과 같은 원칙으로 `http`(`shared/http.ts`)를 거치게 재해석했다.
+export function registerAccount(input: RegisterInput): Promise<RegisterResponse> {
+  return runAuthMutation(() => http.post<RegisterResponse>('/v1/auth/registrations', input));
+}
+
+export function confirmEmail(tokenHash: string): Promise<AuthenticatedSessionResponse> {
+  return runAuthMutation(() =>
+    http.post<AuthenticatedSessionResponse>('/v1/auth/email-confirmations', { tokenHash }),
+  );
+}
+
+export function completeRegistration(
+  input: CompleteRegistrationInput,
+): Promise<AuthenticatedSessionResponse> {
+  return runAuthMutation(() =>
+    http.post<AuthenticatedSessionResponse>('/v1/auth/registration-completions', input),
+  );
 }
 
 export function requestEmailConfirmation(email: string): Promise<RequestEmailConfirmationResponse> {

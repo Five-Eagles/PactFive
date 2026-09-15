@@ -39,6 +39,12 @@ ADR-0007, 인증 방식은 ADR-0008, 외부 벤더 연동 원칙은 ADR-0009).
 | 최윤석 | applications · notifications |
 | 조준영 | contracts-payments · reviews |
 
+## 배포 채널
+프론트엔드 배포(Vite) - Vercel
+URL : pact-five-seven.vercel.app
+백엔드 배포(Express) - Vercel
+URL : pact-five-server.vercel.app
+
 ## 진행 상황
 
 | 마일스톤 | 목표 |

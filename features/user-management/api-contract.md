@@ -1,11 +1,105 @@
 # user-management — API 계약
 
+## 내부 리뷰 공개 소비 및 인증 식별자 (2026-09-08 후속)
+
+이 포트는 공개 HTTP가 아니다. reviews의 기존 이벤트 5필드와 합계 reader에 구조적으로
+호환되며 다른 feature 소스를 import하지 않는다. 실제 이벤트 버스/worker 조립은 팀장 책임이다.
+
+```ts
+createReviewCreatedConsumer(repository: UserRatingRepository, ratings: PublishedRatingAggregateReader): {
+  publishReviewCreated(event: {
+    reviewId: string; projectId: string; revieweeId: string; rating: number; publishedAt: string;
+  }): Promise<void>;
+};
+// ratings.getPublishedRatingAggregate(revieweeId): Promise<{ ratingSum: number; reviewCount: number }>
+```
+
+- 입력 검증과 캐시 계산은 SPEC UR-01~UR-06을 따른다. producer의 공개 커밋 후 신뢰된 채널에서만
+  호출한다. `REVIEW_CREATED`는 notifications 13종 enum에 추가되는 알림 유형이 아니다.
+- 이벤트 식별자는 기존 profile 포트처럼 불투명 문자열로 읽으며 varchar(30) 길이를 소비기에서
+  강제하지 않는다. 기존 인증 기본값으로 생성된 36자 자료를 임의 절단/치환하거나 갑자기
+  수신 거절하지 않기 위함이다. 신규 생성기만 30자로 고치며 실제 DB 저장 호환은 통합 때 조사한다.
+- `UserRatingRepository.withUserRatingTransaction(userId, callback)`은 잠금 획득 뒤 callback을
+  시작한다. `findUser()` → **새 공개 집계 조회** → `replaceRating({ratingAverage,reviewCount})` →
+  commit 전부를 동일 사용자 직렬화 경계로 묶는다. 집계를 미리 읽고 update만 잠그는 구현은 금지한다.
+- 실제 adapter는 다중 worker가 공유하는 DB row/advisory lock과 잠금 획득 이후의 primary/일관된
+  최신 snapshot을 사용한다. 두 필드는 함께 commit/rollback하며 사용자 삭제도 같은 잠금에 참여한다.
+- 0건은 `{ratingAverage:null,reviewCount:0}`. 양수 캐시는 소수 둘째 자리 half-up이며
+  reviews 공개 UI의 한 자리 평균 원본이 아니다(489/110 캐시는 4.45, 표시값은 합계에서 직접 4.4).
+- 성공은 `Promise<void>` 완료다. 실패는 `UserRatingProjectionError`이며 코드와 retryable만
+  운영 분류에 사용한다. 내부 예외/사용자 정보를 로그·HTTP로 그대로 내보내지 않는다.
+
+| code | retryable | 전달자 처리 |
+|---|---|---|
+| INVALID_REVIEW_EVENT | false | 불량 이벤트를 격리·조사. 성공 ACK 금지 |
+| USER_UNAVAILABLE | false | 없는/탈퇴/불일치 사용자. 생성·부활하지 않고 격리·조사 |
+| INVALID_RATING_AGGREGATE | true | 집계 경계 장애를 조사하고 제한적 재시도 |
+| DEPENDENCY_UNAVAILABLE | true | 저장소·집계·commit 결과 불명 포함. backoff 재전달 |
+
+새 durable receipt 테이블은 만들지 않는다. 중복/역순 이벤트가 현재 합계로 대체되어 멱등 수렴한다.
+worker는 캐시 commit 성공 이후에만 전달 성공을 기록한다. 장기 실패의 dead-letter/재처리는
+팀장 통합 게이트이며 이 feature에 운영 큐를 만든 것으로 보고하지 않는다.
+
+인증 `AuthSessionService`의 신규 `nextUserId`/`nextSessionId` 기본값은
+`createAuthRecordId("usr"|"ses", timestamp)`를 사용한다. 기존 ERD가 요구하는 접두어 + ULID26 =
+30자이며 `node:crypto.randomBytes(10)`의 80비트 난수와 48비트 밀리초를 인코딩한다.
+기존 ID·Supabase UUID·토큰은 변환하지 않는다. 시간·난수 주입은 결정적 단위검증용이며 운영은
+기본 보안 난수를 쓴다. 구현 근거: [ULID 정본](https://github.com/ulid/spec).
+
+운영 adapter·producer 및 app ID 생성기 반영 조건은
+`change-requests/0002-user-rating-and-auth-id-integration.md`를 따른다.
+
+## 내부 프로필 완성도 조회 포트 (2026-09-08 추가)
+
+서버 내부 계약이며 신규 공개 HTTP API가 아니다. 인증된 호출자가 서버에서 확인한 사용자 ID만
+전달한다. 다른 feature의 DB 직접 조회를 대체하되, 해당 업무의 역할·리소스 권한 검사는 유지한다.
+ID는 불투명 문자열로 취급한다. 빈값·공백·제어문자는 거부하되 기존 인증 생성기의 36자 ID를
+조회 계층에서 임의로 자르거나 거부하지 않는다. DB의 varchar(30)과 생성기 길이 차이는 별도 통합 점검 대상이다.
+
+```ts
+type ProfileCompletion = {
+  status: "COMPLETE" | "INCOMPLETE" | "UNAVAILABLE";
+  completedAt: string | null;
+  missingFields: string[];
+};
+type ProfileCompletionPort = {
+  getProfileCompletion(userId: string): Promise<ProfileCompletion>;
+};
+```
+
+- 구현 진입점: `prototype/server/profile-completion.service.ts`의
+  `createProfileCompletionPort(repository)`. 구현은 외부 feature나 Prisma 생성물을 import하지 않는다.
+- 저장소: `ProfileCompletionRepository.findProfileCompletionSnapshot(userId)`는 사용자와 역할에 맞는
+  본인 프로필, **연결된** 기술의 ID·활성 여부, 서버가 저장한 UTC 완성 시각을 일관된 snapshot으로
+  반환한다. 사용자 없음은 null, 활성 사용자에게 프로필만 없으면 `profile: null`이다.
+  운영 adapter는 join 또는 일관된 DB transaction으로 읽고 Date를 ISO UTC 문자열로 변환해야 한다.
+- COMPLETE: `completedAt`은 저장된 시각, `missingFields: []`.
+- INCOMPLETE: `completedAt: null`, 아래 필드 코드 중 하나 이상. 프로필 행 자체가 없으면 역할별
+  기본 필수 코드 전체(CLIENT 2개/FREELANCER 3개)를 반환한다.
+- UNAVAILABLE: `completedAt: null`, `missingFields: []`. 저장소 장애·사용자 없음/탈퇴·소유자 불일치·
+  비정상 역할/응답과 필드-완성시각 불일치를 구분해 외부로 노출하지 않는다. COMPLETE fallback 금지.
+- 반환 코드(순서 고정): `CLIENT_COMPANY_NAME`, `CLIENT_BUSINESS_FIELD`,
+  `CLIENT_BUSINESS_FIELD_ETC`; 또는 `FREELANCER_PRIMARY_CATEGORY`,
+  `FREELANCER_CAREER_YEARS`, `FREELANCER_SKILLS`. 누락뿐 아니라 필수 조건을 만족하지 않는 필드도
+  포함한다. 현 enum에는 ETC가 없으므로 CLIENT_BUSINESS_FIELD_ETC는 비NULL 잔존값에만 사용한다.
+- 필수 필드·완성 시각 기준은 spec PC-01~PC-08. 조회는 재계산 결과를 **저장하지 않는다**.
+  필드가 완성됐는데 시각이 없다면 조회 시간으로 꾸미지 않고 UNAVAILABLE를 반환한다.
+- applications의 기존 포트에 구조적으로 주입할 수 있다. COMPLETE만 지원 허용,
+  INCOMPLETE는 PROFILE_INCOMPLETE, UNAVAILABLE는 DEPENDENCY_UNAVAILABLE(503)로 처리한다.
+  project-management의 현 2상태 포트에는 실패 매핑 계약 합의 없이 직접 주입하지 않는다.
+
+Mock은 인메모리 snapshot이며 DB 구현/프로필 저장 API/프로필 편집 UI/app 게이트 연결은 미포함이다.
+통합 요청: `change-requests/0001-profile-completion-integration.md`.
+
 > 상태: **작업 가설**. 구현 후 팀장 통합 단계에서 확정한다. 단, 동일 이메일 연결, OAuth intent,
 > 세션 동기화 책임, 서버/BFF 쿠키 방식은 2026-08-25 user-management **DECISION**으로 잠갔다.
 > 2026-08-26에는 8월 27일 구현 범위에 맞춰 가입 intent 저장 책임과 실제 Supabase SDK가 표현 가능한
 > Refresh·Access 검증·세션 폐기 포트 계약을 정합화했다.
+> **회원 탈퇴 절은 PROVISIONAL / TEAM REVIEW REQUIRED다.** ERD I-31/E-13을 구체화한 기능 담당자
+> 제안일 뿐이며, 관련 도메인·팀장·개인정보 검토 전에는 구현 또는 배포 계약으로 사용할 수 없다.
 > Base URL은 `/api/v1`이며, 아래의 `/auth`는 인증 도메인 네임스페이스다. 그 아래 리소스 경로는
-> 복수 명사와 kebab-case를 쓴다.
+> 복수 명사와 kebab-case를 쓴다. 회원 탈퇴 제안은 인증 세션 삭제가 아니라 현재 PactFive 사용자
+> 리소스의 상태 전이이므로 `/users/current`를 사용한다.
 
 ## 공통 규약
 
@@ -269,8 +363,12 @@ intent를 다시 확인해 `users`·`auth_sessions` 생성을 멱등 완료한 �
   사용자 메시지를 사용한다.
 - 409 `AUTH_CONTEXT_CONFLICT` — 이미 로그인된 브라우저에서 다른 가입 확인을 시도했다. token hash를
   소비하지 않는다.
-- 403 `EMAIL_CONFIRMATION_NOT_AVAILABLE` — 대응하는 PactFive 가입 정보가 없거나 탈퇴·UUID·활성
-  이메일 충돌이 있다. 계정 상태를 세분화해 노출하지 않는다.
+- 409 `REGISTRATION_COMPLETION_REQUIRED` — 공급자 이메일 확인은 성공했지만 PactFive의 대응 가입
+  intent가 없거나 24시간 TTL이 지났다. 공급자 현재 세션을 폐기하고 Access/Refresh Token이나 복구
+  쿠키를 반환하지 않는다. 사용자는 `/sign-up`에서 다시 가입을 시작하거나, 이후 정상 로그인에서
+  검증된 recovery proof가 있을 때만 발급되는 가입 복구 쿠키 경로를 사용한다.
+- 403 `EMAIL_CONFIRMATION_NOT_AVAILABLE` — 아직 유효한 PactFive 가입 intent는 있지만 탈퇴 사용자,
+  공급자 UUID 또는 활성 이메일과 충돌해 확인을 완료할 수 없다. 계정 상태를 세분화해 노출하지 않는다.
 - 429 `AUTH_RATE_LIMITED` — 이메일 확인 시도 제한을 초과했다.
 - 503 `AUTH_SESSION_SYNC_FAILED` — 공급자 확인 뒤 앱 사용자·`auth_sessions` 반영에 실패했다.
 - 503 `AUTH_PROVIDER_UNAVAILABLE` — Supabase Auth에 연결할 수 없다.
@@ -586,6 +684,204 @@ HttpOnly 쿠키 때문에 로그아웃이 막혀서는 안 된다.
   메모리 컨텍스트와 세 인증 쿠키는 제거하지만 서버측 즉시 폐기는 보장하지 못하므로, 운영 구현은
   fingerprint 기반 durable revocation tombstone/outbox 또는 동등한 장애 복구 경계를 갖춰야 한다.
 
+## DELETE /api/v1/users/current — PROVISIONAL / TEAM REVIEW REQUIRED
+
+현재 로그인한 사용자의 PactFive 계정을 탈퇴 상태로 전이한다. 이 endpoint는 ERD I-31/E-13을
+구체화한 **잠정안**이며 구현돼 있지 않다. 관리자 강제 탈퇴와 예약·철회는 범위 밖이다. feature에는
+`/settings/account/withdrawal` 비활성 UI prototype이 있지만 이 endpoint나 재인증 API를 호출하지 않는다.
+관련 도메인의 blocker 상태표, 공유 transaction/lock, 재인증 발급 흐름, idempotency/outbox schema,
+Supabase 계정 정리 방식과 개인정보 보존 정책이 승인되기 전에는 이 계약을 활성화하지 않는다.
+
+UI prototype은 서버 응답을 구현한 증거가 아니다. 화면은 내부 확인 문자열, 재인증 proof,
+`Idempotency-Key`, 리소스 ID·제목·금액·상대 사용자 정보를 표시하지 않고, blocker code는 고정
+allowlist의 개수·안전한 앱 내부 해결 경로로만 표현한다. 실제 API client와 오류 DTO parser는 review
+gate 승인 뒤 별도 구현한다.
+
+### 요청과 사전 조건
+
+```http
+DELETE /api/v1/users/current HTTP/1.1
+Authorization: Bearer <accessToken>
+Cookie: __Host-pactfiveRefreshToken=<refreshToken>
+Origin: https://<allowed-web-origin>
+Idempotency-Key: 018f5a3c-7b11-4a73-9dd4-8c58865fd7d3
+Content-Type: application/json; charset=utf-8
+```
+
+```json
+{
+  "confirmation": "WITHDRAW_ACCOUNT",
+  "reauthenticationProof": "rpf_opaque_single_use_value"
+}
+```
+
+- 최초 실행은 유효한 Bearer Token과, 그 JWT `session_id`와 같은 활성
+  `auth_sessions.provider_session_id`를 가리키는 Refresh 쿠키를 모두 요구한다. 다른 세션의 두
+  자격 증명을 섞거나 `deleted_at IS NOT NULL`인 사용자를 인증하지 않는다.
+- 서버는 body나 idempotency 조회보다 먼저 `Origin`을 환경별 허용 목록의 완전한 문자열과 정확히
+  비교한다. wildcard·접두사·접미사 비교, 누락된 Origin, 허용되지 않은 Origin은 어떤 사용자·세션·
+  쿠키 상태도 바꾸지 않고 403으로 거부한다. 웹은 동일 출처 `/api/v1`과 `credentials: 'include'`를
+  사용한다.
+- `Idempotency-Key`는 클라이언트가 `crypto.randomUUID()`로 만든 canonical UUID v4를 제안한다.
+  userId, email, 시간처럼 추측 가능한 값을 넣지 않는다. 서버는 원문이 아니라 서버 키 HMAC을
+  보관한다.
+- `confirmation`은 대소문자까지 `WITHDRAW_ACCOUNT`와 같아야 한다. 요청 body에 탈퇴 사유나
+  개인정보를 추가하지 않는다.
+
+### 재인증 proof — ASSUMPTION
+
+`reauthenticationProof`는 서버가 인증·암호화한 불투명 값이며 발급 시점부터 5분 동안 한 번의 탈퇴
+논리 시도에만 사용한다. 같은 시도의 exact response replay는 새 mutation이 아니므로 아래 제한 안에서
+예외적으로 허용한다. proof는 최소한 `userId`, 현재 `providerSessionId`, `purpose=ACCOUNT_WITHDRAWAL`,
+`Idempotency-Key` HMAC, `issuedAt`, `expiresAt`, nonce에 결속한다. 서버는 proof 원문이나 비밀번호
+원문을 DB·애플리케이션 로그·분석 도구에 남기지 않고, 브라우저도 메모리에만 둔다.
+
+비밀번호 계정은 Supabase를 통한 비밀번호 재검증, OAuth 계정은 연결된 Google/Kakao의 새 PKCE
+왕복으로 proof를 얻는 방식을 제안한다. 단순히 기존 Access Token의 만료가 남았다는 사실은
+재인증으로 인정하지 않는다. 비밀번호/OAuth별 proof 발급 endpoint, 공급자별 `prompt` 지원 차이,
+복수 identity 중 허용할 수단, 5분 TTL은 **OPEN**이며 별도 계약 승인 전 이 DELETE endpoint를
+구현하지 않는다. 실패 횟수는 사용자·세션·IP 기준으로 제한하되 원문 자격 증명을 감사 로그에 넣지
+않는다.
+
+### 처리 순서와 race 경계 — ASSUMPTION
+
+1. Origin과 요청 형식을 검증한다. 성공 뒤 세션이 이미 폐기된 정확한 network retry만 예외적으로
+   복구할 수 있도록, 서명된 proof와 key HMAC이 기존 성공 행과 같고 replay window 안인지 먼저
+   확인한다. 세 값이 정확히 일치하면 저장한 202 응답을 그대로 반환한다. 일치하지 않으면 일반
+   인증 절차로 진행하고, 삭제된 계정이나 폐기 세션의 존재 여부를 별도로 알려주지 않는다.
+2. 최초 실행은 Bearer/Refresh의 사용자·공급자 세션 상관관계와 proof의 목적·대상·기한·key binding을
+   검증한다.
+3. 서버가 관리하는 withdrawal idempotency 행을 `(userId, keyHmac)`으로 잠그거나 생성한다. 요청
+   fingerprint는 endpoint version, 정규화한 `confirmation`, proof HMAC으로 만들며 원문 proof를
+   넣지 않는다. 같은 key의 다른 fingerprint는 커밋하지 않는다.
+4. `users` 행 또는 팀이 승인한 사용자 advisory lock을 획득한다. 같은 PostgreSQL transaction
+   context로 `AccountWithdrawalEligibilityPort`를 호출해 프로젝트·지원/협상·계약·결제·납품의 최신
+   상태를 검사한다. 한 도메인이라도 조회에 실패하면 fail-closed 503이고 사용자 상태는 바꾸지 않는다.
+5. blocker가 있으면 안전한 코드·개수·앱 내부 해결 경로만 담은 409 결과를 해당 시도의 멱등 결과로
+   기록한다. 사용자가 상태를 해결한 뒤에는 새 key로 다시 재인증하고 새 요청을 만든다.
+6. eligible이면 같은 transaction에서 `users.deleted_at` 기록과 개인정보 마스킹, OAuth 필드 정리,
+   모든 `auth_sessions`의 `USER_WITHDRAWN` 폐기, 사용 완료된 intent 정리, 저장할 202 응답과 공급자
+   cleanup outbox 삽입을 수행한 뒤 한 번에 commit한다.
+7. commit 뒤 Refresh/OAuth/가입복구 쿠키를 `Max-Age=0`으로 제거하고 브라우저는 인증 epoch를
+   증가시켜 Access Token과 늦게 도착한 이전 인증 결과를 버린다. DB commit이 확정되지 않은 503에는
+   성공 쿠키 삭제를 적용하지 않는다.
+
+eligibility/provider DB의 일시 장애처럼 commit 전임이 확정된 503은 멱등 claim도 rollback하고 같은
+key/proof 재전송을 허용한다. commit 결과가 불명확한 연결 장애에서는 새 요청을 시작하지 않고 같은
+key/proof로 조회해, 저장된 성공이 있으면 202를 replay하고 없으면 transaction 전체를 다시 수행한다.
+
+이 transaction 가정은 blocker 테이블이 같은 PostgreSQL에 있고 모든 blocker 생성 mutation이 같은
+사용자 lock을 획득하며 `users.deleted_at IS NULL`을 다시 확인할 때만 안전하다. 이 쓰기 경로 중
+하나라도 규약에 참여할 수 없으면 check 후 새 거래가 생기는 TOCTOU race가 남으므로 구현을 중단하고
+cross-service reservation/saga를 별도로 설계한다. serialization/deadlock retry 때는 eligibility를
+항상 다시 계산하고 이전 snapshot을 재사용하지 않는다. 양 당사자가 있는 지원·협상·계약·결제·납품
+mutation은 관련 user lock을 정렬된 `userId` 순서로 모두 획득해 교착을 피한 뒤 각 사용자의
+`deleted_at`을 확인하는 방식을 제안한다.
+
+### blocker 응답 — ASSUMPTION
+
+I-31은 엔티티 이름만 정하고 상태별 경계를 정하지 않았다. 다음 코드는 `spec.md`의 잠정 진리표와
+1:1로 대응하며 각 소유 도메인의 승인이 필요하다.
+
+| blocker code | 잠정 차단 상태 | 제안 해결 경로 |
+|---|---|---|
+| `OPEN_PROJECT` | 소유 프로젝트가 모집 예정/중이거나 거래가 `CONTRACT_PENDING|IN_PROGRESS` | `/projects/mine` |
+| `PENDING_APPLICATION` | `PENDING` 또는 비종결 거래에 연결된 `ACCEPTED` 지원 | `/applications/mine` |
+| `ACTIVE_NEGOTIATION` | 응답 전 `PROPOSED` 또는 비종결 거래의 수락 협상 | `/applications/mine` |
+| `ACTIVE_CONTRACT` | `DRAFT|SIGNING` 또는 아직 완결되지 않은 `SIGNED` 계약 | `/contracts` |
+| `UNSETTLED_PAYMENT` | `READY|PENDING|PAID` 결제 | `/payments` |
+| `ACTIVE_DELIVERY` | `IN_PROGRESS|DELIVERY_REQUESTED` 납품 | `/deliveries` |
+
+응답 409 예시:
+
+```json
+{
+  "error": {
+    "code": "ACCOUNT_WITHDRAWAL_BLOCKED",
+    "message": "진행 중인 거래를 먼저 정리해 주세요.",
+    "details": [
+      {
+        "code": "UNSETTLED_PAYMENT",
+        "count": 1,
+        "remediationPath": "/payments"
+      }
+    ]
+  }
+}
+```
+
+`details`에는 project/application/contract/payment/delivery ID, 제목, 금액, 상대 사용자 정보가 들어가지
+않는다. 계정이 양 역할로 관계된 모든 행을 검사하고 현재 `users.role` 하나만으로 검사 범위를 줄이지
+않는다.
+
+### 성공, 멱등 재전송, 공급자 cleanup
+
+응답 202 (`Cache-Control: private, no-store`):
+
+```json
+{
+  "status": "WITHDRAWAL_ACCEPTED",
+  "withdrawalRequestId": "uwd_01J7A...",
+  "withdrawnAt": "2026-09-04T12:34:56.000Z"
+}
+```
+
+202는 로컬 탈퇴와 전체 로컬 세션 폐기가 commit됐고 공급자 cleanup이 durable outbox에 접수됐다는
+뜻이다. Supabase cleanup 완료를 뜻하지 않으며 응답에 email, provider identity, cleanup 내부 상태를
+넣지 않는다.
+
+- 같은 `userId + Idempotency-Key + request fingerprint`의 동시 요청은 행 lock/unique constraint로
+  한 건만 실행하고 모두 같은 `withdrawalRequestId`, `withdrawnAt`, status code로 수렴한다.
+- **제안값**: 멱등 행은 24시간 보존한다. 첫 성공 뒤 10분 replay window 동안에는 세션이 이미
+  폐기됐더라도 같은 key와 같은 서명 proof를 제시한 정확한 요청에만 저장한 202를 재생한다. 이때
+  최초 승인 때의 proof HMAC만 비교하므로 proof의 최초 실행용 5분 만료를 늘리거나 새 mutation 권한을
+  만들지 않고 provider cleanup도 중복 enqueue하지 않는다. 10분 뒤, 다른 key, 다른 proof/body,
+  다른 사용자로 탈퇴 계정에 접근하면 401로 수렴한다. exact replay에도 `Cache-Control: private,
+  no-store`와 세 인증 쿠키의 삭제 header를 다시 보낸다.
+- 같은 blocker 409 시도를 유효한 동일 proof와 key/fingerprint로 반복하면 보존된 409를 반환한다.
+  blocker를 해소했거나 proof가 만료된 뒤에는 새 key에 결속된 새 proof로 새 시도를 시작해야 stale
+  409를 재사용하지 않는다.
+- 활성 상태의 동일 사용자가 같은 key를 다른 fingerprint에 재사용한 경우에만
+  `IDEMPOTENCY_KEY_REUSED` 409를 노출한다. 인증되지 않은 호출에는 해당 key나 계정의 존재를
+  알려주지 않는다. 24시간/10분 값과 저장소 schema는 팀 승인 전 **OPEN**이다.
+- outbox worker는 `withdrawalRequestId`를 멱등키로 공급자의 모든 세션을 폐기하고 Supabase 사용자를
+  삭제하거나 비활성화하며 연결 OAuth identity를 정리한다. payload에는 필요한 최소 `authUserId`만
+  보호된 형태로 두고 Access/Refresh Token, email, OAuth subject는 넣지 않는다. 성공하면 민감 payload를
+  파기한다. timeout/5xx는 지수 backoff로 재시도하고 한도 초과 시 dead-letter와 운영 경보를 남긴다.
+  provider 실패는 이미 commit된 `deleted_at`과 로컬 세션 폐기를 되돌리거나 로그인 가능하게 만들지
+  않는다.
+
+### 개인정보와 재가입 — FACT + OPEN
+
+E-13에 따라 성공 transaction에서 `name`, `profile_image_url`, `bio`를 중립 값/`NULL`로 마스킹하고
+`oauth_provider`, `oauth_subject`는 `NULL`로 만든다. user-management가 소유한 미완료 가입·복구 intent와
+불필요한 프로필 직접 식별자도 삭제 또는 가명처리한다. 계약 snapshot, 결제·정산, 납품, 리뷰 등
+법적·거래 이력과 FK의 과거 `userId`는 임의 변경하지 않는다.
+
+E-13은 email 원문을 감사 목적으로 남기고 `WHERE deleted_at IS NULL` 부분 UNIQUE로 같은 이메일의
+새 가입을 허용한다. 재가입은 반드시 새 `userId`이며 과거 거래·리뷰·평점과 연결하지 않는다.
+email 원문, `auth_user_id`, 계약 당사자 snapshot, PG `raw_response`, IP/user-agent의 보존 법적 근거,
+접근 권한, 보존 기간과 최종 파기/가명처리는 개인정보·법무 승인 전 **OPEN**이다. 특히 현재 ERD에
+새로 존재하는 `auth_user_id`를 탈퇴 시 유지·NULL·tombstone 중 어떻게 처리할지와 Supabase 사용자
+삭제/비활성화 선택은 같은 결정으로 확정해야 한다.
+
+### 에러
+
+- 401 `AUTH_REQUIRED` — 최초 실행의 토큰/세션 누락·만료·불일치, 탈퇴 계정, replay window가 지난
+  재전송 또는 exact replay로 검증되지 않은 호출. 모두 `로그인이 필요합니다.`로 통일한다.
+- 403 `ORIGIN_NOT_ALLOWED` — Origin 누락 또는 exact allowlist 불일치. 상태·쿠키를 바꾸지 않는다.
+- 403 `REAUTHENTICATION_REQUIRED` — proof 누락·변조·만료, purpose/user/session/key 불일치.
+- 409 `ACCOUNT_WITHDRAWAL_BLOCKED` — 잠정 진리표의 진행 중 상태가 하나 이상 존재한다.
+- 409 `IDEMPOTENCY_KEY_REUSED` — 인증된 동일 사용자가 같은 key를 다른 request fingerprint에 사용했다.
+- 422 `VALIDATION_ERROR` — confirmation 또는 `Idempotency-Key` 형식 오류.
+- 429 `AUTH_RATE_LIMITED` — 재인증 proof 검증 실패가 제한을 초과했다. `Retry-After`를 포함한다.
+- 503 `ACCOUNT_WITHDRAWAL_ELIGIBILITY_UNAVAILABLE` — blocker 전체를 최신 상태로 확정하지 못했다.
+- 503 `ACCOUNT_WITHDRAWAL_SYNC_FAILED` — 로컬 transaction의 commit을 확정하지 못했다. partial success를
+  응답하지 않으며 클라이언트는 같은 key/proof로 재전송해 저장 결과를 확인한다.
+
+provider cleanup 실패는 로컬 commit 뒤의 비동기 장애이므로 DELETE 응답을 503으로 바꾸거나 계정을
+되살리지 않는다. 운영 경보/outbox 재처리 상태로만 다룬다.
+
 ## GET /api/v1/auth/contexts/current
 
 현재 Bearer token의 PactFive 사용자 컨텍스트를 반환한다.
@@ -685,6 +981,49 @@ type CreateOAuthAuthorizationResponse = { authorizationUrl: string; expiresAt: s
 
 type RefreshAuthSessionInput = { refreshToken: string };
 type RefreshAuthSessionResponse = { accessToken: string; accessTokenExpiresAt: string };
+
+// PROVISIONAL / TEAM REVIEW REQUIRED — account withdrawal
+type AccountWithdrawalBlockerCode =
+  | 'OPEN_PROJECT'
+  | 'PENDING_APPLICATION'
+  | 'ACTIVE_NEGOTIATION'
+  | 'ACTIVE_CONTRACT'
+  | 'UNSETTLED_PAYMENT'
+  | 'ACTIVE_DELIVERY';
+
+type DeleteCurrentUserRequest = {
+  confirmation: 'WITHDRAW_ACCOUNT';
+  reauthenticationProof: string;
+};
+type DeleteCurrentUserResponse = {
+  status: 'WITHDRAWAL_ACCEPTED';
+  withdrawalRequestId: string;
+  withdrawnAt: string;
+};
+type AccountWithdrawalBlocker = {
+  code: AccountWithdrawalBlockerCode;
+  count: number;
+  remediationPath: string | null;
+};
+type AccountWithdrawalBlockedResponse = {
+  error: {
+    code: 'ACCOUNT_WITHDRAWAL_BLOCKED';
+    message: string;
+    details: AccountWithdrawalBlocker[];
+  };
+};
+
+// 서버 내부에서 복호화·검증한 claim이며 HTTP 응답 DTO가 아니다.
+type AccountWithdrawalReauthenticationClaims = {
+  userId: string;
+  providerSessionId: string;
+  purpose: 'ACCOUNT_WITHDRAWAL';
+  idempotencyKeyHmac: string;
+  nonce: string;
+  issuedAt: string;
+  expiresAt: string;
+};
+
 type GetCurrentAuthContextResponse = UserAuthSummary & {
   authenticated: true;
   accessTokenExpiresAt: string;
@@ -698,6 +1037,86 @@ type ErrorResponse = {
 
 `RefreshAuthSessionInput.refreshToken`은 쿠키에서 controller가 읽어 service에 넘기는 서버 내부
 입력이다. HTTP 요청 body DTO가 아니다.
+
+`DeleteCurrentUserRequest.reauthenticationProof`는 불투명 값이고, `Idempotency-Key`는 body DTO가
+아닌 필수 HTTP header다. 위 회원 탈퇴 DTO는 관련 review gate가 닫히기 전까지 배포 패키지에
+복사하거나 공개 SDK로 생성하지 않는다.
+
+## 회원 탈퇴 포트 제안 — PROVISIONAL / TEAM REVIEW REQUIRED
+
+다음 signature는 책임 경계를 검토하기 위한 제안이며 현재 코드나 팀 공통 타입이 아니다.
+
+```ts
+declare const accountWithdrawalTransaction: unique symbol;
+type AccountWithdrawalTransactionContext = {
+  readonly [accountWithdrawalTransaction]: never;
+};
+
+type AccountWithdrawalEligibility = {
+  eligible: boolean;
+  blockers: AccountWithdrawalBlocker[];
+  checkedAt: string;
+};
+
+interface AccountWithdrawalUnitOfWork {
+  execute<T>(
+    work: (transaction: AccountWithdrawalTransactionContext) => Promise<T>,
+  ): Promise<T>;
+}
+
+interface AccountWithdrawalEligibilityPort {
+  checkWithinTransaction(input: {
+    userId: string;
+    checkedAt: string;
+    transaction: AccountWithdrawalTransactionContext;
+  }): Promise<AccountWithdrawalEligibility>;
+}
+
+type AccountWithdrawalProviderCleanupCommand = {
+  withdrawalRequestId: string;
+  authUserId: string;
+};
+
+interface AccountWithdrawalProviderCleanupPort {
+  cleanupAccount(
+    command: AccountWithdrawalProviderCleanupCommand,
+  ): Promise<'COMPLETED' | 'ALREADY_COMPLETED'>;
+}
+```
+
+- `AccountWithdrawalEligibilityPort` 구현은 composition root에서 각 소유 도메인의 read adapter를
+  조합한다. user-management service가 `projects`, `applications`, `agreements`/`negotiation_offer`,
+  `contracts`, `payments`, `deliveries`를 직접 import하거나 임의 update하지 않는다.
+- `eligible`은 정확히 `blockers.length === 0`과 같아야 한다. blocker code/count는 중복을 합치고,
+  `checkedAt`은 서버 transaction 시각이다. 리소스 ID나 PII는 포트 반환과 로그에 넣지 않는다.
+- `AccountWithdrawalUnitOfWork`의 opaque transaction은 사용자 마스킹·세션 폐기·멱등 결과·outbox와
+  eligibility query를 같은 PostgreSQL transaction에 묶는다. 먼저 사용자 단위 lock을 잡고, blocker를
+  만들 수 있는 모든 타 도메인 mutation도 같은 lock을 잡는 것이 승인 조건이다.
+- 타 도메인이 별도 DB/서비스여서 같은 transaction과 lock을 공유할 수 있으면 위 signature를 그대로
+  채택하지 않는다. 각 도메인의 withdrawal reservation을 먼저 확보하고 만료/해제/재시도를 다루는
+  saga 계약을 승인한 뒤 API 계약을 다시 쓴다.
+- `AccountWithdrawalProviderCleanupPort`는 outbox worker만 호출한다. 현재 요청의 credential 하나를
+  폐기하는 `AuthProvider.revokeSession`과 달리 관리자 권한으로 공급자 전체 세션과 계정/identity를
+  정리해야 하므로 기존 포트를 조용히 확장하지 않는다. Supabase 사용자를 삭제할지 비활성화할지는
+  **OPEN**이다.
+- outbox에는 `withdrawalRequestId`, 암호화하거나 동등하게 보호한 최소 `authUserId`, attempt 수,
+  `nextAttemptAt`만 둔다. `(eventType, withdrawalRequestId)` unique로 중복 발행을 막고, worker 성공 뒤
+  provider 식별 payload를 파기한다. outbox table/보존 기간/retry 한도/dead-letter 소유자는 팀 승인
+  대상이다.
+
+### 승인 전 OPEN
+
+- `DELETE /users/current` body를 운영 proxy가 보존하는지 검증하고, 그렇지 않으면 같은 의미의
+  `POST /account-withdrawal-requests` command resource로 바꿀지 결정한다.
+- 비밀번호/OAuth 재인증 proof 발급 endpoint와 공급자별 강제 재인증 UX, 최초 실행 TTL 5분과 성공
+  replay 10분을 승인한다.
+- `spec.md`의 blocker 진리표와 모든 blocker 생성 mutation의 공유 lock 참여를 각 도메인이 승인한다.
+- 단일 PostgreSQL unit-of-work를 쓸지 cross-service reservation/saga를 쓸지 결정한다.
+- withdrawal idempotency/outbox schema, 24시간 보존, retry/dead-letter/운영 경보 소유자를 확정한다.
+- Supabase 사용자 delete/disable 및 identity 정리 순서와 `auth_user_id` 처리 정책을 확정한다.
+- E-13의 email 원문 보존을 포함한 개인정보별 근거·기간·접근 통제·최종 파기 정책을 승인한다.
+- `docs/domain/erd.md` 변경 요약의 회원 탈퇴 E-12와 reference DBML/HTML의 E-13 번호 불일치를 팀 공통
+  정본에서 해소한다. 이 기능 문서는 내용 근거로 I-31/E-13을 사용한다.
 
 ## Supabase 포트/어댑터 경계
 

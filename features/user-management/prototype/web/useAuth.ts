@@ -1,24 +1,64 @@
-import { useCallback, useEffect, useState } from "react";
-import type { AuthenticatedSessionResponse, OAuthProvider } from "../server/auth.types";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
+import type {
+  AuthenticatedSessionResponse,
+  CompleteRegistrationInput,
+  OAuthProvider,
+  RegisterInput,
+  UserRole,
+} from "../server/auth.types";
 import {
   AuthApiError,
+  completeRegistration as completeRegistrationRequest,
+  confirmEmail as confirmEmailRequest,
   createProtectedApiCaller,
   createAuthSession,
   createOAuthAuthorization,
   deleteCurrentAuthSession,
   getCurrentAuthContext,
   refreshAuthSession,
+  registerAccount,
   requestEmailConfirmation,
 } from "./api/auth";
 
 export type AuthViewState =
-  | { status: "anonymous"; message: string | null; action: null | "RESEND" | "COMPLETE_REGISTRATION" }
+  | { status: "anonymous"; message: string | null; action: null | "RESEND" | "COMPLETE_REGISTRATION" | "LOGOUT" }
   | { status: "restoring"; message: null; action: null }
   | { status: "submitting"; message: null; action: null }
   | { status: "authenticated"; message: null; action: null; session: AuthenticatedSessionResponse }
   | { status: "retryable"; message: string; action: "RETRY" };
 
+const initialAuthState: AuthViewState = { status: "anonymous", message: null, action: null };
+
+export function createAuthViewStore() {
+  let snapshot: AuthViewState = initialAuthState;
+  const listeners = new Set<() => void>();
+  return {
+    getSnapshot: () => snapshot,
+    // SSR must not expose a different request's module-level browser session.
+    getServerSnapshot: () => initialAuthState,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+    publish: (state: AuthViewState) => {
+      snapshot = state;
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
+// All consumers in one browser document share state as well as the memory token.
+// This is not cross-tab coordination or a server-side auth store.
+const authViewStore = createAuthViewStore();
+let hasRequestedInitialRestore = false;
 let accessTokenInMemory: string | null = null;
+
+function setState(state: AuthViewState): void {
+  if (state.status === "authenticated") accessTokenInMemory = state.session.accessToken;
+  else if (state.status === "anonymous" || state.status === "submitting") accessTokenInMemory = null;
+  // A retryable restore failure must not revoke the existing memory token (R16).
+  authViewStore.publish(state);
+}
 
 export function createAuthEpochGuard() {
   let epoch = 0;
@@ -52,7 +92,7 @@ export function getAccessTokenInMemory(): string | null {
 }
 
 export function clearAccessTokenInMemory(): void {
-  accessTokenInMemory = null;
+  setState(initialAuthState);
 }
 
 export function callProtectedApi<T>(
@@ -80,13 +120,26 @@ export function reduceAuthFailure(error: unknown): AuthViewState {
     if (error.code === "REGISTRATION_COMPLETION_REQUIRED") {
       return { status: "anonymous", message: error.message, action: "COMPLETE_REGISTRATION" };
     }
-    if (error.status === 503) {
+    if (error.code === "AUTH_CONTEXT_CONFLICT") {
+      return { status: "anonymous", message: error.message, action: "LOGOUT" };
+    }
+    if (error.status >= 500 && error.status <= 599) {
       return { status: "retryable", message: error.message, action: "RETRY" };
     }
     if (error.status === 401) clearAccessTokenInMemory();
     return { status: "anonymous", message: error.message, action: null };
   }
   return { status: "retryable", message: "잠시 후 다시 시도해 주세요.", action: "RETRY" };
+}
+
+export function reduceLogoutFailure(error: unknown): AuthViewState {
+  return {
+    status: "anonymous",
+    message: error instanceof AuthApiError
+      ? error.message
+      : "현재 로그인 세션을 종료하지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요.",
+    action: "LOGOUT",
+  };
 }
 
 export function createSingleFlightRestorer<T>(refresh: () => Promise<T>): () => Promise<T> {
@@ -127,24 +180,72 @@ export function createReturnNavigator(navigate: (path: string) => void): (path: 
   };
 }
 
-export function useAuth() {
-  const [state, setState] = useState<AuthViewState>({ status: "anonymous", message: null, action: null });
+export function useAuth(options: { restoreOnMount?: boolean } = {}) {
+  const restoreOnMount = options.restoreOnMount ?? true;
+  const state = useSyncExternalStore(
+    authViewStore.subscribe,
+    authViewStore.getSnapshot,
+    authViewStore.getServerSnapshot,
+  );
+
+  const publishSession = useCallback((capturedEpoch: number, session: AuthenticatedSessionResponse) => {
+    if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
+    accessTokenInMemory = session.accessToken;
+    setState({ status: "authenticated", message: null, action: null, session });
+    return session;
+  }, []);
 
   const login = useCallback(async (input: { email: string; password: string; returnTo: string }) => {
     const capturedEpoch = authEpoch.advance();
     setState({ status: "submitting", message: null, action: null });
     try {
       const session = await createAuthSession(input);
+      return publishSession(capturedEpoch, session);
+    } catch (error) {
+      if (!authEpoch.isCurrent(capturedEpoch)) throw error;
+      setState(reduceAuthFailure(error));
+      throw error;
+    }
+  }, [publishSession]);
+
+  const register = useCallback(async (input: RegisterInput) => {
+    const capturedEpoch = authEpoch.advance();
+    setState({ status: "submitting", message: null, action: null });
+    try {
+      const response = await registerAccount(input);
       if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
-      accessTokenInMemory = session.accessToken;
-      setState({ status: "authenticated", message: null, action: null, session });
-      return session;
+      setState({ status: "anonymous", message: response.message, action: null });
+      return response;
     } catch (error) {
       if (!authEpoch.isCurrent(capturedEpoch)) throw error;
       setState(reduceAuthFailure(error));
       throw error;
     }
   }, []);
+
+  const completeRegistration = useCallback(async (input: CompleteRegistrationInput) => {
+    const capturedEpoch = authEpoch.advance();
+    setState({ status: "submitting", message: null, action: null });
+    try {
+      return publishSession(capturedEpoch, await completeRegistrationRequest(input));
+    } catch (error) {
+      if (!authEpoch.isCurrent(capturedEpoch)) throw error;
+      setState(reduceAuthFailure(error));
+      throw error;
+    }
+  }, [publishSession]);
+
+  const confirmEmail = useCallback(async (tokenHash: string) => {
+    const capturedEpoch = authEpoch.advance();
+    setState({ status: "submitting", message: null, action: null });
+    try {
+      return publishSession(capturedEpoch, await confirmEmailRequest(tokenHash));
+    } catch (error) {
+      if (!authEpoch.isCurrent(capturedEpoch)) throw error;
+      setState(reduceAuthFailure(error));
+      throw error;
+    }
+  }, [publishSession]);
 
   const restore = useCallback(async () => {
     const capturedEpoch = authEpoch.capture();
@@ -173,11 +274,11 @@ export function useAuth() {
     }
   }, []);
 
-  const startOAuth = useCallback(async (oauthProvider: OAuthProvider, returnTo: string) => {
+  const startOAuth = useCallback(async (oauthProvider: OAuthProvider, returnTo: string, role?: UserRole) => {
     const capturedEpoch = authEpoch.advance();
     setState({ status: "submitting", message: null, action: null });
     try {
-      const result = await createOAuthAuthorization({ oauthProvider, returnTo });
+      const result = await createOAuthAuthorization({ oauthProvider, returnTo, role });
       if (!authEpoch.isCurrent(capturedEpoch)) throw authFlowCancelled();
       window.location.assign(result.authorizationUrl);
     } catch (error) {
@@ -203,20 +304,33 @@ export function useAuth() {
 
   const logout = useCallback(async () => {
     const accessToken = accessTokenInMemory ?? undefined;
-    authEpoch.advance();
+    const capturedEpoch = authEpoch.advance();
     clearAccessTokenInMemory();
-    setState({ status: "anonymous", message: null, action: null });
     try {
       await deleteCurrentAuthSession(accessToken);
-    } finally {
-      clearAccessTokenInMemory();
-      setState({ status: "anonymous", message: null, action: null });
+      if (authEpoch.isCurrent(capturedEpoch)) setState(initialAuthState);
+    } catch (error) {
+      if (authEpoch.isCurrent(capturedEpoch)) setState(reduceLogoutFailure(error));
+      throw error;
     }
   }, []);
 
   useEffect(() => {
-    void restore().catch(() => undefined);
-  }, [restore]);
+    if (!restoreOnMount || hasRequestedInitialRestore) return;
+    hasRequestedInitialRestore = true;
+    // A later-mounted header/page must not overwrite an active login or force a refresh.
+    if (authViewStore.getSnapshot().status === "anonymous") void restore().catch(() => undefined);
+  }, [restore, restoreOnMount]);
 
-  return { state, login, restore, startOAuth, resendConfirmation, logout };
+  return {
+    state,
+    login,
+    register,
+    completeRegistration,
+    confirmEmail,
+    restore,
+    startOAuth,
+    resendConfirmation,
+    logout,
+  };
 }

@@ -1,14 +1,27 @@
 // =====================================================================
 // PactFive MVP — ERD (DBML)   [서비스명·팀명 PactFive — 팀 회의 확정]
-// 파일명   : PactFive_ERD_v1.4.dbml
+// 파일명   : PactFive_ERD_v1.4.dbml (내용은 v1.7로 개정됨 — 파일명은 유지, 상태 줄 참고)
 // 작성     : 김락원 (팀장) — PRD v4.0 §6.10 (D-06) 진행 순서 2단계
 // 근거     : WORKBRIDGE_PRD_v4.0 §2(상태 정본) · §3.1(필드 사전) · §6(데이터 모델)
 //            §8(공통 코드) · §13(API 스키마) · 부록 A(명명 규칙) / RFP §3~§4
 //            v1.4 개정분은 PRD v6.3(유동우, 2026-08-25) 확정 초안 대조 결과를 반영한다.
+//            v1.5 개정분은 PRD v6.5 대조 + Prisma 스키마 설계(2026-09-04, 팀장) 중 발견한
+//            정본-구현 불일치 5건을 반영한다 — 근거는 아래 [C5] 항목들과
+//            feedback_loop/2026-09-04/project-management.md 참고.
 // 도구     : dbdiagram.io (DBML) — PRD §6.10 RECOMMENDATION
-// 상태     : 초안 확정 v1.4 — PRD v6.3 최종 대조 반영.
-//            v1.3 반영분(F1~F6)에 더해 알림 enum 정합화, 재모집 마감일 기준점 보정,
-//            negotiation_offer.status의 구현 규칙을 확정한다.
+// 상태     : 초안 확정 v1.7 — PRD v6.5 대조 반영.
+//            v1.4 반영분(알림 enum 정합화·재모집 마감일 기준점 보정·negotiation_offer.status
+//            구현 규칙 확정)에 더해, v1.5는 project_category/business_field 값 정정,
+//            users.password_hash 노트 정정(ADR-0008 반영), users.auth_user_id 신설,
+//            registration_intents 테이블 신설(20번째 엔티티), projects.budget_source 신설
+//            (CR-0007 종결)을 반영한다. v1.6은 pricing_analyses 결과 컬럼 nullable화,
+//            실패 스냅샷·fingerprint 버전 컬럼 신설, 멱등키 범위를 요청자별 복합
+//            unique로 변경, pricing_application_receipts 테이블 신설(21번째 엔티티)을
+//            반영한다(CR-AP-001·003~006 종결). v1.7은 reviews·applications·
+//            project-management·contracts-payments 4개 기능이 InMemory 저장소에서만
+//            갖고 있던 내부 부기(멱등 캐시·outbox·상태 이력·무효화 결과) 구조를
+//            테이블 8종 신설 + 컬럼 8종 추가로 반영한다(E-39~E-48, 22~29번째 엔티티,
+//            2026-09-08 — 아래 [C7] 참고).
 //            (반영 근거와 반려 사유는 PactFive_ERD_v1.4_설계검토.html §9 Decision Log 참조)
 //
 //            [C4] 2026-08-26 정정 (E-26, 구현 담당자 질의 Q-09)
@@ -17,6 +30,44 @@
 //            테이블 note와 부록 I-41이 "호출 시"라고 달리 적어, 한 문서 안에서 두 기준이
 //            충돌하고 있었다. 구현 기준은 전이 기준이다.
 //
+//            [C5] 2026-09-04 정정·신설 (E-27~E-31, 팀장 — Prisma 스키마 설계 중 발견)
+//            프로젝트 실제 구현(app/server·features/project-management/prototype·시안 전체)이
+//            2026-08-25 이후 어느 시점부터 이 ERD·PRD v6.4 §14.3과 다른 카테고리 값
+//            (MOBILE_APP·DATA_AI)을 일관되게 써 왔다는 것을 발견했다 — 담당자(유동우)는
+//            매번 "ERD·PRD와 일치한다"고 스스로 기록해 뒀지만(design/reference-proposal/
+//            README.md) 실제로는 달랐다. 의도적 변경이 아니라 발견되지 않은 드리프트로
+//            판단해, 이미 전 layer에 퍼져 있고 재작업 비용이 큰 코드 대신 ERD·PRD 쪽을
+//            정정한다(팀장 판단, 리스크 최소화 원칙). 같은 조사에서 Supabase Auth 매핑 키
+//            누락(auth_user_id)·가입 의도 저장소 누락(registration_intents)·예산 출처
+//            컬럼 누락(CR-0007)도 함께 발견해 이번 개정에 같이 반영한다.
+//
+//            [C6] 2026-09-04 정정·신설 (E-32~E-37, 팀장 — ai-pricing CR-AP-001·003~006 채택)
+//            오민혁이 ai-pricing Step 2(동기식 MVP) 구현을 마치며 제기한 CR 6건 중 5건
+//            (CR-AP-002 카테고리 값은 [C5]로 이미 해결)을 검토해 전부 채택한다. 프로토타입
+//            코드(pricing-analysis.types.ts, in-memory 저장소)가 이미 이 CR들이 요청하는
+//            모양(nullable 결과, 실패 스냅샷, 요청자별 멱등 범위, fingerprint 버전)으로
+//            구현·테스트돼 있어, ERD가 코드를 따라가는 정정이다(E-27~E-31과 같은 성격).
+//            CR-AP-003(교차 도메인 원자성)만 새 설계 판단이 필요했는데, ai-pricing과
+//            project-management가 같은 Postgres DB를 쓰므로 saga/outbox 없이 단일 DB
+//            트랜잭션으로 충분하다고 판단해 CR 원안보다 단순화해 채택한다(팀장 판단).
+//
+//            [C7] 2026-09-08 신설 (E-39~E-48, 팀장 — 6기능 Prisma 이식 준비 중 발견)
+//            6개 기능을 InMemory 저장소에서 Prisma로 옮기려고 각 기능의 저장소 인터페이스를
+//            훑어보니, reviews·applications·project-management·contracts-payments 4개
+//            기능이 멱등 캐시·outbox(수락/거절 후속 처리)·상태 전이 이력·취소 무효화 결과
+//            같은 내부 부기 구조를 InMemory에만 갖고 있고 이 ERD·schema.prisma엔 전혀 없다는
+//            것을 발견했다. 사용자(팀장 본인)가 "이 컬럼들이 담당자가 선언한 것이 맞냐"고
+//            물어 출처를 하나씩 git 이력으로 확인한 결과:
+//              - reviews·applications·project-management 3개 기능의 구조는 각 담당자의
+//                원본 프로토타입 커밋에 그대로 있던 것이다(순서대로 조준영 PR #79,
+//                최윤석 PR #83/develop 6202e16, 유동우 "계약 함수 7종 구현") — 팀장의
+//                해석이 아니라 담당자가 실제로 설계·구현한 내용을 뒤늦게 ERD에 반영하는 것.
+//              - contracts-payments의 deliveries 컬럼 7종 중 5종(version·object_key 등)과
+//                invalidations 개념은 조준영의 원본 mock에 있었지만, file_sha256·requested_by
+//                컬럼과 "별도 테이블"이라는 구조 자체는 팀장이 spec.md 규칙 23·25를 근거로
+//                판단해 추가한 것이다 — 이 부분만 [A] 표시하고 조준영 확인이 필요하다.
+//            사용자 승인(2026-09-08, "그대로 진행 + 담당자에 사후 공유")에 따라 9개 항목 전부
+//            반영한다. 상세 근거는 각 테이블 note의 [F]/[A] 표시 참조.
 // 표기 규칙
 //   [F]  Fact        — PRD/RFP에 명시된 내용
 //   [A]  Assumption  — PRD에 없어 김락원이 채운 값. 담당자 확인 필요
@@ -26,6 +77,13 @@
 //   [C2] v1.3 변경    — PRD v5.2 대조 검토 반영분. 근거는 Decision Log E-2x 참조
 //   [C3] v1.4 변경    — PRD v6.3 초안 확정 반영분. 근거는 Decision Log E-3x 참조
 //   [C4] v1.4 정정    — 구현 담당자 질의(Q-09) 반영분. 근거는 Decision Log E-26 참조
+//   [C5] v1.5 정정·신설 — 실제 구현 대조 중 발견한 정본-구현 불일치 반영분.
+//                       근거는 Decision Log E-27~E-31 참조 (2026-09-04, 팀장)
+//   [C6] v1.6 정정·신설 — ai-pricing CR-AP-001·003~006 채택분.
+//                       근거는 Decision Log E-32~E-37 참조 (2026-09-04, 팀장)
+//   [C7] v1.7 정정·신설 — 6기능 Prisma 이식 준비 중 발견한 4개 기능(reviews·applications·
+//                       project-management·contracts-payments) 내부 부기 구조 반영분.
+//                       근거는 Decision Log E-39~E-48 참조 (2026-09-08, 팀장)
 //
 // 절대 규칙 (PRD 부록 A.3)
 //   - projects 에 status 단일 필드를 만들지 않는다
@@ -104,25 +162,46 @@ Enum pricing_analysis_review_status {
   REJECTED
 }
 
+// [C5] E-31 (v1.5 신설): projects.budget_source가 쓰는 값. CR-0007 참고.
+Enum budget_source {
+  CLIENT_INPUT
+  AI_ANALYSIS
+}
+
 // PRD §8.1 카테고리 6종 (D-12)
+// [C5] E-27 (v1.5 정정, 2026-09-04): APP_DEVELOPMENT→MOBILE_APP, ETC→DATA_AI.
+// 실제 구현(app/server/src/features/project-management/in-memory-external.adapter.ts와
+// 그 원본 프로토타입·디자인 시안 전체)이 2026-08-25(v1.4 확정) 이후 어느 시점부터
+// 이 값을 계속 이렇게 써 왔다 — 담당자(유동우)는 매번 "ERD와 일치"라고 기록해 뒀지만
+// 실제로는 달랐다(design/reference-proposal/README.md 비교표). 의도적 변경이 아니라
+// 발견되지 않은 드리프트로 판단되며, 코드가 이미 전 layer(서버·프로토타입·디자인
+// 시안·시드 데이터·2026-09-04 머지된 대표 페이지)에 퍼져 있어 되돌리는 비용이
+// ERD·PRD 정정 비용보다 훨씬 크다 — 그래서 정본 쪽을 코드에 맞춘다(팀장 판단,
+// feedback_loop/2026-09-04/project-management.md 항목 3 참고). RFP 원문이 이 레포에
+// 없어 "앱 개발"이 클라이언트 요구 문구였는지는 확인 못 했다 — 남은 리스크로 남긴다.
 Enum project_category {
   WEB_DEVELOPMENT
-  APP_DEVELOPMENT
+  MOBILE_APP
   DESIGN
-  MARKETING
+  DATA_AI
   PLANNING
-  ETC
+  MARKETING
 }
 
 // [A] PRD에 목록 없음. RFP §3.1.3 "사업 분야(선택형, 기타 자유 입력)"
-// 카테고리 6종을 그대로 재사용하고 ETC일 때만 자유 입력을 허용한다. — 오민혁 확인 필요
+// 카테고리 6종을 그대로 재사용한다 — 오민혁 확인 필요(자유 입력 트리거 필드 재확인).
+// [C5] E-27 (v1.5 정정): project_category와 같은 값으로 맞췄다. D-63("프로젝트
+// 카테고리·프리랜서 주력 분야·의뢰인 의뢰 분야가 같은 6종을 공유")이 이미 이 세 곳을
+// 하나로 묶어 두라고 확정해 뒀는데, project_category만 먼저 코드값으로 굳어지면서
+// 이 enum과 어긋나 있었다 — 이 필드는 아직 어떤 코드에서도 쓰이지 않아(app/·모든
+// prototype에 businessField/business_field 참조 0건) 값을 맞추는 데 실제 구현 리스크가 없다.
 Enum business_field {
   WEB_DEVELOPMENT
-  APP_DEVELOPMENT
+  MOBILE_APP
   DESIGN
-  MARKETING
+  DATA_AI
   PLANNING
-  ETC
+  MARKETING
 }
 
 // [A]→[C] PRD §8.2 기술 32종의 그룹 구분. 필터 UI 그룹핑용
@@ -177,26 +256,34 @@ Enum review_direction {
   FREELANCER_TO_CLIENT
 }
 
-// [C] E-19: PM 승인요청서(2026-08-20) 01. 리뷰 태그 코드 방향별 5종 확정.
+// [C] E-19→E-38 개정: 리뷰 태그 코드 방향별 5종.
+// 최초 확정은 PM 승인요청서(2026-08-20) 01 (E-19). 2026-09-07 CR-RV-001(조준영, reviews)로
+// 「PactFive_상호_리뷰_평균_별점_설계서」v2.0 §10 코드로 교체 (E-38) — 상세 근거는 아래
+// "최근 확정 사항" E-38 항목, CR 원문은 features/reviews/change-requests/0001-review-tag-codes-v2.md.
 // DBML은 jsonb 배열 원소의 enum 제약을 표현할 수 없으므로 여기 표로 남긴다.
 // reviews.tags 에 저장되는 값은 반드시 아래 10종 중 방향에 맞는 5종이어야 하며,
 // 검증은 DB가 아니라 Review 서비스(API 계층)가 담당한다 — [A] 부록 "애플리케이션이 책임지는 것" 참조.
 //
 //   CLIENT_TO_FREELANCER (의뢰인 → 프리랜서)
-//     RESPONSIBILITY        책임감이 있어요
-//     COMMUNICATION         소통이 원활해요
-//     TECHNICAL_SKILL       기술력이 뛰어나요
-//     SCHEDULE_COMPLIANCE   일정을 잘 지켜요
-//     DELIVERABLE_QUALITY   결과물 품질이 좋아요
+//     WORK_QUALITY
+//     ON_TIME_DELIVERY
+//     GOOD_COMMUNICATION
+//     REQUIREMENT_UNDERSTANDING
+//     PROFESSIONAL_ATTITUDE
 //
 //   FREELANCER_TO_CLIENT (프리랜서 → 의뢰인)
-//     REQUIREMENT_CLARITY   요구사항이 명확해요
-//     COMMUNICATION         소통이 원활해요
-//     FEEDBACK_SPEED        피드백이 빨라요
-//     SCOPE_STABILITY       업무 범위가 안정적이에요
-//     PAYMENT_RELIABILITY   결제 과정이 신뢰할 만해요
+//     CLEAR_REQUIREMENTS
+//     FAST_FEEDBACK
+//     GOOD_COMMUNICATION
+//     SCOPE_STABILITY            (v1.4 코드와 우연히 동일)
+//     PROFESSIONAL_ATTITUDE
 //
-//   저장 예시: ["RESPONSIBILITY", "COMMUNICATION", "DELIVERABLE_QUALITY"]
+//   저장 예시: ["WORK_QUALITY", "GOOD_COMMUNICATION", "PROFESSIONAL_ATTITUDE"]
+//   (Fact) v1.4의 구 코드 10종(RESPONSIBILITY·COMMUNICATION·TECHNICAL_SKILL·SCHEDULE_COMPLIANCE·
+//   DELIVERABLE_QUALITY·REQUIREMENT_CLARITY·FEEDBACK_SPEED·PAYMENT_RELIABILITY, SCOPE_STABILITY 제외)는
+//   전량 폐기됐다. 옛 코드 ↔ 새 코드 1:1 대응 관계는 CR 원문에도 없어 여기서 임의로 추정하지 않는다.
+//   (Assumption) 코드별 한글 표시 문구는 설계서 v2.0 원문 확인 필요 — features/reviews/
+//   spec.md·api-contract.md·prototype 어디에도 한글 라벨이 없어 이 표에는 넣지 않았다.
 
 
 // ═════════════════════════════════════════════════════════════════════
@@ -204,9 +291,22 @@ Enum review_direction {
 // ═════════════════════════════════════════════════════════════════════
 
 Table users {
-  id                 varchar(30)  [pk, note: 'prefixed ULID. 예: usr_01H8X... (§13.1 식별자=문자열)']
+  id                 varchar(40)  [pk, note: 'prefixed ULID. 예: usr_01H8X... (§13.1 식별자=문자열)']
+  // [C5] E-29 (v1.5 신설, 2026-09-04): Supabase Auth의 auth.users UUID. PactFive 자체 id(위 컬럼)와는
+  // 별개 값이다. app/server/src/features/user-management/auth.service.ts의 createUser() 호출부가
+  // 이미 이 값을 id와 분리해서 저장하고 있었는데(ADR-0008 Supabase Auth 채택의 자연스러운 귀결),
+  // ERD엔 이 매핑 키 자체가 없었다 — oauth_subject는 "Supabase 사용자 매핑의 정본으로 사용하지
+  // 않음"이라고 이 테이블 자신이 이미 못박아 둔 값이라 이 용도로 쓸 수 없다.
+  auth_user_id       varchar(64)  [not null, unique, note: '[C5] E-29: Supabase auth.users UUID. id와 별개 — 아래 note 참조']
   email              varchar(255) [not null, note: '[C] E-13: 컬럼 단일 unique 제거. 활성 사용자 범위의 부분 unique로 이동(부록 참조)']
-  password_hash      varchar(255) [null, note: 'RFP §7.1 해싱 저장. 소셜 전용 계정은 null']
+  // [C5] E-28 (v1.5 정정, 2026-09-04): ADR-0008(2026-08-24, 확정)이 자체 JWT 대신 Supabase Auth를
+  // 채택하면서 비밀번호 해싱·검증 자체를 Supabase에 위임했다. 이 컬럼은 그 결정 이전 설계의
+  // 잔재로 보인다 — 서버 코드 전체(app/server/src/features/user-management/**)에 이 컬럼을
+  // 읽거나 쓰는 곳이 없다. 컬럼은 유지하되(정본 컬럼 삭제는 추가보다 되돌리기 비쌈) 영구히
+  // NULL만 들어갈 컬럼으로 재정의한다 — 실사용 여부는 오민혁 확인 후 다음 개정에서 완전히
+  // 뺄지 결정한다. 결정 내용 자체는 ADR-0008을 바꾸는 것이 아니라 그 결정을 이 컬럼에
+  // 뒤늦게 반영하는 것이다(adr-process.md "구현 기록" 예외).
+  password_hash      varchar(255) [null, note: '[C5] E-28: 실사용 안 함(ADR-0008 Supabase Auth 위임) — 영구 NULL 예상, 오민혁 확인 후 제거 검토. RFP §7.1 해싱 저장은 ADR-0008 이전 설계']
   name               varchar(50)  [not null]
   role               user_role    [not null, note: 'I-02 한 사용자는 한 역할만']
   profile_image_url  text         [null]
@@ -273,8 +373,8 @@ Table users {
 // [C2] E-22 (v1.3 신설): auth_sessions — 다중기기 로그인 세션. 구 E-11(jsonb 절충)을
 // 철회하고 정규화 테이블로 전환. 사유는 users 테이블 note 참조.
 Table auth_sessions {
-  id                   varchar(30)  [pk, note: 'ses_...']
-  user_id              varchar(30)  [not null]
+  id                   varchar(40)  [pk, note: 'ses_...']
+  user_id              varchar(40)  [not null]
   refresh_token_hash   varchar(255) [not null, unique, note: '원문은 저장하지 않음(HttpOnly 쿠키로만 전달)']
   previous_token_hash  varchar(255) [null, note: 'rotation 시 직전 해시. 재사용 감지 판정 기준']
   device_label         varchar(100) [null, note: '사용자에게 보여줄 기기 표시용. 예: Chrome on macOS']
@@ -314,9 +414,39 @@ Table auth_sessions {
   '''
 }
 
+// [C5] E-30 (v1.5 신설, 2026-09-04): registration_intents — 가입 확인 대기 중 상태.
+// 20번째 엔티티(기존 "엔티티 수 고정 원칙 폐기" — D-62 근거 재사용). 오민혁 담당.
+Table registration_intents {
+  auth_user_id        varchar(64)  [pk, note: 'Supabase auth.users UUID. users.auth_user_id와 같은 값이지만, 이 시점엔 아직 users 행이 없다(이메일 확인 전)']
+  email               varchar(255) [not null]
+  name                varchar(50)  [not null]
+  role                user_role    [not null]
+  return_to           text         [not null]
+  nonce               varchar(100) [not null]
+  issued_at           timestamptz  [not null]
+  expires_at          timestamptz  [not null]
+  recovery_expires_at timestamptz  [not null]
+
+  indexes {
+    email
+  }
+  note: '''
+  이메일 확인 대기 중인 가입 시도. (v1.5 신설 — E-30, 오민혁 담당)
+  [F] user-management의 RegistrationIntentRepository(가입 역할·이름·returnTo의 CAS 경계)가
+      이미 별도 저장소로 구현돼 있었다 — feedback_loop/2026-08-28/user-management.md 항목 3에
+      담당자가 "Prisma 스키마가 채워질 때 auth_sessions·users와 함께 이 테이블도 필요하다"고
+      직접 남겨 둔 항목이다.
+  [R] 이메일 인증 대기 중인 가입 시도를 Supabase 쪽 app_metadata나 Admin API 전체 순회에
+      숨기지 않고 앱이 직접 들고 있기 위한 임시 상태 테이블이다.
+  [F] 거래 이력이 아니므로 I-21(물리 삭제 금지 6종) 대상이 아니다 — 인증 완료 시
+      clearRegistrationIntent()로 물리 삭제하거나, expires_at 지난 행을 배치로 정리한다
+      (배치 자체는 아직 없음 — 운영 전 신설 필요, 리스크로 남긴다).
+  '''
+}
+
 Table client_profiles {
-  id                 varchar(30)    [pk, note: 'clp_...']
-  user_id            varchar(30)    [not null, unique, note: '1:1']
+  id                 varchar(40)    [pk, note: 'clp_...']
+  user_id            varchar(40)    [not null, unique, note: '1:1']
   company_name       varchar(100)   [not null, note: 'RFP §3.1.3 의뢰인 필수']
   business_field     business_field [not null, note: '[C] E-14: 명칭은 "회사 업종"이 아니라 "주요 의뢰 분야". project_skills.category 와 같은 6종 재사용']
   business_field_etc varchar(100)   [null, note: 'business_field=ETC 일 때만 사용 (RFP 자유 입력). [C] E-14 CHECK로 페어링 강제(부록)']
@@ -339,8 +469,8 @@ Table client_profiles {
 }
 
 Table freelancer_profiles {
-  id                varchar(30)      [pk, note: 'flp_...']
-  user_id           varchar(30)      [not null, unique, note: '1:1']
+  id                varchar(40)      [pk, note: 'flp_...']
+  user_id           varchar(40)      [not null, unique, note: '1:1']
   primary_category  project_category [not null, note: 'RFP §3.1.3 주요 활동 카테고리']
   career_years      smallint         [not null, default: 0, note: '경력(년수). 0 이상']
   hourly_rate_amount integer         [null, note: '시간당 단가 (원 단위 정수, KRW)']
@@ -364,7 +494,7 @@ Table skills {
   group_code   skill_group [not null, note: '[A] 필터 UI 그룹핑']
   display_order smallint   [not null, default: 0]
   is_custom    boolean     [not null, default: false, note: 'RFP §3.1.3 프리랜서 프로필만 커스텀 추가 허용']
-  created_by_user_id varchar(30) [null, note: 'is_custom=true 일 때 작성자']
+  created_by_user_id varchar(40) [null, note: 'is_custom=true 일 때 작성자']
   is_active    boolean     [not null, default: true, note: '[R] 폐기해도 과거 데이터가 깨지지 않도록 삭제 대신 비활성화 [X]']
   created_at   timestamptz [not null, default: `now()`]
   updated_at   timestamptz [not null, default: `now()`]
@@ -394,7 +524,7 @@ Table skills {
 }
 
 Table freelancer_skills {
-  freelancer_profile_id varchar(30) [not null]
+  freelancer_profile_id varchar(40) [not null]
   skill_id              varchar(40) [not null]
   created_at            timestamptz [not null, default: `now()`]
 
@@ -411,12 +541,19 @@ Table freelancer_skills {
 // ═════════════════════════════════════════════════════════════════════
 
 Table projects {
-  id                    varchar(30)      [pk, note: 'prj_...']
-  client_id             varchar(30)      [not null, note: '등록 의뢰인. 등록 후 변경 불가']
+  id                    varchar(40)      [pk, note: 'prj_...']
+  client_id             varchar(40)      [not null, note: '등록 의뢰인. 등록 후 변경 불가']
   title                 varchar(100)     [not null, note: '5~100자 (D-19)']
   description           text             [not null, note: '20~5000자 (D-19). AI 단가 분석 입력이기도 함']
   category              project_category [not null]
   budget_amount         integer          [not null, note: '의뢰인 책정 예산. 원 단위 정수, 1 이상']
+  // [C5] E-31 (v1.5 신설, 2026-09-04): CR-0007 종결. AI 단가 분석이 사용자 입력 예산을
+  // 덮어써도 그 사실이 화면에 남지 않는 문제(Trust by Evidence 원칙 위반, ux-philosophy.md §6)를
+  // 막는다. features/project-management/change-requests/0007-projects-budget-source-column.md —
+  // 담당자가 "Prisma 스키마를 처음 쓰는 시점이 결정 게이트"라고 명시해 둔 항목. Mock 기준으로
+  // 이미 끝까지 동작 확인됨(app/server의 project.types.ts ProjectRecord.budgetSource).
+  budget_source         budget_source    [not null, default: 'CLIENT_INPUT', note: '[C5] E-31: 예산이 사용자 입력인지 AI 분석 결과인지']
+  budget_source_at      timestamptz      [not null, default: `now()`, note: '[C5] E-31: 출처가 정해진 시각. AI 분석이면 분석 연결 시각']
 
   recruitment_start_at    timestamptz [null, note: 'null이면 즉시 모집 시작. 재모집 시 현재 모집 회차 시작 시각으로 갱신']
   recruitment_deadline_at timestamptz [not null, note: 'I-27 필수 / I-28 현재 모집 회차 시작+365일 이내 / I-08 시작 시각보다 뒤 (D-01)']
@@ -430,8 +567,9 @@ Table projects {
   deadline_notified_at  timestamptz [null, note: '[R] I-22 마감 알림 중복 발송 방지 + 지연 10분 SLA 추적']
 
   pending_application_count integer [not null, default: 0, note: '[C2] E-23(PRD D-65 반영): 대기(PENDING) 지원 수. 예산·일정 잠금 판정용 캐시(§0.2 #22). 원본은 applications']
-  accepted_application_id   varchar(30) [null, note: '[C2] E-23: 수락된 지원서 id. C-01 수락 멱등 판정(D-41)의 근거 값']
+  accepted_application_id   varchar(40) [null, note: '[C2] E-23: 수락된 지원서 id. C-01 수락 멱등 판정(D-41)의 근거 값']
   payment_pending_at        timestamptz [null, note: '[C2] E-23: markPaymentPending(조준영 → 유동우) 통보 시각. 결제 확정 전 취소 가능 구간의 경계(D-40)']
+  completed_at              timestamptz [null, note: '[F] CR-RV-002(조준영, 2026-09-07), 2026-09-09 팀장 추가: transaction_status가 COMPLETED로 바뀐 시각. completeProjectTransaction 한 곳에서만 쓰고 그 이후로는 갱신하지 않는다. reviews.review_windows.opened_at의 소스 — payment_pending_at과 같은 원칙으로 신설(CR 자체는 이 컬럼을 명시하지 않았지만, "프로젝트 최초 completedAt"을 요구해 이 컬럼 없이는 구현 불가능했다)']
   project_version            integer     [not null, default: 1, note: '[C2][C4] E-23: 낙관적 잠금 버전(D-53). 상태가 실제로 전이됐을 때만 +1 — 계약 호출 자체가 기준이 아니다(E-26). 클라이언트가 기대 버전을 함께 보내면 충돌 시 409']
 
   created_at            timestamptz [not null, default: `now()`]
@@ -483,11 +621,15 @@ Table projects {
           무효화해 불필요한 409를 만든다.
       네 컬럼 모두 기존 projects 테이블에 컬럼만 추가하는 작업이라 엔티티·관계 구조에는
       영향이 없다.
+
+  [C5] E-31 (v1.5 신설) budget_source / budget_source_at — CR-0007 종결. 공개 목록·상세
+      응답에는 넣지 않는다 — 등록 의뢰인 본인만 본다(ClientProjectDetail). 프리랜서가
+      AI 분석 여부를 알면 지원 금액 판단에 영향을 줄 수 있다는 게 이유다.
   '''
 }
 
 Table project_skills {
-  project_id varchar(30) [not null]
+  project_id varchar(40) [not null]
   skill_id   varchar(40) [not null]
   created_at timestamptz [not null, default: `now()`]
 
@@ -504,9 +646,9 @@ Table project_skills {
 }
 
 Table bookmarks {
-  id            varchar(30) [pk, note: 'bkm_...']
-  freelancer_id varchar(30) [not null, note: 'I-13 프리랜서만 (users.role = FREELANCER)']
-  project_id    varchar(30) [not null]
+  id            varchar(40) [pk, note: 'bkm_...']
+  freelancer_id varchar(40) [not null, note: 'I-13 프리랜서만 (users.role = FREELANCER)']
+  project_id    varchar(40) [not null]
   created_at    timestamptz [not null, default: `now()`]
 
   indexes {
@@ -524,15 +666,28 @@ Table bookmarks {
   '''
 }
 
+Table project_contract_idempotency_records {
+  idempotency_key varchar(100) [pk]
+  processed_at    timestamptz  [not null]
+  result          jsonb        [not null, note: 'exact replay용 최초 응답 사본']
+  project_version integer      [not null, note: '처리 시점의 projects.project_version 스냅샷']
+
+  note: '''
+  project-management 계약 함수(수락/거절/취소 등) 멱등 처리 기록. (2026-09-08 신설, E-46, 팀장)
+  [F] 원본(유동우, features/project-management/prototype/server/project-contract.service.ts
+      findProcessed/markProcessed) 그대로 반영 — 새 설계 판단 아님.
+  '''
+}
+
 
 // ═════════════════════════════════════════════════════════════════════
-// 축 3. 지원 · 알림 (최윤석)
+// 축 3. 지원(최윤석) · 알림(오민혁 — CR-0001, 2026-09-07 최윤석에서 인수)
 // ═════════════════════════════════════════════════════════════════════
 
 Table applications {
-  id                    varchar(30)        [pk, note: 'app_...']
-  project_id            varchar(30)        [not null]
-  freelancer_id         varchar(30)        [not null]
+  id                    varchar(40)        [pk, note: 'app_...']
+  project_id            varchar(40)        [not null]
+  freelancer_id         varchar(40)        [not null]
   cover_letter          text               [not null, note: '자기소개 (RFP §3.2.4)']
   expected_amount       integer            [not null, note: '예상 단가. 원 단위 정수']
   expected_duration_days smallint          [not null, note: '예상 기간(일)']
@@ -561,15 +716,123 @@ Table applications {
   '''
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// applications 내부 부기(簿記) 테이블 4종 — 2026-09-08 신설 (E-41~E-45, 팀장)
+// [F] 전부 PR #83(최윤석, feat(applications): 지원 Mock에 eligibility·202/outbox와 건수
+//     분담을 넣는다, develop 커밋 6202e16)의 원본 구조를 그대로 옮긴 것 — 새 설계 판단 아님.
+//     원본: features/applications/prototype/server/application.service.ts·application.types.ts
+// [F] 수락/거절 후 잔여 처리(다른 지원 자동거절·알림 발행)를 outbox 패턴으로 큐잉·드레인한다.
+//     app/ 서버는 같은 요청 안에서 즉시 드레인하므로 실제로는 거의 항상 동기적으로 끝나고,
+//     202는 드레인 도중 실패했을 때만 나온다(REST 계약상 필요해 유지).
+// ─────────────────────────────────────────────────────────────────────
+
+Table application_idempotency_keys {
+  key           varchar(160) [pk, note: '지원 생성/수락/거절 요청의 멱등키(컨텍스트별 합성)']
+  body_hash     varchar(64)  [not null]
+  application_id varchar(40) [not null, note: 'applications 참조']
+  operation_id  varchar(40)  [null, note: 'application_operations 참조 (수락/거절 요청일 때만)']
+  created_at    timestamptz  [not null, default: `now()`]
+
+  note: '''
+  지원 관련 요청 멱등 캐시. (2026-09-08 신설, E-44)
+  [F] 원본(PR #83, getIdempotency/setIdempotency) 그대로.
+  '''
+}
+
+Table application_operations {
+  id                        varchar(40) [pk, note: 'aop_...']
+  application_id            varchar(40) [not null, note: 'applications 참조']
+  project_id                varchar(40) [not null]
+  client_id                 varchar(40) [not null, note: 'users 참조 — 요청 주체(의뢰인)']
+  type                      varchar(10) [not null, note: 'ACCEPT | REJECT']
+  status                    varchar(10) [not null, default: 'QUEUED', note: 'QUEUED | RUNNING | SUCCEEDED | FAILED']
+  updated_at                timestamptz [not null, default: `now()`]
+  retry_after_seconds       integer     [not null, default: 0]
+  requires_operator_action  boolean     [not null, default: false]
+  lease_until               timestamptz [null, note: '드레인 작업자 리스(중복 실행 방지)']
+  attempts                  smallint    [not null, default: 0]
+
+  indexes {
+    (status) [name: 'ix_application_operations_queued']
+  }
+  note: '''
+  수락/거절 후속 처리 outbox 작업 단위. (2026-09-08 신설, E-41)
+  [F] 원본(PR #83) 그대로. type·status는 DB enum이 아니라 varchar로 둔다 — 원본 코드의
+      리터럴 유니온을 그대로 옮긴 것으로, 팀장이 임의로 enum화하지 않는다(원본 존중 원칙).
+  '''
+}
+
+Table application_operation_steps {
+  id           varchar(40) [pk]
+  operation_id varchar(40) [not null, note: 'application_operations 참조']
+  seq          smallint    [not null, note: '단계 순서 — steps 배열의 인덱스']
+  name         varchar(30) [not null, note: 'REJECT_OTHERS | CREATE_NOTIFICATIONS | ENSURE_NEGOTIATION_CONTEXT']
+  status       varchar(10) [not null, note: 'QUEUED | RUNNING | SUCCEEDED | FAILED | SKIPPED']
+  reason       varchar(200) [null]
+
+  indexes {
+    (operation_id, seq) [unique, name: 'uq_operation_step_seq']
+    (operation_id, name) [unique, name: 'uq_operation_step_name']
+  }
+  note: '''
+  operation 하위 단계별 진행 이력. (2026-09-08 신설, E-42)
+  [F] 원본(PR #83, ApplicationOperation.steps 배열)을 정규화 테이블로 옮겼다 — 원본은
+      operation JSON 안에 배열로 두지만, DB에서는 자식 테이블로 분리하는 편이 일관적이라
+      팀장이 그렇게 정규화했다(구조만 변경, 데이터 의미는 원본과 동일).
+
+  [F] uq_operation_step_name 추가 (2026-09-09, CR-AP-004 변경 1, 조준영)
+      한 operation의 단계는 이름당 최대 1행이어야 하는 불변식(queuedSteps — ACCEPT는 3개,
+      REJECT는 1개로 고정)이 리포지토리 구현(전량 삭제 후 재삽입)에만 의존해 있었다.
+      결함은 아니다 — 현재 이식본은 이미 이 제약 아래에서 그대로 동작한다. 다음 사람이
+      구현 방식을 바꿀 때를 위한 스키마 차원의 방어다.
+  '''
+}
+
+Table application_state_events {
+  id             varchar(40) [pk]
+  application_id varchar(40) [not null, note: 'applications 참조']
+  from_status    application_status [null, note: '최초 생성이면 NULL']
+  to_status      application_status [not null]
+  rejection_type application_rejection_type [null]
+  occurred_at    timestamptz [not null]
+
+  indexes {
+    (application_id, occurred_at)
+  }
+  note: '''
+  지원 상태 전이 이력. (2026-09-08 신설, E-43)
+  [F] 원본(PR #83, appendStateEvent/getStateEvents) 그대로.
+  '''
+}
+
+Table application_closures {
+  closure_event_id varchar(160) [pk, note: '모집 마감 사건 id — project-management가 발급']
+  rejected_count    integer    [not null]
+  already_processed boolean    [not null]
+  result            varchar(20) [not null, note: 'PostActionResult("DONE"|"NOT_NEEDED"|"FAILED") — 스칼라 리터럴 유니온']
+  created_at        timestamptz [not null, default: `now()`]
+
+  note: '''
+  모집 마감 시 대기 지원 일괄거절의 멱등 결과. (2026-09-08 신설, E-45)
+  [F] 원본(PR #83, getClosure/setClosure) 그대로 — 같은 closure_event_id 재호출 시 이전
+      결과를 그대로 재반환해 중복 거절·중복 알림을 막는다.
+
+  [F] result: jsonb → varchar(20) (2026-09-09, CR-AP-004 변경 2, 조준영/팀장)
+      PostActionResult는 3값 스칼라 리터럴 유니온인데 처음에 jsonb로 잘못 잡아, 이식
+      코드가 결과 객체 전체를 넣는 결함(setClosure)의 원인이 됐다. type·status 컬럼과
+      같은 원칙으로 varchar를 쓴다 — 이 문서 표만 갱신되지 않고 있었다(2026-09-09 정정).
+  '''
+}
+
 Table notifications {
-  id            varchar(30)       [pk, note: 'ntf_...']
-  recipient_id  varchar(30)       [not null]
+  id            varchar(40)       [pk, note: 'ntf_...']
+  recipient_id  varchar(40)       [not null]
   type          notification_type [not null]
   title         varchar(100)      [not null]
   body          varchar(500)      [not null]
   link_url      text              [not null, note: 'RFP §3.3.1 클릭 시 이동할 경로']
   resource_type varchar(30)       [null, note: '[R] PROJECT | APPLICATION | CONTRACT | PAYMENT ...']
-  resource_id   varchar(30)       [null, note: '[R] 다형성 참조. FK 제약 없음']
+  resource_id   varchar(40)       [null, note: '[R] 다형성 참조. FK 제약 없음']
   dedupe_key    varchar(120)      [not null, unique, note: 'I-22 같은 사건 1회. 예: APPLICATION_ACCEPTED:app_01H8X']
   read_at       timestamptz       [null]
   created_at    timestamptz       [not null, default: `now()`]
@@ -589,7 +852,7 @@ Table notifications {
                  컬럼을 추가하면 컬럼이 계속 늘고 대부분 NULL이 된다. [X]
       대가     : DB가 참조 무결성을 보장하지 못한다(존재하지 않는 id를 가리켜도 막지 못함).
                  link_url 을 함께 저장해 두면 대상이 사라져도 알림 자체는 깨지지 않는다.
-      — 최윤석 확인 필요
+      — 오민혁 확인 필요 (2026-09-09 담당 갱신, CR-0001 — 최윤석에서 인수)
   '''
 }
 
@@ -611,9 +874,9 @@ Table notifications {
 // ═════════════════════════════════════════════════════════════════════
 
 Table agreements {
-  id                  varchar(30)      [pk, note: 'agr_...']
-  application_id      varchar(30)      [not null, unique, note: 'I-15 한 지원서에 합의 최대 1건']
-  proposed_by_user_id varchar(30)      [not null, note: '제안자(의뢰인). RFP §3.6.1 권장 흐름']
+  id                  varchar(40)      [pk, note: 'agr_...']
+  application_id      varchar(40)      [not null, unique, note: 'I-15 한 지원서에 합의 최대 1건']
+  proposed_by_user_id varchar(40)      [not null, note: '제안자(의뢰인). RFP §3.6.1 권장 흐름']
   agreed_amount       integer          [not null, note: '실제 합의 금액. 원 단위 정수']
   status              agreement_status [not null, default: 'PROPOSED']
   responded_at        timestamptz      [null, note: '프리랜서 동의/거부 시각']
@@ -642,10 +905,10 @@ Table agreements {
 // 개별 offer의 상태는 agreement_status(PROPOSED/ACCEPTED/REJECTED)를 재사용한다.
 // NegotiationStatus는 DB enum이 아니라 application_id 기준 최신 라운드와 응답 여부로 계산하는 API 파생 상태다.
 Table negotiation_offer {
-  id                   varchar(30)      [pk, note: 'ngo_...']
-  application_id       varchar(30)      [not null, note: '협상 스레드 단위 — 한 지원서에 여러 라운드 허용']
+  id                   varchar(40)      [pk, note: 'ngo_...']
+  application_id       varchar(40)      [not null, note: '협상 스레드 단위 — 한 지원서에 여러 라운드 허용']
   round                smallint         [not null, default: 1, note: '1부터 시작. 재제안마다 +1']
-  proposed_by_user_id  varchar(30)      [not null, note: '이번 라운드 제안자 — 의뢰인/프리랜서 양측 가능(2차 설계 특징)']
+  proposed_by_user_id  varchar(40)      [not null, note: '이번 라운드 제안자 — 의뢰인/프리랜서 양측 가능(2차 설계 특징)']
   offered_amount       integer          [not null]
   status               agreement_status [not null, default: 'PROPOSED', note: '[C3] 개별 제안 상태. NegotiationStatus 물리 enum은 두지 않음']
   responded_at         timestamptz      [null]
@@ -676,11 +939,11 @@ Table negotiation_offer {
 // 언제, 왜 남기는지)를 알려주면 다음 개정에서 반영한다.
 
 Table contracts {
-  id                varchar(30)     [pk, note: 'ctr_...']
-  agreement_id      varchar(30)     [not null, unique, note: 'I-16 한 합의에 계약 최대 1건']
-  project_id        varchar(30)     [not null, note: '[R] agreement->application 을 거치지 않고 조회하기 위한 비정규화 FK']
-  client_id         varchar(30)     [not null]
-  freelancer_id     varchar(30)     [not null]
+  id                varchar(40)     [pk, note: 'ctr_...']
+  agreement_id      varchar(40)     [not null, unique, note: 'I-16 한 합의에 계약 최대 1건']
+  project_id        varchar(40)     [not null, note: '[R] agreement->application 을 거치지 않고 조회하기 위한 비정규화 FK']
+  client_id         varchar(40)     [not null]
+  freelancer_id     varchar(40)     [not null]
 
   project_title_snapshot varchar(100) [not null, note: '[R] 계약 시점의 프로젝트명 박제']
   agreed_amount     integer         [not null, note: '계약서에 들어가는 금액 = agreements.agreed_amount']
@@ -731,9 +994,9 @@ Table contracts {
 }
 
 Table contract_signature_audits {
-  id          varchar(30)  [pk, note: 'sig_...']
-  contract_id varchar(30)  [not null]
-  signer_id   varchar(30)  [not null]
+  id          varchar(40)  [pk, note: 'sig_...']
+  contract_id varchar(40)  [not null]
+  signer_id   varchar(40)  [not null]
   signer_role user_role    [not null, note: '서명 당시의 역할을 박제']
   signed_at   timestamptz  [not null, note: 'I-19 재서명해도 이 값을 덮어쓰지 않는다']
   ip_address  varchar(45)  [null, note: 'IPv6 최대 길이']
@@ -759,15 +1022,19 @@ Table contract_signature_audits {
 }
 
 Table payments {
-  id                  varchar(30)    [pk, note: 'pay_...']
-  contract_id         varchar(30)    [not null, unique, note: 'I-17 한 계약에 결제 최대 1건']
-  client_id           varchar(30)    [not null, note: '[C] E-17: payer_id → client_id (PM 승인요청서 A1). 의뢰인']
-  freelancer_id       varchar(30)    [not null, note: '[C] E-17: payee_id → freelancer_id (A1). 프리랜서']
+  id                  varchar(40)    [pk, note: 'pay_...']
+  contract_id         varchar(40)    [not null, unique, note: 'I-17 한 계약에 결제 최대 1건']
+  client_id           varchar(40)    [not null, note: '[C] E-17: payer_id → client_id (PM 승인요청서 A1). 의뢰인']
+  freelancer_id       varchar(40)    [not null, note: '[C] E-17: payee_id → freelancer_id (A1). 프리랜서']
 
   currency            char(3)        [not null, default: 'KRW', note: '[R] MVP는 KRW 고정. 다통화 확장 대비 [X]']
   payment_amount      integer        [not null, note: '= agreed_amount. [A8-C2] contracts.agreed_amount 와 일치해야 함(App 검증)']
   platform_fee_amount integer        [not null, note: '= floor(payment_amount * 0.1)  (D-14)']
   settlement_amount   integer        [not null, note: '= payment_amount - platform_fee_amount']
+
+  platform_fee_rate_bps smallint     [not null, default: 1000, note: '[F] 신설(2026-09-09, CR-CP-002, 조준영). 결제 생성 시점 요율 스냅샷(bps) — 정책이 바뀌어도 과거 행은 불변(spec.md 규칙 24). 이전엔 저장 컬럼이 없어 platform_fee_amount÷payment_amount로 역산했다']
+  fee_policy_version   varchar(30)   [not null, default: 'fee-policy-v1', note: '[F] 신설(CR-CP-002). 어느 수수료 정책으로 계산했는지 감사용 — 결제 생성 시 1회 기록·불변']
+  pg_cost_amount       integer       [not null, default: 0, note: '[F] 신설(CR-CP-002). PG 비용 — 정산액에서 빼지 않고 별도 기록만 한다(규칙 24)']
 
   status              payment_status [not null, default: 'READY']
   pg_provider         varchar(20)    [not null, default: 'TOSS_PAYMENTS', note: '[C] E-17: PG사 확정(PM 승인요청서 02). CHECK로 다른 값 차단(부록)']
@@ -809,13 +1076,20 @@ Table payments {
 }
 
 Table deliveries {
-  id           varchar(30)     [pk, note: 'dlv_...']
-  contract_id  varchar(30)     [not null, unique, note: 'I-18 한 계약에 납품 최대 1건 (MVP)']
+  id           varchar(40)     [pk, note: 'dlv_...']
+  contract_id  varchar(40)     [not null, unique, note: 'I-18 한 계약에 납품 최대 1건 (MVP)']
   status       delivery_status [not null, default: 'IN_PROGRESS']
   message      text            [null, note: '납품 메모']
   attachment_url text          [null, note: '클라우드 스토리지 URL (RFP §5)']
   requested_at timestamptz     [null, note: '프리랜서 납품 요청 시각']
   approved_at  timestamptz     [null, note: '의뢰인 완료 승인 시각']
+  version      integer         [not null, default: 0, note: '[C] E-47 신설. 재요청마다 +1 — 낙관적 잠금 겸 이력 구분']
+  object_key   varchar(300)    [null, note: '[C] E-47 신설. 스토리지 객체 키']
+  file_name    varchar(255)    [null, note: '[C] E-47 신설']
+  mime_type    varchar(100)    [null, note: '[C] E-47 신설']
+  size_bytes   integer         [null, note: '[C] E-47 신설']
+  file_sha256  varchar(64)     [null, note: '[C][F] E-47 신설. 업로드 파일 무결성 해시 — 원본 mock엔 없던 필드였으나 2026-09-09 조준영 이식 지시서(§1)가 이 컬럼을 채우도록 요청하며 확인됐다. prepareDeliveryUpload가 실제로 저장한다']
+  requested_by varchar(40)     [null, note: '[C][A] E-47 신설. users 참조 — 납품 요청자. 원본 mock엔 없던 필드, 팀장이 spec.md 규칙 23 근거로 추가. 조준영 확인 필요']
   created_at   timestamptz     [not null, default: `now()`]
   updated_at   timestamptz     [not null, default: `now()`]
 
@@ -825,19 +1099,64 @@ Table deliveries {
   [F] §2.4 T5: deliveries.status=APPROVED "그리고" payments.status=RELEASED 여야 프로젝트가 COMPLETED
   [X] 확장 지점: 다회차 납품/재납품 요청으로 가려면 UNIQUE 를 제거하고
       round smallint 추가 후 UNIQUE(contract_id, round) 로 바꾼다.
+
+  [C] E-47 컬럼 7종 추가 (2026-09-08, 팀장)
+      원본(조준영, features/contracts-payments/prototype/mock/public-api.mock.ts DeliveryRow)에
+      이미 있던 version·object_key·file_name·mime_type·size_bytes 5종은 [F] 그대로 반영.
+      file_sha256·requested_by 2종은 원본에 없던 필드로, spec.md 규칙 23(파일 무결성·요청자 기록)을
+      근거로 팀장이 추가했다 — [A] 조준영 확인 필요한 팀장 해석분.
+
+  [F] file_sha256 확인 완료 (2026-09-09, 팀장) — 조준영 이식 지시서 §1이 이 컬럼을 실제로
+      채우도록 요청했다(prepareDeliveryUpload가 검증 후 저장). requested_by는 여전히 미사용
+      상태로 남아 있다 — [A] 그대로 유지.
+  '''
+}
+
+Table invalidations {
+  cancellation_id       varchar(160) [pk, note: 'inv_...']
+  project_id            varchar(40) [not null, note: 'projects 참조']
+  contract_invalidation varchar(20) [not null, note: 'PostActionResult — NOT_NEEDED | SUCCEEDED | FAILED 등']
+  created_at            timestamptz [not null, default: `now()`]
+
+  indexes {
+    (project_id, created_at) [name: 'ix_invalidations_latest_by_project']
+  }
+  note: '''
+  프로젝트 취소 시 계약 무효화 처리 최종 결과. (2026-09-08 신설, E-48, 팀장)
+  [A] 원본(조준영 mock)엔 contractInvalidation 결과 자체는 있으나 별도 영속 테이블로
+      만든 건 팀장 판단 — spec.md 규칙 25(취소 시 GET으로 마지막 무효화 결과 조회) 근거.
+      조준영 확인 필요한 팀장 해석분.
+  '''
+}
+
+Table payment_idempotency_records {
+  scope           varchar(40)  [not null, note: 'namespace (accept/sign/delivery-…)']
+  idempotency_key varchar(120) [not null, note: '흐름별 멱등 키']
+  body_hash       varchar(64)  [null, note: '선택 — payload로 비교 가능하면 null']
+  payload         jsonb        [not null, note: 'setIdempotent 값 전체 (CR-CP-003)']
+  created_at      timestamptz  [not null, default: `now()`]
+
+  indexes {
+    (scope, idempotency_key) [pk]
+  }
+
+  note: '''
+  멱등 캐시 영속화. (2026-09-09 E-49 CR-CP-002 → 2026-09-11 CR-CP-003 payload)
+  [F] getIdempotent/setIdempotent가 payload Json을 읽고 쓴다. PK=(scope, idempotency_key).
   '''
 }
 
 Table reviews {
-  id          varchar(30)      [pk, note: 'rvw_...']
-  project_id  varchar(30)      [not null]
-  contract_id varchar(30)      [not null, note: '[R] 어떤 거래에 대한 평가인지 명시']
-  reviewer_id varchar(30)      [not null]
-  reviewee_id varchar(30)      [not null]
+  id          varchar(40)      [pk, note: 'rvw_...']
+  project_id  varchar(40)      [not null]
+  contract_id varchar(40)      [not null, note: '[R] 어떤 거래에 대한 평가인지 명시']
+  reviewer_id varchar(40)      [not null]
+  reviewee_id varchar(40)      [not null]
   direction   review_direction [not null]
   rating      smallint         [not null, note: '1~5 (RFP §3.7.1)']
   comment     text             [null, note: '텍스트 리뷰']
-  tags        jsonb            [not null, default: `'[]'`, note: '[C] E-19 태그 코드 배열 확정. 예: ["RESPONSIBILITY","COMMUNICATION","DELIVERABLE_QUALITY"]. 코드 10종은 review_direction enum 위 주석 참조']
+  tags        jsonb            [not null, default: `'[]'`, note: '[C] E-19→E-38 개정. 예: ["WORK_QUALITY","GOOD_COMMUNICATION","PROFESSIONAL_ATTITUDE"]. 코드 10종은 review_direction enum 위 주석 참조']
+  review_created_published_at timestamptz [null, note: '[C] E-39 신설. REVIEW_CREATED 이벤트를 발행한 시각 — NULL이면 아직 미발행. 공개 시점(단독 14일 경과 or 양방향 완료)에 1회만 발행하기 위한 표시']
   created_at  timestamptz      [not null, default: `now()`]
 
   indexes {
@@ -858,11 +1177,65 @@ Table reviews {
   [F] §6.6 삭제하지 않음 (평판 데이터) — 이 역시 deleted_at 부재만으로는 강제되지 않으므로
       DELETE 권한 REVOKE 로 함께 보강한다(부록, E-16과 동일 원칙)
 
-  [C] E-19 tags 코드 확정 (PM 승인요청서 2026-08-20, 01·2.1·A4)
+  [C] E-19 tags 코드 최초 확정 (PM 승인요청서 2026-08-20, 01·2.1·A4)
       방향별 5종, 총 10종 코드로 확정(review_direction enum 위 주석에 전체 표 있음).
       DB는 jsonb 배열 형식만 강제하고, 방향별 허용 코드·문자열 요소·중복 금지 검증은
       Review 서비스(API 계층)가 담당한다 — 잘못된 방향/코드/중복 태그는 422로 거부(A4).
       태그별 집계 쿼리가 정규화 테이블보다 불리하다는 트레이드오프는 기존 판단 그대로 유지.
+
+  [C] E-38 tags 코드 v2 개정 (2026-09-07, CR-RV-001, 조준영)
+      「PactFive_상호_리뷰_평균_별점_설계서」v2.0 §10을 reviews Increment 정본으로 채택하며
+      E-19의 구 코드 10종을 새 코드 10종으로 전량 교체(review_direction enum 위 주석 참고).
+      검증 방식(422 REVIEW_TAG_INVALID)·jsonb 스키마리스 저장 방식은 E-19와 동일하게 유지 —
+      코드 목록만 바뀐다. features/reviews/(spec·api-contract·prototype)는 이 CR과 같은
+      feature/reviews 브랜치(origin, 커밋 b9ccc92)에서 이미 새 코드로 구현·검증됐다.
+      app/server·app/web 이식본도 2026-09-09 팀장 반영으로 새 코드로 맞췄다(CR-RV-001 종결).
+
+  [C] E-39 review_created_published_at 신설 (2026-09-08, 팀장)
+      원본(조준영, features/reviews/prototype/server/review.service.ts)에 이미 있던 outbox형
+      플래그를 뒤늦게 ERD에 반영한다 — REVIEW_CREATED 이벤트를 중복 발행하지 않기 위한 표시.
+      review.service.ts의 publishNewlyPublic()이 이 컬럼이 NULL인 공개 리뷰만 골라 이벤트를
+      발행하고 즉시 이 컬럼을 채운다.
+  '''
+}
+
+Table review_idempotency_keys {
+  key         varchar(160) [pk, note: '`{project_id}:{actor_user_id}:{idempotency_key}` 합성 키']
+  body_hash   varchar(64)  [not null, note: '요청 본문(rating·comment·tags 정렬) 해시 — 같은 키에 다른 본문이 오면 409']
+  review_id   varchar(40)  [not null, note: 'reviews 참조']
+  created_at  timestamptz  [not null, default: `now()`]
+
+  note: '''
+  리뷰 작성 멱등 캐시. (2026-09-08 신설, E-40, 팀장)
+  [F] 원본(조준영, review.service.ts getIdempotency/setIdempotency) 그대로 반영 — 새 설계 판단 아님.
+  [F] 같은 키·같은 본문 재요청 -> 기존 리뷰를 200으로 재반환. 같은 키·다른 본문 -> 409 REVIEW_ALREADY_EXISTS.
+  '''
+}
+
+Table review_windows {
+  project_id     varchar(40) [pk, note: 'projects 1:1']
+  opened_at      timestamptz [not null, note: '프로젝트 최초 completedAt (projects.completed_at)']
+  deadline_at    timestamptz [not null, note: 'opened_at + 14일(SOLO_PUBLIC_AFTER_DAYS)']
+  policy_version integer     [not null, default: 1]
+  created_at     timestamptz [not null, default: `now()`]
+
+  note: '''
+  리뷰 작성 창. (v1.9 신설, E-50, CR-RV-002 조준영/2026-09-07, 2026-09-09 팀장 반영)
+  [F] 양쪽 리뷰가 다 있으면 즉시 공개, 한쪽뿐이면 deadline_at이 지나야 단독 공개된다
+      (review.service.ts isReviewPublic). POST /reviews가 deadline_at 이후면
+      409 REVIEW_PERIOD_CLOSED를 던지는 데도 같은 값을 쓴다.
+  [F] ensureWindow가 프로젝트당 최초 1행만 만든다 — project_id가 기본키라 Prisma
+      upsert(create/update no-op)가 원자적이다. 원본(조준영, review.mock.ts)은 in-memory
+      Map + withKeyedLock으로 동시 생성을 막았다 — app/에는 그 락 인프라가 없어 upsert로
+      같은 보장을 얻는다(팀장, 2026-09-09).
+  [A] opened_at의 소스인 projects.completed_at은 이 CR 배포 시점 이전에 이미 COMPLETED였던
+      프로젝트에는 NULL이다 — 그런 프로젝트는 window가 생기지 않고, 단독 리뷰가 영원히
+      비공개로 남으며 POST /reviews도 REVIEW_PERIOD_CLOSED로 막힌다. 배포 시 백필이
+      필요한지 팀장이 실제 데이터로 확인해야 한다(마이그레이션 SQL 주석 참고, ASSUMPTION).
+  [C] user_rating_projections(CR-RV-002의 다른 절반, 평점 캐시 테이블)는 신설하지 않는다
+      (2026-09-09 팀장) — getUserRating이 공개 리뷰 실시간 합산으로 이미 정상 동작하고
+      (review.service.ts getPublishedRatingAggregate), 캐시를 얹을 이유가 아직 없다는
+      판단을 이전 세션에서 조준영과 확인했다.
   '''
 }
 
@@ -872,20 +1245,23 @@ Table reviews {
 // ═════════════════════════════════════════════════════════════════════
 
 Table pricing_analyses {
-  id                 varchar(30) [pk, note: 'pra_...']
-  requester_id       varchar(30) [not null, note: '분석을 요청한 의뢰인']
-  project_id         varchar(30) [null, note: 'I-25 프로젝트 연결은 비어 있을 수 있다(등록 전 분석)']
+  id                 varchar(40) [pk, note: 'pra_...']
+  requester_id       varchar(40) [not null, note: '분석을 요청한 의뢰인']
+  project_id         varchar(40) [null, note: 'I-25 프로젝트 연결은 비어 있을 수 있다(등록 전 분석)']
 
   input_snapshot     jsonb       [not null, note: '[C] E-20: input_description(text) 대체. {title, description, category} 스냅샷']
-  recommended_amount integer     [not null, note: 'AI가 추천한 전체 예상 총 단가. CHECK > 0 (부록)']
-  breakdown          jsonb       [not null, note: '단위 기능 목록: [{name, description, amount, rationale}] (RFP §3.5.2)']
+  recommended_amount integer     [null, note: '[C6] E-32: APPROVED 에서만 NOT NULL. AI가 추천한 전체 예상 총 단가. CHECK > 0 (부록)']
+  breakdown          jsonb       [null, note: '[C6] E-32: APPROVED 에서만 NOT NULL. 단위 기능 목록: [{name, description, amount, rationale}] (RFP §3.5.2)']
 
   model_name             varchar(50)  [null, note: '[R] 사용한 LLM 모델']
   prompt_version          varchar(20)  [null, note: '[R] 프롬프트 버전. 결과 품질 회귀 추적용 [X]']
   result_schema_version   varchar(20)  [null, note: '[C] E-20: breakdown JSON 구조 버전. 파싱 실패 원인 추적']
-  failure_code            varchar(50)  [null, note: '[C] E-20: 공급자 실패/시간초과/파싱·검증 실패 코드 (review_status=REJECTED 사유)']
-  idempotency_key          varchar(100) [not null, unique, note: '[C] E-20: 같은 요청의 중복 생성 방지 키']
-  request_fingerprint      varchar(64)  [null, note: '[C] E-20: 입력 해시. 캐시/재시도 판별용']
+  failure_code             varchar(50)  [null, note: '[C] E-20: 공급자 실패/시간초과/파싱·검증 실패 코드 (review_status=REJECTED 사유)']
+  failure_snapshot         jsonb        [null, note: '[C6] E-34: REJECTED 에서만 NOT NULL. exact replay용 최초 공개 {code,message,retryable} 사본. 공급자 원문 제외']
+  failure_http_status      smallint     [null, note: '[C6] E-34: REJECTED 에서만 NOT NULL. 최초 공개 502|504']
+  idempotency_key          varchar(100) [not null, note: '[C6] E-35: 같은 요청의 중복 생성 방지 키. unique 범위는 아래 indexes 참조(요청자별로 변경)']
+  request_fingerprint      varchar(64)  [not null, note: '[C6] E-37: 입력 해시. 캐시/재시도 판별용. 매 생성 시 항상 계산되므로 NOT NULL로 정정']
+  input_fingerprint_schema_version varchar(20) [not null, note: '[C6] E-37: request_fingerprint 계산에 쓴 정규화 규칙 버전. 공개 응답에 노출 안 함']
 
   review_status      pricing_analysis_review_status [not null, default: 'PENDING']
   reviewed_at        timestamptz [null, note: '[C] E-20: PENDING이면 NULL, APPROVED/REJECTED면 NOT NULL (부록 CHECK)']
@@ -897,6 +1273,7 @@ Table pricing_analyses {
   indexes {
     (requester_id, created_at)
     project_id
+    (requester_id, idempotency_key) [unique, note: '[C6] E-35: 생성 멱등 키 unique 범위. 기존 idempotency_key 단독 global unique를 대체']
   }
   note: '''
   AI 단가 분석. (PRD §6.1 #17)
@@ -908,6 +1285,36 @@ Table pricing_analyses {
       별도 테이블(pricing_analysis_items)을 만들면 18번째 엔티티가 되고,
       조회는 항상 "리포트 전체"이지 항목 단건이 아니다. [X]
       대가: 항목 단위 검색/집계가 어렵다. MVP 범위에 그 요구가 없다.
+
+  [C6] E-32 결과 컬럼 nullable화 (CR-AP-001 채택, 오민혁 제기)
+      Step 2는 PENDING으로 먼저 예약한 뒤 결과를 검증하므로, 처리 중·실패 행에는
+      recommended_amount·breakdown이 없다. 상태별 조합은 CHECK로 강제한다(DBML은
+      멀티컬럼 CHECK를 테이블 단위로 못 그려 부록에 SQL로 남긴다):
+        PENDING  -> recommended_amount·breakdown·failure_code·failure_snapshot·
+                    failure_http_status·reviewed_at 전부 NULL
+        APPROVED -> recommended_amount·breakdown·reviewed_at NOT NULL,
+                    failure_code·failure_snapshot·failure_http_status NULL
+        REJECTED -> recommended_amount·breakdown NULL,
+                    failure_code·failure_snapshot·failure_http_status·reviewed_at NOT NULL
+      오민혁의 Step 2 프로토타입(pricing-analysis.types.ts)이 이미 이 모양으로 구현·
+      테스트돼 있어 ERD가 코드를 따라가는 정정이다(E-27~E-31과 같은 성격).
+
+  [C6] E-34 실패 재생 스냅샷 신설 (CR-AP-004 채택, 오민혁 제기)
+      REJECTED exact replay는 최초 502/504 상태와 공개 오류 body를 그대로 반환해야
+      한다. failure_code만으로 매 요청 문구를 다시 만들면 배포 사이 문구·HTTP 매핑이
+      바뀔 때 같은 멱등 키의 응답이 달라진다. failure_snapshot·failure_http_status에
+      최초 공개 실패를 원자적으로 함께 저장하고, replay는 이 사본을 그대로 쓴다.
+
+  [C6] E-35 생성 멱등 키 unique 범위 변경 (CR-AP-005 채택, 오민혁 제기)
+      idempotency_key 단일 컬럼 global unique는 서로 다른 사용자가 우연히 같은 키를
+      쓰면 충돌한다. (requester_id, idempotency_key) 복합 unique로 바꿔 사용자 범위
+      안에서만 충돌하게 한다.
+
+  [C6] E-37 request_fingerprint 스키마 버전 컬럼 신설 (CR-AP-006 채택, 오민혁 제기)
+      입력 정규화·직렬화 규칙이 바뀐 뒤에도 과거 해시를 올바로 재검증하려면 그
+      해시를 계산한 규칙 버전을 저장해야 한다. input_fingerprint_schema_version을
+      신설하고, 매 생성 시 request_fingerprint와 함께 원자적으로 기록한다. 이 값은
+      항상 계산되는 값이라 request_fingerprint도 nullable에서 NOT NULL로 함께 정정한다.
 
   [C] E-20 review_status 의미 재정의 (오민혁 검토의견 §4.2 MUST 반영)
       MVP에는 관리자 역할·승인 화면이 없다. review_status 는 "사람의 가격 승인"이 아니라
@@ -944,6 +1351,51 @@ Table pricing_analyses {
           RETURNING recommended_amount;
 
           영향받은 행이 0건이면 애플리케이션은 "이미 적용됨/승인 안 됨"으로 409 처리한다.
+
+  [C6] E-33 기존 프로젝트 적용의 교차 도메인 원자성 확정 (CR-AP-003 채택·단순화, 오민혁 제기)
+      기존 프로젝트에 추천 예산을 적용하면 projects.budget_amount(project-management)와
+      pricing_analyses.project_id/applied_at(ai-pricing)이 함께 바뀐다. CR-AP-003 원안은
+      두 도메인이 "미래에 서로 다른 DB로 분리될 수도 있다"는 전제로 saga/outbox 보상
+      경계까지 요구했지만, 지금 두 도메인은 같은 Postgres DB(schema.prisma 한 파일) 위에
+      있어 단일 DB 트랜잭션(Prisma $transaction)으로 충분하다 — 팀장 판단으로 원안보다
+      단순화해 채택한다. 적용 요청의 멱등 결과는 pricing_analyses 밖의 별도 테이블
+      pricing_application_receipts(아래 신설, E-36)에 원자적으로 함께 커밋한다.
+      실제 DB 트랜잭션이 붙기 전까지(마이그레이션은 CR-0007과 같은 원칙으로 9/9 기능완료
+      이후) 이 원자적 포트가 없으면 API는 mutation을 시작하지 않고 503
+      PRICING_APPLICATION_UNAVAILABLE로 fail-closed한다 — 이는 스펙이 이미 요구하는
+      동작이라 별도 결정이 필요 없다.
+  '''
+}
+
+
+Table pricing_application_receipts {
+  id                  varchar(40) [pk, note: 'par_...']
+  operation           varchar(30) [not null, note: '[C6] E-36: 현재 값은 APPLY_PRICING_ANALYSIS 하나뿐']
+  actor_user_id        varchar(40) [not null, note: '요청자. users 참조']
+  idempotency_key      varchar(100) [not null, note: '적용 요청 Idempotency-Key. pricing_analyses.idempotency_key(생성용)와 별개 범위']
+  pricing_analysis_id  varchar(40) [not null, note: 'pricing_analyses 참조']
+  project_id           varchar(40) [not null, note: 'projects 참조']
+  request_fingerprint  varchar(64) [not null, note: '같은 키·다른 fingerprint 재요청을 409로 구분하기 위한 해시']
+  http_status          smallint    [not null, note: '최초 응답 HTTP 상태 (200 성공 | 409 충돌)']
+  response_body        jsonb       [not null, note: 'exact replay용 최초 공개 응답 사본']
+  processed_at         timestamptz [not null, note: '최초 처리 완료 시각']
+  created_at           timestamptz [not null, default: `now()`]
+
+  indexes {
+    (actor_user_id, idempotency_key) [unique, note: '적용 멱등 결과 unique 범위. (operation, actor_user_id, idempotency_key)와 동등 — operation이 현재 1종뿐이라 생략']
+    pricing_analysis_id
+  }
+  note: '''
+  [C6] E-36 기존 프로젝트 적용(POST /pricing-analyses/:id/apply) 전용 멱등 결과 저장소
+  (CR-AP-003 채택, 오민혁 제기). 21번째 엔티티 — 오민혁 담당, §6.10 검증 범위에 추가.
+  분석 생성 멱등(pricing_analyses.idempotency_key)과 적용 멱등은 서로 다른 작업·키
+  범위라 같은 컬럼에 덮어쓰지 않고 별도 테이블로 분리했다. 조회 순서는
+  ① 이 테이블에서 (actor_user_id, idempotency_key) 기존 결과 조회 ->
+  ② 있으면 같은 fingerprint일 때만 저장된 http_status·response_body를 그대로 재생,
+  다른 fingerprint면 409 IDEMPOTENCY_KEY_REUSED ->
+  ③ 없을 때만 pricing_analyses·projects를 잠그고 검증·갱신 후 이 행을 함께 커밋한다.
+  이 행 저장과 pricing_analyses.applied_at/project_id 갱신, projects.budget_amount
+  갱신은 전부 같은 DB 트랜잭션으로 commit되거나 전부 rollback된다(E-33 참고).
   '''
 }
 
@@ -967,11 +1419,21 @@ Ref: project_skills.project_id       > projects.id         // N:1
 Ref: project_skills.skill_id         > skills.id           // N:1
 Ref: bookmarks.freelancer_id         > users.id            // N:1
 Ref: bookmarks.project_id            > projects.id         // N:1
+// project_contract_idempotency_records 는 FK를 걸지 않는다 — 이력이 계약 함수 호출
+// 시점의 스냅샷(result jsonb)이라 참조 테이블 삭제와 무관하게 남아야 한다. (2026-09-08, E-46)
 
 // --- 지원 · 알림 축 ---
 Ref: applications.project_id         > projects.id         // N:1
 Ref: applications.freelancer_id      > users.id            // N:1
 Ref: notifications.recipient_id      > users.id            // N:1
+Ref: application_idempotency_keys.application_id > applications.id         // N:1 [C] E-44 신설
+Ref: application_idempotency_keys.operation_id   > application_operations.id // N:1 [C] E-44 신설
+Ref: application_operations.application_id       > applications.id         // N:1 [C] E-41 신설
+Ref: application_operations.client_id            > users.id                // N:1 [C] E-41 신설
+Ref: application_operation_steps.operation_id     > application_operations.id // N:1 [C] E-42 신설
+Ref: application_state_events.application_id      > applications.id        // N:1 [C] E-43 신설
+// application_closures 는 FK를 걸지 않는다 — closure_event_id 는 project-management가
+// 발급하는 사건 id로, applications 도메인 밖의 값이다. (2026-09-08, E-45)
 
 // --- 거래 축 ---
 Ref: agreements.application_id       - applications.id     // 1:1 (I-15)
@@ -988,14 +1450,21 @@ Ref: payments.contract_id            - contracts.id        // 1:1 (I-17)
 Ref: payments.client_id              > users.id            // N:1 [C] E-17 payer_id → client_id
 Ref: payments.freelancer_id          > users.id            // N:1 [C] E-17 payee_id → freelancer_id
 Ref: deliveries.contract_id          - contracts.id        // 1:1 (I-18, MVP)
+Ref: deliveries.requested_by         > users.id            // N:1 [C][A] E-47 신설
+Ref: invalidations.project_id        > projects.id         // N:1 [A] E-48 신설
 Ref: reviews.project_id              > projects.id         // N:1 (프로젝트당 최대 2건)
 Ref: reviews.contract_id             > contracts.id        // N:1
 Ref: reviews.reviewer_id             > users.id            // N:1
 Ref: reviews.reviewee_id             > users.id            // N:1
+Ref: review_idempotency_keys.review_id > reviews.id        // N:1 [F] E-40 신설
+Ref: review_windows.project_id       - projects.id         // 1:1 [F] E-50 신설, CR-RV-002
 
 // --- AI 분석 축 ---
 Ref: pricing_analyses.requester_id   > users.id            // N:1
 Ref: pricing_analyses.project_id     > projects.id         // N:1 (NULL 허용, I-25)
+Ref: pricing_application_receipts.actor_user_id       > users.id             // N:1 [C6] E-36 신설
+Ref: pricing_application_receipts.pricing_analysis_id > pricing_analyses.id  // N:1 [C6] E-36 신설
+Ref: pricing_application_receipts.project_id          > projects.id         // N:1 [C6] E-36 신설
 
 // notifications.resource_id 는 의도적으로 Ref 를 걸지 않는다 (다형성 참조).
 // 이유와 대가는 notifications 테이블 주석 참조.
@@ -1068,12 +1537,32 @@ Ref: pricing_analyses.project_id     > projects.id         // N:1 (NULL 허용, 
 //    CREATE UNIQUE INDEX uq_skills_custom_name_key
 //      ON skills(created_by_user_id, name_key) WHERE is_custom = true;
 //
-//  [C] pricing_analyses  (E-20 상태·추적성)
-//    CHECK (recommended_amount > 0)
-//    CHECK ((review_status = 'PENDING' AND reviewed_at IS NULL)
-//           OR (review_status IN ('APPROVED','REJECTED') AND reviewed_at IS NOT NULL))
+//  [C] [C6] pricing_analyses  (E-20 상태·추적성, E-32 nullable화로 CHECK 갱신 — CR-AP-001)
+//    CHECK (recommended_amount IS NULL OR recommended_amount > 0)
+//    CHECK (
+//      (review_status = 'PENDING'
+//        AND recommended_amount IS NULL AND breakdown IS NULL
+//        AND failure_code IS NULL AND failure_snapshot IS NULL AND failure_http_status IS NULL
+//        AND reviewed_at IS NULL)
+//      OR (review_status = 'APPROVED'
+//        AND recommended_amount IS NOT NULL AND breakdown IS NOT NULL
+//        AND failure_code IS NULL AND failure_snapshot IS NULL AND failure_http_status IS NULL
+//        AND reviewed_at IS NOT NULL)
+//      OR (review_status = 'REJECTED'
+//        AND recommended_amount IS NULL AND breakdown IS NULL
+//        AND failure_code IS NOT NULL AND failure_snapshot IS NOT NULL
+//        AND failure_http_status IS NOT NULL AND reviewed_at IS NOT NULL)
+//    )                                                                             -- [C6] E-32, CR-AP-001
 //    CHECK (applied_at IS NULL OR review_status = 'APPROVED')                     -- I-26
+//    CREATE UNIQUE INDEX uq_pricing_analyses_requester_idempotency
+//      ON pricing_analyses(requester_id, idempotency_key);                        -- [C6] E-35, CR-AP-005
+//      (기존 idempotency_key 단독 UNIQUE 컬럼 제약은 제거하고 위 복합 인덱스로 대체)
 //    (재적용 방지의 실제 강제는 CHECK가 아니라 E-21의 조건부 UPDATE 패턴 — pricing_analyses 테이블 note 참조)
+//
+//  [C6] pricing_application_receipts  (E-36 신설, CR-AP-003 채택·단순화)
+//    CREATE UNIQUE INDEX uq_pricing_application_receipts_actor_idempotency
+//      ON pricing_application_receipts(actor_user_id, idempotency_key);
+//    CHECK (http_status IN (200, 409))
 //
 //  [C] 권한 회수 권장 — §5.1 "DB 보장" 오분류 정정 (E-16, 오민혁 MUST)
 //    updated_at/deleted_at 컬럼의 부재는 UPDATE/DELETE 자체를 막지 못한다. 진짜 강제하려면

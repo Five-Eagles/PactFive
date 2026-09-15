@@ -30,6 +30,18 @@ function basicAuthHeader(secretKey: string): string {
   return `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`;
 }
 
+async function readProviderError(response: Response): Promise<{ code?: string; message?: string }> {
+  try {
+    const body = (await response.json()) as { code?: unknown; message?: unknown };
+    return {
+      code: typeof body.code === 'string' ? body.code : undefined,
+      message: typeof body.message === 'string' ? body.message : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 export function createTossPaymentsAdapter(): PaymentGateway {
   const secretKey = process.env.PG_SECRET_KEY;
   if (!secretKey) {
@@ -50,7 +62,20 @@ export function createTossPaymentsAdapter(): PaymentGateway {
         }),
       });
       if (!response.ok) {
-        throw new PaymentGatewayError('PAYMENT_CONFIRM_FAILED', '결제 승인을 완료하지 못했습니다.');
+        const providerError = await readProviderError(response);
+        console.error('[contracts-payments] Toss payment confirmation failed', {
+          operation: 'confirm',
+          orderId: input.orderId,
+          status: response.status,
+          code: providerError.code ?? null,
+          message: providerError.message ?? null,
+        });
+        throw new PaymentGatewayError(
+          'PAYMENT_CONFIRM_FAILED',
+          '결제 승인을 완료하지 못했습니다.',
+          response.status,
+          providerError.code,
+        );
       }
       const body = (await response.json()) as {
         orderId?: string;
@@ -70,7 +95,20 @@ export function createTossPaymentsAdapter(): PaymentGateway {
         headers: { Authorization: basicAuthHeader(secretKey) },
       });
       if (!response.ok) {
-        throw new PaymentGatewayError('PAYMENT_CONFIRM_FAILED', '결제 승인을 조회하지 못했습니다.');
+        const providerError = await readProviderError(response);
+        console.error('[contracts-payments] Toss payment retrieval failed', {
+          operation: 'retrieve',
+          orderId,
+          status: response.status,
+          code: providerError.code ?? null,
+          message: providerError.message ?? null,
+        });
+        throw new PaymentGatewayError(
+          'PAYMENT_CONFIRM_FAILED',
+          '결제 승인을 조회하지 못했습니다.',
+          response.status,
+          providerError.code,
+        );
       }
       const body = (await response.json()) as {
         orderId?: string;

@@ -13,6 +13,9 @@ import { BookmarkAlreadyExistsError, type BookmarkRecord } from './bookmark.type
  * Prisma 구현으로 바꾸는 순간 깨진다. 그래서 키를 `freelancerId::projectId` 로 잡고
  * `insert` 가 `BookmarkAlreadyExistsError` 를 던진다 — 성공으로 바꾸는 것은 서비스의 일이다
  * (spec.md 규칙 1).
+ *
+ * 2026-09-08 팀장 반영: BookmarkRepository가 Promise 반환으로 바뀌면서, 이미 동기로 계산한
+ * 값을 Promise.resolve로 감싸기만 했다 — 내부 로직·자료구조는 그대로다.
  */
 export class InMemoryBookmarkRepository implements BookmarkRepository {
   private readonly rows = new Map<string, BookmarkRecord>();
@@ -25,11 +28,11 @@ export class InMemoryBookmarkRepository implements BookmarkRepository {
     return `${freelancerId}::${projectId}`;
   }
 
-  find(freelancerId: string, projectId: string): BookmarkRecord | null {
+  async find(freelancerId: string, projectId: string): Promise<BookmarkRecord | null> {
     return this.rows.get(this.key(freelancerId, projectId)) ?? null;
   }
 
-  insert(record: BookmarkRecord): BookmarkRecord {
+  async insert(record: BookmarkRecord): Promise<BookmarkRecord> {
     const key = this.key(record.freelancerId, record.projectId);
     if (this.rows.has(key)) {
       throw new BookmarkAlreadyExistsError(record.freelancerId, record.projectId);
@@ -38,17 +41,17 @@ export class InMemoryBookmarkRepository implements BookmarkRepository {
     return record;
   }
 
-  remove(freelancerId: string, projectId: string): number {
+  async remove(freelancerId: string, projectId: string): Promise<number> {
     return this.rows.delete(this.key(freelancerId, projectId)) ? 1 : 0;
   }
 
-  findByFreelancer(freelancerId: string): BookmarkRecord[] {
+  async findByFreelancer(freelancerId: string): Promise<BookmarkRecord[]> {
     return [...this.rows.values()]
       .filter((b) => b.freelancerId === freelancerId)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  countByFreelancer(freelancerId: string): number {
+  async countByFreelancer(freelancerId: string): Promise<number> {
     return [...this.rows.values()].filter((b) => b.freelancerId === freelancerId).length;
   }
 }

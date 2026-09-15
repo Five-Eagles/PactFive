@@ -1,0 +1,30 @@
+{
+  "ranAt": "2026-09-11T04:20:54.968Z",
+  "results": [
+    {
+      "name": "recruiting OPEN + counts",
+      "pass": true,
+      "detail": "status=200 recruitment=OPEN ac=1 pending=1"
+    },
+    {
+      "name": "recruiting list matches seed freelancer",
+      "pass": true,
+      "detail": "items=1 uniqueFreelancers=1"
+    },
+    {
+      "name": "CLIENT apply blocked",
+      "pass": true,
+      "detail": "status=403 code=PROJECT_FORBIDDEN"
+    },
+    {
+      "name": "freelancer me",
+      "pass": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "closed cumulative count",
+      "pass": true,
+      "detail": "status=200 recruitment=CLOSED ac=1"
+    }
+  ]
+}

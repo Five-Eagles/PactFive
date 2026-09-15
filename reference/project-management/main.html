@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PactFive 대표페이지 — 제안</title>
+<link rel="stylesheet" href="_tokens.css" />
+<style>
+  /* ═══════════════════════════════════════════════════════
+     `ux-philosophy/reference-main.html`(오민혁이 그린 시안)의 구조를 그대로 따른다.
+     화면 소유는 2026-09-03 부터 유동우다 (PRD §7.1 수정 요청 = CR-0011).
+     히어로 검색 · 인기 검색 · 기획전 배너 · 내 프로젝트 요약 · 카테고리 10종 ·
+     추천 전문가 4장 — 전부 살렸다. 사진도 시안의 것을 그대로 쓴다.
+
+     바꾼 것은 셋뿐이다.
+       1. 색값을 `design-tokens.md` 정본 토큰으로 (본문에 원시 색상값 0개)
+       2. 배너를 실제로 넘어가는 슬라이드로 (시안은 "1 / 5" 표시만 있었다)
+       3. 1280 / 1024 / 768 / 360 반응형 (시안은 `min-width:1180px` 고정이었다)
+
+     더한 것은 하나 — "지금 모집 중인 프로젝트". 이 화면에서 실제 API 로
+     채워지는 유일한 자리다 (`GET /api/v1/projects`).
+     ═══════════════════════════════════════════════════════ */
+
+  /* 시안은 1412px 폭이다. 정본 토큰의 --page-max 는 1180px 이라 그대로 쓰면
+     배너 글자가 두 줄로 깨진다. 이 화면만 1320px 로 둔다 —
+     대표페이지는 목록 화면과 달리 가로를 넓게 쓰는 것이 시안의 의도다.
+     어느 쪽을 정본으로 할지는 README 의 "확인이 필요한 것" 참고. */
+  .wrap, .hdr__in, .cats__grid { --page-w:1412px; }
+  .wrap { max-width:var(--page-w); margin:0 auto; padding:0 var(--gutter); }
+
+  /* ── 헤더 ─────────────────────────────────────────────── */
+  .hdr { border-bottom:1px solid var(--border-subtle); background:var(--surface);
+    position:sticky; top:0; z-index:20; }
+  .hdr__in { display:flex; align-items:center; gap:var(--gap-6); height:72px;
+    max-width:var(--page-w); margin:0 auto; padding:0 var(--gutter); }
+  .brand { font-size:28px; font-weight:800; letter-spacing:-.05em; white-space:nowrap; }
+  .brand em { font-style:normal; color:var(--action); }
+  .hdr nav { display:flex; gap:var(--gap-6); margin-right:auto;
+    font-size:15px; font-weight:600; color:var(--content-secondary); }
+  .hdr nav a:hover { color:var(--content); }
+  .hdr__act { display:flex; align-items:center; gap:var(--gap-4); }
+  .login { font-size:15px; font-weight:600; }
+  /* 시안의 세로 그라데이션 버튼. 면을 살짝 굽혀 누를 것으로 읽히게 하는 목적이 있다 —
+     §12 가 금지하는 것은 목적 없는 그라데이션이다 */
+  .btn-reg { border:0; border-radius:var(--r-md); padding:13px 21px;
+    font:inherit; font-size:15px; font-weight:700; color:var(--content-inverse);
+    background:linear-gradient(180deg, var(--teal-500), var(--teal-700));
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18), var(--shadow-card); cursor:pointer; }
+  .btn-reg:hover { background:linear-gradient(180deg, var(--teal-600), var(--teal-900)); }
+
+  /* ── 히어로 ───────────────────────────────────────────── */
+  .hero { display:grid; grid-template-columns:minmax(0,540px) minmax(0,1fr);
+    gap:var(--gap-6); padding:var(--gap-6) 0 var(--gap-4); align-items:start; }
+  .hero__copy { padding-top:var(--gap-5); }
+  .hero h1 { margin:0; font-size:44px; line-height:1.32; letter-spacing:-.045em;
+    font-weight:800; text-wrap:balance; }
+  .hero .sub { margin:var(--gap-4) 0 var(--gap-5); color:var(--content-secondary);
+    font-size:17px; letter-spacing:-.01em; }
+
+  .search { display:flex; gap:var(--gap-2); }
+  .searchbox { flex:1; min-width:0; height:60px; display:flex; align-items:center;
+    gap:var(--gap-2); padding:0 var(--gap-4);
+    border:1px solid var(--border); border-radius:var(--r-md);
+    background:var(--surface); box-shadow:var(--shadow-card); }
+  .searchbox input { flex:1; min-width:0; border:0; outline:0; background:none;
+    font:inherit; font-size:16px; color:var(--content); }
+  .searchbox input::placeholder { color:var(--content-tertiary); }
+  .searchbox:focus-within { border-color:var(--border-focus); box-shadow:var(--shadow-raise); }
+  .find-btn { min-width:124px; height:60px; border:0; border-radius:var(--r-md);
+    padding:0 var(--gap-5); font:inherit; font-size:16px; font-weight:800;
+    color:var(--content-inverse);
+    background:linear-gradient(180deg, var(--teal-500), var(--teal-700));
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18), var(--shadow-card); cursor:pointer; }
+  .find-btn:hover { background:linear-gradient(180deg, var(--teal-600), var(--teal-900)); }
+
+  .keywords { margin:var(--gap-5) 0 0; display:flex; flex-wrap:wrap; align-items:center;
+    gap:var(--gap-2) var(--gap-3); font-size:13.5px; }
+  .keywords > strong { font-weight:800; }
+  .keywords a { color:var(--action-quiet); font-weight:600; }
+  .keywords a:hover { text-decoration:underline; }
+
+  /* ── 기획전 배너 슬라이드 ─────────────────────────────────
+     시안의 자주색 뒤판 + 노란 배너 + 사진 구성을 그대로 살렸다.
+     시안은 "1 / 5" 가 표시만이라 실제로 넘어가게 만들었다.
+     자동으로 넘기지 않는다 — 읽는 속도를 화면이 정하면 안 되고,
+     자동 전환은 스크린리더 사용자에게 특히 불친절하다. */
+  .promo { position:relative; }
+  .promo__stack { position:absolute; inset:17px 15px auto 48px; height:342px;
+    border-radius:var(--r-lg); background:var(--campaign-plum);
+    transform:rotate(-2deg); z-index:0; }
+  .promo__view { position:relative; z-index:1; overflow:hidden;
+    border-radius:var(--r-lg); box-shadow:var(--shadow-card); }
+  .promo__track { display:flex; transition:transform var(--dur-enter) var(--ease-enter); }
+  .banner { flex:0 0 100%; min-height:349px; display:grid;
+    grid-template-columns:minmax(320px,40%) minmax(0,1fr);
+    background:var(--campaign-yellow); }
+  .banner__copy { padding:34px 22px 24px 31px; display:flex; flex-direction:column; }
+  .pill { align-self:flex-start; display:inline-flex; align-items:center; height:27px;
+    padding:0 13px; border-radius:var(--r-pill);
+    background:var(--campaign-plum); color:var(--campaign-yellow);
+    font-size:13px; font-weight:800; white-space:nowrap; }
+  .banner h2 { margin:var(--gap-5) 0 var(--gap-3); font-size:25px; line-height:1.28;
+    letter-spacing:-.045em; color:var(--campaign-plum); }
+  .banner p { margin:0; font-size:15px; line-height:1.5; color:var(--campaign-plum);
+    opacity:.85; }
+  .banner .cta { margin-top:var(--gap-5); align-self:flex-start;
+    display:inline-flex; align-items:center; height:39px; padding:0 var(--gap-4);
+    border-radius:var(--r-sm); background:var(--action); color:var(--content-inverse);
+    font-size:14px; font-weight:800; }
+  .banner .cta:hover { background:var(--action-hover); }
+  .banner__visual { background:var(--campaign-yellow-soft); overflow:hidden; }
+  .banner__visual img { width:100%; height:100%; object-fit:cover;
+    object-position:52% 50%; display:block; }
+
+  .promo__nav { position:absolute; left:31px; bottom:17px; z-index:2;
+    display:flex; align-items:center; gap:10px; }
+  .promo__count { font-size:13px; font-weight:700; color:var(--campaign-plum);
+    background:rgba(255,255,255,.5); padding:7px 14px; border-radius:var(--r-pill);
+    font-variant-numeric:tabular-nums; }
+  .promo__nav button { width:30px; height:30px; border:0; border-radius:var(--r-pill);
+    background:rgba(255,255,255,.5); color:var(--campaign-plum);
+    font:inherit; font-size:19px; line-height:1; cursor:pointer; }
+  .promo__nav button:hover { background:var(--surface); }
+
+  /* ── 내 프로젝트 요약 ─────────────────────────────────────
+     ※ 계약 이후 데이터라 Step 2(조준영)에 붙는다. 지금은 자리와 형태만 잡아둔 것이다. */
+  /* ── 요약 카드 ────────────────────────────────────────────
+     **로그인해야 보이는 자리다.** 비로그인에게는 같은 자리에 무엇이 보일지를
+     말한다 — 자리를 비우면 히어로가 무너지고, 가짜 데이터를 두면 거짓말이 된다.
+
+     겹: 배너(2겹) 위로 24px 올라와 걸친다(3겹 부양). 두 조각이 하나로 읽힌다. */
+  .resume { position:relative; z-index:2; margin:-24px var(--gap-5) 0;
+    display:flex; align-items:center; gap:var(--gap-4);
+    padding:var(--gap-4) var(--gap-5);
+    border-radius:var(--r-lg); background:var(--surface);
+    border:1px solid var(--border-subtle);
+    box-shadow:var(--shadow-hero), var(--edge-top); }
+
+  .resume__ico { position:relative; flex:none; width:44px; height:44px;
+    display:grid; place-items:center; }
+  .resume__ico::before { content:""; position:absolute; inset:5px -5px -5px 5px;
+    border-radius:var(--r-md); background:var(--campaign-yellow-edge); }
+  .resume__ico::after { content:""; position:absolute; inset:0; z-index:0;
+    border-radius:var(--r-md); background:var(--surface);
+    border:1px solid var(--navy-200); box-shadow:var(--edge-top); }
+  .resume__ico svg { position:relative; z-index:1; }
+
+  .resume__main { min-width:0; flex:1; }
+  .resume__k { display:block; font-size:11.5px; font-weight:700;
+    color:var(--content-tertiary); letter-spacing:.02em; }
+  .resume__title { display:block; font-size:15px; letter-spacing:-.02em;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+
+  /* 진행 단계. 지금 어디인지 점으로 본다 — 글자만으로는 순서가 안 보인다 */
+  .resume__steps { display:flex; align-items:center; gap:5px; flex:none; }
+  .resume__dot { width:8px; height:8px; border-radius:var(--r-pill);
+    background:var(--border); }
+  .resume__dot[data-on="true"] { background:var(--action); }
+  .resume__dot[data-now="true"] { width:22px; background:var(--action); }
+  .resume__stage { font-size:12.5px; font-weight:700; color:var(--content-secondary);
+    margin-left:var(--gap-2); white-space:nowrap; }
+
+  .resume__due { flex:none; text-align:right; white-space:nowrap; }
+  .resume__due span { display:block; font-size:11.5px; color:var(--content-tertiary); }
+  .resume__due b { font-size:16px; color:var(--danger); }
+  .resume__go { flex:none; font-size:13px; font-weight:700; color:var(--action-quiet);
+    white-space:nowrap; }
+  .resume__go:hover { text-decoration:underline; }
+
+  /* 비로그인 — 같은 껍데기에 다른 말 */
+  .resume[data-anon="true"] .resume__title { color:var(--content-secondary);
+    font-weight:500; font-size:14px; white-space:normal; }
+
+  /* ── 카테고리 10종 ────────────────────────────────────────
+     시안의 10종을 그대로 뒀다. ERD `project_category` 는 6종이라
+     UX·UI · 브랜딩 · 영상·사진 · 콘텐츠는 가장 가까운 값으로 이어 붙였다.
+     카테고리를 늘릴지 화면을 6종으로 줄일지는 README 의 "확인이 필요한 것" 참고. */
+  .cats { border-top:1px solid var(--border-subtle);
+    border-bottom:1px solid var(--border-subtle); background:var(--surface); }
+  .cats__grid { display:grid; grid-template-columns:repeat(10,1fr);
+    max-width:var(--page-w); margin:0 auto; padding:var(--gap-4) var(--gutter); }
+  .cat { display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+    gap:10px; padding:var(--gap-3) 4px; border-radius:var(--r-md);
+    font-size:14px; font-weight:600; text-align:center;
+    transition:background var(--dur-feedback) var(--ease-feedback); }
+  .cat:hover { background:var(--surface-subtle); }
+  .cat__ico { position:relative; width:63px; height:55px; display:grid; place-items:center; }
+  .cat__ico svg { width:56px; height:49px; }
+  .cat__hot { position:absolute; top:0; right:0; transform:translate(30%,-30%);
+    background:var(--action); color:var(--content-inverse);
+    border-radius:var(--r-pill); font-size:11px; font-weight:800; padding:3px 7px; }
+
+  /* 시안의 다색 아이콘. 색은 _tokens.css 의 --ico-* 로 선언해 뒀다 */
+  .ln { fill:none; stroke:var(--ico-ink); stroke-width:1.5; }
+
+  /* ── 섹션 공통 ────────────────────────────────────────── */
+  .sec { padding:var(--gap-6) 0; }
+  .sec__head { display:flex; align-items:baseline; justify-content:space-between;
+    gap:var(--gap-4); margin-bottom:var(--gap-2); }
+  .sec__head h3 { margin:0; font-size:23px; letter-spacing:-.03em; }
+  .sec__more { color:var(--content-secondary); font-size:13px; font-weight:600; }
+  .sec__more:hover { color:var(--action-quiet); text-decoration:underline; }
+  .sec__note { margin:0 0 var(--gap-4); font-size:13px; color:var(--content-tertiary); }
+
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap-4); }
+  .grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--gap-5); }
+
+  /* 프로젝트 카드는 _tokens.css 에 있다 — browse.html 과 같은 것을 쓴다 */
+  .pcard { box-shadow:var(--shadow-card), var(--edge-top); }
+  /* 리뷰가 아직 없는 의뢰인. 0.0 이나 별 0개로 그리면 "평가가 나쁘다"로 읽힌다 */
+  .pcard__rate.none { color:var(--content-tertiary); font-weight:500; }
+
+  /* ── 추천 전문가 ──────────────────────────────────────────
+     ※ 프리랜서 탐색은 PRD 화면 목록(§7.1)에 없다. 시안의 구성을 살려 두되
+        데이터 출처는 README 의 "확인이 필요한 것"에 적어 두었다. */
+  /* 전문가 카드 스타일은 _tokens.css 에 있다 — experts.html 과 같은 것을 쓴다 */
+  footer { border-top:1px solid var(--border-subtle); background:var(--surface); }
+  footer .wrap { display:flex; flex-wrap:wrap; gap:var(--gap-5);
+    padding-top:var(--gap-5); padding-bottom:var(--gap-6);
+    font-size:13px; color:var(--content-tertiary); }
+
+  .note { max-width:var(--page-max); margin:0 auto var(--gap-3);
+    padding:var(--gap-2) var(--gap-3); border-radius:var(--r-md);
+    background:var(--info-surface); color:var(--info); font-size:13px; line-height:1.6; }
+
+  /* ── 1280 / 1024 / 768 / 360 — 시안에 없던 부분 ───────────── */
+  @media (max-width:1279px) {
+    .hero { grid-template-columns:minmax(0,440px) minmax(0,1fr); gap:var(--gap-5); }
+    .hero h1 { font-size:37px; }
+    .cats__grid { grid-template-columns:repeat(5,1fr); }
+    .grid4 { grid-template-columns:repeat(2,1fr); }
+  }
+  @media (max-width:1023px) {
+    .hero { grid-template-columns:1fr; }
+    .hero__copy { padding-top:0; }
+    .promo__stack { inset:14px 12px 14px 36px; height:auto; }
+    .banner { grid-template-columns:1fr; }
+    .banner__visual { order:-1; aspect-ratio:16/7; }
+    .grid3 { grid-template-columns:repeat(2,1fr); }
+    /* 접힌 줄에서는 세로 구분선이 어긋난다. 시안은 1180px 아래를 정의하지 않았다 */
+    .resume { flex-wrap:wrap; margin-inline:var(--gap-3); gap:var(--gap-3); }
+    .resume__main { flex:1 1 100%; order:-1; }
+    .resume__steps { order:2; }
+    .resume__due { margin-left:auto; }
+  }
+  @media (max-width:767px) {
+    .hdr__in { height:auto; flex-wrap:wrap; padding-top:10px; padding-bottom:10px;
+      gap:var(--gap-4); }
+    /* 가로 스크롤로 흘린다. nowrap 이 없으면 메뉴 이름이 두 줄로 쪼개진다 */
+    .hdr nav { order:3; width:100%; gap:var(--gap-4); overflow-x:auto; padding-bottom:2px; }
+    .hdr nav a { white-space:nowrap; }
+    .hero h1 { font-size:28px; line-height:1.25; }
+    .hero .sub { font-size:15px; }
+    .search { flex-wrap:wrap; }
+    .searchbox { flex:1 1 100%; height:52px; }
+    .find-btn { flex:1 1 100%; height:48px; }
+    .keywords { gap:var(--gap-3); font-size:13px; }
+    .banner__copy { padding:var(--gap-4); }
+    .banner h2 { font-size:22px; }
+    .promo__nav { left:var(--gap-4); bottom:var(--gap-3); }
+    .cats__grid { grid-template-columns:repeat(4,1fr); gap:var(--gap-2); }
+    .cat { font-size:12px; gap:6px; }
+    .cat__ico { width:48px; height:44px; }
+    .cat__ico svg { width:42px; height:38px; }
+    .grid3, .grid4 { grid-template-columns:1fr; }
+  }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap" style="padding-top:var(--gap-3)">
+  <p class="note"><b>제안 — 확정 아님.</b>
+  <code>ux-philosophy/reference-main.html</code> 의 구성을 그대로 따르고,
+  색값을 정본 토큰으로 바꾸고 · 배너를 실제 슬라이드로 만들고 · 반응형을 더했다.
+  확인이 필요한 항목은 <code>README.md</code> 에 있다.</p>
+</div>
+
+<header class="hdr">
+  <div class="hdr__in">
+    <span class="brand">Pact<em>Five</em></span>
+    <nav>
+      <a href="browse.html">프로젝트 찾기</a>
+      <a href="experts.html">전문가 찾기</a>
+      <a href="guide.html">이용 방법</a>
+      <a href="guide.html#safety">안전한 거래</a>
+    </nav>
+    <!-- 로그인 여부에 따라 demo/session.js 가 채운다. 북마크는 여기 두지 않는다 —
+         로그인해야 의미가 있는 것이라 마이페이지 안으로 넣었다 -->
+    <div class="hdr__act" data-session-actions></div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <section class="hero">
+      <div class="hero__copy">
+        <h1>좋은 협업을 만드는<br />전문가를 찾아보세요.</h1>
+        <p class="sub">검증된 경력과 실제 결과물을 비교하고, 계약까지 안전하게 이어가세요.</p>
+
+        <!-- 검색어는 제목·설명·요구 기술 이름에서 찾는다 (규칙 62·63).
+             "전문가"를 묻지 않는 이유: 이 상자는 프로젝트 목록으로 간다.
+             전문가 탐색은 PRD 에 아직 없다 — README "확인이 필요한 것" 참고. -->
+        <form class="search" role="search" method="get" action="browse.html">
+          <label class="caption" for="q" style="position:absolute;left:-9999px">검색어</label>
+          <div class="searchbox">
+            <input id="q" name="keyword" type="search" placeholder="기술이나 키워드로 찾아보세요" />
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="10.5" cy="10.5" r="6.5" stroke="var(--content)" stroke-width="2.4"/>
+              <path d="M15.5 15.5 20 20" stroke="var(--content)" stroke-width="2.4" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <button class="find-btn" type="submit">프로젝트 찾기</button>
+        </form>
+
+        <p class="keywords">
+          <strong>인기 검색</strong>
+          <a href="browse.html#keyword=React">React</a>
+          <a href="browse.html#keyword=Figma">Figma</a>
+          <a href="browse.html#keyword=%EC%87%BC%ED%95%91%EB%AA%B0">쇼핑몰</a>
+          <a href="browse.html#keyword=%EB%A6%AC%EB%89%B4%EC%96%BC">리뉴얼</a>
+          <a href="browse.html#keyword=%EA%B4%80%EB%A6%AC%20%EC%8B%9C%EC%8A%A4%ED%85%9C">관리 시스템</a>
+        </p>
+      </div>
+
+      <div>
+        <div class="promo">
+          <div class="promo__stack" aria-hidden="true"></div>
+
+          <div class="promo__view">
+            <div class="promo__track">
+
+              <div class="banner" role="group" aria-roledescription="슬라이드" aria-label="1 / 3">
+                <div class="banner__copy">
+                  <span class="pill">B2B 서비스 구축 기획전</span>
+                  <h2>복잡한 운영을 바꾸는<br />검증된 전문가</h2>
+                  <p>기획부터 개발까지 한팀처럼</p>
+                  <a class="cta" href="experts.html#category=WEB_DEVELOPMENT">전문가 확인하기</a>
+                </div>
+                <div class="banner__visual">
+                  <img src="assets/banner-b2b.jpg" alt="" width="640" height="360" />
+                </div>
+              </div>
+
+              <div class="banner" role="group" aria-roledescription="슬라이드" aria-label="2 / 3">
+                <div class="banner__copy">
+                  <span class="pill">AI 단가 분석</span>
+                  <h2>예산을 혼자<br />정하지 않아도 됩니다</h2>
+                  <p>비슷한 프로젝트를 근거로 범위를 먼저 알려드립니다</p>
+                  <a class="cta" href="register.html">등록하고 확인하기</a>
+                </div>
+                <div class="banner__visual">
+                  <img src="assets/expert-dashboard.jpg" alt="" width="640" height="360" />
+                </div>
+              </div>
+
+              <div class="banner" role="group" aria-roledescription="슬라이드" aria-label="3 / 3">
+                <div class="banner__copy">
+                  <span class="pill">에스크로 결제</span>
+                  <h2>납품을 승인한 뒤에<br />정산됩니다</h2>
+                  <p>합의한 금액과 일정이 그대로 계약서가 됩니다</p>
+                  <a class="cta" href="guide.html#safety">진행 방식 보기</a>
+                </div>
+                <div class="banner__visual">
+                  <img src="assets/expert-branding.jpg" alt="" width="640" height="360" />
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="promo__nav">
+            <span class="promo__count num">1 / 3</span>
+            <button type="button" data-dir="-1" aria-label="이전 기획전">‹</button>
+            <button type="button" data-dir="1" aria-label="다음 기획전">›</button>
+          </div>
+        </div>
+
+        <!-- 내 프로젝트 요약 — 로그인한 의뢰인에게만 -->
+        <!-- 로그인해야 보이는 자리. demo/resume.js 가 상태에 맞춰 채운다 -->
+        <div id="resume"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════ 카테고리 10종 ═══════ -->
+  <section class="cats">
+    <div class="cats__grid">
+      <a class="cat" href="browse.html#category=WEB_DEVELOPMENT">
+        <span class="cat__ico">
+          <svg viewBox="0 0 64 54" aria-hidden="true">
+            <rect class="ln" x="4" y="6" width="56" height="43" rx="3"/><path class="ln" d="M4 14h56"/>
+            <circle cx="9" cy="10" r="1.4" fill="var(--ico-yellow)"/><circle cx="13" cy="10" r="1.4" fill="var(--ico-blue-pale)"/>
+            <path d="m27 25-7 7 7 7M37 25l7 7-7 7M34 22l-4 20" fill="none" stroke="var(--ico-blue)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>웹 개발
+      </a>
+
+      <a class="cat" href="browse.html#category=MOBILE_APP">
+        <span class="cat__ico">
+          <svg viewBox="0 0 64 54" aria-hidden="true">
+            <rect class="ln" x="18" y="3" width="30" height="48" rx="5"/><path class="ln" d="M28 8h10"/>
+            <path d="m31 24-5 5 5 5M36 24l5 5-5 5" fill="none" stroke="var(--ico-blue)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>앱 개발
+      </a>
+
+      <a class="cat" href="browse.html#category=DESIGN">
+        <span class="cat__ico">
+          <span class="cat__hot">인기</span>
+          <svg viewBox="0 0 64 54" aria-hidden="true">
+            <rect class="ln" x="6" y="6" width="48" height="42" rx="3"/><path class="ln" d="M6 14h48"/>
+            <rect class="ln" x="13" y="21" width="15" height="15"/><path class="ln" d="m13 34 6-6 4 3 5-5"/>
+            <path class="ln" d="M33 22h14M33 28h14M33 34h10"/>
+            <path d="m49 37 8 4-4 1 2 6-2 1-3-6-3 2z" fill="var(--ico-ink)"/>
+          </svg>
+        </span>UX · UI
+      </a>
+
+      <a class="cat" href="browse.html#category=DESIGN">
+        <span class="cat__ico">
+          <svg viewBox="0 0 64 54" aria-hidden="true">
+            <path class="ln" d="M15 5h34v44H15z"/><path d="M18 8h28v4H18z" fill="var(--ico-yellow)"/>
+            <circle cx="32" cy="30" r="11" fill="var(--ico-yellow)" stroke="var(--ico-yellow-deep)"/>
+            <text x="32" y="33.5" text-anchor="middle" font-size="6.5" font-weight="700"
+              fill="var(--ico-navy)" font-family="inherit">BRAND</text>
+          </svg>
+        </span>브랜딩
+      </a>
+
+      <a class="cat" href="browse.html#category=MARKETING">
+        <span class="cat__ico">
+          <svg viewBox="0 0 64 54" aria-hidden="true">
+            <path d="M13 25 40 15v24L13 29z" fill="var(--ico-blue)"/>
+            <path class="ln" d="M40 21c8 2 9 10 1 13"/>
+            <path d="m19 31 4 13h7l-3-15" fill="var(--ico-blue-soft)"/>
+          </svg>
+        </span>마케팅
+      </a>
+
+      <a class="cat" href="browse.html#category=DESIGN">
+        <span class="cat__ico">
+          <svg viewBox="0 0 64 54" aria-hidden="true">
+            <rect x="11" y="16" width="42" height="29" rx="5" fill="var(--ico-navy)"/>
+            <rect class="ln" x="23" y="11" width="17" height="7" rx="2"/>
+            <circle cx="32" cy="31" r="11" fill="var(--ico-grey)"/>
+            <circle cx="32" cy="31" r="7" fill="var(--ico-navy-deep)"/>
+          </svg>
+        </span>영상 · 사진
+      </a>
+
+      <a class="cat" href="browse.html#category=DESIGN">
+        <span class="cat__ico">
+          <svg viewBox="0 0 64 54" aria-hidden="true">
+            <rect class="ln" x="11" y="5" width="33" height="43" rx="2"/>
+            <path class="ln" d="M17 14h20M17 21h20M17 28h16M17 35h13"/>
+            <path d="m36 35 13-10 4 5-13 10-7 2z" fill="var(--ico-yellow)"/>
+          </svg>
+        </span>콘텐츠
+      </a>
+
+      <a class="cat" href="browse.html#category=DATA_AI">
+        <span class="cat__ico">
+          <svg viewBox="0 0 64 54" aria-hidden="true">
+            <circle cx="15" cy="18" r="6" fill="var(--ico-mint)"/>
+            <circle cx="39" cy="10" r="5" fill="var(--ico-blue)"/>
+            <circle cx="20" cy="40" r="5" fill="var(--ico-mint)"/>
+            <circle cx="47" cy="39" r="6" fill="var(--ico-grey-pale)"/>
+            <path class="ln" d="M20 16 34 12M17 24l2 11M25 38l16 1M42 15l4 18"/>
+            <ellipse class="ln" cx="34" cy="26" rx="7" ry="3"/>
+            <path class="ln" d="M27 26v7c0 2 14 2 14 0v-7"/>
+          </svg>
+        </span>데이터 · AI
+      </a>
+
+      <a class="cat" href="browse.html#category=PLANNING">
+        <span class="cat__ico">
+          <svg viewBox="0 0 64 54" aria-hidden="true">
+            <rect class="ln" x="11" y="7" width="44" height="35" rx="2"/><path class="ln" d="M11 13h44"/>
+            <path d="M20 20h4M20 26h4M20 32h4" fill="none" stroke="var(--ico-yellow)" stroke-width="3" stroke-linecap="round"/>
+            <path class="ln" d="M29 20h17M29 26h17M29 32h12"/>
+            <path class="ln" d="M28 42l-3 8M44 42l3 8"/>
+          </svg>
+        </span>기획 · 컨설팅
+      </a>
+
+      <a class="cat" href="browse.html">
+        <span class="cat__ico">
+          <svg viewBox="0 0 64 54" aria-hidden="true">
+            <rect class="ln" x="10" y="7" width="17" height="17" rx="3"/>
+            <rect class="ln" x="37" y="7" width="17" height="17" rx="3"/>
+            <rect class="ln" x="10" y="31" width="17" height="17" rx="3"/>
+            <rect class="ln" x="37" y="31" width="17" height="17" rx="3"/>
+          </svg>
+        </span>전체보기
+      </a>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <!-- ═══════ 모집 중인 프로젝트 — 더한 부분 ═══════
+         이 화면에서 실제 API 로 채워지는 유일한 자리다 (GET /api/v1/projects).
+         샘플은 PRD §9 시드 P01~P05·P12 를 그대로 썼다 — 배포하면 이 데이터가 실제로 있다. -->
+    <section class="sec">
+      <div class="sec__head">
+        <h3>지금 모집 중인 프로젝트</h3>
+        <a class="sec__more" href="browse.html">전체 보기 ›</a>
+      </div>
+      <p class="sec__note">모집 중이거나 모집 예정인 프로젝트만 보입니다. 마감된 것은 전체 보기에서 찾을 수 있습니다.</p>
+
+      <!-- browse.html 과 같은 카드다. demo/engine.js 가 그린다 -->
+      <div class="grid3 enter" id="homeGrid"></div>
+    </section>
+
+    <!-- ═══════ 추천 전문가 ═══════ -->
+    <section class="sec" style="padding-top:0">
+      <div class="sec__head">
+        <h3>이번 주 추천 전문가</h3>
+        <a class="sec__more" href="experts.html">전체 보기 ›</a>
+      </div>
+
+      <!-- experts.html 과 같은 카드다. demo/experts.js 가 그린다 -->
+      <div class="grid4" id="homeExperts"></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>PactFive</span><span>이용약관</span><span>개인정보처리방침</span><span>고객센터</span>
+  </div>
+</footer>
+
+<script src="demo/data.js"></script>
+<script src="demo/engine.js"></script>
+<script src="demo/experts.js"></script>
+<script src="demo/manage.js"></script>
+<script src="demo/resume.js"></script>
+<script src="demo/bookmarks.js"></script>
+<script src="demo/session.js"></script>
+<script src="demo/notyet.js"></script>
+<script>
+/*
+ * 대표페이지의 "지금 모집 중인 프로젝트".
+ *
+ * browse.html 과 **같은 데이터·같은 규칙·같은 카드**를 쓴다. 하드코딩하면
+ * 대표페이지에서 본 것과 목록에서 본 것이 달라진다.
+ */
+
+  /*
+   * 기획전 배너 슬라이드.
+   *
+   * 시안은 "1 / 5" 가 표시만이고 넘어가지 않았다. 실제로 넘어가게 만들되
+   * **자동으로 넘기지 않는다** — 읽는 속도를 화면이 정하면 안 되고,
+   * 자동 전환은 스크린리더 사용자에게 특히 불친절하다.
+   * `prefers-reduced-motion` 이면 CSS 가 transition 을 0 으로 만들어 즉시 바뀐다.
+   */
+  window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit.main = function () {
+  "use strict";
+  /* ── 모집 중인 프로젝트 ── */var slot = document.getElementById("homeGrid");
+  if (!slot) return;
+  // 규칙 10 이 이미 마감된 것을 뺀다. 대표페이지는 앞의 6건만 보여준다
+  var res = window.PactFiveEngine.list({ sortBy: "latest" });
+  slot.innerHTML = res.items.slice(0, 6).map(window.PactFiveEngine.cardHTML).join("");
+  window.PactFiveBookmarks.bind();
+  window.PactFiveNotYet.bind();
+  // 헤더의 오른쪽은 로그인 여부에 따라 다르다. 세션이 바뀌면 다시 칠한다
+  window.PactFiveSession.bind();
+  window.PactFiveSession.paintHeader();
+  document.addEventListener("pactfive:session", function () {
+    window.PactFiveSession.paintHeader();
+  });
+
+  /*
+   * 검색 폼을 해시로 넘긴다.
+   *
+   * `method="get"` 은 `?keyword=` 를 만드는데, 목록 화면은 조건을 해시에서 읽는다
+   * (정적 파일이라 서버가 없고 해시가 file:// 에서도 살아남기 때문이다).
+   * 자바스크립트가 꺼져 있어도 `browse.html` 까지는 가도록 form 은 그대로 둔다.
+   */
+  var form = document.querySelector(".search");
+  if (form) {
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var v = document.getElementById("q").value.trim();
+      location.href = "browse.html" + (v ? "#keyword=" + encodeURIComponent(v) : "#");
+    });
+  }
+
+  /* ── 요약 카드 ── */
+  window.PactFiveResume.bind();
+  window.PactFiveResume.render();
+
+  /* ── 추천 전문가 ── */
+  var eslot = document.getElementById("homeExperts");
+  if (eslot) {
+    // 평점순 앞의 4명. 목록 화면과 같은 카드·같은 순서 규칙을 쓴다
+    eslot.innerHTML = window.PactFiveExperts.list({ sortBy: "rating" })
+      .items.slice(0, 4).map(window.PactFiveExperts.cardHTML).join("");
+  }
+
+  /* ── 기획전 슬라이드 ── */
+    var view = document.querySelector(".promo__view");
+    if (!view) return;
+    var track = view.querySelector(".promo__track");
+    var slides = track.querySelectorAll(".banner");
+    var count = document.querySelector(".promo__count");
+    var at = 0;
+
+    function show(next) {
+      at = (next + slides.length) % slides.length;
+      track.style.transform = "translateX(" + -at * 100 + "%)";
+      count.textContent = at + 1 + " / " + slides.length;
+      // 보이지 않는 슬라이드는 탭 순서에서 뺀다. 안 그러면 화면 밖으로 포커스가 간다
+      slides.forEach(function (s, i) { s.inert = i !== at; });
+    }
+
+    document.querySelectorAll(".promo__nav button").forEach(function (b) {
+      b.addEventListener("click", function () { show(at + Number(b.dataset.dir)); });
+    });
+    view.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") { show(at + 1); }
+      if (e.key === "ArrowLeft") { show(at - 1); }
+    });
+
+    show(0);
+  };
+// 자기 화면일 때만 스스로 돈다. 세 화면을 한 파일로 묶었을 때 서로를 건드리지 않는다
+if (document.getElementById("homeGrid")) window.PactFiveInit.main();
+</script>
+
+</body>
+</html>

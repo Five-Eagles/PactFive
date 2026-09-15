@@ -128,7 +128,124 @@
 @media (prefers-reduced-motion: reduce) {
   .overlay-backdrop,
   .dialog,
-  .btn {
+  .btn,
+  .rating-star span {
     transition-duration: 0ms !important;
   }
+}
+
+.review-page {
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 32px;
+}
+
+.review-page .panel {
+  max-width: none;
+  padding: 24px;
+}
+
+.review-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.review-page-head-copy { min-width: 0; }
+
+.review-page-head .badge {
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.review-page .page-title {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  margin: 0;
+}
+
+.review-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-areas: "main side";
+  gap: 24px;
+  align-items: start;
+}
+
+.review-main { grid-area: main; }
+.review-side { grid-area: side; }
+
+.review-main,
+.review-side {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.review-side { position: sticky; top: 24px; }
+
+.screen:has(.review-page) { max-width: 1200px; }
+
+.rating-fieldset { border: 0; padding: 0; margin: 0 0 20px; }
+.rating-stars { display: flex; gap: 8px; flex-wrap: wrap; }
+.rating-star {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.rating-star input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.rating-star span {
+  font-size: 28px;
+  line-height: 1;
+  color: var(--border);
+}
+.rating-star:has(input:checked) span,
+.rating-star:has(input:focus-visible) span {
+  color: var(--rating-star);
+}
+
+.tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip.selected {
+  background: var(--surface-selected);
+  border-color: var(--action);
+  color: var(--action-secondary-text);
+}
+
+.review-summary {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 700;
+  color: var(--content);
+  margin: 0 0 16px;
+}
+
+.review-card { margin-bottom: 16px; }
+
+@media (max-width: 1000px) {
+  .review-page { padding-inline: 16px; }
+
+  .review-page .panel { padding: 16px; }
+
+  .review-page .page-title {
+    font-size: 20px;
+    line-height: 28px;
+  }
+
+  .review-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "side"
+      "main";
+  }
+
+  .review-side { position: static; }
 }

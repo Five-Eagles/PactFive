@@ -1,18 +1,42 @@
-import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import './shared/ui/tokens.css';
 import { APP_ROUTES } from './shared/routes';
 import { setUnauthorizedHandler } from './shared/http';
 import { NotIntegratedPage } from './shared/NotIntegratedPage';
-import { AppShell, PageBody } from './shared/ui/AppShell';
+import { AppShell, PageBody, type NavItem } from './shared/ui/AppShell';
+import { ComingSoonOverlay } from './shared/ui/ComingSoonOverlay';
+import type { NotYetScreenKey } from './shared/notYetScreens';
 import { Button, EmptyState } from './shared/ui/primitives';
 import { authRoutes, AUTH_ROUTES } from './features/user-management/auth.routes';
-import { useAuth } from './features/user-management/useAuth';
+import { AuthProvider, useAuth } from './features/user-management/useAuth';
+import { DevAuthToggle } from './features/user-management/DevAuthToggle';
+import { captureInitialEmailConfirmation } from './features/user-management/auth.bootstrap';
 import { projectRoutes, PROJECT_ROUTES } from './features/project-management/project.routes';
 import { engagementRoutes, ENGAGEMENT_ROUTES } from './features/engagement/bookmark.routes';
+import { contractRoutes } from './features/contracts-payments/contract.routes';
+import { pricingAnalysisRoutes, PRICING_ANALYSIS_ROUTES } from './features/ai-pricing/pricing-analysis.routes';
+import { applicationRoutes, APPLICATION_ROUTES } from './features/applications/application.routes';
+import { ApplyPage } from './features/applications/ApplyPage';
+import { reviewRoutes } from './features/reviews/review.routes';
 import { BookmarkButton } from './features/engagement/BookmarkButton';
 import { RecommendationSection } from './features/engagement/RecommendationSection';
 import { useBookmarkedIds } from './features/engagement/useBookmark';
+import { notificationRoutes } from './features/notifications/notifications.routes';
+import { createNotificationApi } from './features/notifications/api/notifications';
+import { useNotifications } from './features/notifications/useNotifications';
+import { NotificationBell } from './features/notifications/NotificationBell';
+import { profileRoutes, PROFILE_ROUTES } from './features/user-management/profile.routes';
+import { profileApi } from './features/user-management/api/profile';
+import { ProjectRegisterForm } from './features/project-management/ProjectRegisterForm';
+
+// createNotificationApi()는 shared/http.ts만 감싸는 상태 없는 팩토리라 모듈 스코프에서 한 번만
+// 만든다 — 매 렌더 재생성을 피한다 (2026-09-09).
+const notificationApi = createNotificationApi();
+
+// Clean the confirmation URL before BrowserRouter captures its initial location.
+// auth.routes only reads the captured value when its page renders, after this call.
+captureInitialEmailConfirmation();
 
 // 401을 받으면 로그인 화면으로 보낸다.
 // shared/http.ts가 라우터를 직접 import하지 않도록 여기서 주입한다.
@@ -22,36 +46,20 @@ setUnauthorizedHandler(() => {
   window.location.assign(AUTH_ROUTES.login);
 });
 
-function HomePage() {
-  return (
-    <PageBody>
-      <h1 className="h2">프리랜서와 의뢰인을 잇습니다</h1>
-      <p className="helper" style={{ marginBottom: 24 }}>
-        프로젝트를 등록하고 지원자를 만나거나, 관심 있는 프로젝트를 찾아 지원해 보세요.
-      </p>
-      <div className="btn-row">
-        <Link to={PROJECT_ROUTES.browse}>
-          <Button variant="primary">프로젝트 찾기</Button>
-        </Link>
-        <Link to={PROJECT_ROUTES.register}>
-          <Button variant="secondary">프로젝트 등록</Button>
-        </Link>
-      </div>
-    </PageBody>
-  );
-}
-
 /**
  * 아직 설계/통합되지 않은 기능 라우트 — 경로 slug는 각 기능 폴더명을 그대로 kebab-case로 쓴다.
- * 실제 화면 구현이 생기면 이 배열에서 빼고 해당 기능의 `{도메인}.routes.tsx`로 옮긴다.
+ * `featureName`은 `shared/notYetScreens.ts`의 키와 같은 문자열이다(우연이 아니다 — 폴더명
+ * 그대로라 자연히 같다). 실제 화면 구현이 생기면 이 배열에서 빼고 해당 기능의
+ * `{도메인}.routes.tsx`로 옮긴다.
+ *
+ * 2026-09-04: `ComingSoonOverlay`로 감싸기 시작했다 — 경로·기능 폴더는 있는데 화면이 아직
+ * 안 붙은 상태(Case 2)라 `NotYetDialog`(화면 자체가 없는 Case 1)가 아니라 이쪽이다
+ * (app/web/AGENTS.md "시안에는 있지만 아직 없는 화면" 절).
+ *
+ * 2026-09-09: `/notifications`는 notifications #90 반영으로 실제 화면이 붙어 이 배열에서
+ * 빠졌다 — 아래 `notificationRoutes(...)`로 옮겼다.
  */
-const NOT_INTEGRATED_ROUTES: Array<{ path: string; featureName: string }> = [
-  { path: '/applications', featureName: 'applications' },
-  { path: '/ai-pricing', featureName: 'ai-pricing' },
-  { path: '/reviews', featureName: 'reviews' },
-  { path: '/notifications', featureName: 'notifications' },
-  { path: '/contracts-payments', featureName: 'contracts-payments' },
-];
+const NOT_INTEGRATED_ROUTES: Array<{ path: string; featureName: NotYetScreenKey }> = [];
 
 function NotFoundPage() {
   return (
@@ -84,37 +92,73 @@ function NotFoundPage() {
  */
 function AppRoutes() {
   const navigate = useNavigate();
-  const { state, restore } = useAuth();
-
-  // 새로고침 후에도 로그인 상태를 이어간다 — Refresh Token은 HttpOnly 쿠키에 있고
-  // Access Token은 메모리에만 있으므로, 앱이 뜰 때 한 번 복원해야 한다.
-  // 실패는 정상적인 경우다(비로그인). useAuth가 anonymous로 되돌린다.
-  useEffect(() => {
-    void restore().catch(() => undefined);
-  }, [restore]);
+  const location = useLocation();
+  const { state, logout, login, devLoginAsMock, devLogoutMock } = useAuth();
 
   const viewer = state.status === 'authenticated' ? state.session.user : null;
+  function ProfileGatedRegister() {
+    const [checking, setChecking] = useState(true);
+    const navigate = useNavigate();
+    useEffect(() => { if (!viewer || viewer.role !== 'CLIENT') { setChecking(false); return; } void profileApi.get().then(({ complete }) => { if (!complete) navigate(`${PROFILE_ROUTES.me}?returnTo=${encodeURIComponent('/projects/new')}`, { replace: true }); }).finally(() => setChecking(false)); }, []);
+    if (checking) return <PageBody narrow><p className="helper">프로필 상태를 확인하는 중입니다…</p></PageBody>;
+    return <ProjectRegisterForm pricingAnalysisHref={pricingAnalysisHref} />;
+  }
+  function ProfileGatedApply() {
+    const [checking, setChecking] = useState(true); const navigate = useNavigate(); const { projectId = '' } = useParams();
+    useEffect(() => { if (!viewer || viewer.role !== 'FREELANCER') { setChecking(false); return; } void profileApi.get().then(({ complete }) => { if (!complete) navigate(`${PROFILE_ROUTES.me}?returnTo=${encodeURIComponent(`/projects/${projectId}/apply`)}`, { replace: true }); }).finally(() => setChecking(false)); }, [projectId]);
+    if (checking) return <PageBody><p className="helper">프로필 상태를 확인하는 중입니다…</p></PageBody>;
+    return <ApplyPage />;
+  }
+
+  // notifications — AppShell·HomeHeader 두 헤더 모두 같은 상태를 보여줘야 해서
+  // (api-contract.md) 여기 한 곳에서만 훅을 부르고 결과를 두 슬롯에 내려준다.
+  // sessionKey: 세션이 아니라 사용자 단위로만 구분한다 — useAuth.ts가 sessionId를 노출하지
+  // 않기 때문이다(프로토타입 제안과의 의도적 차이, feedback_loop/2026-09-09/notifications.md).
+  const { snapshot: notificationSnapshot } = useNotifications(notificationApi, viewer?.userId ?? null);
+  const notificationBell = viewer ? (
+    <NotificationBell
+      unreadCount={notificationSnapshot.status === 'session-expired' ? null : notificationSnapshot.unreadCount}
+    />
+  ) : null;
+
+  const appShellSessionActions = viewer ? (
+    <div className="app-shell-session">
+      <Link to={PROFILE_ROUTES.me}>
+        {viewer.email} 님
+      </Link>
+      <button type="button" onClick={() => void logout()}>로그아웃</button>
+    </div>
+  ) : (
+    <Link className="app-shell-session__login" to={AUTH_ROUTES.login}>로그인</Link>
+  );
 
   // 카드마다 북마크 초기 상태를 넘긴다 (CR-0008) — `PublicProjectItem` 에는
   // `isBookmarked` 가 없어 engagement 의 `GET /bookmarks/ids` 로 화면이 직접 대조한다.
   // 프리랜서가 아니면 부르지 않는다 — 서버가 401·403 을 주기 전에 막는다.
   const bookmarkedIds = useBookmarkedIds(viewer?.role === 'FREELANCER');
 
-  // 시안의 nav는 "프로젝트 찾기 · 내 프로젝트" 두 개다. 프리랜서에게는 "내 프로젝트"가
-  // 의뢰인 전용이라 대신 "내 북마크"를 둔다 — 누를 수 없는 메뉴를 두지 않는다.
-  const navItems = [
+  // 역할별 핵심 활동 화면을 전역 메뉴에 둔다. 프리랜서도 지원 현황과 북마크를 언제든
+  // 다시 열 수 있어야 한다.
+  const navItems: NavItem[] = [
     { label: '프로젝트 찾기', to: PROJECT_ROUTES.browse },
     viewer?.role === 'FREELANCER'
-      ? { label: '내 북마크', to: ENGAGEMENT_ROUTES.myBookmarks }
-      : { label: '내 프로젝트', to: PROJECT_ROUTES.manage },
+      ? { label: '내 지원 현황', to: APPLICATION_ROUTES.mine }
+    : { label: '내 프로젝트', to: PROJECT_ROUTES.manage },
+    ...(viewer?.role === 'FREELANCER'
+      ? [{ label: '내 북마크', to: ENGAGEMENT_ROUTES.myBookmarks }]
+      : []),
   ];
+  if (viewer) navItems.push({ label: '내 프로필', to: PROFILE_ROUTES.me });
 
   const renderBookmark = (projectId: string) => (
     <BookmarkButton
       projectId={projectId}
       viewer={viewer ? { role: viewer.role } : null}
       initialBookmarked={bookmarkedIds.has(projectId)}
-      onRequireLogin={() => navigate(AUTH_ROUTES.login)}
+      onRequireLogin={() => {
+        const returnTo = `${location.pathname}${location.search}${location.hash}`;
+        navigate(`${AUTH_ROUTES.login}?returnTo=${encodeURIComponent(returnTo)}`);
+      }}
     />
   );
 
@@ -122,39 +166,118 @@ function AppRoutes() {
     <RecommendationSection projectId={projectId} detailHref={PROJECT_ROUTES.detail} />
   );
 
+  const applyHref = (projectId: string) => APPLICATION_ROUTES.apply(projectId);
+  const applicantsHref = (projectId: string) => APPLICATION_ROUTES.manage(projectId);
+
+  // ai-pricing ↔ project-management 등록 폼 왕복 (2026-09-05) — 두 폴더는 서로 import하지
+  // 않으므로 실제 쿼리 문자열 조립은 여기서만 한다.
+  const pricingAnalysisHref = (query: { title: string; description: string; category: string }) => {
+    const params = new URLSearchParams();
+    if (query.title) params.set('title', query.title);
+    if (query.description) params.set('description', query.description);
+    if (query.category) params.set('category', query.category);
+    const qs = params.toString();
+    return qs ? `${PRICING_ANALYSIS_ROUTES.new}?${qs}` : PRICING_ANALYSIS_ROUTES.new;
+  };
+
+  const routes = (
+    <Routes>
+      {authRoutes}
+      {profileRoutes}
+
+      {projectRoutes({
+        // 대표페이지는 project-management 화면이다. 다만 `/` 라는 **주소**는
+        // 앱 껍데기(로고 링크)와 "없는 페이지"가 같이 쓰므로 앱이 계속 소유한다.
+        homePath: APP_ROUTES.home,
+        // 내 프로젝트 목록은 의뢰인 것만 의미가 있다.
+        clientId: viewer?.role === 'CLIENT' ? viewer.userId : null,
+        renderBookmark,
+        renderRecommendations,
+        // 대표 페이지 전용(Option C — 아래 참고).
+        homeViewer: viewer ? { email: viewer.email, role: viewer.role, userId: viewer.userId } : null,
+        homeMyActivityHref:
+          viewer?.role === 'FREELANCER' ? APPLICATION_ROUTES.mine : PROJECT_ROUTES.manage,
+        onHomeLogout: () => {
+          void logout();
+        },
+        applyHref,
+        applicantsHref,
+        pricingAnalysisHref,
+        registerElement: <ProfileGatedRegister />,
+        homeHeaderExtra: notificationBell,
+      })}
+
+      {engagementRoutes({
+        isFreelancer: viewer?.role === 'FREELANCER',
+        browseHref: PROJECT_ROUTES.browse,
+        detailHref: PROJECT_ROUTES.detail,
+      })}
+
+      {contractRoutes({ viewerId: viewer?.userId ?? null, viewerRole: viewer?.role ?? null })}
+
+      {pricingAnalysisRoutes({ projectDetailHref: PROJECT_ROUTES.detail, registerHref: PROJECT_ROUTES.register })}
+
+      {applicationRoutes({ applyElement: <ProfileGatedApply /> })}
+
+      {reviewRoutes()}
+
+      {notificationRoutes({ api: notificationApi, sessionKey: viewer?.userId ?? null })}
+
+      {NOT_INTEGRATED_ROUTES.map(({ path, featureName }) => (
+        <Route
+          key={path}
+          path={path}
+          element={
+            <ComingSoonOverlay screenKey={featureName}>
+              <NotIntegratedPage featureName={featureName} />
+            </ComingSoonOverlay>
+          }
+        />
+      ))}
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
+  );
+
+  // 대표 페이지(Option C)는 AppShell을 쓰지 않는다 — 시안 자신의 헤더를 그린다
+  // (features/project-management/design/homepage-transplant-plan.md 4번 절 2026-09-04 결정).
+  // 다른 모든 화면은 그대로 AppShell로 감싼다.
+  const page =
+    location.pathname === APP_ROUTES.home ? (
+      routes
+    ) : (
+        <AppShell
+          items={navItems}
+          homeHref={APP_ROUTES.home}
+          headerExtra={<>{appShellSessionActions}{notificationBell}</>}
+        >
+        {routes}
+      </AppShell>
+    );
+
+  // 로컬 개발 전용 mock 로그인 토글 (2026-09-07) — DevAuthToggle.tsx 상단 주석 참고.
+  // `import.meta.env.DEV`는 Vite가 빌드 시점에 상수로 치환하므로 프로덕션 번들에서는
+  // 이 블록 전체가 죽은 코드로 빠진다.
   return (
-    <AppShell items={navItems} homeHref={APP_ROUTES.home}>
-      <Routes>
-        <Route path={APP_ROUTES.home} element={<HomePage />} />
-
-        {authRoutes}
-
-        {projectRoutes({
-          // 내 프로젝트 목록은 의뢰인 것만 의미가 있다.
-          clientId: viewer?.role === 'CLIENT' ? viewer.userId : null,
-          renderBookmark,
-          renderRecommendations,
-        })}
-
-        {engagementRoutes({
-          isFreelancer: viewer?.role === 'FREELANCER',
-          browseHref: PROJECT_ROUTES.browse,
-          detailHref: PROJECT_ROUTES.detail,
-        })}
-
-        {NOT_INTEGRATED_ROUTES.map(({ path, featureName }) => (
-          <Route key={path} path={path} element={<NotIntegratedPage featureName={featureName} />} />
-        ))}
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </AppShell>
+    <>
+      {page}
+      {import.meta.env.DEV && (
+        <DevAuthToggle
+          viewer={viewer}
+          onSelectRole={devLoginAsMock}
+          onClear={devLogoutMock}
+          onLoginAsSeedAccount={(email, password) => login({ email, password, returnTo: '/' })}
+        />
+      )}
+    </>
   );
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <AppRoutes />
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

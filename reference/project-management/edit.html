@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>프로젝트 수정 — 제안</title>
+<link rel="stylesheet" href="_tokens.css" />
+<style>
+  .form { max-width:680px; margin:0 auto; padding:var(--gap-6) var(--gutter) var(--gap-7); }
+  .form h2 { margin:0 0 var(--gap-5); font-size:22px; letter-spacing:-.03em; }
+  .lede { margin:0 0 var(--gap-5); font-size:14.5px; line-height:1.8;
+    color:var(--content-secondary); }
+  .card.panel { padding:var(--gap-5); box-shadow:var(--shadow-card), var(--edge-top); }
+
+  .field { margin-bottom:var(--gap-5); }
+  .field > label { display:block; font-size:13px; font-weight:700; margin-bottom:6px; }
+  .field input, .field textarea { width:100%; padding:0 var(--gap-3); height:var(--field-h);
+    border:1px solid var(--border); border-radius:var(--r-md);
+    background:var(--surface); font:inherit; font-size:15px; color:var(--content); }
+  .field textarea { height:auto; min-height:132px; padding:var(--gap-3); line-height:1.7;
+    resize:vertical; }
+  .field input:focus, .field textarea:focus { outline:2px solid var(--border-focus);
+    outline-offset:1px; border-color:var(--border-focus); }
+  .help { margin:6px 0 0; font-size:12.5px; line-height:1.6; color:var(--content-tertiary); }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:var(--gap-4); }
+
+  .crumb { margin:0 0 var(--gap-4); font-size:13px; color:var(--content-tertiary); }
+  .crumb a { color:var(--action-quiet); font-weight:600; }
+  .crumb a:hover { text-decoration:underline; }
+
+  .note { max-width:var(--page-max); margin:0 auto var(--gap-3);
+    padding:var(--gap-2) var(--gap-3); border-radius:var(--r-md);
+    background:var(--info-surface); color:var(--info); font-size:13px; line-height:1.6; }
+
+  @media (max-width:767px) {
+    .two { grid-template-columns:1fr; }
+    .acts { flex-wrap:wrap; }
+    .acts .btn { flex:1 1 100%; }
+  }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+
+<div class="page" style="padding-top:var(--gap-3)">
+  <p class="note"><b>SCR-B06.</b> 잠금을 화면이 계산하지 않는다 (규칙 13) — 서버가 준 <code>editableFields</code> 를 그대로 따른다. 잠긴 칸은 <b>숨기지 않고 왜 잠겼는지 말한다.</b></p>
+</div>
+
+<header class="appbar">
+  <div class="appbar__in">
+    <a class="logo" href="main.html">Pact<em>Five</em></a>
+    <nav><a href="browse.html">프로젝트 찾기</a><a href="experts.html">전문가 찾기</a></nav>
+    <span class="spacer"></span>
+    <span data-session-actions></span>
+  </div>
+</header>
+
+<main class="form" id="edit">
+  <!-- demo/manage.js 가 주소의 id 로 채운다 -->
+</main>
+
+<script src="demo/data.js"></script>
+<script src="demo/engine.js"></script>
+<script src="demo/experts.js"></script>
+<script src="demo/bookmarks.js"></script>
+<script src="demo/manage.js"></script>
+<script src="demo/session.js"></script>
+<script src="demo/notyet.js"></script>
+<script>
+window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit.edit = function () {
+  "use strict";
+  var E = window.PactFiveEngine, M = window.PactFiveManage;
+  var root = document.getElementById("edit");
+  var id = new URLSearchParams((window.__pactfiveQuery || location.hash.slice(1)) || "").get("id");
+  var p = id ? E.find(id) : null;
+
+  if (!p) {
+    root.innerHTML = '<div class="empty" role="status"><h3>프로젝트를 찾을 수 없습니다</h3>' +
+      "<p>주소가 바뀌었거나 삭제된 프로젝트입니다.</p>" +
+      '<a class="btn primary" href="mypage.html#tab=projects">내 프로젝트</a></div>';
+    return;
+  }
+  root.innerHTML =
+    '<p class="crumb"><a href="mypage.html#tab=projects">내 프로젝트</a> › 수정</p>' +
+    '<div class="card panel">' + M.editHTML(p) + "</div>";
+  document.title = "프로젝트 수정 · PactFive";
+  window.PactFiveSession.paintHeader();
+};
+
+if (document.getElementById("edit")) {
+  window.PactFiveSession.bind();
+  window.PactFiveNotYet.bind();
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-save]");
+    if (!b) return;
+    e.preventDefault();
+    // 실제로는 PATCH /api/v1/projects/:id 가 이 자리다
+    window.PactFiveManage.toast("저장했습니다. 시안이라 실제로 바뀌지는 않습니다.");
+  });
+  window.addEventListener("hashchange", function () { window.PactFiveInit.edit(); });
+  document.addEventListener("pactfive:session", function () {
+    window.PactFiveSession.paintHeader();
+  });
+  window.PactFiveInit.edit();
+}
+</script>
+
+</body>
+</html>

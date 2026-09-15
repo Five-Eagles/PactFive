@@ -76,7 +76,9 @@ const SKILL_LABELS: Record<string, string> = {
   AWS: 'AWS',
 };
 
-export function createInMemoryProjectCatalog(): ProjectCatalogPort {
+export function createInMemoryProjectCatalog(
+  resolveClientProfile?: (clientId: string) => Promise<ClientPublicProfile | null>,
+): ProjectCatalogPort {
   return {
     isValidCategory(category: string): boolean {
       return (VALID_CATEGORIES as readonly string[]).includes(category);
@@ -104,7 +106,9 @@ export function createInMemoryProjectCatalog(): ProjectCatalogPort {
      * 그쪽이 조회 함수를 노출하기 전까지는 식별자만 채운 자리표시자를 준다 —
      * 없는 값을 지어내지 않는다.
      */
-    toClientProfile(clientId: string): ClientPublicProfile {
+    async toClientProfile(clientId: string): Promise<ClientPublicProfile> {
+      const resolved = await resolveClientProfile?.(clientId);
+      if (resolved) return resolved;
       return {
         userId: clientId,
         name: '알 수 없음',
@@ -133,6 +137,9 @@ function createUnavailableApplicationsPort(): ApplicationsPort {
       _input: RejectPendingApplicationsInput,
     ): Promise<RejectPendingApplicationsResult> {
       return { rejectedCount: 0, alreadyProcessed: false, result: 'FAILED' };
+    },
+    async restoreAcceptedApplication() {
+      return { changed: false, result: 'FAILED' as const };
     },
   };
 }
@@ -186,13 +193,15 @@ function createPermissiveProfilePort(): ProfilePort {
   };
 }
 
-export function createInMemoryExternalPorts(): ExternalPorts {
+export function createInMemoryExternalPorts(
+  resolveClientProfile?: (clientId: string) => Promise<ClientPublicProfile | null>,
+): ExternalPorts {
   return {
     applications: createUnavailableApplicationsPort(),
     contracts: createUnavailableContractsPort(),
     pricing: createUnavailablePricingPort(),
     profile: createPermissiveProfilePort(),
-    catalog: createInMemoryProjectCatalog(),
+    catalog: createInMemoryProjectCatalog(resolveClientProfile),
   };
 }
 

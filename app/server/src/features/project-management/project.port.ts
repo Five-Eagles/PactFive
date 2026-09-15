@@ -34,6 +34,9 @@ export type RejectPendingApplicationsResult = {
   result: PostActionResult;
 };
 
+export type RestoreAcceptedApplicationInput = { applicationId: string; occurredAt: string };
+export type RestoreAcceptedApplicationResult = { changed: boolean; result: PostActionResult };
+
 export interface ApplicationsPort {
   /**
    * 마감·취소 시 대기 지원을 일괄 거절하고 알림을 보낸다 (규칙 23·29).
@@ -43,6 +46,12 @@ export interface ApplicationsPort {
     projectId: string,
     input: RejectPendingApplicationsInput,
   ): Promise<RejectPendingApplicationsResult>;
+
+  /** 합의 거절로 계약 전 상태로 돌아갈 때 기존 수락 지원을 되돌린다. */
+  restoreAcceptedApplication?(
+    projectId: string,
+    input: RestoreAcceptedApplicationInput,
+  ): Promise<RestoreAcceptedApplicationResult>;
 }
 
 /* ═══════════ contracts-payments ═══════════ */
@@ -133,7 +142,8 @@ export interface ProjectCatalogPort {
   isOfficialSkill(skillId: string): boolean;
   toCategoryRef(category: string): CategoryRef;
   toSkillRefs(skillIds: string[]): SkillRef[];
-  toClientProfile(clientId: string): ClientPublicProfile;
+  /** user-management 정본에서 의뢰인 공개 프로필을 읽는다. */
+  toClientProfile(clientId: string): Promise<ClientPublicProfile>;
 }
 
 /* ═══════════ 인증 컨텍스트 ═══════════ */

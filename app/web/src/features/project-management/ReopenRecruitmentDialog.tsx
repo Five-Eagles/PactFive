@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button, Field, Notice } from '../../shared/ui/primitives';
 import { ApiError } from '../../shared/http';
-import { toIsoOrEmpty } from '../../shared/date';
+import { toIsoDeadlineOrEmpty } from '../../shared/date';
 import { reopenRecruitment } from './api/project';
 
 /**
@@ -53,7 +53,7 @@ export function ReopenRecruitmentDialog({
     try {
       // recruitmentStartAt 은 보내지 않는다 — 서버가 현재 시각으로 갱신한다 (규칙 33).
       const result = await reopenRecruitment(projectId, {
-        recruitmentDeadlineAt: toIsoOrEmpty(deadline),
+        recruitmentDeadlineAt: toIsoDeadlineOrEmpty(deadline),
       });
       onReopened(
         result.reopened

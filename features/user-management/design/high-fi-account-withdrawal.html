@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <title>PactFive 회원 탈퇴 — user-management high-fi 시안</title>
+  <link rel="stylesheet" href="auth-foundation.css" />
+  <style>
+    #return-context-heading { font-size:clamp(28px,3vw,36px); }
+    .withdrawal-impact-list { display:grid; gap:16px; margin:0; padding:20px; }
+    .withdrawal-impact-row { display:grid; grid-template-columns:88px minmax(0,1fr); gap:12px; }
+    .withdrawal-impact-row dt { color:var(--content-inverse-tertiary); font-size:13px; }
+    .withdrawal-impact-row dd { margin:0; color:var(--content-inverse); font-size:14px; font-weight:600; line-height:1.55; }
+    .withdrawal-summary { margin:0 0 20px; padding:20px; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--surface-subtle); }
+    .withdrawal-summary.danger-summary { border-color:var(--danger-border); background:var(--danger-surface); }
+    .withdrawal-summary h2 { margin:0; font-size:18px; line-height:28px; }
+    .withdrawal-summary p { margin:6px 0 0; color:var(--content-secondary); font-size:14px; line-height:1.6; }
+    .danger-summary h2,.danger-summary p { color:var(--danger-strong); }
+    .withdrawal-list { display:grid; gap:10px; margin:16px 0 0; padding:0; list-style:none; }
+    .withdrawal-list li { position:relative; padding-left:22px; color:var(--content-secondary); font-size:14px; line-height:1.55; }
+    .withdrawal-list li::before { position:absolute; top:1px; left:0; color:var(--link); font-weight:800; content:"✓"; }
+    .danger-summary .withdrawal-list li::before { color:var(--danger); content:"—"; }
+    .withdrawal-steps { display:grid; gap:0; margin:0 0 24px; padding:0; border-top:1px solid var(--border-subtle); list-style:none; counter-reset:withdrawal-step; }
+    .withdrawal-steps li { display:grid; grid-template-columns:28px minmax(0,1fr); align-items:start; gap:10px; padding:12px 0; border-bottom:1px solid var(--border-subtle); color:var(--content-secondary); font-size:14px; counter-increment:withdrawal-step; }
+    .withdrawal-steps li::before { display:grid; width:24px; height:24px; place-items:center; border-radius:var(--r-pill); color:var(--content-inverse); background:var(--surface-inverse); font-size:12px; font-weight:700; content:counter(withdrawal-step); }
+    .confirmation-row { display:flex; align-items:flex-start; gap:12px; padding:16px; border:1px solid var(--border-interactive); border-radius:var(--r-md); background:var(--surface); cursor:pointer; }
+    .confirmation-row:focus-within { border-color:var(--border-focus); box-shadow:var(--focus-ring); }
+    .confirmation-row input { width:20px; height:20px; flex:none; margin:2px 0 0; accent-color:var(--danger); }
+    .confirmation-row span { color:var(--content); font-size:14px; font-weight:600; line-height:1.55; }
+    .blocker-list { display:grid; gap:10px; margin:0 0 20px; padding:0; list-style:none; }
+    .blocker-item { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:16px; padding:14px 16px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface); }
+    .blocker-item strong { display:block; font-size:14px; }
+    .blocker-item span { display:block; margin-top:2px; color:var(--content-tertiary); font-size:12px; }
+    .blocker-item a { min-height:44px; display:inline-flex; align-items:center; }
+    @media (max-width:767px) {
+      .withdrawal-impact-row,.blocker-item { grid-template-columns:1fr; }
+      .blocker-item a { width:max-content; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#auth-heading">회원 탈퇴 영역으로 건너뛰기</a>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="wordmark" href="/" aria-label="PactFive 홈">Pact<em>Five</em></a>
+      <a class="header-action" href="/settings/account">계정 설정</a>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section class="auth-layout" aria-labelledby="auth-heading">
+      <aside class="return-context" aria-labelledby="return-context-heading">
+        <div>
+          <p class="context-kicker">ACCOUNT SAFETY</p>
+          <h2 class="context-title" id="return-context-heading">탈퇴 전에 영향을 확인하세요</h2>
+          <p class="context-description">
+            회원 탈퇴는 되돌릴 수 없습니다. 요청이 완료되면 PactFive 계정과 모든 로그인 세션이 종료됩니다.
+          </p>
+        </div>
+
+        <div>
+          <section class="return-card" aria-label="탈퇴 시 처리 범위">
+            <div class="return-card-head">
+              <p class="return-card-title">탈퇴 시 처리 범위</p>
+              <span class="return-badge">✓ 실행 전까지 계정 유지됨</span>
+            </div>
+            <dl class="withdrawal-impact-list">
+              <div class="withdrawal-impact-row"><dt>프로필</dt><dd>이름·소개·프로필 이미지 마스킹</dd></div>
+              <div class="withdrawal-impact-row"><dt>거래 이력</dt><dd>계약·결제·납품·리뷰 등 필요한 기록 보존</dd></div>
+              <div class="withdrawal-impact-row"><dt>재가입</dt><dd>새 계정으로 시작하며 과거 기록·평점은 연결되지 않음</dd></div>
+              <div class="withdrawal-impact-row"><dt>현재 상태</dt><dd id="context-state">아직 어떤 계정 정보도 변경되지 않았습니다.</dd></div>
+            </dl>
+          </section>
+          <p class="context-footnote">진행 중인 항목이 있거나 상태를 확인하지 못하면 계정은 변경하지 않습니다.</p>
+        </div>
+      </aside>
+
+      <div class="auth-panel">
+        <div class="auth-content">
+          <p class="eyebrow" id="eyebrow">계정 관리 · 되돌릴 수 없는 작업</p>
+          <h1 id="auth-heading" tabindex="-1">회원 탈퇴</h1>
+          <p class="auth-description" id="description">본인 확인을 거쳐 탈퇴를 요청합니다. 마지막 단계 전까지 언제든 중단할 수 있습니다.</p>
+          <section class="view" data-view="overview">
+            <div class="notice info" role="status">아직 어떤 계정 정보도 변경되지 않았습니다.</div>
+            <ol class="withdrawal-steps" aria-label="회원 탈퇴 진행 순서">
+              <li>탈퇴 후 바뀌는 내용과 보존되는 기록을 확인합니다.</li>
+              <li>현재 계정의 본인임을 다시 확인합니다.</li>
+              <li>진행 중인 항목을 확인하고 명시적으로 탈퇴를 요청합니다.</li>
+            </ol>
+            <div class="action-stack">
+              <button class="button primary" type="button" data-action="reauth-password">본인 확인하고 계속</button>
+              <a class="button quiet" href="/settings/account">계정 유지하기</a>
+            </div>
+          </section>
+
+          <section class="view" data-view="reauth-password" hidden>
+            <div class="notice info" role="status">계정 보호를 위해 탈퇴 전에 본인 확인이 필요합니다. 확인 결과는 5분 동안만 유효합니다.</div>
+            <form class="auth-form" id="reauth-form" novalidate>
+              <div class="field">
+                <label for="current-password">현재 비밀번호</label>
+                <input class="input" id="current-password" name="currentPassword" type="password" autocomplete="current-password" required aria-describedby="password-security-note" />
+                <p class="field-help" id="password-security-note">비밀번호는 본인 확인 직후 지우며 화면이나 저장소에 남기지 않습니다.</p>
+              </div>
+              <button class="button primary" type="submit">비밀번호로 본인 확인</button>
+              <button class="button quiet" type="button" data-action="overview">탈퇴하지 않기</button>
+            </form>
+          </section>
+
+          <section class="view" data-view="reauth-oauth" hidden>
+            <div class="notice info" role="status">연결된 Google 계정으로 다시 인증해 주세요. 돌아온 뒤에도 탈퇴는 자동 실행되지 않습니다.</div>
+            <div class="action-stack">
+              <button class="button primary" type="button" data-action="confirmation">Google로 본인 확인</button>
+              <button class="button quiet" type="button" data-action="overview">탈퇴하지 않기</button>
+            </div>
+          </section>
+
+          <section class="view" data-view="confirmation" hidden>
+            <div class="withdrawal-summary danger-summary" role="alert">
+              <h2>계정 탈퇴 최종 확인</h2>
+              <p>이 단계를 실행하면 계정과 모든 로그인 세션이 종료되며 되돌릴 수 없습니다.</p>
+              <ul class="withdrawal-list">
+                <li>프로필 정보는 마스킹되고 소셜 로그인 연결 해제가 시작됩니다.</li>
+                <li>거래·법적 이력은 정책에 따라 보존될 수 있습니다.</li>
+                <li>재가입해도 과거 기록과 평점은 새 계정에 연결되지 않습니다.</li>
+              </ul>
+            </div>
+            <label class="confirmation-row" for="withdrawal-confirmation">
+              <input id="withdrawal-confirmation" type="checkbox" />
+              <span>탈퇴 후 되돌릴 수 없고, 재가입 시 과거 이력이 연결되지 않는다는 내용을 확인했습니다.</span>
+            </label>
+            <div class="action-stack flow-space-top">
+              <button class="button primary" id="cancel-withdrawal" type="button" data-action="overview">탈퇴 그만두기</button>
+              <button class="button danger" id="submit-withdrawal" type="button" disabled>회원 탈퇴하기</button>
+            </div>
+          </section>
+
+          <section class="view" data-view="processing" hidden aria-busy="true">
+            <div class="notice info" role="status" aria-live="polite">
+              탈퇴 조건과 계정 상태를 확인하고 있습니다. 창을 닫지 마세요.
+            </div>
+            <button class="button danger is-loading" type="button" disabled><span class="spinner" aria-hidden="true"></span>탈퇴 처리 중…</button>
+          </section>
+
+          <section class="view" data-view="blocked" hidden>
+            <div class="notice danger" role="alert" tabindex="-1">진행 중인 항목이 있어 지금은 탈퇴할 수 없습니다. 계정과 로그인 상태는 변경되지 않았습니다.</div>
+            <ul class="blocker-list" aria-label="먼저 정리할 항목">
+              <li class="blocker-item"><div><strong>정산되지 않은 결제 1건</strong><span>결제 상태를 먼저 확인해 주세요.</span></div><a href="/payments">결제 관리</a></li>
+              <li class="blocker-item"><div><strong>완료되지 않은 납품 1건</strong><span>납품 절차를 먼저 마무리해 주세요.</span></div><a href="/deliveries">납품 관리</a></li>
+            </ul>
+            <a class="button secondary" href="/settings/account">계정 설정으로 돌아가기</a>
+          </section>
+
+          <section class="view" data-view="eligibility-unavailable" hidden>
+            <div class="notice danger" role="alert" tabindex="-1">현재 진행 상태를 확인할 수 없어 탈퇴하지 않았습니다. 계정은 변경되지 않았습니다.</div>
+            <div class="action-stack"><button class="button primary" type="button" data-action="processing">다시 확인</button><button class="button quiet" type="button" data-action="overview">탈퇴하지 않기</button></div>
+          </section>
+
+          <section class="view" data-view="reauthentication-required" hidden>
+            <div class="notice danger" role="alert" tabindex="-1">본인 확인이 만료됐거나 확인할 수 없습니다. 다시 본인 확인을 진행해 주세요.</div>
+            <button class="button primary" type="button" data-action="reauth-password">다시 본인 확인</button>
+          </section>
+
+          <section class="view" data-view="rate-limited" hidden>
+            <div class="notice danger" role="alert" tabindex="-1">본인 확인 시도가 잠시 제한됐습니다. 30초 후 다시 시도해 주세요.</div>
+            <div class="action-stack"><button class="button primary" type="button" disabled>30초 후 다시 시도</button><button class="button quiet" type="button" data-action="overview">탈퇴하지 않기</button></div>
+          </section>
+
+          <section class="view" data-view="outcome-unknown" hidden>
+            <div class="notice danger" role="alert" tabindex="-1">탈퇴 처리 결과를 확인하지 못했습니다. 새 요청을 만들지 않고 같은 요청으로 결과를 다시 확인합니다.</div>
+            <button class="button primary" type="button" data-action="processing">처리 결과 다시 확인</button>
+          </section>
+
+          <section class="view" data-view="auth-required" hidden>
+            <div class="notice danger" role="alert" tabindex="-1">로그인 상태가 만료됐습니다. 로그인한 뒤 처음부터 다시 진행해 주세요.</div>
+            <a class="button primary" href="/login?returnTo=%2Fsettings%2Faccount%2Fwithdrawal">로그인</a>
+          </section>
+
+          <section class="view" data-view="configuration-error" hidden>
+            <div class="notice danger" role="alert" tabindex="-1">이 환경에서는 안전하게 요청을 보낼 수 없습니다. 공식 서비스 화면에서 다시 시도해 주세요.</div>
+            <a class="button secondary" href="/settings/account">계정 설정으로 돌아가기</a>
+          </section>
+
+          <section class="view" data-view="completed" hidden>
+            <div class="notice success" role="status" aria-live="polite" tabindex="-1">PactFive 계정과 모든 로그인 세션이 종료됐습니다. 외부 로그인 연결 정리는 안전하게 계속 처리됩니다.</div>
+            <a class="button primary" href="/">홈으로 이동</a>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section class="prototype-tools" aria-labelledby="prototype-tools-heading">
+      <div class="prototype-copy"><h2 id="prototype-tools-heading">시안 상태 확인</h2><p>실제 계정이나 네트워크를 바꾸지 않고 상태별 안내와 복구 경로를 확인합니다.</p></div>
+      <div class="state-switcher" role="group" aria-label="회원 탈퇴 화면 상태 선택">
+        <button class="state-button" type="button" data-state="overview" aria-pressed="true">기본</button>
+        <button class="state-button" type="button" data-state="reauth-password" aria-pressed="false">비밀번호 확인</button>
+        <button class="state-button" type="button" data-state="reauth-oauth" aria-pressed="false">소셜 확인</button>
+        <button class="state-button" type="button" data-state="confirmation" aria-pressed="false">최종 확인</button>
+        <button class="state-button" type="button" data-state="processing" aria-pressed="false">처리 중</button>
+        <button class="state-button" type="button" data-state="blocked" aria-pressed="false">진행 항목 있음</button>
+        <button class="state-button" type="button" data-state="eligibility-unavailable" aria-pressed="false">상태 확인 실패</button>
+        <button class="state-button" type="button" data-state="reauthentication-required" aria-pressed="false">본인 확인 만료</button>
+        <button class="state-button" type="button" data-state="rate-limited" aria-pressed="false">요청 제한</button>
+        <button class="state-button" type="button" data-state="outcome-unknown" aria-pressed="false">결과 확인 필요</button>
+        <button class="state-button" type="button" data-state="auth-required" aria-pressed="false">로그인 필요</button>
+        <button class="state-button" type="button" data-state="configuration-error" aria-pressed="false">환경 오류</button>
+        <button class="state-button" type="button" data-state="completed" aria-pressed="false">완료</button>
+      </div>
+    </section>
+
+    <section class="required-contract" aria-labelledby="required-contract-heading">
+      <h2 id="required-contract-heading">필수 요소 목록</h2>
+      <p class="contract-description">실제 API가 승인되기 전에도 탈퇴 화면이 지켜야 하는 영향·행동·보안 계약입니다.</p>
+      <ul class="contract-list">
+        <li>제목 “회원 탈퇴”</li><li>상태 “아직 어떤 계정 정보도 변경되지 않았습니다.”</li>
+        <li>영향 “모든 로그인 세션 종료”</li><li>영향 “프로필 정보 마스킹”</li>
+        <li>보존 “거래·법적 이력은 정책에 따라 보존”</li><li>재가입 “과거 기록·평점은 연결되지 않음”</li>
+        <li>본인 확인 “비밀번호로 본인 확인” 또는 연결된 공급자 1개</li><li>안전 행동 “탈퇴 그만두기”</li>
+        <li>파괴 행동 “회원 탈퇴하기”</li><li>차단 “계정과 로그인 상태는 변경되지 않았습니다.”</li>
+        <li>복구 “처리 결과 다시 확인”</li><li>완료 뒤 외부 로그인 연결 정리와 로컬 탈퇴 상태 구분</li>
+      </ul>
+      <p class="contract-note">탈퇴 사유, 인증·요청 내부 값, 리소스 식별자·제목·금액·상대방 정보는 제품 화면에 표시하지 않습니다. 실제 요청 연결은 팀 review gate 승인 뒤 별도 구현합니다.</p>
+    </section>
+    <footer class="page-footer">user-management · account withdrawal high-fi · PactFive Design System v1.0</footer>
+  </main>
+
+  <script>
+    (() => {
+      const views = [...document.querySelectorAll("[data-view]")];
+      const stateButtons = [...document.querySelectorAll("[data-state]")];
+      const contextState = document.querySelector("#context-state");
+      const heading = document.querySelector("#auth-heading");
+      const confirmation = document.querySelector("#withdrawal-confirmation");
+      const submit = document.querySelector("#submit-withdrawal");
+      const password = document.querySelector("#current-password");
+      const stateCopy = {
+        overview: "아직 어떤 계정 정보도 변경되지 않았습니다.",
+        "reauth-password": "비밀번호로 본인 확인이 필요합니다.",
+        "reauth-oauth": "연결된 소셜 계정의 본인 확인이 필요합니다.",
+        confirmation: "본인 확인 완료 · 최종 확인 대기",
+        processing: "탈퇴 조건과 계정 상태 확인 중",
+        blocked: "진행 중인 항목 때문에 탈퇴가 차단됐습니다.",
+        "eligibility-unavailable": "진행 상태를 확인하지 못해 계정을 유지했습니다.",
+        "reauthentication-required": "본인 확인이 만료됐습니다.",
+        "rate-limited": "본인 확인 재시도 대기 중",
+        "outcome-unknown": "기존 요청의 처리 결과 확인 필요",
+        "auth-required": "로그인 후 처음부터 다시 진행해야 합니다.",
+        "configuration-error": "이 환경에서는 안전한 요청을 시작할 수 없습니다.",
+        completed: "PactFive 계정과 모든 로그인 세션 종료 완료",
+      };
+      const show = (state, moveFocus = true) => {
+        views.forEach((view) => { view.hidden = view.dataset.view !== state; });
+        stateButtons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.state === state)));
+        contextState.textContent = stateCopy[state] || stateCopy.overview;
+        if (state !== "confirmation") { confirmation.checked = false; submit.disabled = true; }
+        if (state !== "reauth-password") password.value = "";
+        if (!moveFocus) return;
+        if (state === "confirmation") document.querySelector("#cancel-withdrawal").focus();
+        else {
+          const alert = document.querySelector(`[data-view="${state}"] [role="alert"], [data-view="${state}"] [role="status"]`);
+          (alert || heading).focus();
+        }
+      };
+      confirmation.addEventListener("change", () => { submit.disabled = !confirmation.checked; });
+      submit.addEventListener("click", () => show("processing"));
+      document.querySelector("#reauth-form").addEventListener("submit", (event) => { event.preventDefault(); if (password.value) show("confirmation"); else password.focus(); });
+      document.querySelectorAll("[data-action]").forEach((item) => item.addEventListener("click", () => show(item.dataset.action)));
+      stateButtons.forEach((item) => item.addEventListener("click", () => show(item.dataset.state)));
+      show("overview", false);
+    })();
+  </script>
+</body>
+</html>

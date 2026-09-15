@@ -6,31 +6,44 @@
 <title>reviews — 상호 리뷰 (low-fi)</title>
 <style>
   body{ font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; background:#f1f1f1; margin:0; padding:2rem; color:#333; }
-  .meta{ max-width:420px; margin:0 auto 1rem; font-size:12px; color:#888; }
-  .frame{ max-width:420px; margin:0 auto; background:#fff; border:2px dashed #999; padding:2rem; }
+  .meta{ max-width:720px; margin:0 auto 1rem; font-size:12px; color:#888; }
+  .frame{ max-width:720px; margin:0 auto; background:#fff; border:2px dashed #999; padding:2rem; }
+  .grid{ display:grid; grid-template-columns:1fr 200px; gap:16px; }
   .label{ font-size:11px; color:#999; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.25rem; }
   .box{ background:#e5e5e5; border:1px solid #aaa; border-radius:2px; padding:.75rem; margin-bottom:1rem; color:#777; font-size:14px; }
   .box.button{ background:#ccc; border-color:#888; text-align:center; font-weight:bold; color:#555; }
   .note{ font-size:11px; color:#999; margin-top:.25rem; }
+  @media (max-width:640px){ .grid{ grid-template-columns:1fr; } .side{ order:-1; } }
 </style>
 </head>
 <body>
-<div class="meta">reviews · /projects/:projectId/reviews · low-fi · design-system 미확정</div>
+<div class="meta">reviews · /projects/:projectId/reviews · low-fi · 본문 1fr + 340px 요약</div>
 <div class="frame">
-  <div class="label">[TEXT INPUT] 별점</div>
-  <div class="box">placeholder: 별점</div>
-  <div class="label">[EMPTY] 상대 리뷰</div>
-  <div class="box">상대 리뷰는 아직 없습니다</div>
-  <div class="label">[BUTTON] 제출</div>
-  <div class="box button">리뷰 작성</div>
-  <div class="note">로딩·LOAD_FAILED·409 안내·제출 후 화면은 조건부. 제출 뒤에는 수정 버튼이 없다.</div>
+  <div class="grid">
+    <div>
+      <div class="label">[RADIO] 별점</div>
+      <div class="box">별점 1~5 · 기본값 없음</div>
+      <div class="label">[CHIPS] 태그 E-19</div>
+      <div class="box">결과물 품질이 좋아요 등 · WORK_QUALITY 없음</div>
+      <div class="label">[TEXT] 리뷰 내용</div>
+      <div class="box">선택 1~1000자</div>
+    </div>
+    <div class="side">
+      <div class="label">[STATUS] 블라인드</div>
+      <div class="box">공개 조건이 충족되면 함께 공개됩니다</div>
+      <div class="label">[BUTTON] 제출</div>
+      <div class="box button">리뷰 제출</div>
+    </div>
+  </div>
+  <div class="note">확인: 리뷰를 제출할까요? / 리뷰 제출 / 다시 확인. POST 없음. 상대 제출 여부 문구 없음.</div>
 </div>
 <div class="frame" style="margin-top:1rem; border-style:solid;">
   <p class="label" style="margin-bottom:.5rem;">필수 요소 목록 (기본 렌더링 시, 조건부 요소 제외)</p>
   <ul style="font-size:13px; color:#555; padding-left:1.2rem; margin:0;">
-    <li>placeholder 텍스트 "별점"</li>
-    <li>빈 상태 문구 "상대 리뷰는 아직 없습니다"</li>
-    <li>버튼 텍스트 "리뷰 작성"</li>
+    <li>라벨 "별점"</li>
+    <li>블라인드 "공개 조건이 충족되면"</li>
+    <li>버튼 텍스트 "리뷰 제출"</li>
+    <li>확인 제목 "리뷰를 제출할까요?"</li>
   </ul>
 </div>
 </body>

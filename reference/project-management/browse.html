@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SCR-B01 프로젝트 찾기 — 제안</title>
+<link rel="stylesheet" href="_tokens.css" />
+<style>
+  .toolbar { display:flex; gap:var(--gap-3); align-items:center; flex-wrap:wrap;
+    padding:var(--gap-5) 0; }
+  .toolbar .search { flex:1; min-width:280px; display:flex; gap:var(--gap-2); }
+  .toolbar input { flex:1; height:var(--btn-h); padding:0 var(--gap-4);
+    border:1px solid var(--border); border-radius:var(--r-md);
+    background:var(--surface); font:inherit; }
+  .sorts { display:flex; gap:var(--gap-1); margin-left:auto; }
+  .sorts button { height:var(--btn-h-sm); padding:0 var(--gap-3);
+    border:1px solid var(--border-subtle); background:var(--surface);
+    border-radius:var(--r-md); font:inherit; font-size:13px;
+    color:var(--content-secondary); cursor:pointer; }
+  .sorts button[aria-pressed="true"] { background:var(--surface-selected);
+    border-color:var(--action); color:var(--action-quiet); font-weight:700; }
+
+  .layout { display:grid; grid-template-columns:236px minmax(0,1fr); gap:var(--gap-5);
+    padding-bottom:var(--gap-8); align-items:start; }
+
+  .filters { position:sticky; top:80px; padding:var(--gap-5); }
+  .filters h2 { font-size:14px; font-weight:700; margin:0 0 var(--gap-3); }
+  .fgroup { padding:var(--gap-4) 0; border-top:1px solid var(--border-subtle); }
+  .fgroup:first-of-type { border-top:0; padding-top:0; }
+  .fgroup > b { display:block; font-size:12px; color:var(--content-tertiary);
+    margin-bottom:var(--gap-2); }
+  .fgroup label { display:flex; align-items:center; gap:var(--gap-2);
+    padding:3px 0; font-size:13px; cursor:pointer; }
+  .fgroup input { accent-color:var(--action); }
+  .range { display:flex; gap:var(--gap-2); }
+  .range input { width:100%; height:var(--btn-h-sm); padding:0 var(--gap-2);
+    border:1px solid var(--border); border-radius:var(--r-sm); font:inherit; font-size:13px; }
+
+  .count { font-size:13px; color:var(--content-secondary); margin:0 0 var(--gap-3); }
+  .count b { color:var(--content); }
+
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap-4); }
+  /* 프로젝트 카드 스타일은 _tokens.css 에 있다 — main.html 과 같은 것을 쓴다 */
+
+  .pager { display:flex; gap:var(--gap-1); justify-content:center; margin-top:var(--gap-6); }
+  .pager button { min-width:36px; height:36px; padding:0 var(--gap-2);
+    border:1px solid var(--border-subtle); background:var(--surface);
+    border-radius:var(--r-sm); font:inherit; font-size:13px; cursor:pointer; }
+  .pager button[aria-current="page"] { background:var(--action); color:var(--action-text);
+    border-color:var(--action); font-weight:700; }
+
+  .note { padding:var(--gap-3) var(--gap-4); border-radius:var(--r-md);
+    background:var(--info-surface); color:var(--info); font-size:13px; margin:var(--gap-4) 0 0; }
+
+  /* 모바일 필터 열기 버튼 — 데스크톱에서는 숨긴다 */
+  .filter-open { display:none; }
+
+  /* 1280 / 1024 / 768 / 360 — PactFive 공식 분기점 */
+  @media (max-width:1279px) { .grid { grid-template-columns:repeat(2,1fr); } }
+
+  @media (max-width:1023px) {
+    .layout { grid-template-columns:1fr; }
+    .filter-open { display:inline-flex; }
+
+    /* 좌측 패널을 그대로 쌓지 않고 드로어로 바꾼다.
+       국내 3곳이 375px 에서 데스크톱 고정폭이 남아 가로 넘침이 생겼다 — 그 결함은 안 가져온다. */
+    .filters {
+      position:fixed; inset:0 0 0 auto; z-index:40;
+      width:min(320px,86vw); max-width:none;
+      border-radius:0; border-left:1px solid var(--border);
+      overflow-y:auto; padding:var(--gap-5) var(--gutter);
+      transform:translateX(100%);
+      transition:transform var(--dur-overlay) var(--ease-enter);
+    }
+    .filters[data-open="true"] { transform:none; }
+    .filters__close { display:block; }
+    .scrim { position:fixed; inset:0; z-index:39; background:var(--navy-950);
+      opacity:0; pointer-events:none;
+      transition:opacity var(--dur-overlay) var(--ease-enter); }
+    .scrim[data-open="true"] { opacity:.4; pointer-events:auto; }
+  }
+
+  @media (max-width:767px) {
+    .grid { grid-template-columns:1fr; }
+    .toolbar { padding:var(--gap-4) 0; }
+    .sorts { margin-left:0; width:100%; overflow-x:auto; }
+  }
+
+  .filters__close { display:none; position:absolute; top:var(--gap-3); right:var(--gutter);
+    width:32px; height:32px; border:1px solid var(--border-subtle);
+    border-radius:var(--r-sm); background:var(--surface); cursor:pointer; font:inherit; }
+
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar__in">
+    <a class="logo" href="main.html">Pact<em>Five</em></a>
+    <nav><a href="browse.html" style="color:var(--action);font-weight:700">프로젝트 찾기</a><a href="experts.html">전문가 찾기</a></nav>
+    <span class="spacer"></span>
+    <span data-session-actions></span>
+  </div>
+</header>
+
+<main class="page">
+  <div class="toolbar">
+    <form class="search" id="searchForm" role="search">
+      <label for="q" style="position:absolute;left:-9999px">프로젝트 검색</label>
+      <input id="q" type="search" placeholder="프로젝트를 검색해 보세요" />
+      <button class="btn primary" type="submit">검색</button>
+    </form>
+    <button class="btn secondary sm filter-open" type="button"
+      aria-controls="filters" aria-expanded="false"
+      onclick="var f=document.getElementById('filters'),s=document.getElementById('scrim');
+               var o=f.dataset.open!=='true'; f.dataset.open=o; s.dataset.open=o;
+               this.setAttribute('aria-expanded',o);">필터</button>
+    <div class="sorts" role="group" aria-label="정렬">
+      <button type="button" data-sort="latest" aria-pressed="true">최신순</button>
+      <button type="button" data-sort="deadline" aria-pressed="false">마감임박순</button>
+      <button type="button" data-sort="budget" aria-pressed="false">예산 높은순</button>
+    </div>
+  </div>
+
+  <div class="scrim" id="scrim"
+    onclick="this.dataset.open=false;document.getElementById('filters').dataset.open=false;
+             document.querySelector('.filter-open').setAttribute('aria-expanded','false');"></div>
+
+  <div class="layout">
+    <!-- 데스크톱은 236px 상시 패널, 1024 미만은 드로어로 바뀐다.
+         시안의 `필터` 버튼은 열릴 화면이 정의돼 있지 않았다 (feedback_loop 8/28 항목 6). -->
+    <aside class="card filters" id="filters">
+      <button class="filters__close" type="button" aria-label="필터 닫기"
+        onclick="var f=document.getElementById('filters');f.dataset.open=false;
+                 document.getElementById('scrim').dataset.open=false;
+                 document.querySelector('.filter-open').setAttribute('aria-expanded','false');">✕</button>
+      <h2>필터</h2>
+
+      <div class="fgroup">
+        <b>카테고리</b>
+        <label><input type="radio" name="cat" value="" checked /> 전체</label>
+        <label><input type="radio" name="cat" value="WEB_DEVELOPMENT" /> 웹 개발</label>
+        <label><input type="radio" name="cat" value="MOBILE_APP" /> 모바일 앱</label>
+        <label><input type="radio" name="cat" value="DESIGN" /> 디자인</label>
+        <label><input type="radio" name="cat" value="DATA_AI" /> 데이터 · AI</label>
+        <label><input type="radio" name="cat" value="PLANNING" /> 기획</label>
+        <label><input type="radio" name="cat" value="MARKETING" /> 마케팅</label>
+      </div>
+
+      <div class="fgroup">
+        <b>예산 (원)</b>
+        <div class="range">
+          <input id="minBudget" type="text" inputmode="numeric" placeholder="최소" aria-label="최소 예산" />
+          <input id="maxBudget" type="text" inputmode="numeric" placeholder="최대" aria-label="최대 예산" />
+        </div>
+      </div>
+
+      <div class="fgroup">
+        <b>필요한 기술 <span class="fgroup__hint">전부 만족</span></b>
+        <label><input type="checkbox" name="skill" value="REACT" /> React</label>
+        <label><input type="checkbox" name="skill" value="NODEJS" /> Node.js</label>
+        <label><input type="checkbox" name="skill" value="TYPESCRIPT" /> TypeScript</label>
+        <label><input type="checkbox" name="skill" value="FIGMA" /> Figma</label>
+        <label><input type="checkbox" name="skill" value="FLUTTER" /> Flutter</label>
+        <label><input type="checkbox" name="skill" value="PYTHON" /> Python</label>
+        <label><input type="checkbox" name="skill" value="SQL" /> SQL</label>
+        <label><input type="checkbox" name="skill" value="HTML_CSS" /> HTML/CSS</label>
+      </div>
+
+      <div class="fgroup">
+        <b>모집 상태</b>
+        <label><input type="radio" name="rs" value="open" checked /> 모집 중·예정만</label>
+        <label><input type="radio" name="rs" value="all" /> 마감 포함</label>
+      </div>
+
+      <button class="btn quiet sm" id="reset" type="button" style="width:100%">필터 초기화</button>
+    </aside>
+
+    <section>
+      <p class="count" id="count"></p>
+
+      <!-- 카드·페이지·빈 상태는 demo/engine.js 가 그린다. 하드코딩하지 않는다 -->
+      <div class="grid enter" id="grid"></div>
+      <div id="empty" hidden></div>
+      <div class="pager" id="pager"></div>
+    </section>
+  </div>
+</main>
+
+
+<script src="demo/data.js"></script>
+<script src="demo/engine.js"></script>
+<script src="demo/bookmarks.js"></script>
+<script src="demo/session.js"></script>
+<script src="demo/notyet.js"></script>
+<script>
+/*
+ * SCR-B01 목록 화면을 실제로 동작시킨다.
+ *
+ * 조건은 전부 **주소창에 남긴다.** 그래야 뒤로 가기가 동작하고, 걸러 놓은 화면을
+ * 링크로 넘길 수 있다. 대표페이지의 검색창·카테고리 타일도 같은 주소로 들어온다.
+ *
+ * 규칙 60 — 조건이 바뀌면 즉시 반영하고 page 를 1 로 되돌린다.
+ *           3페이지를 보다 조건을 좁히면 그 페이지가 비어 있을 수 있다.
+ * 규칙 61 — "필터 초기화"는 필터만 되돌리고 **검색어와 정렬은 남긴다.**
+ */
+window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit.browse = function () {
+  "use strict";
+  var E = window.PactFiveEngine;
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ── 주소 ↔ 조건 ─────────────────────────────────────── */
+
+  // 조건은 **해시**에 둔다. 정적 파일이라 서버가 없고, 해시는 file:// 에서도
+  // 미리보기 도구에서도 그대로 살아남는다. 뒤로 가기도 동작한다.
+  function readQuery() {
+    var u = new URLSearchParams(location.hash.replace(/^#/, ""));
+    return {
+      keyword: u.get("keyword") || "",
+      category: u.get("category") || "",
+      skills: (u.get("skills") || "").split(",").filter(Boolean),
+      minBudget: Number(u.get("minBudget")) || 0,
+      maxBudget: Number(u.get("maxBudget")) || 0,
+      includeClosed: u.get("closed") === "1",
+      savedOnly: u.get("saved") === "1",
+      sortBy: u.get("sortBy") || "latest",
+      page: Number(u.get("page")) || 1,
+    };
+  }
+
+  function writeQuery(q, replace) {
+    var u = new URLSearchParams();
+    if (q.keyword) u.set("keyword", q.keyword);
+    if (q.category) u.set("category", q.category);
+    if (q.skills.length) u.set("skills", q.skills.join(","));
+    if (q.minBudget) u.set("minBudget", q.minBudget);
+    if (q.maxBudget) u.set("maxBudget", q.maxBudget);
+    if (q.includeClosed) u.set("closed", "1");
+    if (q.savedOnly) u.set("saved", "1");
+    if (q.sortBy !== "latest") u.set("sortBy", q.sortBy);
+    if (q.page > 1) u.set("page", q.page);
+    var url = location.pathname + (u.toString() ? "#" + u : "#");
+    history[replace ? "replaceState" : "pushState"](null, "", url);
+  }
+
+  /* ── 조건 → 컨트롤 ───────────────────────────────────── */
+
+  function fillControls(q) {
+    $("q").value = q.keyword;
+    document.querySelectorAll('input[name="cat"]').forEach(function (r) {
+      r.checked = r.value === q.category;
+    });
+    document.querySelectorAll('input[name="skill"]').forEach(function (c) {
+      c.checked = q.skills.indexOf(c.value) !== -1;
+    });
+    $("minBudget").value = q.minBudget || "";
+    $("maxBudget").value = q.maxBudget || "";
+    document.querySelectorAll('input[name="rs"]').forEach(function (r) {
+      r.checked = r.value === (q.includeClosed ? "all" : "open");
+    });
+    document.querySelectorAll("[data-sort]").forEach(function (b) {
+      b.setAttribute("aria-pressed", b.dataset.sort === q.sortBy ? "true" : "false");
+    });
+  }
+
+  /* ── 컨트롤 → 조건 ───────────────────────────────────── */
+
+  function collect() {
+    var checkedCat = document.querySelector('input[name="cat"]:checked');
+    var pressed = document.querySelector('[data-sort][aria-pressed="true"]');
+    return {
+      keyword: $("q").value.trim(),
+      category: checkedCat ? checkedCat.value : "",
+      skills: Array.prototype.map.call(
+        document.querySelectorAll('input[name="skill"]:checked'),
+        function (c) { return c.value; },
+      ),
+      minBudget: Number(String($("minBudget").value).replace(/[^0-9]/g, "")) || 0,
+      maxBudget: Number(String($("maxBudget").value).replace(/[^0-9]/g, "")) || 0,
+      includeClosed: (document.querySelector('input[name="rs"]:checked') || {}).value === "all",
+      savedOnly: readQuery().savedOnly,
+      sortBy: pressed ? pressed.dataset.sort : "latest",
+      page: 1,
+    };
+  }
+
+  /* ── 그리기 ─────────────────────────────────────────── */
+
+  function render() {
+    var q = readQuery();
+    fillControls(q);
+
+    var res = E.list(q);
+    $("count").innerHTML = q.savedOnly
+      ? '저장한 프로젝트 <b class="num">' + res.totalCount + "</b>건" +
+        ' <a class="sec__more" href="browse.html#" style="margin-left:var(--gap-3)">전체 목록 보기 ›</a>'
+      : '조건에 맞는 프로젝트 <b class="num">' + res.totalCount + "</b>건";
+
+    $("grid").innerHTML = res.items.map(E.cardHTML).join("");
+    $("grid").hidden = res.totalCount === 0;
+
+    // 규칙 — 결과가 없는 것은 오류가 아니다. 무엇을 할 수 있는지 함께 준다
+    var hasCondition = q.keyword || q.category || q.skills.length || q.minBudget || q.maxBudget;
+    $("empty").hidden = res.totalCount > 0;
+    $("empty").innerHTML = res.totalCount > 0 ? "" :
+      q.savedOnly && !hasCondition
+        // engagement 규칙 15 — 비어 있는 것은 오류가 아니다. 다음에 할 일을 함께 준다
+        ? '<div class="empty" role="status">' +
+            "<h3>저장한 프로젝트가 없습니다</h3>" +
+            "<p>카드의 별을 누르면 여기 모입니다.</p>" +
+            '<a class="btn primary" href="browse.html#">프로젝트 둘러보기</a>' +
+          "</div>"
+        : '<div class="empty" role="status">' +
+            "<h3>조건에 맞는 프로젝트가 없습니다</h3>" +
+            "<p>" + (hasCondition ? "검색어나 필터를 조정해 보세요." : "지금은 모집 중인 프로젝트가 없습니다.") + "</p>" +
+            (hasCondition ? '<button class="btn secondary sm" id="clearAll" type="button">조건 모두 지우기</button>' : "") +
+          "</div>";
+
+    renderPager(res);
+    document.title = (q.keyword ? q.keyword + " — " : "") + "프로젝트 찾기 · PactFive";
+  }
+
+  function renderPager(res) {
+    if (res.totalPages <= 1) { $("pager").innerHTML = ""; return; }
+    var html = "";
+    if (res.page > 1) html += '<button type="button" data-page="' + (res.page - 1) + '" aria-label="이전 페이지">‹</button>';
+    for (var i = 1; i <= res.totalPages; i++) {
+      html += '<button type="button" data-page="' + i + '"' +
+        (i === res.page ? ' aria-current="page"' : "") + ">" + i + "</button>";
+    }
+    if (res.page < res.totalPages) html += '<button type="button" data-page="' + (res.page + 1) + '" aria-label="다음 페이지">›</button>';
+    $("pager").innerHTML = html;
+  }
+
+  /* ── 반응 ───────────────────────────────────────────── */
+
+  function apply() {
+    writeQuery(collect());
+    render();
+  }
+
+  $("searchForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    apply();
+  });
+
+  // 규칙 60 — 필터는 즉시 반영한다. "적용" 버튼을 따로 두지 않는다
+  document.querySelector(".filters").addEventListener("change", apply);
+  document.querySelector(".filters").addEventListener("input", function (e) {
+    if (e.target.id === "minBudget" || e.target.id === "maxBudget") apply();
+  });
+
+  document.querySelector(".sorts").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-sort]");
+    if (!b) return;
+    document.querySelectorAll("[data-sort]").forEach(function (x) {
+      x.setAttribute("aria-pressed", x === b ? "true" : "false");
+    });
+    apply();
+  });
+
+  $("pager").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-page]");
+    if (!b) return;
+    var q = readQuery();
+    q.page = Number(b.dataset.page);
+    writeQuery(q);
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  // 규칙 61 — 필터 4종만 되돌린다. 검색어와 정렬은 남긴다 —
+  // 사용자가 입력한 것을 예고 없이 버리지 않는다
+  $("reset").addEventListener("click", function () {
+    var q = readQuery();
+    q.category = ""; q.skills = []; q.minBudget = 0; q.maxBudget = 0; q.includeClosed = false;
+    q.page = 1;
+    writeQuery(q);
+    render();
+  });
+
+  // 빈 상태의 "조건 모두 지우기"는 검색어까지 지운다 — 사용자가 그렇게 말한 것이다
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#clearAll")) return;
+    history.pushState(null, "", location.pathname + "#");
+    render();
+  });
+
+  window.addEventListener("popstate", render);
+  window.addEventListener("hashchange", render);
+  document.addEventListener("pactfive:bookmark", function () {
+    if (readQuery().savedOnly) render();
+  });
+  window.PactFiveBookmarks.bind();
+  window.PactFiveNotYet.bind();
+  // 헤더의 오른쪽은 로그인 여부에 따라 다르다. 세션이 바뀌면 다시 칠한다
+  window.PactFiveSession.bind();
+  window.PactFiveSession.paintHeader();
+  document.addEventListener("pactfive:session", function () {
+    window.PactFiveSession.paintHeader();
+  });
+  render();
+};
+// 자기 화면일 때만 스스로 돈다. 세 화면을 한 파일로 묶었을 때 서로를 건드리지 않는다
+if (document.getElementById("grid")) window.PactFiveInit.browse();
+</script>
+</body>
+</html>

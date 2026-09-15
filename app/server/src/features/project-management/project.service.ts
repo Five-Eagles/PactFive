@@ -17,6 +17,7 @@
  */
 
 import type { ProjectRepository } from './project.repository';
+import { effectiveRecruitmentStatus } from './recruitment-status';
 import {
   ProjectContractError,
   type CancelProjectResponse,
@@ -33,7 +34,6 @@ import {
   type ProjectRecord,
   type PublicProjectDetail,
   type PublicProjectItem,
-  type RecruitmentStatus,
   type ReopenRecruitmentInput,
   type ReopenRecruitmentResponse,
   type UpdateProjectInput,
@@ -108,8 +108,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return auth;
   }
 
-  function mustFind(projectId: string): ProjectRecord {
-    const project = repo.findById(projectId);
+  async function mustFind(projectId: string): Promise<ProjectRecord> {
+    const project = await repo.findById(projectId);
     if (!project) fail(404, 'PROJECT_NOT_FOUND', '프로젝트를 찾을 수 없습니다.', { projectId });
     return project;
   }
@@ -122,23 +122,6 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
   }
 
-  /**
-   * 규칙 14 — 저장된 값이 아니라 **조회 시점 기준**으로 보이는 모집 상태.
-   * 시각이 지났는데 배치가 아직 안 돈 프로젝트가 잘못된 상태로 보이지 않게 한다.
-   */
-  function effectiveRecruitmentStatus(p: ProjectRecord, at: string): RecruitmentStatus {
-    const t = new Date(at).getTime();
-    if (p.recruitmentStatus === 'SCHEDULED' && p.recruitmentStartAt !== null) {
-      if (new Date(p.recruitmentStartAt).getTime() <= t) {
-        return new Date(p.recruitmentDeadlineAt).getTime() <= t ? 'CLOSED' : 'OPEN';
-      }
-      return 'SCHEDULED';
-    }
-    if (p.recruitmentStatus === 'OPEN' && new Date(p.recruitmentDeadlineAt).getTime() <= t) {
-      return 'CLOSED';
-    }
-    return p.recruitmentStatus;
-  }
 
   /* ═══════════ 검증 ═══════════ */
 
@@ -209,7 +192,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
   /* ═══════════ 응답 조립 ═══════════ */
 
-  function toPublicItem(p: ProjectRecord, at: string): PublicProjectItem {
+  async function toPublicItem(p: ProjectRecord, at: string): Promise<PublicProjectItem> {
     return {
       projectId: p.projectId,
       title: p.title,
@@ -219,17 +202,17 @@ export function createProjectService(deps: ProjectServiceDeps) {
       recruitmentStatus: effectiveRecruitmentStatus(p, at),
       skills: ports.catalog.toSkillRefs(p.skillIds),
       applicationCount: p.applicationCount,
-      client: ports.catalog.toClientProfile(p.clientId),
+      client: await ports.catalog.toClientProfile(p.clientId),
     };
   }
 
-  function toPublicDetail(
+  async function toPublicDetail(
     p: ProjectRecord,
     at: string,
     auth: AuthContext | null,
-  ): PublicProjectDetail {
+  ): Promise<PublicProjectDetail> {
     const detail: PublicProjectDetail = {
-      ...toPublicItem(p, at),
+      ...(await toPublicItem(p, at)),
       description: p.description,
       recruitmentStartAt: p.recruitmentStartAt,
     };
@@ -285,12 +268,13 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return actions;
   }
 
-  function toClientDetail(p: ProjectRecord, at: string): ClientProjectDetail {
+  async function toClientDetail(p: ProjectRecord, at: string): Promise<ClientProjectDetail> {
     return {
-      ...toPublicItem(p, at),
+      ...(await toPublicItem(p, at)),
       description: p.description,
       recruitmentStartAt: p.recruitmentStartAt,
       transactionStatus: p.transactionStatus,
+      acceptedApplicationId: p.acceptedApplicationId,
       budgetSource: p.budgetSource,
       budgetSourceAt: p.budgetSourceAt,
       pendingApplicationCount: p.pendingApplicationCount,
@@ -335,7 +319,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       new Date(input.recruitmentStartAt).getTime() > new Date(at).getTime();
 
     const projectId = newProjectId();
-    const created = repo.insert({
+    const created = await repo.insert({
       projectId,
       clientId: me.userId,
       title: input.title,
@@ -356,6 +340,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       deadlineNotifiedAt: null,
       acceptedApplicationId: null,
       paymentPendingAt: null,
+      completedAt: null,
       projectVersion: 1,
       skillIds: [...input.skillIds],
       createdAt: at,
@@ -376,7 +361,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
         //
         // **덮어썼다는 사실도 함께 남긴다** (CR-0006 결함 2).
         // 남기지 않으면 의뢰인이 자기 화면의 숫자가 어디서 왔는지 알 수 없다.
-        repo.update(projectId, {
+        await repo.update(projectId, {
           budgetAmount: claimed.recommendedAmount,
           budgetSource: 'AI_ANALYSIS',
           budgetSourceAt: at,
@@ -384,20 +369,20 @@ export function createProjectService(deps: ProjectServiceDeps) {
       } catch {
         // 연결 실패면 프로젝트 생성까지 되돌린다. Prisma 트랜잭션이 아직 없어
         // 소프트 삭제로 대신한다 — 트랜잭션이 생기면 이 줄이 rollback 으로 바뀐다.
-        repo.update(projectId, { deletedAt: at });
+        await repo.update(projectId, { deletedAt: at });
         fail(409, 'PRICING_ANALYSIS_NOT_APPLICABLE', '이 프로젝트에 연결할 수 없는 분석입니다.', {
           pricingAnalysisId: input.pricingAnalysisId,
         });
       }
     }
 
-    const final = repo.findById(projectId) ?? created;
-    return { status: 201, body: toClientDetail(final, at) };
+    const final = (await repo.findById(projectId)) ?? created;
+    return { status: 201, body: await toClientDetail(final, at) };
   }
 
   /* ═══════════ A-02. 목록 · 검색 ═══════════ */
 
-  function listProjects(query: ProjectListQuery): Responded<ProjectListResponse> {
+  async function listProjects(query: ProjectListQuery): Promise<Responded<ProjectListResponse>> {
     const at = now();
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
@@ -421,7 +406,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
 
     // findAll 이 이미 삭제분을 뺀다 (규칙 11).
-    let rows = repo.findAll();
+    let rows = await repo.findAll();
 
     // 규칙 10 — 마감된 것은 기본으로 뺀다. 명시했을 때만 넣는다.
     // 판정은 저장값이 아니라 조회 시점 기준이다 (규칙 14).
@@ -471,7 +456,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return {
       status: 200,
       body: {
-        items: rows.slice(start, start + pageSize).map((p) => toPublicItem(p, at)),
+        items: await Promise.all(rows.slice(start, start + pageSize).map((p) => toPublicItem(p, at))),
         page,
         pageSize,
         totalCount,
@@ -482,29 +467,29 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
   /* ═══════════ A-03. 상세 ═══════════ */
 
-  function getProject(
+  async function getProject(
     auth: AuthContext | null,
     projectId: string,
-  ): Responded<PublicProjectDetail | ClientProjectDetail> {
+  ): Promise<Responded<PublicProjectDetail | ClientProjectDetail>> {
     const at = now();
-    const project = mustFind(projectId);
+    const project = await mustFind(projectId);
     // 등록 의뢰인에게만 거래 상태가 나간다. 그 외에는 키 자체가 없다 (규칙 9).
     if (auth && project.clientId === auth.userId) {
-      return { status: 200, body: toClientDetail(project, at) };
+      return { status: 200, body: await toClientDetail(project, at) };
     }
-    return { status: 200, body: toPublicDetail(project, at, auth) };
+    return { status: 200, body: await toPublicDetail(project, at, auth) };
   }
 
   /* ═══════════ A-04. 수정 ═══════════ */
 
-  function updateProject(
+  async function updateProject(
     auth: AuthContext | null,
     projectId: string,
     input: UpdateProjectInput,
-  ): Responded<ClientProjectDetail> {
+  ): Promise<Responded<ClientProjectDetail>> {
     const me = requireAuth(auth);
     const at = now();
-    const project = mustFind(projectId);
+    const project = await mustFind(projectId);
     mustOwn(project, me);
 
     // 규칙 16 — 마감됐거나 거래가 시작되면 어떤 필드도 못 고친다.
@@ -526,17 +511,33 @@ export function createProjectService(deps: ProjectServiceDeps) {
       });
     }
 
+    // 수정 후 유효할 시작일 — 일정 재계산(아래)과 마감일 검증이 함께 쓴다.
+    const resolvedStartAt =
+      input.recruitmentStartAt !== undefined ? input.recruitmentStartAt : project.recruitmentStartAt;
+
     if (input.recruitmentDeadlineAt !== undefined) {
-      const startAt =
-        input.recruitmentStartAt !== undefined
-          ? input.recruitmentStartAt
-          : project.recruitmentStartAt;
-      validateDeadline(input.recruitmentDeadlineAt, startAt, at);
+      validateDeadline(input.recruitmentDeadlineAt, resolvedStartAt, at);
     }
+
+    // CR-AP-003 ② (조준영, 2026-09-08) — 일정이 바뀌면 저장값 recruitmentStatus도 다시 쓴다.
+    //
+    // 등록(registerProject)과 같은 규칙: 새 시작일이 미래면 SCHEDULED, 아니면 OPEN.
+    // 안 하면 "시작일을 앞당겨도 저장값은 계속 SCHEDULED로 남는" CR-AP-003 재현 경로 1이
+    // 남는다 — effectiveRecruitmentStatus(규칙 14)의 조회 시점 보정은 마감(규칙 22)·재모집
+    // (규칙 33)처럼 저장값을 정확히 쓰는 다른 경로와 계속 어긋난다.
+    //
+    // 일정 필드가 이번 요청에 없으면 건드리지 않는다 — 마감(CLOSED)은 위에서 이미 막혔으므로
+    // 여기 내려온 시점의 저장값은 OPEN 아니면 SCHEDULED뿐이다.
+    const scheduleChanged =
+      input.recruitmentStartAt !== undefined || input.recruitmentDeadlineAt !== undefined;
+    const startsLater =
+      resolvedStartAt !== null && new Date(resolvedStartAt).getTime() > new Date(at).getTime();
 
     // 규칙 18 — 일반 필드 수정으로는 projectVersion 이 올라가지 않는다.
     // 상태 축이 안 바뀌었는데 올리면 다른 도메인의 낙관적 잠금이 헛돈다.
-    const next = repo.update(projectId, {
+    // recruitmentStatus 재계산도 마찬가지다 — OPEN⇄SCHEDULED는 규칙 14가 이미 조회 시점에
+    // 보정해 주는 축이라 projectVersion을 올리는 "상태 축"으로 취급하지 않는다.
+    const next = await repo.update(projectId, {
       ...(input.title !== undefined && { title: input.title }),
       ...(input.description !== undefined && { description: input.description }),
       ...(input.category !== undefined && { category: input.category }),
@@ -547,19 +548,20 @@ export function createProjectService(deps: ProjectServiceDeps) {
       ...(input.recruitmentDeadlineAt !== undefined && {
         recruitmentDeadlineAt: input.recruitmentDeadlineAt,
       }),
+      ...(scheduleChanged && { recruitmentStatus: startsLater ? 'SCHEDULED' : 'OPEN' }),
       ...(input.skillIds !== undefined && { skillIds: [...input.skillIds] }),
     });
-    return { status: 200, body: toClientDetail(next, at) };
+    return { status: 200, body: await toClientDetail(next, at) };
   }
 
   /* ═══════════ A-05. 삭제 ═══════════ */
 
-  function deleteProject(auth: AuthContext | null, projectId: string): Responded<null> {
+  async function deleteProject(auth: AuthContext | null, projectId: string): Promise<Responded<null>> {
     const me = requireAuth(auth);
     const at = now();
 
     // 규칙 21 — 이미 삭제된 것을 다시 지워도 204 다. 재시도가 오류로 보이면 안 된다.
-    const project = repo.findByIdIncludingDeleted(projectId);
+    const project = await repo.findByIdIncludingDeleted(projectId);
     if (!project) fail(404, 'PROJECT_NOT_FOUND', '프로젝트를 찾을 수 없습니다.', { projectId });
     mustOwn(project, me);
     if (project.deletedAt !== null) return { status: 204, body: null };
@@ -576,7 +578,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
 
     // 규칙 19 — 행을 지우지 않는다. 지원·계약·정산이 이 행을 참조한다.
-    repo.update(projectId, { deletedAt: at });
+    await repo.update(projectId, { deletedAt: at });
     return { status: 204, body: null };
   }
 
@@ -588,7 +590,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
   ): Promise<Responded<CloseRecruitmentResponse>> {
     const me = requireAuth(auth);
     const at = now();
-    const project = mustFind(projectId);
+    const project = await mustFind(projectId);
     mustOwn(project, me);
 
     if (project.transactionStatus === 'CANCELED') {
@@ -610,10 +612,13 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
 
     // 규칙 22 — OPEN 과 SCHEDULED 둘 다 CLOSED 가 된다.
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       recruitmentStatus: 'CLOSED',
       recruitmentClosedAt: at,
       deadlineNotifiedAt: project.deadlineNotifiedAt ?? at,
+      // CR-AP-001 — 마감하면 대기 지원이 전부 거절된다(아래 rejectPendingApplications).
+      // 하나씩 빼지 않고 0 으로 놓는다.
+      pendingApplicationCount: 0,
       projectVersion: project.projectVersion + 1,
     });
 
@@ -649,7 +654,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
   ): Promise<Responded<CancelProjectResponse>> {
     const me = requireAuth(auth);
     const at = now();
-    const project = mustFind(projectId);
+    const project = await mustFind(projectId);
     mustOwn(project, me);
 
     // 규칙 30 — 이미 취소면 성공 처리.
@@ -678,10 +683,12 @@ export function createProjectService(deps: ProjectServiceDeps) {
       });
     }
 
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       recruitmentStatus: 'CLOSED',
       transactionStatus: 'CANCELED',
       canceledAt: at,
+      // CR-AP-001 — 취소도 대기 지원을 전부 거절한다. 마감과 같은 이유로 0 이다.
+      pendingApplicationCount: 0,
       projectVersion: project.projectVersion + 1,
     });
 
@@ -725,11 +732,11 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
   /* ═══════════ A-08. 내 프로젝트 ═══════════ */
 
-  function listMyProjects(
+  async function listMyProjects(
     auth: AuthContext | null,
     clientId: string,
     query: MyProjectListQuery,
-  ): Responded<ClientProjectListResponse> {
+  ): Promise<Responded<ClientProjectListResponse>> {
     const me = requireAuth(auth);
     if (me.userId !== clientId) {
       fail(403, 'PROJECT_FORBIDDEN', '본인의 목록만 조회할 수 있습니다.', { clientId });
@@ -741,7 +748,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       fail(422, 'VALIDATION_ERROR', 'page 는 1~1000, pageSize 는 1~50 입니다.');
     }
 
-    let rows = repo.findByClientId(clientId);
+    let rows = await repo.findByClientId(clientId);
     if (query.recruitmentStatus) {
       rows = rows.filter((p) => effectiveRecruitmentStatus(p, at) === query.recruitmentStatus);
     }
@@ -754,7 +761,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return {
       status: 200,
       body: {
-        items: rows.slice(start, start + pageSize).map((p) => toClientDetail(p, at)),
+        items: await Promise.all(rows.slice(start, start + pageSize).map((p) => toClientDetail(p, at))),
         page,
         pageSize,
         totalCount,
@@ -765,14 +772,14 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
   /* ═══════════ A-13. 재모집 ═══════════ */
 
-  function reopenRecruitment(
+  async function reopenRecruitment(
     auth: AuthContext | null,
     projectId: string,
     input: ReopenRecruitmentInput,
-  ): Responded<ReopenRecruitmentResponse> {
+  ): Promise<Responded<ReopenRecruitmentResponse>> {
     const me = requireAuth(auth);
     const at = now();
-    const project = mustFind(projectId);
+    const project = await mustFind(projectId);
     mustOwn(project, me);
 
     // 규칙 35 — 이미 OPEN 이면 아무것도 바꾸지 않는다.
@@ -821,7 +828,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     const recruitmentStartAt = at;
     validateDeadline(input.recruitmentDeadlineAt, recruitmentStartAt, at);
 
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       recruitmentStatus: 'OPEN',
       recruitmentStartAt,
       recruitmentDeadlineAt: input.recruitmentDeadlineAt,

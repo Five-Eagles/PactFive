@@ -109,6 +109,11 @@ export type AcceptApplicationResult = ContractResult & {
 export type ApplyPricingBudgetInput = ContractEnvelope & {
   pricingAnalysisId: string;
   actorUserId: string;
+  /**
+   * 호출자가 알고 있던 현재 예산 (CR-0012). 선택값 — 보내지 않으면 검사하지 않는다.
+   * 버전 검사로는 못 잡는다: 예산 변경은 projectVersion 을 올리지 않는다 (규칙 44).
+   */
+  expectedBudgetAmount?: number;
 };
 
 export type ApplyPricingBudgetResult = ContractResult & {
@@ -151,6 +156,18 @@ export type RestorePreContractResult = ContractResult & {
 /* ─────────────── 포트 ─────────────── */
 
 export interface ProjectTransactionPort {
+  /**
+   * 지원 건수 갱신 (CR-AP-001).
+   *   지원 생성  { applicationCount: 1, pendingApplicationCount: 1 }
+   *   개별 거절  { pendingApplicationCount: -1 }
+   * applicationCount 는 올라가기만 한다. 수락·마감·취소 때는 부르지 않는다(0 처리됨).
+   * 결과는 음수가 되지 않는다.
+   */
+  bumpApplicationCounts(
+    projectId: string,
+    delta: { applicationCount?: number; pendingApplicationCount?: number },
+  ): { applicationCount: number; pendingApplicationCount: number };
+
   /** start·complete·markPaymentPending 호출 전 조회 (PRD D-44) */
   getProjectNegotiationContext(projectId: string): Promise<NegotiationContext>;
 

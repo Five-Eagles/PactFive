@@ -31,6 +31,12 @@
   --rust-50: #fdeeea;
   --rust-700: #c9472e;
   --white: #ffffff;
+  /* design-tokens.md 정본 primitive.color.campaign (2026-09-04 추가 — 대표 페이지 기획전
+     배너가 처음 쓴다). 파생 색조(soft/edge/deep)는 정본에 없어 여기 두지 않는다 — 그게
+     필요한 화면(features/project-management/home/)이 자기 CSS에서 지역적으로 파생시킨다. */
+  --campaign-yellow: #f4c430;
+  --campaign-plum: #4b173c;
+  --campaign-lavender: #e9ddfb;
 
   /* ── semantic ─────────────────────────────────────── */
   --canvas: var(--navy-50);
@@ -74,6 +80,11 @@
   --chip-radius: 999px;
   --dialog-radius: 16px;
   --dialog-pad: 24px;
+  /* Skeleton (design-tokens.md §14, 2026-09-14 추가). --surface-muted 는
+     primitive.color.neutral.muted(#EEF1F5) — 지금까지 이 값을 쓰는 화면이 없어 여기 없었다. */
+  --surface-muted: #eef1f5;
+  --skeleton-radius-line: 4px; /* primitive.radius.sm */
+  --skeleton-radius-row: 8px; /* primitive.radius.md */
 
   /* ── motion (design-tokens.md §13 모션 규칙) ──────── */
   --dur-fast: 100ms; /* semantic.motion.feedback — hover/focus/pressed */
@@ -82,6 +93,9 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-entrance: cubic-bezier(0, 0, 0, 1);
   --ease-exit: cubic-bezier(0.3, 0, 1, 1);
+  /* 시머는 "전환"이 아니라 "로딩이 끝날 때까지 도는 배경 효과"라 §13의 전환용 duration과
+     성격이 다르다 — 이 컴포넌트 전용 값으로만 존재한다 (design-tokens.md §14). */
+  --skeleton-shimmer-duration: 1400ms;
 
   --font: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 }
@@ -132,17 +146,30 @@ body {
   padding: 0 24px;
 }
 
+/* 2026-09-08 — 대표 페이지 헤더(.home-hdr, home.css)와 크기·톤을 통일했다(팀장 결정,
+ * feedback_loop/2026-09-04/project-management.md 항목 1 "미확인" 후속). 로고 두 줄 색 분리는
+ * AppShell.tsx가 "Pact<em>Five</em>"로 렌더해야 아래 em 규칙이 먹는다.
+ * 페이지 폭(1120px vs 대표 페이지의 --page-w=1412px) 자체는 이번에 안 건드렸다 — body-pad를
+ * 공유하는 다른 기능 화면 전부에 영향이 가는 별도 결정이라 팀장 확인 후로 미룬다. */
 .frame > header .logo {
+  font-size: 28px;
   font-weight: 800;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.05em;
+  white-space: nowrap;
   color: var(--content);
   text-decoration: none;
 }
 
+.frame > header .logo em {
+  font-style: normal;
+  color: var(--action);
+}
+
 .frame > header nav {
   display: flex;
-  gap: 24px;
-  font-size: 14px;
+  gap: 32px;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--content-secondary);
 }
 
@@ -155,6 +182,54 @@ body {
 .frame > header nav a[aria-current='page'] {
   color: var(--action);
   font-weight: 600;
+}
+
+/* 2026-09-09 — notifications의 NotificationBell 슬롯. 로고·nav 다음 세 번째 flex 자식이라
+   오른쪽 끝에 붙도록 margin-left:auto를 준다(AppShell.tsx headerExtra). */
+.frame > header .header-extra {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.app-shell-session {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.app-shell-session a {
+  color: var(--content-secondary);
+  text-decoration: none;
+}
+
+.app-shell-session a:hover,
+.app-shell-session__login:hover {
+  color: var(--action);
+}
+
+.app-shell-session button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--content-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.app-shell-session button:hover {
+  color: var(--content);
+}
+
+.app-shell-session__login {
+  color: var(--content-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
 }
 
 .body-pad {
@@ -390,6 +465,21 @@ select.field {
   color: var(--warning);
 }
 
+/* 성공 상태 — applications·contracts-payments·reviews 시안의 .success / .field.success / .helper.success */
+.success {
+  color: var(--success);
+}
+.field.success {
+  border-color: var(--success);
+}
+.helper.success {
+  color: var(--success);
+}
+.badge.success {
+  background: var(--success-surface);
+  color: var(--success);
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -427,7 +517,15 @@ select.field {
 }
 
 /* 프로젝트 카드 — 비교에 필요한 항목을 늘 같은 순서로 둔다 (도메인 패턴 ProjectCard) */
+/*
+ * 카드 전체가 눌리는 자리다.
+ *
+ * 카드를 `<a>` 로 감싸지 않는다. 안에 북마크 버튼이 있어서 링크 안에 버튼이 들어가고,
+ * 그러면 브라우저마다 다르게 동작한다. 대신 **제목 링크를 카드 크기로 늘린다** —
+ * 마크업은 링크 하나 · 버튼 하나 그대로고, 눌리는 면적만 카드 전체가 된다.
+ */
 .pcard {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: var(--card-radius);
   padding: var(--card-pad);
@@ -441,6 +539,45 @@ select.field {
 
 .pcard:hover {
   border-color: var(--border-focus);
+}
+
+/*
+ * 제목 링크를 카드 전체로 늘린다. 이 투명한 면이 실제로 눌리는 자리다.
+ *
+ * z-index 가 필요하다. 이 면은 제목(첫 자식) 것이라, 지정하지 않으면 뒤에 오는
+ * 예산·기술·마감 줄이 나중에 그려지며 위를 덮어 제목 언저리만 눌리게 된다.
+ */
+.pcard h3 a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1;
+}
+
+/* 북마크는 그 면보다 더 위로 올린다. 안 그러면 늘어난 링크에 덮여 눌리지 않는다 */
+.pcard__top > *:not(h3),
+.pcard .save,
+.pcard button {
+  position: relative;
+  z-index: 2;
+}
+
+/* 카드 어디에 있든 제목에 밑줄이 생겨 "여기가 눌린다" 를 알린다.
+   키보드로 왔을 때는 카드 전체에 초점 테두리를 준다 — 제목 글자에만 두르면
+   무엇이 선택됐는지 알기 어렵다 */
+.pcard:hover h3 a {
+  text-decoration: underline;
+}
+
+.pcard:focus-within {
+  border-color: var(--border-focus);
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.pcard h3 a:focus-visible {
+  outline: none;
 }
 
 .pcard__top {
@@ -802,6 +939,18 @@ select.field {
   }
 }
 
+/* ═══════════ ComingSoonOverlay — 화면은 있으나 로직 미완성 (app/web/AGENTS.md 참고) ═══════════
+   블러 처리된 실제 내용 위에 .overlay-backdrop/.dialog 를 그대로 올린다 — 새 시각 언어를
+   만들지 않는다. blur 대상은 pointer-events 도 막는다 — 안 그러면 안 보이는 버튼이 눌린다. */
+.comingsoon {
+  position: relative;
+}
+.comingsoon__content {
+  filter: blur(6px);
+  pointer-events: none;
+  user-select: none;
+}
+
 /* ═══════════ 빈 상태 ═══════════ */
 
 .empty {
@@ -829,6 +978,103 @@ select.field {
 .error-line {
   color: var(--danger);
   font-weight: 600;
+}
+
+/* ═══════════ Skeleton — 로딩 중 자리 채우기 (design-tokens.md §14, ADR-0018) ═══════════
+ * "불러오는 중입니다" 문구가 마운트/언마운트되며 화면이 점멸하던 문제를 막는다. 실제
+ * 콘텐츠가 찍힐 자리와 같은 크기의 상자를 미리 그려서, 데이터가 도착해도 레이아웃이
+ * 밀리지 않게 한다. 모양 4종(line·row·card·field)은 §14 표를 그대로 따른다.
+ *
+ * 클래스 이름을 `.skeleton`이 아니라 `.ui-skeleton`으로 둔 이유 — contracts-payments는
+ * `features/contracts-payments/panel.css`에 이미 자기만의 `.skeleton`(고정 회색 막대, 반경만
+ * 4px)을 갖고 있고, 그 기능은 의도적으로 `shared/ui/primitives.tsx`를 쓰지 않는다(그 파일
+ * 자체의 주석 — BEM 표기 불일치). 두 `.skeleton`이 같은 페이지에서 함께 로드되면 클래스가
+ * 충돌하므로, 공용 컴포넌트 쪽 이름을 접두어로 구분했다. contracts-payments의 자체 `.skeleton`
+ * 업그레이드는 panel.css에서 로컬로 진행한다. */
+.ui-skeleton {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: var(--surface-muted);
+}
+.ui-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: ui-skeleton-shimmer var(--skeleton-shimmer-duration) linear infinite;
+}
+@keyframes ui-skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.ui-skeleton--line {
+  height: 16px;
+  border-radius: var(--skeleton-radius-line);
+}
+.ui-skeleton--row {
+  height: 76px; /* .row 실측 — 상하 패딩 16px×2 + 제목 24px + 부제 16px + 여백 4px */
+  border-radius: var(--skeleton-radius-row);
+}
+.ui-skeleton--card {
+  height: 176px; /* .pcard 실측 평균 높이 — 제목+예산+기술칩+하단줄 */
+  border-radius: var(--card-radius);
+}
+.ui-skeleton--field {
+  height: var(--field-h); /* 폼 입력칸 자리(ProjectEditPage 등) — componentTokens.field 재사용 */
+  border-radius: var(--field-radius);
+}
+/* 2026-09-14 추가 — 배지·버튼 자리. line/row/card만으로는 "회색 띠 하나"로만 보여서
+   .pcard__top의 배지, .row__acts의 버튼처럼 실제로는 작고 둥근 모양인 조각이 뭉개졌다.
+   ProjectCardSkeleton·ListRowSkeleton·FactsSkeleton이 이 두 모양을 함께 조합해 실제
+   마크업(.pcard/.row/.facts)을 그대로 흉내 낸다. */
+.ui-skeleton--pill {
+  display: inline-block;
+  height: 22px;
+  border-radius: var(--chip-radius);
+}
+.ui-skeleton--button {
+  display: inline-block;
+  height: var(--btn-h);
+  border-radius: var(--btn-radius);
+}
+
+/* 글줄형을 여러 줄 쌓을 때 쓰는 래퍼. 줄마다 폭을 다르게 주어 실제 문단처럼 보이게 한다
+   (design-tokens.md §14 "실제 콘텐츠 크기와 20% 이상 차이 나면 안 된다"). */
+.ui-skeleton-stack .ui-skeleton--line,
+.ui-skeleton-stack .ui-skeleton--field {
+  margin-bottom: 8px;
+}
+.ui-skeleton-stack .ui-skeleton--field {
+  margin-bottom: 16px; /* 필드 사이 간격은 실제 폼(field-row)과 맞춘다 */
+}
+.ui-skeleton-stack .ui-skeleton--line:last-child,
+.ui-skeleton-stack .ui-skeleton--field:last-child {
+  margin-bottom: 0;
+}
+
+/* 목록·그리드에 반복해 쓰는 래퍼 — row/card 모양을 최대 3개까지 세로로 쌓는다
+   (팀장 결정 2026-09-14: 몇 건이 올지 모를 때 과도하게 많은 자리를 예약하지 않는다). */
+.ui-skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 카드 그리드에서만 쓰는 변형 — 실제 카드 그리드와 같은 컬럼 폭으로 배치한다 */
+.ui-skeleton-list--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-skeleton::after {
+    animation: none;
+    content: none;
+  }
 }
 
 /* ═══════════ 좁은 화면 ═══════════ */

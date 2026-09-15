@@ -7,149 +7,619 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
 <link rel="stylesheet" href="_tokens.css" />
 <link rel="stylesheet" href="panel.css" />
+<style>
+  /* 시안 문서 여백. 제품 본문 여백은 .agreement-page 가 담당한다. */
+  body { padding-inline: 0; }
+  .meta, .required { max-width: 1200px; margin-inline: auto; padding-inline: 32px; }
+  @media (max-width: 1000px) {
+    .meta, .required { padding-inline: 16px; }
+  }
+</style>
 </head>
 <body>
 
 <div class="meta">
   <h1>금액 합의</h1>
-  <p>패널만 · 앱 셸 없음 · /projects/:projectId/agreements · design-system v1.0 · 규칙 17</p>
+  <p>페이지 본문 · 앱 셸 없음 · 8:4 그리드 · /projects/:projectId/agreements · design-system v1.0 · 규칙 17</p>
   <span class="fi">high-fi</span>
 </div>
 
 <section class="screen">
-  <div class="id">빈 생성 · 의뢰인</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">금액 합의</h2>
+  <div class="id">빈 생성 · 의뢰인 · NOT_PROPOSED</div>
+  <article class="agreement-page has-fixed-cta">
+    <header class="agreement-page-head">
+      <h2 class="page-title">금액 합의</h2>
       <span class="badge neutral">제안 전</span>
-    </div>
-    <p class="status-copy">아직 제안이 없습니다. <strong>의뢰인이 금액을 제안</strong>하면 프리랜서가 수락하거나 거절합니다.</p>
-    <dl class="facts">
-      <dt>프로젝트 제목</dt>
-      <dd>쇼핑몰 웹사이트 구축</dd>
-    </dl>
-    <div class="field-row">
-      <label class="label" for="agreement-amount">합의 금액</label>
-      <input class="field" id="agreement-amount" name="amount" inputmode="numeric" placeholder="금액" />
-      <p class="helper">단위는 원입니다. 제안한 금액이 계약과 결제의 근거가 됩니다.</p>
-    </div>
-    <div class="btn-row">
-      <button type="submit" class="btn primary">제안하기</button>
+    </header>
+    <div class="agreement-grid">
+      <div class="agreement-main">
+        <section class="panel">
+          <p class="status-copy" role="status">아직 제안이 없습니다. <strong>의뢰인이 금액을 제안</strong>하면 프리랜서가 수락하거나 거절합니다.</p>
+          <form id="propose-form">
+            <div class="field-row">
+              <label class="label" for="agreement-amount">합의 금액</label>
+              <input class="field" id="agreement-amount" name="amount" inputmode="numeric" placeholder="금액" />
+              <p class="helper">단위는 원입니다. 제안한 금액이 계약과 결제의 근거가 됩니다.</p>
+            </div>
+          </form>
+        </section>
+      </div>
+      <aside class="agreement-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>모집</dt>
+            <dd>모집 마감</dd>
+            <dt>거래</dt>
+            <dd>계약 대기</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김프리</p>
+          <p class="caption">프리랜서</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>금액은 프리랜서가 수락할 때까지 <strong>제안</strong>입니다.</li>
+            <li>수락하면 이 금액이 계약과 결제의 근거가 됩니다.</li>
+            <li>거절하면 이 거래는 끝납니다.</li>
+          </ul>
+        </section>
+      </aside>
+      <div class="agreement-cta-bar btn-row">
+        <button type="submit" class="btn primary" form="propose-form">제안하기</button>
+      </div>
     </div>
   </article>
 </section>
 
 <section class="screen">
   <div class="id">입력 오류 · 빈 금액</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">금액 합의</h2>
+  <article class="agreement-page has-fixed-cta">
+    <header class="agreement-page-head">
+      <h2 class="page-title">금액 합의</h2>
       <span class="badge neutral">제안 전</span>
-    </div>
-    <p class="status-copy">아직 제안이 없습니다. <strong>의뢰인이 금액을 제안</strong>하면 프리랜서가 수락하거나 거절합니다.</p>
-    <dl class="facts">
-      <dt>프로젝트 제목</dt>
-      <dd>쇼핑몰 웹사이트 구축</dd>
-    </dl>
-    <div class="field-row">
-      <label class="label" for="agreement-amount-error">합의 금액</label>
-      <input class="field error" id="agreement-amount-error" name="amount" inputmode="numeric" placeholder="금액" aria-invalid="true" />
-      <p class="helper error">금액을 입력해 주세요.</p>
-    </div>
-    <div class="btn-row">
-      <button type="submit" class="btn primary">제안하기</button>
+    </header>
+    <div class="agreement-grid">
+      <div class="agreement-main">
+        <section class="panel">
+          <p class="status-copy" role="status">아직 제안이 없습니다. <strong>의뢰인이 금액을 제안</strong>하면 프리랜서가 수락하거나 거절합니다.</p>
+          <form id="propose-error-form">
+            <div class="field-row">
+              <label class="label" for="agreement-amount-error">합의 금액</label>
+              <input class="field error" id="agreement-amount-error" name="amount" inputmode="numeric" placeholder="금액" aria-invalid="true" aria-describedby="agreement-amount-error-msg" />
+              <p class="helper error" id="agreement-amount-error-msg">금액을 입력해 주세요.</p>
+            </div>
+          </form>
+        </section>
+      </div>
+      <aside class="agreement-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>모집</dt>
+            <dd>모집 마감</dd>
+            <dt>거래</dt>
+            <dd>계약 대기</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김프리</p>
+          <p class="caption">프리랜서</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>금액은 프리랜서가 수락할 때까지 <strong>제안</strong>입니다.</li>
+            <li>수락하면 이 금액이 계약과 결제의 근거가 됩니다.</li>
+            <li>거절하면 이 거래는 끝납니다.</li>
+          </ul>
+        </section>
+      </aside>
+      <div class="agreement-cta-bar btn-row">
+        <button type="submit" class="btn primary" form="propose-error-form">제안하기</button>
+      </div>
     </div>
   </article>
 </section>
 
 <section class="screen">
-  <div class="id">의뢰인 제안 후 · 응답 대기</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">금액 합의</h2>
+  <div class="id">의뢰인 대기 · WAITING_RESPONSE</div>
+  <article class="agreement-page">
+    <header class="agreement-page-head">
+      <h2 class="page-title">금액 합의</h2>
       <span class="badge warning">응답 대기</span>
+    </header>
+    <div class="agreement-grid">
+      <div class="agreement-main">
+        <section class="panel">
+          <p class="status-copy" role="status">의뢰인이 금액을 제안했습니다. <strong>프리랜서의 수락 또는 거절</strong>을 기다리는 중입니다.</p>
+          <p class="caption offer-kicker">최신 제안</p>
+          <p class="offer-amount money">1,000,000원</p>
+          <p class="helper after-amount">지금은 바꿀 수 없습니다. 프리랜서가 응답하면 다음 단계로 갑니다.</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">제안 이력</h3>
+          <ol class="history">
+            <li><span>최초 제안</span><span class="money">1,000,000원</span></li>
+          </ol>
+        </section>
+      </div>
+      <aside class="agreement-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>모집</dt>
+            <dd>모집 마감</dd>
+            <dt>거래</dt>
+            <dd>계약 대기</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김프리</p>
+          <p class="caption">프리랜서</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>이 금액은 아직 제안입니다. 프리랜서가 수락해야 계약 근거가 됩니다.</li>
+            <li>응답 전에는 금액을 수정할 수 없습니다.</li>
+          </ul>
+        </section>
+      </aside>
     </div>
-    <p class="status-copy">의뢰인이 금액을 제안했습니다. <strong>프리랜서의 수락 또는 거절</strong>을 기다리는 중입니다.</p>
-    <dl class="facts">
-      <dt>프로젝트 제목</dt>
-      <dd>쇼핑몰 웹사이트 구축</dd>
-      <dt>합의 금액</dt>
-      <dd><span class="money">1,000,000원</span></dd>
-    </dl>
-    <p class="helper">지금은 바꿀 수 없습니다. 프리랜서가 응답하면 다음 단계로 갑니다.</p>
   </article>
 </section>
 
 <section class="screen">
-  <div class="id">프리랜서 응답</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">금액 합의</h2>
+  <div class="id">프리랜서 응답 · ACTION_REQUIRED</div>
+  <article class="agreement-page has-fixed-cta">
+    <header class="agreement-page-head">
+      <h2 class="page-title">금액 합의</h2>
       <span class="badge warning">응답 대기</span>
+    </header>
+    <div class="agreement-grid">
+      <div class="agreement-main">
+        <section class="panel">
+          <p class="status-copy" role="status">의뢰인이 아래 금액을 제안했습니다. <strong>지금 수락하거나 거절</strong>할 수 있습니다. 거절하면 이 거래는 끝납니다.</p>
+          <p class="caption offer-kicker">최신 제안</p>
+          <p class="offer-amount money">1,000,000원</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">제안 이력</h3>
+          <ol class="history">
+            <li><span>최초 제안</span><span class="money">1,000,000원</span></li>
+          </ol>
+        </section>
+      </div>
+      <aside class="agreement-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>모집</dt>
+            <dd>모집 마감</dd>
+            <dt>거래</dt>
+            <dd>계약 대기</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김의뢰</p>
+          <p class="caption">의뢰인</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>수락하면 이 금액이 계약과 결제의 근거가 됩니다. 이후 금액을 바꿀 수 없습니다.</li>
+            <li>거절하면 이 거래는 끝납니다.</li>
+          </ul>
+        </section>
+      </aside>
+      <div class="agreement-cta-bar btn-row">
+        <button type="button" class="btn primary" id="accept-open">수락하기</button>
+        <button type="button" class="btn danger" id="reject-open">거절하기</button>
+      </div>
     </div>
-    <p class="status-copy">의뢰인이 아래 금액을 제안했습니다. <strong>지금 수락하거나 거절</strong>할 수 있습니다. 거절하면 이 거래는 끝납니다.</p>
-    <dl class="facts">
-      <dt>프로젝트 제목</dt>
-      <dd>쇼핑몰 웹사이트 구축</dd>
-      <dt>합의 금액</dt>
-      <dd><span class="money">1,000,000원</span></dd>
-    </dl>
-    <div class="btn-row">
-      <button type="button" class="btn primary">수락하기</button>
-      <button type="button" class="btn danger" id="reject-open">거절하기</button>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">M03 수락 확인</div>
+  <div class="overlay-demo">
+    <div class="overlay-backdrop open" aria-hidden="false">
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="m03-title">
+        <h2 class="title" id="m03-title">합의를 수락할까요?</h2>
+        <p class="status-copy">제안 금액 <strong class="money">1,000,000원</strong>을 수락하면 이 금액이 계약과 결제의 근거가 됩니다. 수락 뒤에는 금액을 바꿀 수 없습니다.</p>
+        <div class="btn-row">
+          <button type="button" class="btn quiet">닫기</button>
+          <button type="button" class="btn primary">수락하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen">
+  <div class="id">M04 거절 확인</div>
+  <div class="overlay-demo">
+    <div class="overlay-backdrop open" aria-hidden="false">
+      <div class="dialog dialog-md" role="dialog" aria-modal="true" aria-labelledby="m04-title">
+        <h2 class="title" id="m04-title">합의를 거절할까요?</h2>
+        <p class="status-copy">거절하면 <strong>이 거래는 끝납니다</strong>. 프로젝트는 합의 전 상태로 돌아가고, 이 제안은 되돌릴 수 없습니다.</p>
+        <fieldset class="choice-list">
+          <legend>거절 사유</legend>
+          <label class="choice"><input type="radio" name="m04-reason" value="PRICE_NOT_ACCEPTABLE" /><span>금액이 맞지 않음</span></label>
+          <label class="choice"><input type="radio" name="m04-reason" value="TERMS_NOT_ACCEPTABLE" /><span>조건이 맞지 않음</span></label>
+          <label class="choice"><input type="radio" name="m04-reason" value="OTHER" checked /><span>기타</span></label>
+        </fieldset>
+        <div class="field-row">
+          <label class="label" for="m04-reason-text">상세 사유</label>
+          <textarea class="field" id="m04-reason-text" name="reason" maxlength="500" rows="4" placeholder="자세한 이유를 적어 주세요."></textarea>
+          <p class="helper">기타를 고르면 상세 사유를 권장합니다. 최대 500자입니다.</p>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn quiet">닫기</button>
+          <button type="button" class="btn danger">거절 확인</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen">
+  <div class="id">합의 완료 · AGREED</div>
+  <article class="agreement-page">
+    <header class="agreement-page-head">
+      <h2 class="page-title">금액 합의</h2>
+      <span class="badge success">합의 완료</span>
+    </header>
+    <div class="agreement-grid">
+      <div class="agreement-main">
+        <section class="panel">
+          <p class="status-copy" role="status">금액이 <strong>확정</strong>되었습니다. 이 금액이 계약과 결제의 근거입니다. 계약서를 확인해 주세요.</p>
+          <p class="caption offer-kicker">확정 금액</p>
+          <p class="offer-amount money">1,000,000원</p>
+          <div class="btn-row after-offer">
+            <button type="button" class="btn primary">계약서 확인</button>
+          </div>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">제안 이력</h3>
+          <ol class="history">
+            <li><span>최초 제안</span><span class="money">1,000,000원</span></li>
+          </ol>
+        </section>
+      </div>
+      <aside class="agreement-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>모집</dt>
+            <dd>모집 마감</dd>
+            <dt>거래</dt>
+            <dd>계약 대기</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김프리</p>
+          <p class="caption">프리랜서</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>이 금액은 더 이상 제안이 아니라 계약 근거입니다.</li>
+            <li>서명 단계로 이동합니다. 양쪽이 서명해야 결제가 시작됩니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">거절·재개 · REJECTED_REOPENED · 의뢰인</div>
+  <article class="agreement-page">
+    <header class="agreement-page-head">
+      <h2 class="page-title">금액 합의</h2>
+      <span class="badge warning">모집 재개</span>
+    </header>
+    <div class="agreement-grid">
+      <div class="agreement-main">
+        <section class="panel">
+          <p class="status-copy" role="status">프리랜서가 제안을 거절했습니다. <strong>모집이 다시 열렸습니다</strong>. 조건을 수정한 뒤 다른 지원자를 받을 수 있습니다.</p>
+          <p class="caption offer-kicker">거절된 제안</p>
+          <p class="offer-amount money">1,000,000원</p>
+          <div class="btn-row after-offer">
+            <button type="button" class="btn secondary">프로젝트 확인</button>
+            <button type="button" class="btn primary">프로젝트 수정</button>
+          </div>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">제안 이력</h3>
+          <ol class="history">
+            <li><span>최초 제안</span><span class="money">1,000,000원</span></li>
+          </ol>
+        </section>
+      </div>
+      <aside class="agreement-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>모집</dt>
+            <dd>모집 중</dd>
+            <dt>거래</dt>
+            <dd>거래 전</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김프리</p>
+          <p class="caption">프리랜서</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>이 거래는 끝났습니다. 같은 제안으로 이어갈 수 없습니다.</li>
+            <li>모집 마감 전에 거절되어 프로젝트가 다시 열렸습니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">거절·종료 · REJECTED_CLOSED</div>
+  <article class="agreement-page">
+    <header class="agreement-page-head">
+      <h2 class="page-title">금액 합의</h2>
+      <span class="badge neutral">모집 종료</span>
+    </header>
+    <div class="agreement-grid">
+      <div class="agreement-main">
+        <section class="panel">
+          <p class="status-copy" role="status">프리랜서가 제안을 거절했습니다. 모집 마감이 지나 <strong>프로젝트는 종료 상태</strong>로 남습니다.</p>
+          <p class="caption offer-kicker">거절된 제안</p>
+          <p class="offer-amount money">1,000,000원</p>
+          <div class="btn-row after-offer">
+            <button type="button" class="btn primary">프로젝트 확인</button>
+          </div>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">제안 이력</h3>
+          <ol class="history">
+            <li><span>최초 제안</span><span class="money">1,000,000원</span></li>
+          </ol>
+        </section>
+      </div>
+      <aside class="agreement-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>모집</dt>
+            <dd>모집 마감</dd>
+            <dt>거래</dt>
+            <dd>거래 전</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김프리</p>
+          <p class="caption">프리랜서</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>이 거래는 끝났습니다. 같은 제안으로 이어갈 수 없습니다.</li>
+            <li>모집 마감 이후라 프로젝트를 다시 열지 않습니다.</li>
+          </ul>
+        </section>
+      </aside>
     </div>
   </article>
 </section>
 
 <section class="screen">
   <div class="id">불러오는 중</div>
-  <article class="panel" aria-busy="true">
-    <div class="panel-head">
-      <h2 class="title">금액 합의</h2>
+  <article class="agreement-page" aria-busy="true">
+    <header class="agreement-page-head">
+      <h2 class="page-title">금액 합의</h2>
+    </header>
+    <div class="agreement-grid">
+      <div class="agreement-main">
+        <section class="panel">
+          <p class="helper">합의 내용을 불러오는 중입니다.</p>
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+        </section>
+      </div>
+      <aside class="agreement-side">
+        <section class="panel">
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+        </section>
+      </aside>
     </div>
-    <p class="helper">합의 내용을 불러오는 중입니다.</p>
-    <div class="skeleton"></div>
-    <div class="skeleton"></div>
   </article>
 </section>
 
 <section class="screen">
   <div class="id">불러오기 실패</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">금액 합의</h2>
-    </div>
-    <p class="notice danger" role="alert">합의 내용을 불러오지 못했습니다</p>
-    <p class="status-copy">네트워크를 확인한 뒤 다시 시도해 주세요.</p>
-    <div class="btn-row">
-      <button type="button" class="btn primary">다시 시도</button>
+  <article class="agreement-page">
+    <header class="agreement-page-head">
+      <h2 class="page-title">금액 합의</h2>
+    </header>
+    <div class="agreement-grid">
+      <div class="agreement-main">
+        <section class="panel">
+          <p class="notice danger" role="alert">합의 내용을 불러오지 못했습니다</p>
+          <p class="status-copy">네트워크를 확인한 뒤 다시 시도해 주세요.</p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">다시 시도</button>
+          </div>
+        </section>
+      </div>
+      <aside class="agreement-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>입력한 내용은 사라지지 않습니다. 다시 불러온 뒤 이어서 진행할 수 있습니다.</li>
+          </ul>
+        </section>
+      </aside>
     </div>
   </article>
 </section>
 
 <section class="screen">
-  <div class="id">409 재조회</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">금액 합의</h2>
-    </div>
-    <p class="notice warning" role="status">내용이 바뀌었습니다</p>
-    <p class="status-copy">다른 당사자가 먼저 응답했거나 프로젝트가 바뀌었습니다. 최신 내용을 확인한 뒤 이어서 진행하세요.</p>
-    <div class="btn-row">
-      <button type="button" class="btn primary">다시 불러오기</button>
+  <div class="id">409 재조회 · STALE</div>
+  <article class="agreement-page">
+    <header class="agreement-page-head">
+      <h2 class="page-title">금액 합의</h2>
+    </header>
+    <div class="agreement-grid">
+      <div class="agreement-main">
+        <section class="panel">
+          <p class="notice warning" role="status">내용이 바뀌었습니다</p>
+          <p class="status-copy">다른 당사자가 먼저 응답했거나 프로젝트가 바뀌었습니다. 최신 내용을 확인한 뒤 이어서 진행하세요.</p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">다시 불러오기</button>
+          </div>
+        </section>
+      </div>
+      <aside class="agreement-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>오래된 내용으로는 수락하거나 거절할 수 없습니다.</li>
+            <li>최신 상태를 확인한 뒤에만 다음 행동을 고릅니다.</li>
+          </ul>
+        </section>
+      </aside>
     </div>
   </article>
 </section>
 
 <section class="screen">
   <div class="id">취소 후 변경 숨김</div>
-  <article class="panel">
-    <div class="panel-head">
-      <h2 class="title">금액 합의</h2>
+  <article class="agreement-page">
+    <header class="agreement-page-head">
+      <h2 class="page-title">금액 합의</h2>
       <span class="badge danger">취소됨</span>
+    </header>
+    <div class="agreement-grid">
+      <div class="agreement-main">
+        <section class="panel">
+          <p class="notice danger" role="alert">프로젝트가 취소되었습니다</p>
+          <p class="status-copy">이 프로젝트는 더 이상 조건을 바꿀 수 없습니다. 새로운 거래가 필요하면 의뢰인이 다시 모집해야 합니다.</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">제안 이력</h3>
+          <ol class="history">
+            <li><span>최초 제안</span><span class="money">1,000,000원</span></li>
+          </ol>
+        </section>
+      </div>
+      <aside class="agreement-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">프로젝트</h3>
+          <dl class="facts">
+            <dt>프로젝트 제목</dt>
+            <dd>쇼핑몰 웹사이트 구축</dd>
+            <dt>모집</dt>
+            <dd>모집 마감</dd>
+            <dt>거래</dt>
+            <dd>취소됨</dd>
+          </dl>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">상대방</h3>
+          <p class="body-strong">김프리</p>
+          <p class="caption">프리랜서</p>
+        </section>
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>취소된 프로젝트에서는 제안·수락·거절을 할 수 없습니다.</li>
+          </ul>
+        </section>
+      </aside>
     </div>
-    <p class="notice danger" role="alert">프로젝트가 취소되었습니다</p>
-    <p class="status-copy">이 프로젝트는 더 이상 조건을 바꿀 수 없습니다. 새로운 거래가 필요하면 의뢰인이 다시 모집해야 합니다.</p>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">권한 없음 · 403</div>
+  <article class="agreement-page">
+    <header class="agreement-page-head">
+      <h2 class="page-title">금액 합의</h2>
+    </header>
+    <div class="agreement-grid">
+      <div class="agreement-main">
+        <section class="panel">
+          <p class="notice warning" role="status">이 합의를 볼 수 있는 권한이 없습니다</p>
+          <p class="status-copy">프로젝트 당사자만 금액과 제안을 확인할 수 있습니다. 다른 계정으로 들어왔다면 당사자 계정으로 다시 들어와 주세요.</p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">프로젝트 확인</button>
+          </div>
+        </section>
+      </div>
+      <aside class="agreement-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>권한이 없는 화면에는 금액과 제안 이력을 보여 주지 않습니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  </article>
+</section>
+
+<section class="screen">
+  <div class="id">합의 없음 · 404</div>
+  <article class="agreement-page">
+    <header class="agreement-page-head">
+      <h2 class="page-title">금액 합의</h2>
+    </header>
+    <div class="agreement-grid">
+      <div class="agreement-main">
+        <section class="panel">
+          <p class="notice info" role="status">합의를 찾을 수 없습니다</p>
+          <p class="status-copy">주소가 바뀌었거나 아직 제안이 없을 수 있습니다. 프로젝트 화면에서 다시 들어와 주세요.</p>
+          <div class="btn-row">
+            <button type="button" class="btn primary">프로젝트 확인</button>
+          </div>
+        </section>
+      </div>
+      <aside class="agreement-side">
+        <section class="panel">
+          <h3 class="agreement-card-title">유의사항</h3>
+          <ul class="notes">
+            <li>없는 합의 주소로는 금액을 보여 주지 않습니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
   </article>
 </section>
 
@@ -162,6 +632,7 @@
     <tbody>
       <tr><td rowspan="2">빈 생성</td><td>placeholder</td><td>금액</td></tr>
       <tr><td>버튼</td><td>제안하기</td></tr>
+      <tr><td>입력 오류</td><td>안내</td><td>금액을 입력해 주세요.</td></tr>
       <tr><td>불러오는 중</td><td>안내</td><td>합의 내용을 불러오는 중입니다.</td></tr>
       <tr><td rowspan="2">불러오기 실패</td><td>안내</td><td>합의 내용을 불러오지 못했습니다</td></tr>
       <tr><td>버튼</td><td>다시 시도</td></tr>
@@ -169,40 +640,86 @@
       <tr><td>취소</td><td>안내</td><td>프로젝트가 취소되었습니다</td></tr>
       <tr><td rowspan="2">프리랜서 응답</td><td>버튼</td><td>수락하기</td></tr>
       <tr><td>버튼</td><td>거절하기</td></tr>
+      <tr><td>합의 완료</td><td>버튼</td><td>계약서 확인</td></tr>
+      <tr><td>M03 수락 확인</td><td>제목</td><td>합의를 수락할까요?</td></tr>
+      <tr><td>M04 거절 확인</td><td>버튼</td><td>거절 확인</td></tr>
+      <tr><td rowspan="2">거절·재개</td><td>버튼</td><td>프로젝트 확인</td></tr>
+      <tr><td>버튼</td><td>프로젝트 수정</td></tr>
+      <tr><td>거절·종료</td><td>버튼</td><td>프로젝트 확인</td></tr>
+      <tr><td>권한 없음</td><td>안내</td><td>이 합의를 볼 수 있는 권한이 없습니다</td></tr>
+      <tr><td>합의 없음</td><td>안내</td><td>합의를 찾을 수 없습니다</td></tr>
     </tbody>
   </table>
   <p class="helper" style="margin-top:14px"><strong>이 목록에서 제외한 것</strong> —
   프로젝트 제목·금액 숫자(데이터), 상태 배지 라벨. 취소 화면에는 제안하기·수락하기·거절하기가
-  <strong>없어야</strong> 한다.</p>
+  <strong>없어야</strong> 한다. 권한 없음·합의 없음 화면에는 금액을 넣지 않는다.
+  의뢰인 대기 화면에는 수정 버튼이 없다.</p>
 </section>
 
-<div class="overlay-backdrop" id="overlay" aria-hidden="true">
-  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="overlay-title">
-    <h2 class="title" id="overlay-title">합의를 거절할까요?</h2>
-    <p class="status-copy">거절하면 <strong>이 거래는 끝납니다</strong>. 프로젝트는 합의 전 상태로 돌아가고, 이 제안은 되돌릴 수 없습니다.</p>
+<div class="overlay-backdrop" id="accept-overlay" aria-hidden="true">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="accept-overlay-title">
+    <h2 class="title" id="accept-overlay-title">합의를 수락할까요?</h2>
+    <p class="status-copy">제안 금액 <strong class="money">1,000,000원</strong>을 수락하면 이 금액이 계약과 결제의 근거가 됩니다. 수락 뒤에는 금액을 바꿀 수 없습니다.</p>
     <div class="btn-row">
-      <button type="button" class="btn quiet" id="overlay-close">닫기</button>
+      <button type="button" class="btn quiet" id="accept-overlay-close">닫기</button>
+      <button type="button" class="btn primary" id="accept-confirm">수락하기</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay-backdrop" id="reject-overlay" aria-hidden="true">
+  <div class="dialog dialog-md" role="dialog" aria-modal="true" aria-labelledby="reject-overlay-title">
+    <h2 class="title" id="reject-overlay-title">합의를 거절할까요?</h2>
+    <p class="status-copy">거절하면 <strong>이 거래는 끝납니다</strong>. 프로젝트는 합의 전 상태로 돌아가고, 이 제안은 되돌릴 수 없습니다.</p>
+    <fieldset class="choice-list">
+      <legend>거절 사유</legend>
+      <label class="choice"><input type="radio" name="reject-reason" value="PRICE_NOT_ACCEPTABLE" /><span>금액이 맞지 않음</span></label>
+      <label class="choice"><input type="radio" name="reject-reason" value="TERMS_NOT_ACCEPTABLE" /><span>조건이 맞지 않음</span></label>
+      <label class="choice"><input type="radio" name="reject-reason" value="OTHER" /><span>기타</span></label>
+    </fieldset>
+    <div class="field-row" id="reject-reason-detail" hidden>
+      <label class="label" for="reject-reason-text">상세 사유</label>
+      <textarea class="field" id="reject-reason-text" name="reason" maxlength="500" rows="4" placeholder="자세한 이유를 적어 주세요."></textarea>
+      <p class="helper">기타를 고르면 상세 사유를 권장합니다. 최대 500자입니다.</p>
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn quiet" id="reject-overlay-close">닫기</button>
       <button type="button" class="btn danger" id="reject-confirm">거절 확인</button>
     </div>
   </div>
 </div>
 <script>
 (function () {
-  var overlay = document.getElementById("overlay");
-  function openOverlay() {
-    overlay.classList.add("open");
-    overlay.setAttribute("aria-hidden", "false");
+  function bindOverlay(openId, overlayId, closeId, confirmId) {
+    var overlay = document.getElementById(overlayId);
+    function openOverlay() {
+      overlay.classList.add("open");
+      overlay.setAttribute("aria-hidden", "false");
+    }
+    function closeOverlay() {
+      overlay.classList.remove("open");
+      overlay.setAttribute("aria-hidden", "true");
+    }
+    document.getElementById(openId).addEventListener("click", openOverlay);
+    document.getElementById(closeId).addEventListener("click", closeOverlay);
+    document.getElementById(confirmId).addEventListener("click", closeOverlay);
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) closeOverlay();
+    });
   }
-  function closeOverlay() {
-    overlay.classList.remove("open");
-    overlay.setAttribute("aria-hidden", "true");
+  bindOverlay("accept-open", "accept-overlay", "accept-overlay-close", "accept-confirm");
+  bindOverlay("reject-open", "reject-overlay", "reject-overlay-close", "reject-confirm");
+
+  var detail = document.getElementById("reject-reason-detail");
+  var radios = document.querySelectorAll('input[name="reject-reason"]');
+  function syncReasonDetail() {
+    var other = document.querySelector('input[name="reject-reason"][value="OTHER"]');
+    if (other && other.checked) detail.removeAttribute("hidden");
+    else detail.setAttribute("hidden", "");
   }
-  document.getElementById("reject-open").addEventListener("click", openOverlay);
-  document.getElementById("overlay-close").addEventListener("click", closeOverlay);
-  document.getElementById("reject-confirm").addEventListener("click", closeOverlay);
-  overlay.addEventListener("click", function (e) {
-    if (e.target === overlay) closeOverlay();
-  });
+  for (var i = 0; i < radios.length; i++) {
+    radios[i].addEventListener("change", syncReasonDetail);
+  }
 })();
 </script>
 

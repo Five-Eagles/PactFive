@@ -1,0 +1,427 @@
+/* PactFive 대표페이지 제안 — 공용 토큰
+ *
+ * 값의 정본은 `design-system/design-tokens.md` 의 TS 블록이다.
+ * 이 파일은 그 값을 CSS 변수로 옮긴 사본이며, **원시 색상값은 여기에만 있다.**
+ * 화면 파일(main·browse·detail)은 semantic 변수만 참조한다.
+ *
+ * 변환본(pactfive_reference_main.html)과 다른 점 — 그쪽은 teal 을 #007a80,
+ * yellow 를 #ffd735 로 쓰고 하드코딩 색이 64종이었다. 정본과 어긋나 `npm run check:design`
+ * 이 깨진다. 여기서는 정본 값으로 되돌렸다.
+ */
+
+:root {
+  /* ── primitive · 여기서만 사용 ───────────────────────── */
+  --navy-50:#F5F7FA;  --navy-100:#E9EDF3; --navy-200:#D5DCE7; --navy-300:#B7C0CF;
+  --navy-400:#8995A8; --navy-500:#667085; --navy-600:#55627A; --navy-700:#394760;
+  --navy-800:#1D2942; --navy-900:#111B33; --navy-950:#0B132B;
+
+  --teal-50:#E7F5F4;  --teal-100:#C7E9E8; --teal-200:#8FD3D1; --teal-400:#1D9C9B;
+  --teal-500:#008A8D; --teal-600:#007C7E; --teal-700:#006D70; --teal-900:#073F43;
+
+  --rust-50:#FDEEEA;  --rust-500:#D95336; --rust-700:#B93824;
+  --green-50:#EAF7F0; --green-200:#A7DFC5; --green-600:#16734D; --green-700:#115D3E;
+  --amber-50:#FFF9E7; --amber-100:#FFF3C4; --amber-600:#9A6200; --amber-700:#7A4B00;
+  --blue-50:#EDF5FC;  --blue-200:#B9D9F3; --blue-600:#1C5F9C;
+
+  --campaign-yellow:#F4C430;
+  --campaign-plum:#4B173C;
+  --campaign-lavender:#E9DDFB;
+  /* 대표페이지 히어로 바탕. campaign-yellow 를 옅게 깐 것이다.
+   * amber 계열을 쓰지 않은 이유: 그쪽은 경고(--warning-surface)에 배정돼 있어
+   * 같은 색이 두 가지 뜻을 갖게 된다. */
+  --campaign-yellow-soft: #FDF3D6;
+  --campaign-yellow-edge: #EFDFAA;
+  --campaign-yellow-deep: #E8C765;
+  /* ── 대표페이지 카테고리 아이콘 팔레트 ──────────────────────
+   * `ux-philosophy/reference-main.html`(오민혁 시안) 의 아이콘 색을 그대로 옮긴 것이다.
+   * 아이콘 10종이 저마다 다른 색을 쓰는데, 그 다색이 시안의 성격이라 살렸다.
+   * **아이콘 안에서만 쓴다.** 다른 UI 로 새 나가면 §12 의 다색 금지에 걸린다.
+   */
+  --ico-ink:#17233A;
+  --ico-blue:#2D71DB;  --ico-blue-soft:#7B9EDC;  --ico-blue-pale:#4DA3FF;
+  --ico-navy:#263C5F;  --ico-navy-deep:#253348;
+  --ico-yellow:#F5CB37; --ico-yellow-deep:#EFB819;
+  --ico-mint:#5BC5B2;
+  --ico-grey:#D8E0E8;  --ico-grey-pale:#EEF0F2;
+
+  /* 별점. 노랑 계열이지만 캠페인 색도 경고 색도 아니다 — 역할이 달라 따로 둔다 */
+  --rating-star:#F4A300;
+
+  --white:#FFFFFF; --canvas:#FBFAF7; --surface-base:#F7F8FA; --muted:#EEF1F5;
+  --border-base:#CBD3DF; --border-strong:#7A8498; --black:#090D18;
+
+  /* ── semantic · 화면은 이것만 참조한다 ────────────────── */
+  --bg:               var(--canvas);
+  --surface:          var(--white);
+  --surface-subtle:   var(--surface-base);
+  --surface-selected: var(--teal-50);
+
+  --content:           var(--navy-950);
+  --content-secondary: var(--navy-600);
+  --content-tertiary:  var(--navy-500);
+  --content-inverse:   var(--white);
+
+  --border:        var(--border-base);
+  --border-subtle: var(--navy-100);
+  --border-focus:  var(--teal-500);
+
+  --action:          var(--teal-500);
+  --action-hover:    var(--teal-600);
+  --action-text:     var(--white);
+  --action-quiet:    var(--teal-700);
+
+  --success:  var(--green-700);  --success-surface: var(--green-50);
+  --warning:  var(--amber-700);  --warning-surface: var(--amber-50);
+  --danger:   var(--rust-700);   --danger-surface:  var(--rust-50);
+  --info:     var(--blue-600);   --info-surface:    var(--blue-50);
+
+  /* ── 형태 ────────────────────────────────────────────── */
+  --r-sm:6px; --r-md:10px; --r-lg:14px; --r-pill:999px;
+  --btn-h:44px; --btn-h-sm:36px; --field-h:48px;
+
+  /* 그림자는 두 단계뿐이다. 흰 카드를 띄우려는 과한 그림자는 금지 (§12) */
+  --shadow-card:  0 1px 2px rgba(9,13,24,.04);
+  --shadow-raise: 0 6px 20px rgba(9,13,24,.08);
+  /* 세 번째 단계. **히어로 삽화 한 곳에만** 쓴다 — 목록 카드에는 쓰지 않는다.
+   * 겹쳐 놓은 판을 눈으로 분리하려면 접지 그림자와 확산 그림자가 둘 다 필요하다.
+   * §12 가 금지하는 것은 카드 격자에서 흰 카드를 띄우려고 그림자를 키우는 것이다. */
+  --shadow-hero:  0 2px 4px rgba(9,13,24,.06), 0 18px 44px rgba(9,13,24,.13);
+
+  /* 면의 위쪽 1px 을 밝게 해 두께를 만든다. 그림자와 달리 면적을 먹지 않는다 */
+  --edge-top: inset 0 1px 0 rgba(255,255,255,.85);
+
+  --gap-1:4px; --gap-2:8px; --gap-3:12px; --gap-4:16px;
+  --gap-5:24px; --gap-6:32px; --gap-7:48px; --gap-8:72px;
+
+  --page-max:1180px;
+  /* 분기점 360 · 768 · 1024 · 1280 / gutter 16 · 24 · 32 */
+  --gutter:32px;
+
+  /* ── 모션 ─────────────────────────────────────────────
+   * 외부 레퍼런스의 200~500ms 를 평균내지 않는다 — 목록 비교 화면에서
+   * 느린 전환은 스캔을 방해한다. 조사 결론도 같았다
+   * (`outputs/design-research/00-요약.md` §7).
+   *
+   * 출처였던 `design-system/reference-snapshot.html` 은 2026-09-02 팀 반려로
+   * 삭제됐다(PR #43 · ADR-0012 폐기). 아래 값은 그 문서에서 옮겨온 것이며,
+   * 지금은 이 파일이 유일한 기록이다. 팀이 모션 정본을 다시 정하면 그쪽을 따른다.
+   */
+  --dur-feedback:100ms;  --ease-feedback:cubic-bezier(.2,0,0,1);
+  --dur-enter:160ms;     --ease-enter:cubic-bezier(0,0,0,1);
+  --dur-exit:160ms;      --ease-exit:cubic-bezier(.3,0,1,1);
+  --dur-overlay:240ms;
+  --stagger:40ms;
+}
+
+@media (max-width:1023px) { :root { --gutter:24px; } }
+@media (max-width:767px)  { :root { --gutter:16px; } }
+
+/* ── 기본 ─────────────────────────────────────────────── */
+
+* { box-sizing:border-box; }
+
+body {
+  margin:0;
+  background:var(--bg);
+  color:var(--content);
+  font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  font-size:15px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* 금액·날짜는 자릿수가 맞아야 비교가 된다 (§5) */
+.num { font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+
+a { color:inherit; text-decoration:none; }
+
+:focus-visible {
+  outline:2px solid var(--border-focus);
+  outline-offset:2px;
+  border-radius:var(--r-sm);
+}
+
+.page { max-width:var(--page-max); margin:0 auto; padding:0 var(--gutter); }
+
+/* ── 타이포 ───────────────────────────────────────────── */
+
+.display { font-size:clamp(32px,4.2vw,52px); line-height:1.18; font-weight:800;
+  letter-spacing:-.03em; margin:0; }
+.h1 { font-size:28px; line-height:1.3; font-weight:700; letter-spacing:-.02em; margin:0; }
+.h2 { font-size:20px; line-height:1.4; font-weight:700; letter-spacing:-.01em; margin:0; }
+.h3 { font-size:16px; line-height:1.5; font-weight:600; margin:0; }
+.body-sec { color:var(--content-secondary); }
+.caption { font-size:13px; line-height:1.5; color:var(--content-tertiary); }
+
+/* ── 버튼 ─────────────────────────────────────────────── */
+
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:var(--gap-2);
+  height:var(--btn-h); padding:0 var(--gap-5);
+  border:1px solid transparent; border-radius:var(--r-md);
+  font:inherit; font-weight:600; cursor:pointer;
+  transition:background .15s ease, border-color .15s ease, color .15s ease;
+}
+.btn.sm { height:var(--btn-h-sm); padding:0 var(--gap-3); font-size:14px; }
+.btn.primary   { background:var(--action); color:var(--action-text); }
+.btn.primary:hover { background:var(--action-hover); }
+.btn.secondary { background:var(--surface); color:var(--action-quiet); border-color:var(--action); }
+.btn.secondary:hover { background:var(--surface-selected); }
+.btn.quiet     { background:transparent; color:var(--content-secondary); }
+.btn.quiet:hover { background:var(--muted); }
+.btn[disabled] { background:var(--muted); color:var(--navy-400); border-color:transparent;
+  cursor:not-allowed; }
+
+/* ── 배지 · 칩 ────────────────────────────────────────── */
+
+.badge {
+  display:inline-flex; align-items:center; height:24px; padding:0 var(--gap-2);
+  border-radius:var(--r-sm); font-size:12px; font-weight:700; white-space:nowrap;
+}
+.badge.open      { background:var(--success-surface); color:var(--success); }
+.badge.scheduled { background:var(--info-surface);    color:var(--info); }
+.badge.closed    { background:var(--muted);           color:var(--content-tertiary); }
+.badge.pending   { background:var(--warning-surface); color:var(--warning); }
+
+.chip {
+  display:inline-flex; align-items:center; height:26px; padding:0 var(--gap-3);
+  border:1px solid var(--border-subtle); border-radius:var(--r-pill);
+  background:var(--surface); font-size:12px; color:var(--content-secondary);
+}
+
+/* ── 카드 ─────────────────────────────────────────────── */
+
+.card {
+  background:var(--surface); border:1px solid var(--border-subtle);
+  border-radius:var(--r-lg); box-shadow:var(--shadow-card);
+}
+
+/* ── 프로젝트 카드 ─────────────────────────────────────
+ *
+ * main.html 과 browse.html 이 **같은 것을 쓴다.** 두 벌로 두면 한쪽만 고쳐진다.
+ *
+ * 정보 그룹 9개를 늘 같은 순서로 둔다. 순서가 카드마다 다르면 눈으로 비교할 수 없다.
+ *
+ *   1 카테고리   2 모집 상태   3 제목   4 의뢰인   5 의뢰인 평점
+ *   6 예산       7 요구 기술   8 지원자 수   9 마감(절대+상대)
+ *
+ * 전부 `PublicProjectItem` 에 실제로 있는 값이다. 근무 방식·예상 기간은
+ * `projects` 에 없어서 넣지 않았다 (아래 README 참고).
+ */
+
+.pcard {
+  display:flex; flex-direction:column; gap:var(--gap-2);
+  padding:var(--gap-5);
+  background:var(--surface); border:1px solid var(--border-subtle);
+  border-radius:var(--r-lg);
+  /* 기본은 테두리로 구분하고 그림자는 hover 에만. 레퍼런스 5곳 중 3곳이 그림자를 안 쓴다 */
+  transition:border-color var(--dur-feedback) var(--ease-feedback),
+             box-shadow var(--dur-feedback) var(--ease-feedback);
+}
+.pcard:hover { border-color:var(--border-focus); box-shadow:var(--shadow-raise); }
+
+/* 1·2 — 카테고리와 상태를 한 줄에. 북마크는 우측 끝 */
+.pcard__head { display:flex; align-items:center; gap:var(--gap-2); }
+.pcard__cat { font-size:12px; font-weight:600; color:var(--content-tertiary); }
+.pcard__head .save { margin-left:auto; }
+
+/* 3 */
+.pcard__title { font-size:16px; font-weight:600; line-height:1.45; margin:2px 0 0;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+
+/* 4·5 — 의뢰인과 평판을 한 줄로 묶는다 */
+.pcard__client { display:flex; align-items:center; gap:var(--gap-2);
+  font-size:12px; color:var(--content-tertiary); }
+.pcard__client b { font-weight:600; color:var(--content-secondary); }
+.pcard__rate { color:var(--content-tertiary); }
+
+/* 6 */
+.pcard__budget { font-size:22px; font-weight:800; letter-spacing:-.02em; margin:var(--gap-1) 0 0; }
+
+/* 7 */
+.pcard__skills { display:flex; flex-wrap:wrap; gap:var(--gap-1); }
+.pcard__more { font-size:12px; color:var(--content-tertiary); align-self:center; }
+
+/* 8·9 — 2열 메타 행. 세로로 쌓으면 정보 하나당 높이가 그대로 늘어난다 */
+.pcard__meta { display:grid; grid-template-columns:1fr auto; gap:var(--gap-2);
+  align-items:baseline; margin-top:auto; padding-top:var(--gap-3);
+  border-top:1px solid var(--border-subtle); font-size:12px;
+  color:var(--content-tertiary); }
+.pcard__meta .due { text-align:right; }
+.pcard__meta .due b { color:var(--content-secondary); font-weight:700; }
+
+.pcard--dim { background:var(--surface-subtle); }
+
+.save { width:30px; height:30px; flex:none; border-radius:var(--r-sm);
+  border:1px solid var(--border-subtle); background:var(--surface);
+  color:var(--content-tertiary); cursor:pointer; font-size:14px; line-height:1;
+  transition:border-color var(--dur-feedback) var(--ease-feedback),
+             color var(--dur-feedback) var(--ease-feedback); }
+.save:hover { border-color:var(--action); color:var(--action); }
+.save[aria-pressed="true"] { border-color:var(--action); color:var(--action);
+  background:var(--surface-selected); }
+
+/* 목록 등장 — 첫 8개만 stagger, 9번째부터 즉시 (정본 계약) */
+@keyframes pf-enter { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+.enter > * { animation:pf-enter var(--dur-enter) var(--ease-enter) both; }
+.enter > :nth-child(1) { animation-delay:0ms; }
+.enter > :nth-child(2) { animation-delay:40ms; }
+.enter > :nth-child(3) { animation-delay:80ms; }
+.enter > :nth-child(4) { animation-delay:120ms; }
+.enter > :nth-child(5) { animation-delay:160ms; }
+.enter > :nth-child(6) { animation-delay:200ms; }
+.enter > :nth-child(7) { animation-delay:240ms; }
+.enter > :nth-child(8) { animation-delay:280ms; }
+.enter > :nth-child(n+9) { animation:none; }
+
+@media (prefers-reduced-motion:reduce) {
+  *, *::before, *::after { animation-duration:0ms !important; animation-delay:0ms !important;
+    transition-duration:0ms !important; }
+}
+
+/* ── 앱 셸 ────────────────────────────────────────────── */
+
+.appbar {
+  position:sticky; top:0; z-index:20;
+  background:color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter:saturate(1.2) blur(8px);
+  border-bottom:1px solid var(--border-subtle);
+}
+.appbar__in { display:flex; align-items:center; gap:var(--gap-6);
+  height:64px; max-width:var(--page-max); margin:0 auto; padding:0 var(--gutter); }
+.logo { font-size:20px; font-weight:800; letter-spacing:-.03em; white-space:nowrap; }
+.logo em { font-style:normal; color:var(--action); }
+.appbar nav { display:flex; gap:var(--gap-5); font-size:14px; font-weight:500;
+  color:var(--content-secondary); white-space:nowrap; }
+.appbar nav a { transition:color var(--dur-feedback) var(--ease-feedback); }
+.appbar nav a:hover { color:var(--content); }
+.appbar .spacer { margin-left:auto; }
+
+/* 모바일 — 로고와 주요 행동만 한 줄에 두고 nav 는 아래 줄에서 가로로 넘긴다.
+   한 줄에 다 넣으면 nav 글자가 세로로 접힌다. */
+@media (max-width:767px) {
+  .appbar__in { flex-wrap:wrap; height:auto; align-items:center;
+    padding-top:var(--gap-2); padding-bottom:var(--gap-2); gap:var(--gap-3) var(--gap-4); }
+  .appbar__in > .spacer { order:1; }
+  .appbar__in > .btn, .appbar__in > .logo { order:0; }
+  .appbar nav { order:2; width:100%; gap:var(--gap-4);
+    overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+  .appbar nav::-webkit-scrollbar { display:none; }
+}
+
+/* ── 아직 없는 화면 안내 ─────────────────────────────────────
+ * `href="#"` 로 두면 눌러도 아무 일이 없어 고장으로 읽힌다.
+ * 없다는 것과 누가 만드는지를 말한다 (demo/notyet.js).
+ */
+.notyet { position:fixed; inset:0; z-index:100; display:grid; place-items:center;
+  padding:var(--gutter); }
+.notyet__scrim { position:absolute; inset:0; background:rgba(9,13,24,.45); }
+.notyet__box { position:relative; max-width:460px; width:100%;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-lg); padding:var(--gap-5);
+  box-shadow:var(--shadow-hero); }
+.notyet__box h2 { margin:0 0 var(--gap-3); font-size:19px; letter-spacing:-.02em; }
+.notyet__box p { margin:0 0 var(--gap-4); font-size:14px; line-height:1.7;
+  color:var(--content-secondary); }
+.notyet__kv { display:grid; grid-template-columns:auto 1fr; gap:6px var(--gap-4);
+  margin:0 0 var(--gap-5); font-size:13px; }
+.notyet__kv dt { color:var(--content-tertiary); font-weight:700; white-space:nowrap; }
+.notyet__kv dd { margin:0; color:var(--content-secondary); word-break:break-all; }
+.notyet__box .btn { width:100%; }
+
+/* 시연용 계정 고르기. 진짜 로그인(오민혁)이 붙으면 통째로 사라진다 */
+.picker { display:grid; gap:6px; margin:0 0 var(--gap-4); }
+.picker__why { margin:0 0 var(--gap-3); font-size:12.5px; line-height:1.6;
+  color:var(--content-tertiary); }
+.picker__row { display:grid; grid-template-columns:auto auto 1fr; gap:var(--gap-2) var(--gap-3);
+  align-items:baseline; text-align:left; width:100%;
+  padding:var(--gap-3); border:1px solid var(--border-subtle);
+  border-radius:var(--r-md); background:var(--surface); font:inherit; cursor:pointer;
+  transition:border-color var(--dur-feedback) var(--ease-feedback),
+             background var(--dur-feedback) var(--ease-feedback); }
+.picker__row:hover { border-color:var(--action); background:var(--surface-selected); }
+.picker__name { font-size:14px; font-weight:700; }
+.picker__role { font-size:11px; font-weight:700; color:var(--action-quiet);
+  background:var(--surface-selected); border-radius:var(--r-pill); padding:2px 8px; }
+.picker__note { font-size:12px; color:var(--content-tertiary); }
+
+/* ── 전문가 카드 ─────────────────────────────────────────────
+ * main.html(추천 전문가)과 experts.html(목록)이 **같은 것을 쓴다.**
+ * 두 벌로 두면 한쪽만 고쳐진다 — 프로젝트 카드(.pcard)와 같은 이유다.
+ *
+ * ⚠ 전문가 탐색은 PRD 화면 목록에 없는 기능이다 (README 「확인이 필요한 것」).
+ */
+/* ── 전문가 카드 ──────────────────────────────────────────
+   겹: 썸네일이 판, 흰 카드가 표면, 아바타가 표면 위로 걸쳐 나온다 */
+.ecard { overflow:hidden; display:flex; flex-direction:column;
+  box-shadow:var(--shadow-card), var(--edge-top);
+  transition:transform var(--dur-feedback) var(--ease-feedback),
+             box-shadow var(--dur-feedback) var(--ease-feedback),
+             border-color var(--dur-feedback) var(--ease-feedback); }
+.ecard:hover { transform:translateY(-2px); box-shadow:var(--shadow-raise);
+  border-color:var(--border-focus); }
+.ecard__thumb { display:block; aspect-ratio:16/10; background:var(--surface-subtle);
+  border-bottom:1px solid var(--border-subtle); }
+.ecard__thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+
+.ecard__who { display:flex; align-items:center; gap:10px; padding:0 var(--gap-4);
+  margin-top:-21px; }
+.avatar { flex:none; width:42px; height:42px; border-radius:var(--r-pill);
+  display:grid; place-items:center; font-weight:800; font-size:15px;
+  color:var(--content-inverse); background:var(--navy-500);
+  border:3px solid var(--surface); box-shadow:0 0 0 1px var(--border-subtle); }
+.ecard__name { min-width:0; padding-top:18px; }
+.ecard__name b { display:block; font-size:15px; letter-spacing:-.01em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ecard__title { display:block; font-size:12px; color:var(--content-tertiary); }
+
+.ecard__meta { display:flex; align-items:center; justify-content:space-between;
+  gap:var(--gap-2); margin:var(--gap-3) 0 0; padding:0 var(--gap-4); }
+.ecard__rate { font-size:13px; color:var(--content-secondary); white-space:nowrap; }
+.ecard__rate.none { color:var(--content-tertiary); font-size:12px; }
+.star { color:var(--rating-star); }
+
+.ecard__facts { display:flex; gap:var(--gap-4); margin:var(--gap-3) 0 0;
+  padding:var(--gap-3) var(--gap-4) 0; border-top:1px solid var(--border-subtle);
+  font-size:12.5px; color:var(--content-tertiary); }
+.ecard__facts b { color:var(--content); }
+
+.ecard__skills { display:flex; flex-wrap:wrap; gap:var(--gap-1);
+  margin:var(--gap-3) 0 0; padding:0 var(--gap-4) var(--gap-4); }
+
+
+/* ── 내 프로젝트 (SCR-B07) ───────────────────────────────────
+ * 목록 카드와 다른 형태다. 여기서는 비교가 아니라 **관리**가 목적이라
+ * 행동 버튼이 카드마다 붙는다.
+ */
+.mlist { list-style:none; margin:0; padding:0; display:grid; gap:var(--gap-3); }
+.mrow { padding:var(--gap-4) var(--gap-5); box-shadow:var(--shadow-card), var(--edge-top); }
+.mrow__head { display:flex; align-items:center; gap:var(--gap-2); }
+.mrow__apps { margin-left:auto; font-size:13px; font-weight:600;
+  color:var(--action-quiet); white-space:nowrap; }
+.mrow__apps:hover { text-decoration:underline; }
+.mrow__apps b { display:inline-grid; place-items:center; min-width:18px; height:18px;
+  padding:0 5px; margin-left:4px; border-radius:var(--r-pill);
+  background:var(--action); color:var(--content-inverse); font-size:11px; }
+.mrow__title { margin:var(--gap-2) 0 0; font-size:17px; letter-spacing:-.02em; }
+.mrow__facts { display:flex; flex-wrap:wrap; gap:var(--gap-4); margin:6px 0 0;
+  font-size:13px; color:var(--content-secondary); }
+
+/* 행동 줄. 막힌 버튼은 숨기지 않고 이유를 옆에 붙인다 */
+.acts { display:flex; flex-wrap:wrap; align-items:center; gap:var(--gap-2);
+  margin-top:var(--gap-4); }
+.acts--end { justify-content:flex-end; }
+.act { display:inline-flex; align-items:center; gap:var(--gap-2); }
+.act__why { font-size:12px; color:var(--content-tertiary); }
+
+/* 잠긴 입력칸. 숨기지 않고 왜 잠겼는지 말한다 */
+.field[data-locked="true"] input,
+.field[data-locked="true"] textarea { background:var(--muted); color:var(--content-secondary); }
+.field[data-locked="true"] .help { color:var(--warning); }
+
+/* 알림 한 줄. 되돌릴 수 없는 행동을 마친 뒤에만 뜬다 */
+.toast { position:fixed; left:50%; bottom:var(--gap-5); transform:translateX(-50%);
+  z-index:120; margin:0; max-width:min(560px, calc(100vw - 2 * var(--gutter)));
+  padding:var(--gap-3) var(--gap-4); border-radius:var(--r-md);
+  background:var(--navy-900); color:var(--content-inverse);
+  font-size:13.5px; line-height:1.6; box-shadow:var(--shadow-hero); }

@@ -1,0 +1,336 @@
+import { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { PageBody } from '../../shared/ui/AppShell';
+import { Button, EmptyState, FactsSkeleton, Notice, SkeletonGroup } from '../../shared/ui/primitives';
+import { useApplicationDecision, useProjectApplications } from './useApplications';
+import type { ApplicationItem } from './application.types';
+import { CONTRACT_ROUTES } from '../contracts-payments/contract.routes';
+
+/**
+ * 지원자 관리(규칙 10, 의뢰인) — `features/applications/prototype/web/ApplicationPanel.tsx`의
+ * "manage"/"manageEmpty"/"conflict" 뷰를 실제 목록·수락·거절로 재해석했다.
+ *
+ * 수락·거절 확인 다이얼로그는 `ReopenRecruitmentDialog.tsx`(project-management)와 같은
+ * `.overlay-backdrop`/`.dialog` + 마운트 다음 프레임 진입 애니메이션 패턴을 그대로 쓴다
+ * (design-tokens.md §13).
+ *
+ * 2026-09-09 팀장 반영(이식 지시서 §2-2) — 이전엔 이 파일 주석이 "거절은 시안대로 확인 없이
+ * 바로 진행한다"고 적혀 있었는데, 실제 시안(design/high-fi.html `#reject-overlay`)에는
+ * 거절 확인 다이얼로그가 있었다 — integration-workflow.md "시안과 다르면 시안이 옳다"
+ * 원칙에 따라 시안 쪽으로 맞췄다.
+ *
+ * 2026-09-07 PR #83 이식 — 수락 성공은 이제 잔여 거절·알림 발행을 outbox로 옮겨 즉시
+ * 드레인한다(서버 application.service.ts). app/은 항상 즉시 드레인하므로 실제로는 거의 항상
+ * `postActionsStatus: 'SUCCEEDED'`로 끝나지만, 드레인 중 문제가 생기면 `QUEUED`/`RUNNING`/
+ * `FAILED`로 돌아올 수 있어 그 경우만 별도 안내를 보여준다("후속 처리" 뷰, ApplicationPanel.tsx
+ * 원본의 `acceptQueued` 뷰를 재해석).
+ */
+
+// 2026-09-09 팀장 반영(이식 지시서 §3-1) — spec.md 규칙 10·시안(high-fi.html:168·185·202)은
+// 시스템 상태가 아니라 프리랜서 관점의 심사 진행 말을 쓴다.
+const STATUS_LABEL: Record<ApplicationItem['status'], string> = {
+  PENDING: '검토 중',
+  ACCEPTED: '선정됨',
+  REJECTED: '미선정',
+};
+
+export function ManageApplicantsPage() {
+  const { projectId = '' } = useParams();
+  const { data, loading, error, reload } = useProjectApplications(projectId);
+  const { pendingId, errorMessage, accept, reject } = useApplicationDecision();
+  const [confirmTarget, setConfirmTarget] = useState<ApplicationItem | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<ApplicationItem | null>(null);
+  const [conflict, setConflict] = useState(false);
+  const [postActionsNotice, setPostActionsNotice] = useState<'pending' | 'failed' | null>(null);
+  const [agreementProjectId, setAgreementProjectId] = useState<string | null>(null);
+
+  async function handleAcceptConfirmed() {
+    if (!confirmTarget) return;
+    const result = await accept(confirmTarget.applicationId);
+    setConfirmTarget(null);
+    if (result) {
+      // 수락 자체는 확정됐다 — 후속(잔여 거절·알림)이 드레인 중 걸렸을 때만 안내한다.
+      if (result.postActionsStatus === 'FAILED') setPostActionsNotice('failed');
+      else if (result.postActionsStatus === 'QUEUED' || result.postActionsStatus === 'RUNNING') {
+        setPostActionsNotice('pending');
+      } else {
+        setPostActionsNotice(null);
+      }
+      setAgreementProjectId(projectId);
+      reload();
+    } else {
+      setConflict(true);
+    }
+  }
+
+  async function handleRejectConfirmed() {
+    if (!rejectTarget) return;
+    const result = await reject(rejectTarget.applicationId);
+    setRejectTarget(null);
+    if (result) reload();
+  }
+
+  if (loading) {
+    return (
+      <PageBody>
+        <article className="panel">
+          <div className="panel-head">
+            <h2 className="title">지원자 관리</h2>
+          </div>
+          {/* 지원자가 몇 명 올지 몰라도 최대 3명 자리만 예약한다 (ADR-0018). 실제 화면은
+              `.row`가 아니라 `.facts`(dl/dt/dd)를 그린다 — 이전 수정에서 모양이 어긋났던
+              부분을 바로잡았다 (2026-09-14). */}
+          <SkeletonGroup
+            label="지원자 목록을 불러오는 중입니다"
+            renderItem={(i) => <FactsSkeleton key={i} />}
+          />
+        </article>
+      </PageBody>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <PageBody>
+        <article className="panel">
+          <div className="panel-head">
+            <h2 className="title">지원자 관리</h2>
+          </div>
+          <Notice tone="danger">{error ?? '지원자 목록을 불러오지 못했습니다.'}</Notice>
+          <div className="btn-row">
+            <Button variant="primary" onClick={reload}>
+              다시 시도
+            </Button>
+          </div>
+        </article>
+      </PageBody>
+    );
+  }
+
+  const pending = data.filter((item) => item.status === 'PENDING');
+  const decided = data.filter((item) => item.status !== 'PENDING');
+
+  return (
+    <PageBody>
+      <article className="panel">
+        <div className="panel-head">
+          <h2 className="title">지원자 관리</h2>
+          <span className="badge info">대기 {pending.length}</span>
+        </div>
+
+        {conflict && (
+          <Notice tone="warning">다른 지원자가 먼저 수락되었습니다. 목록을 새로 고친 뒤 남은 지원만 확인하세요.</Notice>
+        )}
+        {postActionsNotice === 'pending' && (
+          <Notice tone="warning">선정은 완료되었으며 후속 처리를 진행 중입니다. 잠시 후 목록을 새로 고쳐 확인해 주세요.</Notice>
+        )}
+        {agreementProjectId && (
+          <Notice tone="info">
+            선정이 완료되었습니다. 프리랜서와 금액을 합의한 뒤 계약을 진행해 주세요.
+            <div className="btn-row" style={{ marginTop: 12 }}>
+              <Link className="btn btn--primary" to={CONTRACT_ROUTES.agreement(agreementProjectId)}>
+                금액 합의 시작
+              </Link>
+            </div>
+          </Notice>
+        )}
+        {postActionsNotice === 'failed' && (
+          <Notice tone="danger">
+            선정은 완료됐지만 나머지 지원 거절·알림 처리 중 문제가 발생했습니다. 새로고침 후에도 남아 있으면 팀장에게 알려 주세요.
+          </Notice>
+        )}
+        {errorMessage && <Notice tone="danger">{errorMessage}</Notice>}
+
+        {data.length === 0 ? (
+          <EmptyState
+            title="아직 지원자가 없습니다"
+            body="모집이 열려 있으면 프리랜서가 지원할 수 있습니다."
+          />
+        ) : (
+          <>
+            <p className="status-copy">
+              <strong>지원자 목록</strong>에서 한 명을 고르면 나머지는 자동으로 거절됩니다. 수락은 되돌릴 수
+              없습니다.
+            </p>
+            {pending.map((item) => (
+              <dl className="facts" key={item.applicationId}>
+                <dt>지원자</dt>
+                <dd>
+                  {item.freelancerName ?? '지원자'} · {item.expectedAmount?.toLocaleString('ko-KR')}원 ·{' '}
+                  {item.expectedDurationDays}일
+                </dd>
+                <dt>자기소개</dt>
+                <dd>{item.coverLetter}</dd>
+                <div className="btn-row">
+                  <Button
+                    variant="primary"
+                    loading={pendingId === item.applicationId}
+                    onClick={() => setConfirmTarget(item)}
+                  >
+                    수락
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    loading={pendingId === item.applicationId}
+                    onClick={() => setRejectTarget(item)}
+                  >
+                    거절
+                  </Button>
+                </div>
+              </dl>
+            ))}
+            {decided.length > 0 && (
+              <>
+                <h3 className="title" style={{ marginTop: 16 }}>
+                  처리된 지원
+                </h3>
+                {decided.map((item) => (
+                  <dl className="facts" key={item.applicationId}>
+                    <dt>지원자</dt>
+                    <dd>
+                      {item.freelancerName ?? '지원자'} · {STATUS_LABEL[item.status]}
+                    </dd>
+                    {item.status === 'ACCEPTED' && (
+                      <div className="btn-row">
+                        <Link className="btn btn--primary" to={CONTRACT_ROUTES.agreement(projectId)}>
+                          금액 합의 {agreementProjectId === projectId ? '계속하기' : '시작'}
+                        </Link>
+                      </div>
+                    )}
+                  </dl>
+                ))}
+              </>
+            )}
+          </>
+        )}
+      </article>
+
+      {confirmTarget && (
+        <AcceptConfirmDialog
+          target={confirmTarget}
+          submitting={pendingId === confirmTarget.applicationId}
+          onCancel={() => setConfirmTarget(null)}
+          onConfirm={() => void handleAcceptConfirmed()}
+        />
+      )}
+      {rejectTarget && (
+        <RejectConfirmDialog
+          submitting={pendingId === rejectTarget.applicationId}
+          onCancel={() => setRejectTarget(null)}
+          onConfirm={() => void handleRejectConfirmed()}
+        />
+      )}
+    </PageBody>
+  );
+}
+
+function AcceptConfirmDialog({
+  target,
+  submitting,
+  onCancel,
+  onConfirm,
+}: {
+  target: ApplicationItem;
+  submitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onCancel();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  return (
+    <div
+      className={`overlay-backdrop${visible ? ' open' : ''}`}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="accept-title">
+        <h2 className="title" id="accept-title">
+          이 지원자를 수락할까요?
+        </h2>
+        <p className="status-copy">
+          {target.freelancerName ?? '이 지원자'}를 수락하면 나머지 지원은 거절되고{' '}
+          <strong>되돌릴 수 없습니다</strong>.
+        </p>
+        <div className="btn-row">
+          <Button variant="quiet" onClick={onCancel} disabled={submitting}>
+            취소
+          </Button>
+          <Button variant="primary" onClick={onConfirm} loading={submitting}>
+            수락 확인
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 거절 확인 — 2026-09-09 팀장 반영(이식 지시서 §2-2). `AcceptConfirmDialog`와 같은 패턴을
+ * 그대로 쓴다. 마크업·문구는 `prototype/web/ApplicationPanel.tsx:467~488`을 옮겼다.
+ */
+function RejectConfirmDialog({
+  submitting,
+  onCancel,
+  onConfirm,
+}: {
+  submitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onCancel();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  return (
+    <div
+      className={`overlay-backdrop${visible ? ' open' : ''}`}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="reject-title">
+        <h2 className="title" id="reject-title">
+          이 지원을 거절할까요?
+        </h2>
+        <p className="status-copy">거절 후에는 되돌릴 수 없습니다. 자유 사유는 받지 않습니다.</p>
+        <div className="btn-row">
+          <Button variant="quiet" onClick={onCancel} disabled={submitting}>
+            그만두기
+          </Button>
+          <Button variant="primary" onClick={onConfirm} loading={submitting}>
+            거절 확인
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

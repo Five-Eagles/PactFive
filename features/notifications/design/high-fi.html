@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>알림 · PactFive — High-fi</title>
+<style>
+:root{--canvas:#FBFAF7;--surface:#FFFFFF;--subtle:#F7F8FA;--selected:#E7F5F4;--content:#0B132B;--secondary:#55627A;--border:#CBD3DF;--border-subtle:#E9EDF3;--interactive:#7A8498;--action:#006D70;--action-hover:#00585C;--danger:#B93824;--danger-surface:#FDEEEA;--focus:#008A8D;--radius:12px;--fast:100ms;--normal:160ms}
+*{box-sizing:border-box}body{margin:0;color:var(--content);background:var(--canvas);font:16px/1.5 'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}button,a,select{-webkit-tap-highlight-color:transparent}button,select{font:inherit}button,a{touch-action:manipulation}a{color:var(--action)}button:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid var(--focus);outline-offset:3px}button{cursor:pointer}button:disabled{cursor:default;opacity:.55}button,a{transition:background var(--fast),color var(--fast)}
+.demo{padding:12px 24px;background:var(--subtle);border-bottom:1px solid var(--border);font-size:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}.demo select{min-height:44px;padding:0 12px;border:1px solid var(--interactive);border-radius:8px;background:var(--surface)}.demo small{color:var(--secondary)}
+.header{height:72px;background:var(--surface);border-bottom:1px solid var(--border-subtle)}.header-inner{max-width:1200px;height:100%;margin:auto;padding:0 32px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{font-size:24px;font-weight:800;letter-spacing:-.6px;color:var(--content);text-decoration:none}.brand em{font-style:normal;color:var(--action)}.bell{min-height:44px;display:inline-flex;align-items:center;gap:8px;padding:8px 12px;color:var(--action);border:1px solid var(--border);border-radius:8px;text-decoration:none}.badge{background:var(--action);color:var(--surface);border-radius:999px;min-width:24px;text-align:center;font-size:12px;font-weight:700;padding:2px 6px;font-variant-numeric:tabular-nums}
+.page{max-width:1200px;margin:0 auto;padding:40px 32px 64px}.crumb{font-size:14px;color:var(--secondary);margin:0 0 12px}.heading{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:32px}h1{font-size:32px;line-height:40px;letter-spacing:-.6px;margin:0 0 8px}.intro{margin:0;color:var(--secondary)}.layout{display:grid;grid-template-columns:216px minmax(0,1fr);gap:24px;align-items:start}.sidebar{padding:24px 20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}.sidebar h2{font-size:14px;margin:0 0 12px}.stat{font-size:40px;line-height:48px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.6px;margin:0 0 16px}.stat span{font-size:16px;font-weight:400;margin-left:4px}.sidebar p:last-child{border-top:1px solid var(--border-subtle);padding-top:16px;margin:0;font-size:14px;color:var(--secondary)}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}.filters,.actions{display:flex;gap:8px;flex-wrap:wrap}.button{min-height:44px;padding:10px 16px;border:1px solid var(--border);background:var(--surface);color:var(--content);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;font-size:14px;font-weight:600}.button:hover:not(:disabled){background:var(--subtle)}.button[aria-pressed=true]{background:var(--selected);border-color:var(--action);color:var(--action)}.button.primary{background:var(--action);color:var(--surface);border-color:var(--action)}.button.primary:hover:not(:disabled){background:var(--action-hover)}.helper{font-size:14px;color:var(--secondary);margin:8px 0 16px}.feed{padding:0;margin:0;list-style:none;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface)}.row{padding:24px;display:grid;grid-template-columns:40px minmax(0,1fr);gap:16px;border-top:1px solid var(--border-subtle)}.row:first-child{border-top:0}.symbol{width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--border);border-radius:8px;color:var(--secondary);font-size:20px}.unread .symbol{color:var(--action);background:var(--selected);border-color:var(--selected)}.row-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--secondary);margin-bottom:8px}.unread-label{color:var(--action);font-weight:600;display:inline-flex;align-items:center;gap:6px}.unread-label:before{content:'';width:6px;height:6px;background:currentColor;border-radius:50%}.row h2{font-size:18px;line-height:28px;margin:0 0 4px;letter-spacing:-.2px;font-weight:500}.row.unread h2{font-weight:700}.row p{color:var(--secondary);margin:0 0 12px;overflow-wrap:anywhere}.row time{font-size:12px;font-variant-numeric:tabular-nums}.row-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.text-link{min-height:44px;display:inline-flex;align-items:center;gap:8px;text-underline-offset:4px;font-size:14px;font-weight:600}.read-state{font-size:14px;color:var(--secondary)}.status{padding:40px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);text-align:center}.status h2{font-size:20px;margin:0 0 8px}.status p{color:var(--secondary);margin:0 0 16px}.message{min-height:24px;margin:0 0 12px;font-size:14px;color:var(--action)}.manifest{max-width:1136px;margin:0 auto 32px;padding:20px;font-size:14px;border-top:1px solid var(--border)}.manifest summary{cursor:pointer}.feed.enter .row:nth-child(-n+8){animation:arrive var(--normal) cubic-bezier(0,0,0,1) both;animation-delay:calc(var(--order,0)*40ms)}@keyframes arrive{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(max-width:767px){.header-inner{padding:0 16px}.page{padding:24px 16px 40px}.heading{margin-bottom:24px}.layout{grid-template-columns:1fr;gap:20px}.sidebar{display:grid;grid-template-columns:1fr auto;gap:8px 16px;padding:16px}.sidebar h2{align-self:center;margin:0}.stat{font-size:24px;line-height:32px;margin:0}.sidebar p:last-child{grid-column:1/-1;padding-top:12px}.row{padding:20px 16px;grid-template-columns:1fr;gap:8px}.symbol{display:none}.row-footer{align-items:flex-start;flex-direction:column;gap:4px}.actions{width:100%}.actions .button{flex:1}.demo{padding:12px 16px}.bell{font-size:14px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="demo"><strong>화면 시연 · 가상 알림</strong><label for="scenario">상태</label><select id="scenario"><option value="ready">의뢰인 · 알림 3건</option><option value="empty">알림 없음</option><option value="loading">불러오는 중</option><option value="error">불러오기 실패</option><option value="session">세션 만료</option></select><small>실제 계정과 연결되지 않은 인터랙티브 시안입니다.</small></div>
+<header class="header"><div class="header-inner"><a class="brand" href="/">Pact<em>Five</em></a><span style="font-size:14px;color:var(--secondary)">프로토타입 · 알림 센터</span></div></header>
+<main class="page"><p class="crumb">내 활동 / 알림</p><div class="heading"><div><h1 id="notification-heading">알림</h1><p class="intro">프로젝트의 새로운 소식을 확인하세요.</p></div><a class="bell" href="#notification-heading" aria-label="알림, 안 읽은 알림 3개"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4M12 2V1"/></svg><span class="badge" id="bell-count">3</span></a></div><div class="layout"><aside class="sidebar" aria-label="알림 요약"><h2>전체 안 읽은 알림</h2><p class="stat"><b id="unread-count">3</b><span>개</span></p><p>읽음 처리한 알림도 목록에 남아 있어요.</p></aside><section aria-label="알림 목록"><div class="toolbar"><div class="filters" role="group" aria-label="알림 필터"><button class="button" id="all" aria-pressed="true" type="button">전체</button><button class="button" id="unread" aria-pressed="false" type="button">안 읽음</button></div><div class="actions"><button class="button" id="refresh" type="button">새로고침</button><button class="button primary" id="read-all" type="button">모두 읽음</button></div></div><p class="helper">최근 100건을 보여드려요. 안 읽음 수는 전체 알림 기준입니다.</p><p class="message" id="message" role="status" aria-live="polite"></p><ul class="feed enter" id="feed"></ul><p class="helper">전체 읽음은 목록 밖의 안 읽은 알림까지 포함합니다.</p></section></div></main>
+<details class="manifest"><summary>필수 요소 목록</summary><ul><li>알림</li><li>프로젝트의 새로운 소식을 확인하세요.</li><li>전체 안 읽은 알림</li><li>전체</li><li>안 읽음</li><li>새로고침</li><li>모두 읽음</li><li>최근 100건을 보여드려요. 안 읽음 수는 전체 알림 기준입니다.</li><li>전체 읽음은 목록 밖의 안 읽은 알림까지 포함합니다.</li></ul></details>
+<script id="required-elements" type="application/json">["알림","프로젝트의 새로운 소식을 확인하세요.","전체 안 읽은 알림","전체","안 읽음","새로고침","모두 읽음","최근 100건을 보여드려요. 안 읽음 수는 전체 알림 기준입니다.","전체 읽음은 목록 밖의 안 읽은 알림까지 포함합니다."]</script>
+<script>
+const seeds=[
+ ['지원','새로운 지원이 도착했습니다','브랜드 웹사이트 프로젝트의 지원 내용을 확인해 주세요.','2026. 09. 07. 12:40','prj_brand','2026-09-07T03:40:00.000Z'],
+ ['지원','새로운 지원이 도착했습니다','모바일 서비스 프로젝트의 지원 내용을 확인해 주세요.','2026. 09. 07. 10:15','prj_mobile','2026-09-07T01:15:00.000Z'],
+ ['지원','새로운 지원이 도착했습니다','쇼핑몰 리뉴얼 프로젝트의 지원 내용을 확인해 주세요.','2026. 09. 06. 17:30','prj_shop','2026-09-06T08:30:00.000Z']
+];
+let rows=seeds.map((row,index)=>({row,index,read:false})),filter='all';
+const $=id=>document.getElementById(id);
+function bellIcon(){
+ const wrapper=document.createElement('span');
+ wrapper.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4M12 2V1"/></svg>';
+ return wrapper.firstChild;
+}
+function draw(){
+ const scenario=$('scenario').value,isReady=scenario==='ready',known=isReady||scenario==='empty';
+ const count=isReady?rows.filter(row=>!row.read).length:0;
+ $('unread-count').textContent=known?count:'—';
+ $('bell-count').textContent=known?count:'—';
+ document.querySelector('.bell').setAttribute('aria-label',known?'알림, 안 읽은 알림 '+count+'개':'알림, 안 읽은 알림 수 확인 필요');
+ $('read-all').disabled=!isReady||!count;
+ $('refresh').disabled=scenario==='loading'||scenario==='session';
+ $('feed').replaceChildren();
+ $('all').setAttribute('aria-pressed',filter==='all');
+ $('unread').setAttribute('aria-pressed',filter==='unread');
+ if(!isReady){
+  const titles={empty:'아직 도착한 알림이 없어요',loading:'알림을 불러오고 있습니다.',error:'알림을 불러오지 못했습니다',session:'다시 로그인해 주세요'};
+  const panel=document.createElement('li');panel.className='status';
+  const title=document.createElement('h2');title.textContent=titles[scenario];panel.append(title);
+  const description=document.createElement('p');
+  description.textContent=scenario==='session'?'로그인 상태를 확인할 수 없어 알림을 숨겼습니다.':scenario==='empty'?'프로젝트의 새로운 소식이 생기면 이곳에 알려드릴게요.':scenario==='error'?'연결을 확인한 뒤 다시 시도해 주세요.':'잠시만 기다려 주세요.';
+  panel.append(description);
+  if(scenario==='error'){
+   const button=document.createElement('button');button.className='button';button.textContent='다시 시도';
+   button.onclick=()=>{$('scenario').value='ready';draw();$('refresh').focus()};panel.append(button);
+  }
+  if(scenario==='session'){
+   const link=document.createElement('a');link.className='button primary';link.href='/login?returnTo=%2Fnotifications';link.textContent='로그인';panel.append(link);
+  }
+  $('feed').append(panel);return;
+ }
+ const visible=rows.filter(row=>filter==='all'||!row.read);
+ if(!visible.length){
+  const panel=document.createElement('li');panel.className='status';panel.textContent='최근 100건에 안 읽은 알림이 없어요';$('feed').append(panel);
+ }
+ visible.forEach(({row,index,read},order)=>{
+  const entry=document.createElement('li');entry.className='row'+(!read?' unread':'');entry.style.setProperty('--order',order);
+  const symbol=document.createElement('span');symbol.className='symbol';symbol.setAttribute('aria-hidden','true');symbol.append(bellIcon());entry.append(symbol);
+  const content=document.createElement('div'),meta=document.createElement('div');meta.className='row-top';
+  const kind=document.createElement('span');kind.textContent=row[0];
+  const state=document.createElement('span');state.className=read?'read-state':'unread-label';state.textContent=read?'읽음':'안 읽음';meta.append(kind,state);
+  const title=document.createElement('h2');title.textContent=row[1];
+  const body=document.createElement('p');body.textContent=row[2];
+  const footer=document.createElement('div');footer.className='row-footer';
+  const when=document.createElement('time');when.dateTime=row[5];when.textContent=row[3]+' (한국 시간)';
+  const actions=document.createElement('div');actions.className='row-actions';
+  const button=document.createElement('button');button.type='button';button.className='button';button.textContent=read?'읽음':'읽음 처리';button.disabled=read;
+  button.onclick=()=>{
+   rows[index].read=true;$('message').textContent='알림을 읽음 처리했습니다.';$('feed').classList.remove('enter');draw();
+   (filter==='all'?$('project-link-'+index):$('unread'))?.focus();
+  };
+  actions.append(button);
+  const link=document.createElement('a');link.id='project-link-'+index;link.href='/projects/'+row[4];link.className='text-link';link.textContent='프로젝트 보기 →';actions.append(link);
+  footer.append(when,actions);content.append(meta,title,body,footer);entry.append(content);$('feed').append(entry);
+ });
+}
+$('all').onclick=()=>{filter='all';$('feed').classList.remove('enter');draw()};
+$('unread').onclick=()=>{filter='unread';$('feed').classList.remove('enter');draw()};
+$('read-all').onclick=()=>{rows.forEach(row=>row.read=true);$('message').textContent='모든 알림을 읽음 처리했습니다.';$('feed').classList.remove('enter');draw();$('unread').focus()};
+$('refresh').onclick=()=>{$('scenario').value='ready';$('message').textContent='알림 목록을 새로고침했습니다.';$('feed').classList.remove('enter');draw()};
+$('scenario').onchange=()=>{$('message').textContent='';draw()};
+draw();
+</script>
+</body>
+</html>

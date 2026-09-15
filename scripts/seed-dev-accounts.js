@@ -1,0 +1,718 @@
+#!/usr/bin/env node
+'use strict';
+
+/**
+ * scripts/seed-dev-accounts.js
+ *
+ * npm run dev에서 mock 인증(N)을 끄고 실제 Supabase 인증으로 띄웠을 때, 각 기능 담당자가
+ * 자기 화면을 바로 테스트할 수 있도록 "기능별로 적절한 상태를 이미 갖춘" 계정 8개를
+ * 만든다. app/web의 DevAuthToggle이 이 결과(.dev-accounts.local.json)를 읽어 화면에서
+ * 계정을 골라 로그인할 수 있게 해준다.
+ *
+ * scripts/seed-contractable-project.js와 같은 원칙 — DB에 값을 직접 꽂지 않는다. 전부 실제
+ * 로 떠 있는 서버의 API를 순서대로 호출한다. 다른 점은 이메일이 매번 랜덤이 아니라
+ * 고정이라는 것 — 재실행해도 계정이 늘어나지 않고, 이미 만든 상태를 그대로 재사용한다
+ * (idempotent). 이미 있는 계정·프로젝트·지원·계약을 발견하면 새로 만들지 않고 건너뛴다.
+ *
+ * 실행 전제는 scripts/seed-contractable-project.md와 같다(AUTH_PROVIDER_MODE=supabase로
+ * 서버가 떠 있어야 함, .env에 SUPABASE_*·DATABASE_URL·WEB_ORIGIN 필요). 자세한 설명은
+ * scripts/seed-dev-accounts.md 참고.
+ *
+ * 실행: npm run seed:dev-accounts
+ */
+
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+
+const REPO_ROOT = path.resolve(__dirname, '..');
+const OUTPUT_FILE_PATH = path.join(REPO_ROOT, '.dev-accounts.local.json');
+
+function loadRootEnv() {
+  const envPath = path.join(REPO_ROOT, '.env');
+  if (!fs.existsSync(envPath)) return;
+  const content = fs.readFileSync(envPath, 'utf8');
+  for (const rawLine of content.split('\n')) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq < 0) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+}
+
+loadRootEnv();
+
+const SERVER_BASE_URL = process.env.SERVER_BASE_URL ?? 'http://localhost:3000';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const WEB_ORIGIN = (process.env.WEB_ORIGIN ?? '').split(',').map((s) => s.trim()).filter(Boolean)[0];
+// 2026-09-09 추가 — "마감 처리" 시나리오(아래 ensureRecruitmentClosed)에만 쓴다. 없으면
+// 그 시나리오 하나만 건너뛰고 나머지 8개 계정은 그대로 만든다(다른 필수 env처럼
+// requireEnv로 죽이지 않는다 — 이건 선택 기능이다, CR-0001 §4 운영 게이트와 같은 값).
+const INTERNAL_SERVICE_TOKEN = process.env.INTERNAL_SERVICE_TOKEN;
+// 2026-09-10 추가 — 원래 @example.com을 썼는데, Supabase Auth가 signUp 단계에서
+// "Email address ... is invalid" (code: email_address_invalid, status 400)로 거부한다.
+// RFC 2606이 example.com/net/org를 "절대 실제로 쓰이면 안 되는 예약 도메인"으로 정해 둔
+// 값이라, Supabase가 이 도메인들을 자체적으로 차단하는 것으로 보인다(공식 문서에 명시된
+// 동작은 아니고, 실제 이 프로젝트에서 재현된 증상 기준). env로 바꿀 수 있게 해서, 이 값도
+// 막히면 코드를 다시 고치지 않고 .env의 SEED_EMAIL_DOMAIN만 바꾸면 되게 했다.
+const SEED_EMAIL_DOMAIN = process.env.SEED_EMAIL_DOMAIN ?? 'pactfive-dev-seed.com';
+
+function requireEnv(name, value) {
+  if (!value) {
+    console.error(`[seed] .env에 ${name}이(가) 없습니다. 리포 루트 .env를 확인해 주세요.`);
+    process.exit(1);
+  }
+}
+requireEnv('SUPABASE_URL', SUPABASE_URL);
+requireEnv('SUPABASE_SERVICE_ROLE_KEY', SUPABASE_SERVICE_ROLE_KEY);
+requireEnv('WEB_ORIGIN', WEB_ORIGIN);
+// 2026-09-10 추가 — 계정 부트스트랩이 scripts/lib/bootstrap-seed-user.ts(Prisma 직접
+// INSERT)를 거치면서 DATABASE_URL도 필수가 됐다. 없으면 tsx 하위 프로세스 안에서 애매한
+// 에러로 죽는 대신 여기서 먼저 명확하게 막는다.
+requireEnv('DATABASE_URL', process.env.DATABASE_URL);
+
+// 전부 가짜 계정(SEED_EMAIL_DOMAIN)이라 고정 비밀번호를 코드에 둬도 안전하다(auth.mock.ts의
+// 고정 mock 토큰과 같은 성격). 결과 파일(.dev-accounts.local.json)은 .gitignore에 있다.
+const SEED_PASSWORD = 'PactFiveSeedDev!1';
+
+// 2026-09-10 — 계정 부트스트랩을 scripts/lib/bootstrap-seed-user.ts(Supabase Admin API +
+// Prisma 직접 INSERT)로 옮기면서 이 파일에서 Supabase Admin 클라이언트를 직접 쓸 일이
+// 없어졌다(아래 bootstrapAccountViaAdminApi 참고). loadSupabaseAdminClient는 그래서 제거했다.
+
+async function api(pathname, { method = 'GET', body, accessToken, origin, idempotencyKey } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (origin) headers.Origin = origin;
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+  const url = `${SERVER_BASE_URL}${pathname}`;
+
+  let res;
+  try {
+    res = await fetch(url, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (error) {
+    // fetch()가 던지는 TypeError('fetch failed')는 메시지 자체가 원인을 안 알려준다 —
+    // 실제 이유(ECONNREFUSED 등)는 error.cause에 있는데 그냥 두면 위쪽 main().catch에서
+    // error.message만 찍혀 "fetch failed"만 보이고 끝난다. 여기서 원인을 붙여 던진다.
+    const cause = error.cause ? ` — 원인: ${error.cause.code ?? error.cause.message ?? error.cause}` : '';
+    throw new Error(
+      `${url} 요청 자체가 실패했습니다${cause}\n` +
+        `[seed] 서버가 ${SERVER_BASE_URL}에서 떠 있는지 확인하세요 — ` +
+        `npm run dev를 AUTH_PROVIDER_MODE=supabase(mock 아님)로 실행했는지, ` +
+        `SERVER_BASE_URL을 커스텀했다면 포트가 맞는지 확인하세요.`,
+    );
+  }
+
+  let json = null;
+  try {
+    json = await res.json();
+  } catch {
+    // 본문 없는 응답
+  }
+  return { status: res.status, body: json };
+}
+
+// ---------------------------------------------------------------------------
+// 계정 명세 — 기능별로 필요한 "이미 갖춰진 상태"를 여기서 결정한다. 새 페르소나가
+// 필요해지면 이 배열에 추가하고 아래 조립 순서에 연결한다.
+// ---------------------------------------------------------------------------
+const ACCOUNTS = [
+  {
+    key: 'client-fresh',
+    role: 'CLIENT',
+    email: `seed.client.fresh@${SEED_EMAIL_DOMAIN}`,
+    label: '의뢰인 · 신규',
+    feature: 'user-management / ai-pricing',
+    description: '프로젝트가 아직 없는 갓 가입한 의뢰인. 프로필 화면, AI 견적(프로젝트 등록 전) 테스트용.',
+  },
+  {
+    key: 'freelancer-fresh',
+    role: 'FREELANCER',
+    email: `seed.freelancer.fresh@${SEED_EMAIL_DOMAIN}`,
+    label: '프리랜서 · 신규',
+    feature: 'user-management / engagement',
+    description: '지원·북마크가 없는 갓 가입한 프리랜서. 프로필, 프로젝트 탐색·북마크 토글 테스트용.',
+  },
+  {
+    key: 'client-recruiting',
+    role: 'CLIENT',
+    email: `seed.client.recruiting@${SEED_EMAIL_DOMAIN}`,
+    label: '의뢰인 · 모집 중 프로젝트',
+    feature: 'project-management',
+    description:
+      '모집 중(RECRUITING) 프로젝트 1개 보유. 프로젝트 수정·마감·재모집·취소, 그리고 지원 수락/거절(freelancer-applicant가 이미 지원해 둠) 테스트용.',
+  },
+  {
+    key: 'freelancer-applicant',
+    role: 'FREELANCER',
+    email: `seed.freelancer.applicant@${SEED_EMAIL_DOMAIN}`,
+    label: '프리랜서 · 지원(PENDING) 상태',
+    feature: 'applications',
+    description: 'client-recruiting의 프로젝트에 지원서(PENDING)를 낸 상태. 내 지원 목록/상세 화면 테스트용.',
+  },
+  {
+    key: 'client-contract-pending',
+    role: 'CLIENT',
+    email: `seed.client.contract-pending@${SEED_EMAIL_DOMAIN}`,
+    label: '의뢰인 · 계약 대기(합의 전)',
+    feature: 'contracts-payments (합의)',
+    description: '지원 수락까지 끝나 CONTRACT_PENDING인 프로젝트의 의뢰인. 합의 제안 테스트용.',
+  },
+  {
+    key: 'freelancer-contract-pending',
+    role: 'FREELANCER',
+    email: `seed.freelancer.contract-pending@${SEED_EMAIL_DOMAIN}`,
+    label: '프리랜서 · 계약 대기(합의 전)',
+    feature: 'contracts-payments (합의)',
+    description: 'client-contract-pending과 짝. 합의 수락 테스트용.',
+  },
+  {
+    key: 'client-payment-ready',
+    role: 'CLIENT',
+    email: `seed.client.payment-ready@${SEED_EMAIL_DOMAIN}`,
+    label: '의뢰인 · 서명 완료·결제 준비',
+    feature: 'contracts-payments (결제~납품) / reviews',
+    description:
+      '합의·서명까지 끝나고 결제 준비(clientKey 발급)까지 된 상태. 결제 확정 이후(브라우저 필요)와 그 다음 정산까지는 문서(scripts/seed-dev-accounts.md) 안내를 따라 한 번 더 진행해야 reviews 테스트가 가능해진다.',
+  },
+  {
+    key: 'freelancer-payment-ready',
+    role: 'FREELANCER',
+    email: `seed.freelancer.payment-ready@${SEED_EMAIL_DOMAIN}`,
+    label: '프리랜서 · 서명 완료·결제 준비',
+    feature: 'contracts-payments (결제~납품) / reviews',
+    description: 'client-payment-ready와 짝.',
+  },
+  {
+    key: 'client-recruitment-closed',
+    role: 'CLIENT',
+    email: `seed.client.closed@${SEED_EMAIL_DOMAIN}`,
+    label: '의뢰인 · 마감 처리 완료(CLOSED)',
+    feature: 'project-management / applications',
+    description:
+      '등록 직후 마감되도록 짧은 마감 시각으로 만든 뒤 /internal/v1/projects/sweep-deadlines를 직접 호출해 실제로 CLOSED까지 밀어붙인 프로젝트. 대기 중이던 지원자는 자동거절(AUTO_REJECTED)된다 — "마감된 프로젝트" 화면, 지원자 자동거절 목록 테스트용. INTERNAL_SERVICE_TOKEN이 .env에 없으면 이 계정 쌍은 건너뛴다.',
+  },
+  {
+    key: 'freelancer-auto-rejected',
+    role: 'FREELANCER',
+    email: `seed.freelancer.auto-rejected@${SEED_EMAIL_DOMAIN}`,
+    label: '프리랜서 · 마감으로 자동거절(AUTO_REJECTED)',
+    feature: 'applications',
+    description: 'client-recruitment-closed의 프로젝트에 PENDING으로 지원한 뒤 마감 스윕으로 자동거절된 상태. 내 지원 목록에서 AUTO_REJECTED 사유 표시 테스트용.',
+  },
+];
+
+const MARKER = {
+  recruiting: '[시드:project-management] 모집 중 테스트 프로젝트',
+  contractPending: '[시드:contracts-payments] 계약대기 테스트 프로젝트',
+  paymentReady: '[시드:contracts-payments] 결제준비 테스트 프로젝트',
+  closed: '[시드:project-management] 마감 처리 테스트 프로젝트',
+};
+
+// 2026-09-10 — 계정 생성을 더는 POST /api/v1/auth/registrations(공개 signUp)로 하지 않는다.
+// Confirm Email이 켜져 있으면 그 호출마다 Supabase가 실제 확인 이메일을 "보내려고 시도"해서
+// 시간당 2통 제한에 걸리고, 꺼져 있으면 서버 코드(auth.service.ts)가 signUp의 즉시-세션
+// 응답을 설정 오류로 보고 무조건 503으로 막는다 — 어느 쪽이든 10개 계정을 한 번에 만들 수
+// 없었다(2026-09-10 논의). scripts/lib/bootstrap-seed-user.ts가 Supabase Admin API
+// (`auth.admin.createUser`, signUp과 별개 경로라 이메일을 아예 안 보낸다) + 로컬 users
+// 테이블 직접 INSERT로 이 병목을 우회한다 — 자세한 이유는 그 파일 헤더 주석 참고.
+// node_modules/.bin/tsx(확장자 없음)는 POSIX shebang 스크립트라 Windows에서
+// execFileSync로 직접 실행하면 ENOENT가 난다(2026-09-10, 실제 Windows 실행에서 재현) —
+// cmd.exe는 shebang을 모른다. .bin/tsx.cmd를 쓰는 대신, tsx 패키지의 실제 CLI
+// 엔트리(node_modules/tsx/dist/cli.mjs)를 `node`로 직접 실행한다 — OS 불문하고
+// `node <cli.mjs> <스크립트> <인자>`는 셸 shim을 거치지 않으므로 동일하게 동작한다.
+const TSX_CLI_PATH = path.join(REPO_ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+const BOOTSTRAP_HELPER_PATH = path.join(__dirname, 'lib', 'bootstrap-seed-user.ts');
+
+function bootstrapAccountViaAdminApi(persona) {
+  const { execFileSync } = require('node:child_process');
+  const payload = JSON.stringify({
+    email: persona.email,
+    password: SEED_PASSWORD,
+    name: persona.label,
+    role: persona.role,
+  });
+  let stdout;
+  try {
+    stdout = execFileSync(process.execPath, [TSX_CLI_PATH, BOOTSTRAP_HELPER_PATH, payload], {
+      cwd: REPO_ROOT,
+      env: process.env,
+      encoding: 'utf8',
+    });
+  } catch (error) {
+    const stderrText = (error.stderr ?? '').toString().trim();
+    let reason = stderrText || error.message;
+    try {
+      reason = JSON.parse(stderrText).error ?? reason;
+    } catch {
+      // stderr가 JSON이 아니면(예: tsx 자체 크래시) 원문 그대로 둔다.
+    }
+    throw new Error(`[${persona.key}] Supabase/DB 계정 부트스트랩 실패: ${reason}`);
+  }
+  const lastLine = stdout.trim().split('\n').pop();
+  return JSON.parse(lastLine);
+}
+
+// 2026-09-10 추가 — ensureRecruitmentClosed 전용. scripts/lib/backdate-project-deadline.ts
+// 헤더 주석 참고: project.service.ts의 DEADLINE_BELOW_MINIMUM(마감은 최소 1일 뒤)은 실제
+// 비즈니스 규칙이라 생성 시점엔 지킨다 — 그 다음 이 함수로 DB의 recruitmentDeadlineAt만
+// 직접 과거로 되돌려서, 마감 스윕을 실제로 며칠씩 기다리지 않고 바로 테스트할 수 있게 한다.
+const BACKDATE_HELPER_PATH = path.join(__dirname, 'lib', 'backdate-project-deadline.ts');
+
+function backdateProjectDeadline(projectId) {
+  const { execFileSync } = require('node:child_process');
+  const payload = JSON.stringify({ projectId });
+  let stdout;
+  try {
+    stdout = execFileSync(process.execPath, [TSX_CLI_PATH, BACKDATE_HELPER_PATH, payload], {
+      cwd: REPO_ROOT,
+      env: process.env,
+      encoding: 'utf8',
+    });
+  } catch (error) {
+    const stderrText = (error.stderr ?? '').toString().trim();
+    let reason = stderrText || error.message;
+    try {
+      reason = JSON.parse(stderrText).error ?? reason;
+    } catch {
+      // stderr가 JSON이 아니면 원문 그대로 둔다.
+    }
+    throw new Error(`마감 시각 되돌리기 실패(projectId=${projectId}): ${reason}`);
+  }
+  const lastLine = stdout.trim().split('\n').pop();
+  return JSON.parse(lastLine);
+}
+
+async function ensureAccount(persona) {
+  const { email } = persona;
+
+  // 빠른 경로 — 이미 완전히 준비된 계정이면 로그인 한 번으로 끝난다(재실행 시 매번
+  // Supabase Admin API·Prisma를 부르지 않아도 되게).
+  const quickLogin = await api('/api/v1/auth/sessions', {
+    method: 'POST',
+    origin: WEB_ORIGIN,
+    body: { email, password: SEED_PASSWORD },
+  });
+  if (quickLogin.status === 200) {
+    console.log(`[seed] ${persona.key}: 기존 계정 재사용`);
+    return { ...persona, userId: quickLogin.body.user.userId, accessToken: quickLogin.body.accessToken, password: SEED_PASSWORD };
+  }
+
+  console.log(`[seed] ${persona.key}: Supabase Auth + 로컬 DB 계정 부트스트랩 중 (${email})`);
+  const bootstrap = bootstrapAccountViaAdminApi(persona);
+  console.log(
+    `[seed] ${persona.key}: ${bootstrap.created ? '신규 생성' : '기존 계정 연결'} 완료 (authUserId=${bootstrap.authUserId})`,
+  );
+
+  // 부트스트랩 단계는 이메일을 보내지 않지만, 로그인 자체도 보내지 않는다 — 여기서 다시
+  // POST /api/v1/auth/sessions를 쓰는 건 rate limit과 무관하다. 로컬에 users 행이 이미
+  // 있으므로 auth.service.ts의 login()이 registrationIntent 없이 바로 세션을 만들어 준다.
+  const loginRes = await api('/api/v1/auth/sessions', {
+    method: 'POST',
+    origin: WEB_ORIGIN,
+    body: { email, password: SEED_PASSWORD },
+  });
+  if (loginRes.status !== 200) {
+    throw new Error(`[${persona.key}] 부트스트랩 후에도 로그인 실패 (status ${loginRes.status}): ${JSON.stringify(loginRes.body)}`);
+  }
+  console.log(`[seed] ${persona.key}: 로그인 완료 (userId=${loginRes.body.user.userId})`);
+  return { ...persona, userId: loginRes.body.user.userId, accessToken: loginRes.body.accessToken, password: SEED_PASSWORD };
+}
+
+async function ensureProject(clientSession, markerTitle, { requireOpen = false } = {}) {
+  const mine = await api(`/api/v1/clients/${clientSession.userId}/projects`, {
+    accessToken: clientSession.accessToken,
+  });
+  if (mine.status !== 200) throw new Error(`프로젝트 목록 조회 실패: ${JSON.stringify(mine.body)}`);
+  const existing = mine.body.items.find((p) => p.title === markerTitle);
+  // 시드 계정 재생성·과거 스윕으로 마커 프로젝트가 CLOSED가 되면 모집/지원 QA가 깨진다.
+  // 잘못된 상태면 새 제목으로 OPEN 프로젝트를 만든다(옛 행은 DB에 남을 수 있음 — R-001 오염).
+  if (existing && !(requireOpen && existing.recruitmentStatus === 'CLOSED')) {
+    return existing;
+  }
+  if (existing && requireOpen && existing.recruitmentStatus === 'CLOSED') {
+    console.log(
+      `[seed] "${markerTitle}" 프로젝트가 CLOSED라 재사용하지 않습니다 — 새 OPEN 프로젝트를 만듭니다.`,
+    );
+  }
+
+  const title =
+    existing && requireOpen && existing.recruitmentStatus === 'CLOSED'
+      ? `${markerTitle} · ${new Date().toISOString().slice(0, 16)}`
+      : markerTitle;
+  const deadline = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const created = await api('/api/v1/projects', {
+    method: 'POST',
+    accessToken: clientSession.accessToken,
+    body: {
+      title,
+      description: '시드 스크립트(scripts/seed-dev-accounts.js)가 자동 생성한 테스트용 프로젝트입니다.',
+      category: 'WEB_DEVELOPMENT',
+      recruitmentStartAt: null,
+      recruitmentDeadlineAt: deadline,
+      budgetAmount: 3_000_000,
+      skillIds: ['REACT', 'NODEJS'],
+      pricingAnalysisId: null,
+    },
+  });
+  if (created.status !== 201) throw new Error(`프로젝트 생성 실패: ${JSON.stringify(created.body)}`);
+  return created.body;
+}
+
+async function ensureApplication(freelancerSession, projectId) {
+  const mine = await api('/api/v1/applications/me', { accessToken: freelancerSession.accessToken });
+  if (mine.status !== 200) throw new Error(`지원 목록 조회 실패: ${JSON.stringify(mine.body)}`);
+  const existing = (mine.body.items ?? []).find((a) => a.projectId === projectId);
+  if (existing) return existing;
+
+  const applied = await api(`/api/v1/projects/${projectId}/applications`, {
+    method: 'POST',
+    accessToken: freelancerSession.accessToken,
+    // A-04 — Idempotency-Key 필수. 시드 재실행마다 새 키를 쓴다(본문이 같아도 키만 바뀌면 201 가능).
+    idempotencyKey: `seed-apply-${projectId}-${freelancerSession.userId}`,
+    body: {
+      // 2026-09-10 수정 — .repeat(4)는 trim 후 95자로 COVER_LETTER_MIN(100, applications
+      // spec.md 규칙 1)에 5자 모자라 VALIDATION_ERROR가 났다. repeat(5)=약 119자로 여유를 둔다.
+      coverLetter: '시드 스크립트가 자동 생성한 지원서입니다. '.repeat(5),
+      expectedAmount: 3_000_000,
+      expectedDurationDays: 14,
+    },
+  });
+  if (applied.status !== 201 && applied.status !== 200) {
+    throw new Error(`지원 실패: ${JSON.stringify(applied.body)}`);
+  }
+  return applied.body;
+}
+
+/** 프로젝트를 CONTRACT_PENDING까지 밀어붙인다(이미 그 이상이면 그대로 둔다). */
+async function ensureContractPending(clientSession, freelancerSession, markerTitle) {
+  const project = await ensureProject(clientSession, markerTitle);
+  if (project.transactionStatus && project.transactionStatus !== 'NONE') {
+    return project; // 이미 CONTRACT_PENDING 이상 — 재사용.
+  }
+
+  const application = await ensureApplication(freelancerSession, project.projectId);
+  if (application.status === 'PENDING') {
+    const accept = await api(`/api/v1/applications/${application.applicationId}/accept`, {
+      method: 'POST',
+      accessToken: clientSession.accessToken,
+    });
+    if (accept.status !== 200) throw new Error(`지원 수락 실패: ${JSON.stringify(accept.body)}`);
+  }
+
+  const mine = await api(`/api/v1/clients/${clientSession.userId}/projects`, {
+    accessToken: clientSession.accessToken,
+  });
+  return (mine.body.items ?? []).find((p) => p.projectId === project.projectId) ?? project;
+}
+
+async function getCurrentNegotiation(session, projectId) {
+  const res = await api(`/api/v1/projects/${projectId}/negotiation-offers/current`, {
+    accessToken: session.accessToken,
+  });
+  if (res.status !== 200) throw new Error(`합의 현황 조회 실패: ${JSON.stringify(res.body)}`);
+  return res.body;
+}
+
+/**
+ * CONTRACT_PENDING → 합의 제안·수락 → 서명(양쪽) → 결제 준비(clientKey 발급)까지.
+ * 결제 확정(confirmPayment)은 실제 토스 결제위젯이 필요해 여기서 멈춘다(문서 참고).
+ */
+async function ensurePaymentReady(clientSession, freelancerSession, projectId) {
+  let current = await getCurrentNegotiation(clientSession, projectId);
+
+  if (!current.agreementId) {
+    const propose = await api(`/api/v1/projects/${projectId}/negotiation-offers`, {
+      method: 'POST',
+      accessToken: clientSession.accessToken,
+      body: { amount: 3_000_000 },
+    });
+    if (propose.status !== 200) throw new Error(`합의 제안 실패: ${JSON.stringify(propose.body)}`);
+    current = propose.body;
+  }
+
+  if (current.agreementStatus === 'PROPOSED' && current.offer?.offeredByUserId === clientSession.userId) {
+    const accept = await api(
+      `/api/v1/projects/${projectId}/negotiation-offers/${current.offer.offerId}/accept`,
+      {
+        method: 'POST',
+        accessToken: freelancerSession.accessToken,
+        body: { expectedRound: current.offer.round },
+      },
+    );
+    if (accept.status !== 200) throw new Error(`합의 수락 실패: ${JSON.stringify(accept.body)}`);
+    current = accept.body;
+  }
+
+  if (!current.contractId) {
+    throw new Error(
+      '계약이 아직 만들어지지 않았습니다 — 합의 상태가 REJECTED 등으로 어긋났을 수 있습니다. ' +
+        '이 계정으로 화면에서 직접 진행 상태를 바꾼 적이 있다면 문서의 "알려진 한계"를 참고하세요.',
+    );
+  }
+  const contractId = current.contractId;
+
+  let contract = await api(`/api/v1/contracts/${contractId}`, { accessToken: clientSession.accessToken });
+  if (contract.status !== 200) throw new Error(`계약 조회 실패: ${JSON.stringify(contract.body)}`);
+
+  if (contract.body.status !== 'SIGNED') {
+    if (!contract.body.clientSignedAt) {
+      const sign = await api(`/api/v1/contracts/${contractId}/sign`, {
+        method: 'POST',
+        accessToken: clientSession.accessToken,
+      });
+      if (sign.status !== 200) throw new Error(`의뢰인 서명 실패: ${JSON.stringify(sign.body)}`);
+    }
+    contract = await api(`/api/v1/contracts/${contractId}`, { accessToken: clientSession.accessToken });
+    if (contract.body.status !== 'SIGNED' && !contract.body.freelancerSignedAt) {
+      const sign = await api(`/api/v1/contracts/${contractId}/sign`, {
+        method: 'POST',
+        accessToken: freelancerSession.accessToken,
+      });
+      if (sign.status !== 200) throw new Error(`프리랜서 서명 실패: ${JSON.stringify(sign.body)}`);
+    }
+  }
+
+  const payment = await api('/api/v1/payments', {
+    method: 'POST',
+    accessToken: clientSession.accessToken,
+    body: { contractId },
+  });
+  if (payment.status !== 200) {
+    throw new Error(`결제 준비 실패 (status ${payment.status}): ${JSON.stringify(payment.body)}`);
+  }
+
+  return { contractId, ...payment.body };
+}
+
+/**
+ * 2026-09-09 추가, 2026-09-10 수정 — "마감 처리" 시나리오.
+ *
+ * project.service.ts의 실제 검증 두 가지를 등록 시점엔 그대로 지킨다(둘 다 비즈니스
+ * 규칙이지 버그가 아니다 — 값을 우회하지 않는다):
+ *   - DEADLINE_MUST_BE_FUTURE: `deadline <= now` 거부.
+ *   - DEADLINE_BELOW_MINIMUM: `deadline - now < 1일`이면 거부(2026-09-10, 이 시나리오가
+ *     처음으로 실제 Prisma 백엔드까지 도달하면서 처음 걸렸다 — scripts/lib/
+ *     backdate-project-deadline.ts 헤더 주석 참고).
+ *
+ * 그래서 등록은 "최소 1일 뒤"를 만족하는 정상 마감 시각으로 하고, 지원까지 받은 다음에만
+ * `scripts/lib/backdate-project-deadline.ts`로 DB의 recruitmentDeadlineAt만 직접
+ * 과거로 되돌린다(HTTP API가 아니라 Prisma 직접 UPDATE — API는 생성 시점에만 이 규칙을
+ * 검사하므로, 이미 만들어진 행의 값을 나중에 바꾸는 것 자체는 막지 않는다). 그러면
+ * `/internal/v1/projects/sweep-deadlines`(서비스 토큰 필요)를 실제로 며칠씩 기다리지
+ * 않고 바로 호출할 수 있다 — 스윕이 하는 일(CLOSED 전이, 지원 자동거절) 자체는 정상
+ * API 그대로 실행되므로 우회하지 않는다. 마감 처리는 멱등이라(deadline-sweep.service.ts
+ * 주석) 재실행해도 안전하다.
+ */
+async function ensureRecruitmentClosed(clientSession, freelancerSession, markerTitle) {
+  if (!INTERNAL_SERVICE_TOKEN) {
+    console.log(
+      '[seed] INTERNAL_SERVICE_TOKEN이 .env에 없어 "마감 처리(CLOSED)" 시나리오는 건너뜁니다 — ' +
+        '값을 채우고 다시 실행하면 이 계정 쌍도 만들어집니다.',
+    );
+    return null;
+  }
+
+  const mine = await api(`/api/v1/clients/${clientSession.userId}/projects`, {
+    accessToken: clientSession.accessToken,
+  });
+  if (mine.status !== 200) throw new Error(`프로젝트 목록 조회 실패: ${JSON.stringify(mine.body)}`);
+  let project = mine.body.items.find((p) => p.title === markerTitle);
+
+  if (project?.recruitmentStatus === 'CLOSED') {
+    // bump 배선 이전·실패로 applicationCount=0인 CLOSED를 재사용하면 스모크가 영구 FAIL한다.
+    if ((project.applicationCount ?? 0) >= 1) {
+      console.log('[seed] 마감 처리 시나리오: 이미 CLOSED 상태 — 재사용');
+      return project;
+    }
+    console.log(
+      '[seed] 마감 처리 시나리오: CLOSED인데 applicationCount=0 — 새 프로젝트로 다시 구성합니다.',
+    );
+    markerTitle = `${markerTitle} · ${new Date().toISOString().slice(0, 16)}`;
+    project = null;
+  }
+
+  if (!project) {
+    // DEADLINE_BELOW_MINIMUM(최소 1일)을 만족하도록 1일 + 5분 뒤로 등록한다 — 실제
+    // 마감은 아래에서 backdateProjectDeadline으로 DB를 직접 되돌려 앞당긴다.
+    const deadline = new Date(Date.now() + 24 * 60 * 60 * 1000 + 5 * 60 * 1000).toISOString();
+    const created = await api('/api/v1/projects', {
+      method: 'POST',
+      accessToken: clientSession.accessToken,
+      body: {
+        title: markerTitle,
+        description:
+          '시드 스크립트(scripts/seed-dev-accounts.js)가 "마감 처리" 테스트용으로 자동 생성한 프로젝트입니다. 등록은 정상 마감 시각으로 하고, 실제 마감은 DB에서 직접 앞당깁니다.',
+        category: 'WEB_DEVELOPMENT',
+        recruitmentStartAt: null,
+        recruitmentDeadlineAt: deadline,
+        budgetAmount: 2_000_000,
+        skillIds: ['REACT'],
+        pricingAnalysisId: null,
+      },
+    });
+    if (created.status !== 201) throw new Error(`마감 테스트용 프로젝트 생성 실패: ${JSON.stringify(created.body)}`);
+    project = created.body;
+  }
+
+  await ensureApplication(freelancerSession, project.projectId);
+
+  console.log('[seed] 마감 처리 시나리오: DB에서 마감 시각을 과거로 되돌리는 중...');
+  backdateProjectDeadline(project.projectId);
+
+  const swept = await api('/internal/v1/projects/sweep-deadlines', {
+    method: 'POST',
+    accessToken: INTERNAL_SERVICE_TOKEN,
+  });
+  if (swept.status !== 200) throw new Error(`마감 스윕 호출 실패 (status ${swept.status}): ${JSON.stringify(swept.body)}`);
+
+  const after = await api(`/api/v1/clients/${clientSession.userId}/projects`, {
+    accessToken: clientSession.accessToken,
+  });
+  const closed = (after.body.items ?? []).find((p) => p.projectId === project.projectId) ?? project;
+  if (closed.recruitmentStatus !== 'CLOSED') {
+    throw new Error(
+      `마감 스윕을 호출했지만 프로젝트가 아직 CLOSED가 아닙니다 (recruitmentStatus=${closed.recruitmentStatus}) — ` +
+        '마감 시각이 실제로 지났는지, 서버 시계가 맞는지 확인하세요.',
+    );
+  }
+  console.log('[seed] 마감 처리 시나리오: CLOSED 확인 완료');
+  return closed;
+}
+
+async function main() {
+  const sessions = {};
+  for (const persona of ACCOUNTS) {
+    sessions[persona.key] = await ensureAccount(persona);
+  }
+
+  console.log('[seed] project-management + applications 상태 구성 중...');
+  const recruitingProject = await ensureProject(sessions['client-recruiting'], MARKER.recruiting, {
+    requireOpen: true,
+  });
+  await ensureApplication(sessions['freelancer-applicant'], recruitingProject.projectId);
+
+  console.log('[seed] contracts-payments 계약대기 상태 구성 중...');
+  const contractPendingProject = await ensureContractPending(
+    sessions['client-contract-pending'],
+    sessions['freelancer-contract-pending'],
+    MARKER.contractPending,
+  );
+
+  console.log('[seed] contracts-payments 결제준비 상태 구성 중 (합의→서명→결제준비)...');
+  const paymentReadyProject = await ensureContractPending(
+    sessions['client-payment-ready'],
+    sessions['freelancer-payment-ready'],
+    MARKER.paymentReady,
+  );
+  const paymentReadyInfo = await ensurePaymentReady(
+    sessions['client-payment-ready'],
+    sessions['freelancer-payment-ready'],
+    paymentReadyProject.projectId,
+  );
+
+  console.log('[seed] project-management 마감 처리(CLOSED) 상태 구성 중 (INTERNAL_SERVICE_TOKEN 필요)...');
+  const closedProject = await ensureRecruitmentClosed(
+    sessions['client-recruitment-closed'],
+    sessions['freelancer-auto-rejected'],
+    MARKER.closed,
+  );
+
+  const extras = {
+    'client-recruiting': { projectId: recruitingProject.projectId },
+    'freelancer-applicant': { projectId: recruitingProject.projectId },
+    'client-contract-pending': { projectId: contractPendingProject.projectId },
+    'freelancer-contract-pending': { projectId: contractPendingProject.projectId },
+    'client-payment-ready': {
+      projectId: paymentReadyProject.projectId,
+      contractId: paymentReadyInfo.contractId,
+      paymentId: paymentReadyInfo.paymentId,
+      orderId: paymentReadyInfo.orderId,
+      amount: paymentReadyInfo.amount,
+      clientKey: paymentReadyInfo.clientKey,
+    },
+    'freelancer-payment-ready': {
+      projectId: paymentReadyProject.projectId,
+      contractId: paymentReadyInfo.contractId,
+    },
+    // closedProject는 INTERNAL_SERVICE_TOKEN이 없으면 null — 그 경우 이 두 계정은 로그인은
+    // 되지만 projectId가 비어 있다(note로 이유를 남긴다). accounts.map에서 처리.
+    'client-recruitment-closed': closedProject
+      ? { projectId: closedProject.projectId, recruitmentStatus: closedProject.recruitmentStatus }
+      : { note: 'INTERNAL_SERVICE_TOKEN 미설정 — 프로젝트 미생성. .env에 값을 채우고 재실행하세요.' },
+    'freelancer-auto-rejected': closedProject
+      ? { projectId: closedProject.projectId }
+      : { note: 'INTERNAL_SERVICE_TOKEN 미설정 — 프로젝트 미생성. .env에 값을 채우고 재실행하세요.' },
+  };
+
+  const accounts = ACCOUNTS.map((persona) => {
+    const session = sessions[persona.key];
+    return {
+      key: persona.key,
+      label: persona.label,
+      feature: persona.feature,
+      description: persona.description,
+      role: persona.role,
+      email: session.email,
+      password: session.password,
+      userId: session.userId,
+      ...(extras[persona.key] ?? {}),
+    };
+  });
+
+  fs.writeFileSync(
+    OUTPUT_FILE_PATH,
+    JSON.stringify({ generatedAt: new Date().toISOString(), accounts }, null, 2),
+  );
+
+  console.log('\n========================================');
+  console.log(`완료 — ${accounts.length}개 계정을 ${OUTPUT_FILE_PATH}에 기록했습니다.`);
+  console.log('npm run dev로 서버를 띄운 채 웹 화면의 DEV 위젯을 열면 계정을 골라 로그인할 수 있습니다.');
+  console.log('========================================\n');
+
+  console.log('[남은 수동 단계 — client-payment-ready / freelancer-payment-ready]');
+  console.log(
+    '결제 확정(paymentKey)은 실제 토스페이먼츠 결제위젯에서만 발급됩니다. 아래 값으로 브라우저에서',
+  );
+  console.log('결제를 완료한 뒤, 그 결과 paymentKey로 POST /api/v1/payments/confirm을 호출하세요.');
+  console.log(
+    JSON.stringify(
+      { orderId: paymentReadyInfo.orderId, amount: paymentReadyInfo.amount, clientKey: paymentReadyInfo.clientKey },
+      null,
+      2,
+    ),
+  );
+  console.log(
+    '그 다음, reviews 테스트가 필요하면 정산까지 마치는 아래 호출을 한 번 더 하세요(자동 COMPLETED 전이):',
+  );
+  console.log(
+    `  curl -X POST ${SERVER_BASE_URL}/api/internal/dev/simulate-settlement -H "Content-Type: application/json" -d '{"paymentId":"${paymentReadyInfo.paymentId}"}'`,
+  );
+  console.log('자세한 설명은 scripts/seed-dev-accounts.md를 참고하세요.');
+
+  if (!closedProject) {
+    console.log(
+      '\n[안내] client-recruitment-closed / freelancer-auto-rejected 계정은 로그인은 가능하지만, ' +
+        'INTERNAL_SERVICE_TOKEN이 없어 "마감 처리" 프로젝트는 아직 만들지 않았습니다. ' +
+        '.env에 INTERNAL_SERVICE_TOKEN을 채운 뒤 npm run seed:dev-accounts를 다시 실행하세요.',
+    );
+  }
+}
+
+main().catch((error) => {
+  console.error('\n[seed] 실패:', error.message);
+  process.exit(1);
+});

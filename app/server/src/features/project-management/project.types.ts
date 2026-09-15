@@ -60,6 +60,10 @@ export type ProjectRecord = {
   acceptedApplicationId: string | null;
   /** 결제 시작 통보 시각. 있으면 취소 불가 (규칙 27) */
   paymentPendingAt: string | null;
+  /** transactionStatus가 COMPLETED로 바뀐 시각. reviews의 review_windows.opened_at
+   * 소스(CR-RV-002, 팀장이 paymentPendingAt과 같은 원칙으로 추가) — completeProjectTransaction
+   * 한 곳에서만 쓰고 그 이후로는 갱신하지 않는다. */
+  completedAt: string | null;
   /** 낙관적 잠금. 상태 축이 실제로 바뀔 때만 +1 (규칙 44) */
   projectVersion: number;
   skillIds: string[];
@@ -117,6 +121,7 @@ export type ProjectAction =
 /** 등록 의뢰인 전용. 거래 상태는 여기에만 들어간다 (규칙 9) */
 export type ClientProjectDetail = PublicProjectDetail & {
   transactionStatus: ProjectTransactionStatus;
+  acceptedApplicationId: string | null;
   /**
    * 예산 출처. **공개 응답에는 넣지 않는다** — 의뢰인이 AI 를 썼는지는
    * 프리랜서가 알 필요가 없고, 알면 지원 금액 판단에 영향을 준다.
@@ -235,6 +240,8 @@ export type ProjectErrorCode =
   | 'PROJECT_PROFILE_REQUIRED'
   | 'PROJECT_EDIT_LOCKED'
   | 'PROJECT_EDIT_CLOSED'
+  /** CR-0012 — 호출자가 알던 예산이 그 사이 바뀌었다. 버전 검사로는 못 잡는다(규칙 44) */
+  | 'PROJECT_BUDGET_CONFLICT'
   | 'PROJECT_DELETE_HAS_APPLICATIONS'
   | 'PROJECT_DELETE_IN_TRANSACTION'
   | 'PROJECT_CANCEL_AFTER_PAYMENT'

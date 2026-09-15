@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SCR-B02 프로젝트 상세 — 제안</title>
+<link rel="stylesheet" href="_tokens.css" />
+<style>
+  .crumb { padding:var(--gap-4) 0 0; font-size:13px; color:var(--content-tertiary); }
+  .crumb a:hover { color:var(--content); text-decoration:underline; }
+
+  .head { padding:var(--gap-4) 0 var(--gap-5); }
+  .head__meta { display:flex; align-items:center; gap:var(--gap-3);
+    margin-top:var(--gap-3); font-size:13px; color:var(--content-tertiary); }
+
+  .detail { display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:var(--gap-5);
+    align-items:start; padding-bottom:var(--gap-8); }
+
+  .block { padding:var(--gap-5); margin-bottom:var(--gap-4); }
+  .block h2 { font-size:16px; font-weight:700; margin:0 0 var(--gap-3); }
+  .desc { margin:0; line-height:1.75; color:var(--content-secondary); white-space:pre-line; }
+
+  .kv { display:flex; gap:var(--gap-4); padding:var(--gap-3) 0;
+    border-bottom:1px solid var(--border-subtle); font-size:14px; }
+  .kv:last-child { border-bottom:0; padding-bottom:0; }
+  .kv__k { width:104px; flex:none; color:var(--content-tertiary); font-weight:600; }
+  .kv__v { min-width:0; }
+  .kv__v .chip { margin-right:var(--gap-1); }
+
+  /* 마감 표기는 절대 날짜와 상대 기한을 함께 준다 (DeadlineIndicator 패턴) */
+  .deadline b { font-weight:700; }
+  .deadline span { color:var(--content-tertiary); margin-left:var(--gap-2); }
+
+  .side { position:sticky; top:80px; display:flex; flex-direction:column; gap:var(--gap-4); }
+  .client { display:flex; align-items:center; gap:var(--gap-3); padding:var(--gap-4); }
+  .avatar { width:44px; height:44px; flex:none; border-radius:var(--r-pill);
+    background:var(--navy-100); display:grid; place-items:center;
+    font-size:15px; font-weight:700; color:var(--navy-700); }
+  .client__name { font-size:15px; font-weight:700; }
+  .client__meta { font-size:12px; color:var(--content-tertiary); }
+
+  .apply { padding:var(--gap-4); display:flex; flex-direction:column; gap:var(--gap-3); }
+  .apply__row { display:flex; gap:var(--gap-2); }
+  .apply__row .btn.primary { flex:1; }
+  .save { width:var(--btn-h); height:var(--btn-h); flex:none; border-radius:var(--r-md);
+    border:1px solid var(--border); background:var(--surface);
+    color:var(--content-tertiary); cursor:pointer; font-size:17px; line-height:1; }
+  .save[aria-pressed="true"] { border-color:var(--action); color:var(--action);
+    background:var(--surface-selected); }
+  .apply__note { margin:0; font-size:12px; color:var(--content-tertiary); text-align:center; }
+
+  /* 이 서비스가 일반 게시판과 다른 지점을 상세에서도 보여준다 */
+  .safety { padding:var(--gap-4); }
+  .safety h3 { font-size:13px; font-weight:700; margin:0 0 var(--gap-2); }
+  .safety li { font-size:12px; color:var(--content-secondary); line-height:1.9; }
+  .safety ul { margin:0; padding-left:1.1em; }
+
+  .reco { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--gap-3); }
+  .reco .card { padding:var(--gap-4); display:flex; flex-direction:column; gap:var(--gap-2); }
+  .reco h3 { font-size:14px; font-weight:600; margin:0; line-height:1.45; }
+  .reco .b { font-size:16px; font-weight:800; letter-spacing:-.02em; }
+
+  .note { padding:var(--gap-3) var(--gap-4); border-radius:var(--r-md);
+    background:var(--info-surface); color:var(--info); font-size:13px; margin:var(--gap-5) 0 0; }
+
+  @media (max-width:1000px) { .detail { grid-template-columns:1fr; }
+    .side { position:static; } .reco { grid-template-columns:1fr 1fr; } }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="appbar__in">
+    <a class="logo" href="main.html">Pact<em>Five</em></a>
+    <nav><a href="browse.html">프로젝트 찾기</a><a href="experts.html">전문가 찾기</a></nav>
+    <span class="spacer"></span>
+    <span data-session-actions></span>
+  </div>
+</header>
+
+<main class="page" id="view">
+  <!-- 내용은 demo/engine.js 의 데이터로 채운다. 주소의 ?id= 가 어느 프로젝트인지 정한다 -->
+</main>
+
+
+<script src="demo/data.js"></script>
+<script src="demo/engine.js"></script>
+<script src="demo/bookmarks.js"></script>
+<script src="demo/session.js"></script>
+<script src="demo/notyet.js"></script>
+<script>
+/*
+ * SCR-B02 프로젝트 상세.
+ *
+ * **거래 상태를 그리지 않는다** (규칙 9). 이 화면이 받는 데이터에 그 키 자체가 없다 —
+ * 화면에서 숨기는 것이 아니라 서버가 안 보낸다. 등록 의뢰인만 "내 프로젝트"에서 본다.
+ *
+ * 추천(규칙 18~24)은 아래 recommend() 가 계산한다. 점수나 순위값을 내보내지 않고
+ * 정렬 순서로만 표현한다.
+ */
+window.PactFiveInit = window.PactFiveInit || {};
+window.PactFiveInit.detail = function () {
+  "use strict";
+  var E = window.PactFiveEngine, D = window.PactFiveData, B = window.PactFiveBookmarks;
+  var view = document.getElementById("view");
+
+  function render() {
+  var id = new URLSearchParams(location.hash.replace(/^#/, "")).get("id");
+  var p = id ? E.find(id) : null;
+
+  if (!p) {
+    // 없는 주소는 오류 화면이 아니라 다음에 할 일을 준다
+    view.innerHTML =
+      '<div class="empty" role="status" style="margin-top:var(--gap-7)">' +
+        "<h3>프로젝트를 찾을 수 없습니다</h3>" +
+        "<p>주소가 바뀌었거나 삭제된 프로젝트입니다.</p>" +
+        '<a class="btn primary" href="browse.html">프로젝트 찾기</a>' +
+      "</div>";
+    return;
+  }
+
+  var st = E.STATUS_TEXT[E.effectiveStatus(p)];
+  var c = D.CLIENTS[p.clientId];
+  var dl = E.deadlineText(p.deadlineAt);
+  var canApply = E.effectiveStatus(p) === "OPEN";
+  var saved = B.has(p.id);
+
+  /**
+   * 추천 프로젝트 (engagement 규칙 18~24).
+   *   18 삭제되지 않음 · OPEN · 자기 자신 아님
+   *   20 1순위 카테고리+기술 겹침, 2순위 카테고리, 3순위 기술
+   *   21 같은 순위 안에서는 최근 등록순
+   *   22 4건 고정  23 모자라면 있는 만큼  24 하나도 없으면 섹션을 감춘다
+   */
+  function recommend() {
+    var pool = D.PROJECTS.filter(function (x) {
+      return x.id !== p.id && E.effectiveStatus(x) === "OPEN";
+    });
+    function tier(x) {
+      var sameCat = x.category === p.category;
+      var shared = x.skills.filter(function (s) { return p.skills.indexOf(s) !== -1; });
+      if (sameCat && shared.length) return { t: 1, why: D.categoryName(x.category) + " · " + D.skillName(shared[0]) + " 가 같아요" };
+      if (sameCat) return { t: 2, why: D.categoryName(x.category) + " 가 같아요" };
+      if (shared.length) return { t: 3, why: D.skillName(shared[0]) + " 가 같아요" };
+      return { t: 9, why: "" };
+    }
+    return pool
+      .map(function (x) { var r = tier(x); return { p: x, t: r.t, why: r.why }; })
+      .filter(function (x) { return x.t < 9; })
+      .sort(function (a, b) {
+        if (a.t !== b.t) return a.t - b.t;
+        return new Date(b.p.createdAt) - new Date(a.p.createdAt);
+      })
+      .slice(0, 4);
+  }
+
+  var recos = recommend();
+  var rate = c.reviewCount > 0
+    ? "평점 " + c.rating.toFixed(1) + " · 리뷰 " + c.reviewCount + "건"
+    : "아직 받은 평가가 없습니다";
+
+  view.innerHTML =
+    '<p class="crumb"><a href="browse.html">프로젝트 찾기</a> › ' +
+      '<a href="browse.html#category=' + p.category + '">' + E.esc(D.categoryName(p.category)) + "</a></p>" +
+
+    '<div class="head">' +
+      '<span class="badge ' + st.cls + '">' + st.label + "</span>" +
+      '<h1 class="display" style="font-size:34px;margin-top:var(--gap-3)">' + E.esc(p.title) + "</h1>" +
+      '<p class="head__meta">' +
+        "<span>" + E.esc(D.categoryName(p.category)) + "</span>·" +
+        '<span class="deadline"><b>' + dl.rel + '</b><span class="num">' + dl.abs + "</span></span>·" +
+        '<span class="num">지원 ' + p.applicationCount + "건</span>" +
+      "</p>" +
+    "</div>" +
+
+    '<div class="detail">' +
+      "<div>" +
+        '<section class="card block"><h2>프로젝트 설명</h2>' +
+          '<p class="desc">' + E.esc(p.description) + "</p></section>" +
+
+        '<section class="card block"><h2>모집 정보</h2>' +
+          '<div class="kv"><span class="kv__k">예산</span>' +
+            '<span class="kv__v num" style="font-size:20px;font-weight:800">' + E.won(p.budget) + "</span></div>" +
+          '<div class="kv"><span class="kv__k">모집 기간</span>' +
+            '<span class="kv__v num">' +
+              (p.startAt ? p.startAt.slice(0, 10).replace(/-/g, ".") : "즉시 시작") + " — " + dl.abs +
+            "</span></div>" +
+          '<div class="kv"><span class="kv__k">필요한 기술</span><span class="kv__v">' +
+            p.skills.map(function (s) { return '<span class="chip">' + E.esc(D.skillName(s)) + "</span>"; }).join("") +
+          "</span></div>" +
+          '<div class="kv"><span class="kv__k">지원 현황</span>' +
+            '<span class="kv__v num">지원 ' + p.applicationCount + "건</span></div>" +
+        "</section>" +
+
+        // 규칙 24 — 후보가 없으면 섹션 자체를 감춘다. 빈 제목만 남기지 않는다
+        (recos.length === 0 ? "" :
+          '<section><h2 class="h2" style="margin-bottom:var(--gap-3)">추천 프로젝트</h2>' +
+            '<div class="reco">' +
+              recos.map(function (r) {
+                var rs = E.STATUS_TEXT[E.effectiveStatus(r.p)];
+                return '<article class="card">' +
+                  '<h3><a href="detail.html#id=' + r.p.id + '">' + E.esc(r.p.title) + "</a></h3>" +
+                  '<span class="b num">' + E.won(r.p.budget) + "</span>" +
+                  // 규칙 28 — 점수·순위값은 내보내지 않는다. 무엇이 겹쳤는지만 말한다
+                  '<span class="caption">' + E.esc(r.why) + "</span>" +
+                  '<span class="badge ' + rs.cls + '" style="align-self:flex-start">' + rs.label + "</span>" +
+                "</article>";
+              }).join("") +
+            "</div></section>") +
+      "</div>" +
+
+      '<aside class="side">' +
+        '<div class="card client">' +
+          '<span class="avatar">' + E.esc(c.name.slice(0, 1)) + "</span>" +
+          "<span>" +
+            '<span class="client__name">' + E.esc(c.name) + "</span><br />" +
+            '<span class="client__meta num">' + rate + "</span>" +
+          "</span>" +
+        "</div>" +
+
+        '<div class="card apply">' +
+          '<div class="apply__row">' +
+            '<button class="btn primary" type="button" id="apply"' + (canApply ? "" : " disabled") + ">지원하기</button>" +
+            '<button class="save" type="button" data-bookmark="' + p.id + '"' +
+              ' aria-pressed="' + (saved ? "true" : "false") + '"' +
+              ' aria-label="' + (saved ? "북마크 해제" : "북마크 저장") + '">' + (saved ? "★" : "☆") + "</button>" +
+          "</div>" +
+          // 막힌 이유를 숨기지 않는다. 버튼만 흐려지면 왜 못 하는지 알 수 없다
+          '<p class="apply__note">' +
+            (canApply ? "지원서는 의뢰인에게 바로 전달됩니다"
+              : st.label === "모집 예정" ? "아직 모집이 시작되지 않았습니다. 북마크해 두면 다시 찾기 쉽습니다."
+              : "모집이 마감되어 지원할 수 없습니다. 북마크는 계속 쓸 수 있습니다.") +
+          "</p>" +
+        "</div>" +
+
+        '<div class="card safety"><h3>안전한 거래</h3><ul>' +
+          "<li>합의한 금액이 그대로 계약서에 들어갑니다</li>" +
+          "<li>결제 금액은 납품 승인 후 정산됩니다</li>" +
+          "<li>제안·수정·수락 기록이 모두 남습니다</li>" +
+        "</ul></div>" +
+      "</aside>" +
+    "</div>";
+
+  document.title = p.title + " · PactFive";
+  window.scrollTo(0, 0);
+  }
+
+  window.addEventListener("hashchange", render);
+  B.bind();
+  window.PactFiveNotYet.bind();
+  // 헤더의 오른쪽은 로그인 여부에 따라 다르다. 세션이 바뀌면 다시 칠한다
+  window.PactFiveSession.bind();
+  window.PactFiveSession.paintHeader();
+  document.addEventListener("pactfive:session", function () {
+    window.PactFiveSession.paintHeader();
+  });
+  render();
+};
+// 자기 화면일 때만 스스로 돈다. 세 화면을 한 파일로 묶었을 때 서로를 건드리지 않는다
+if (document.getElementById("view")) window.PactFiveInit.detail();
+</script>
+
+</body>
+</html>

@@ -4,8 +4,12 @@
 |---|---|
 | 제기 | 유동우 (project-management) · 2026-09-02 |
 | 대상 | 김락원 (팀장 · `scripts/` · 루트 `package.json`) |
-| 상태 | 제안 — 한 줄 수정 |
+| 상태 | **반영 완료 (2026-09-09, 팀장, 문서 상태 정리).** |
 | 영향 | **전원.** 리포를 새로 받은 사람이 앱을 띄우지 못한다 |
+
+> **닫음 (2026-09-09, 팀장).** 루트 `package.json:6`이 제안 그대로
+> `"predev": "node scripts/ensure-deps.js && node scripts/ensure-app-deps.js"`다.
+> 언제 반영됐는지는 feedback_loop에 남아 있지 않지만 코드는 제안과 정확히 일치한다.
 
 ## 증상
 

@@ -15,6 +15,7 @@
 
 import type { ProjectRepository } from "../mock/project.mock";
 import { ProjectContractError } from "./project.types";
+import { isEditClosed } from "./recruitment-status";
 import type { ExternalPorts } from "./ports/external.port";
 import type {
   AcceptApplicationInput,
@@ -162,6 +163,9 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       transactionStatus: "CONTRACT_PENDING",
       acceptedApplicationId: input.applicationId,
       recruitmentClosedAt: at,
+      // CR-AP-001 — 수락 시점에 대기 지원은 전부 정리된다(나머지는 자동 거절).
+      // 하나씩 빼지 않고 0 으로 놓는다.
+      pendingApplicationCount: 0,
       projectVersion: p.projectVersion + 1,
     });
 
@@ -428,6 +432,17 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
         projectId,
       });
     }
+    // CR-0012 ① 규칙 16 과 같은 잠금이다.
+    // 일반 수정(updateProject)으로는 못 바꾸는 예산을 이 경로로는 바꿀 수 있으면 안 된다.
+    if (isEditClosed(p, now())) {
+      throw new ProjectContractError(
+        409,
+        "PROJECT_EDIT_CLOSED",
+        "마감되었거나 거래가 시작되어 예산을 변경할 수 없습니다.",
+        { projectId },
+      );
+    }
+
     // 규칙 15 와 같은 잠금이다. 지원자가 보고 지원한 예산이 뒤에서 바뀌면 안 된다.
     if (p.pendingApplicationCount > 0) {
       throw new ProjectContractError(
@@ -438,6 +453,17 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       );
     }
     checkVersion(input, p.projectVersion);
+
+    // CR-0012 ② 화면이 보여준 예산이 그 사이 바뀌었으면 덮어쓰지 않는다.
+    // 버전 검사로는 못 잡는다 — 예산 변경은 projectVersion 을 올리지 않는다 (규칙 44).
+    if (input.expectedBudgetAmount !== undefined && input.expectedBudgetAmount !== p.budgetAmount) {
+      throw new ProjectContractError(
+        409,
+        "PROJECT_BUDGET_CONFLICT",
+        "예산이 이미 변경되었습니다. 새로고침 후 다시 시도해 주세요.",
+        { expectedBudgetAmount: input.expectedBudgetAmount, currentBudgetAmount: p.budgetAmount },
+      );
+    }
 
     // 호출자가 보낸 금액을 받지 않는다. 분석에 저장된 값을 읽는다 (규칙 40).
     let recommendedAmount: number;
@@ -475,9 +501,29 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     return result;
   }
 
+  /* ─────────── 지원 건수 갱신 (CR-AP-001) ───────────
+     applications 가 지원을 만들거나 개별 거절할 때 부른다.
+     수락·마감·취소 때는 이 서비스가 같은 자리에서 0 으로 놓으므로 부르지 않는다. */
+  function bumpApplicationCounts(
+    projectId: string,
+    delta: { applicationCount?: number; pendingApplicationCount?: number },
+  ): { applicationCount: number; pendingApplicationCount: number } {
+    const p = mustFind(projectId);
+    // 바닥 0. 음수가 되면 "대기 지원 없음"으로 읽혀 잠긴 예산이 풀린다.
+    const updated = repo.update(projectId, {
+      applicationCount: Math.max(0, p.applicationCount + (delta.applicationCount ?? 0)),
+      pendingApplicationCount: Math.max(0, p.pendingApplicationCount + (delta.pendingApplicationCount ?? 0)),
+    });
+    return {
+      applicationCount: updated.applicationCount,
+      pendingApplicationCount: updated.pendingApplicationCount,
+    };
+  }
+
   return {
     getProjectNegotiationContext,
     acceptProjectApplication,
+    bumpApplicationCounts,
     markPaymentPending,
     startProjectTransaction,
     completeProjectTransaction,

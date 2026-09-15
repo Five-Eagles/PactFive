@@ -4,8 +4,17 @@
 |---|---|
 | 제기 | 유동우 (project-management · engagement) · 2026-09-02 |
 | 대상 | 김락원 (팀장 · `docs/domain/api-spec/`) · PRD v6.4 §4 |
-| 상태 | 제안 — 두 도메인 코드에는 이미 반영 |
+| 상태 | **반영 완료 (2026-09-09, 팀장, 문서 상태 정리).** |
 | 근거 | feedback_loop 2026-08-28 engagement 항목 4 |
+
+> **닫음 (2026-09-09, 팀장).** `app/` 쪽 두 파일 모두 확인 — `PublicProjectItem`
+> (`app/server/src/features/project-management/project.types.ts:96`,
+> `app/web/src/features/project-management/project.types.ts:48`) 에
+> `isBookmarked` 필드가 없다. 저장소 전체 grep에서도 필드 선언은 없고 "없다"는
+> 설명 주석 3건만 나온다(`App.tsx:95`, `engagement/bookmark.types.ts:72`,
+> `engagement/api/bookmark.ts:38`). `docs/domain/api-spec/` 폴더는 이 저장소에
+> 존재하지 않아 요청 1·2번(그 경로의 필드 삭제·엔드포인트 추가)은 대상이 없다.
+> PRD v6.4 §4 필드 표에 어긋남 각주를 추가했다(요청 3번).
 
 ## 요약
 

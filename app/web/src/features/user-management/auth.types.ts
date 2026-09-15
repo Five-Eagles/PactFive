@@ -38,6 +38,28 @@ export type CreateAuthSessionInput = {
   returnTo?: string;
 };
 
+export type RegisterInput = {
+  email: string;
+  password: string;
+  name: string;
+  role: UserRole;
+  returnTo: string;
+};
+
+export type RegisterResponse = {
+  status: 'EMAIL_VERIFICATION_REQUIRED';
+  message: string;
+};
+
+export type CompleteRegistrationInput = {
+  email: string;
+  password: string;
+  name: string;
+  role: UserRole;
+  deviceLabel?: string;
+  returnTo: string;
+};
+
 export type CreateOAuthAuthorizationInput = {
   oauthProvider: OAuthProvider;
   role?: UserRole;

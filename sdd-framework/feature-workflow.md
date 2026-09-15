@@ -84,6 +84,22 @@
      (2026-09-02 강화: 이전엔 "정본이다"라는 캐비어트로만 있어서 명령형 지시가 아니었다 —
      reference-main.html은 확실히 읽으면서 정작 진짜 정본인 design-tokens.md는 안 읽고 넘어갈
      위험이 있었다).
+     **reference-main.html은 메인/홈 화면만 다룬다** — 목록·상세류 화면을 그릴 때는 대신
+     `reference/project-management/*.html`(개별 파일 7장)을 구현 예시로 참고한다(2026-09-03
+     추가, 근거: `ux-philosophy/` 기존 구현 예시가 메인 화면 하나뿐이라 목록·상세 화면을 그릴
+     때 참고할 게 없었다). **필요한 화면 파일 하나만 읽는다** — 예를 들어 목록류를 만든다면
+     `browse.html`만 읽으면 된다. 같은 폴더의 `project-management-bundle.html`(화면 10장을
+     base64 이미지까지 인라인한 400KB 단일 파일)은 사람이 브라우저에서 인터랙션을 확인할
+     때만 열고, AI가 구조 참고용으로 통째로 읽지 않는다 — 이미지 base64 인라인이 파일 읽기와
+     git diff를 깨뜨리는 문제는 이 문서에도 이미 한 번 나왔다(위 "이미지 등 자산 파일" 항목,
+     2026-09-02 `reference-main.html` 147KB 사례). 이 파일들은 리포 루트 `reference/`에 있는
+     **고정 스냅샷**이다 — 원본은 `features/project-management/design/reference-proposal/`
+     에서 담당자(유동우)가 계속 갱신하지만, 여러 기능이 동시에 구현하는 스프린트 기간 동안
+     참고 기준이 흔들리지 않도록 2026-09-03 시점 버전으로 얼려 두었다(`reference/README.md`
+     참고). 원본 화면 10장 중 확정 참고 대상은 7장뿐이다 — `experts.html`·`expert.html`·
+     `guide.html` 3장은 ERD·PRD 근거가 없어 향후 검토 대상으로 남겨두었으니(개별 파일
+     폴더에도 애초에 복사하지 않았다) 구현 근거로 쓰지 않는다. 구조·원칙 참고용으로 쓰고
+     그대로 베끼지 않는다. 자세한 역할 구분은 `ux-philosophy/AGENTS.md` 참고.
      **design-system이 아직 없으면 low-fi(뼈대 수준)**로, **design-system이
      나온 뒤에는 high-fi(실제 컴포넌트 적용)**로 만든다. 두 산출물 다 같은 폴더에 쌓인다.
    - **형식은 항상 인터랙티브 HTML이다 (low-fi도 예외 아님).** md 텍스트로 필드를 나열하는 건

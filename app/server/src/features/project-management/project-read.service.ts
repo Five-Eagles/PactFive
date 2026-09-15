@@ -15,10 +15,11 @@
  *
  * engagement 는 이 파일을 **직접 import 하지 않는다.** 자기 쪽
  * `bookmark.port.ts` 의 `ProjectReadPort` 만 보고, 두 쪽을 잇는 어댑터는
- * 조립 지점(`app/server/src/app.ts`)에서 만든다 — 기능 폴더 간 직접 import 금지.
+ * 조립 지점(`app/server/src/express-app.ts`)에서 만든다 — 기능 폴더 간 직접 import 금지.
  */
 
 import type { ProjectRepository } from './project.repository';
+import { effectiveRecruitmentStatus } from './recruitment-status';
 import type { ProjectCatalogPort } from './project.port';
 import type { ProjectRecord, RecruitmentStatus } from './project.types';
 
@@ -60,26 +61,6 @@ export type ProjectReadService = ReturnType<typeof createProjectReadService>;
 export function createProjectReadService(deps: ProjectReadDeps) {
   const { repo, catalog, now } = deps;
 
-  /**
-   * 규칙 14 — 저장값이 아니라 조회 시점 기준으로 판정한다.
-   *
-   * `project.service.ts` 에도 같은 계산이 있다. 원본이 두 곳에 둔 것을 그대로 옮겼다 —
-   * 한쪽으로 모으면 두 서비스 사이에 의존 방향이 생긴다. 두 구현이 어긋나지 않는지는
-   * 담당자 쪽 `prototype/run.tsx` 가 대조한다.
-   */
-  function effectiveRecruitmentStatus(p: ProjectRecord, at: string): RecruitmentStatus {
-    const t = new Date(at).getTime();
-    if (p.recruitmentStatus === 'SCHEDULED' && p.recruitmentStartAt !== null) {
-      if (new Date(p.recruitmentStartAt).getTime() <= t) {
-        return new Date(p.recruitmentDeadlineAt).getTime() <= t ? 'CLOSED' : 'OPEN';
-      }
-      return 'SCHEDULED';
-    }
-    if (p.recruitmentStatus === 'OPEN' && new Date(p.recruitmentDeadlineAt).getTime() <= t) {
-      return 'CLOSED';
-    }
-    return p.recruitmentStatus;
-  }
 
   function toCard(p: ProjectRecord, at: string): ProjectCardData {
     return {
@@ -103,7 +84,7 @@ export function createProjectReadService(deps: ProjectReadDeps) {
      * 보여줘야 하기 때문이다 (engagement 규칙 7·13). 공개 목록과 다르다.
      */
     async getProjectCardData(projectId: string): Promise<ProjectCardData | null> {
-      const project = repo.findById(projectId);
+      const project = await repo.findById(projectId);
       return project ? toCard(project, now()) : null;
     },
 
@@ -117,7 +98,7 @@ export function createProjectReadService(deps: ProjectReadDeps) {
       const at = now();
       const found = new Map<string, ProjectCardData>();
       for (const id of projectIds) {
-        const project = repo.findById(id);
+        const project = await repo.findById(id);
         if (project) found.set(id, toCard(project, at));
       }
       return found;
@@ -133,8 +114,8 @@ export function createProjectReadService(deps: ProjectReadDeps) {
       query: RecommendationCandidateQuery,
     ): Promise<ProjectCardData[]> {
       const at = now();
-      return repo
-        .findAll()
+      const all = await repo.findAll();
+      return all
         .filter((p) => p.projectId !== query.excludeProjectId)
         // 모집 상태는 조회 시점 기준으로 본다. 저장값으로 걸러내면
         // 마감 시각이 지났는데 배치가 안 돈 프로젝트가 추천에 남는다.

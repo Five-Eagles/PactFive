@@ -94,7 +94,7 @@ export function createEngagementService(deps: EngagementServiceDeps) {
     const at = now();
 
     try {
-      const created = repo.insert({
+      const created = await repo.insert({
         bookmarkId: newBookmarkId(),
         freelancerId: me.userId,
         projectId,
@@ -112,7 +112,7 @@ export function createEngagementService(deps: EngagementServiceDeps) {
       // 미리 조회해서 막지 않고 여기서 잡는 이유: 조회와 삽입 사이의 틈을 없앨 수 없다.
       // 더블클릭한 두 요청이 둘 다 조회를 통과한 뒤 둘 다 삽입을 시도한다.
       // UNIQUE 제약이 그 틈을 막고, 진 쪽이 여기로 온다.
-      const existing = repo.find(me.userId, projectId);
+      const existing = await repo.find(me.userId, projectId);
       return {
         status: 200,
         body: {
@@ -136,7 +136,7 @@ export function createEngagementService(deps: EngagementServiceDeps) {
     await mustFindProject(projectId);
 
     // 규칙 4 — 행을 실제로 지운다. 프로젝트와 달리 소프트 삭제하지 않는다.
-    const removed = repo.remove(me.userId, projectId);
+    const removed = await repo.remove(me.userId, projectId);
 
     // 규칙 2 — 없었어도 성공이다. 사용자가 원한 결과가 이미 이뤄져 있다.
     return { status: 200, body: { projectId, bookmarked: false, changed: removed > 0 } };
@@ -161,7 +161,7 @@ export function createEngagementService(deps: EngagementServiceDeps) {
 
     // 규칙 9 — 토큰 주인 것만 읽는다. 다른 사람을 가리킬 방법이 애초에 없다.
     // 규칙 10 — 저장소가 최근 저장순으로 준다.
-    const mine = repo.findByFreelancer(me.userId);
+    const mine = await repo.findByFreelancer(me.userId);
 
     // 규칙 12 — 삭제된 프로젝트는 목록에서 빠진다. 북마크 행은 남는다.
     //
@@ -204,9 +204,10 @@ export function createEngagementService(deps: EngagementServiceDeps) {
     auth: AuthContext | null,
   ): Promise<Responded<BookmarkIdsResponse>> {
     const me = await requireFreelancer(auth);
+    const mine = await repo.findByFreelancer(me.userId);
     return {
       status: 200,
-      body: { projectIds: repo.findByFreelancer(me.userId).map((b) => b.projectId) },
+      body: { projectIds: mine.map((b) => b.projectId) },
     };
   }
 

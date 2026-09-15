@@ -73,6 +73,7 @@ export type ProjectAction =
 
 export type ClientProjectDetail = PublicProjectDetail & {
   transactionStatus: ProjectTransactionStatus;
+  acceptedApplicationId: string | null;
   pendingApplicationCount: number;
   recruitmentClosedAt: string | null;
   canceledAt: string | null;

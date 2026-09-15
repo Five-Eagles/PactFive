@@ -21,6 +21,7 @@
 
 import type { ProjectRepository } from './project.repository';
 import { ProjectContractError } from './project.types';
+import { effectiveRecruitmentStatus, isEditClosed } from './recruitment-status';
 import type { ExternalPorts } from './project.port';
 import type {
   AcceptApplicationInput,
@@ -53,8 +54,8 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
   /* ─────────────── 공통 ─────────────── */
 
   /** 삭제된 프로젝트는 없는 것으로 본다 (규칙 11) */
-  function mustFind(projectId: string) {
-    const project = repo.findById(projectId);
+  async function mustFind(projectId: string) {
+    const project = await repo.findById(projectId);
     if (!project) {
       throw new ProjectContractError(404, 'PROJECT_NOT_FOUND', '프로젝트를 찾을 수 없습니다.', {
         projectId,
@@ -109,16 +110,20 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
   /* ─────────────── 1. getProjectNegotiationContext (규칙 42) ─────────────── */
 
   async function getProjectNegotiationContext(projectId: string): Promise<NegotiationContext> {
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
     return {
       projectId: p.projectId,
       clientId: p.clientId,
-      recruitmentStatus: p.recruitmentStatus,
+      title: p.title,
+      // CR-AP-003(조준영, 2026-09-08) — 저장값이 아니라 규칙 14 보정값을 준다. 배치 없이도
+      // 화면(공개 목록·상세)과 같은 값을 보게 하기 위해서다. 자세한 근거는 recruitment-status.ts.
+      recruitmentStatus: effectiveRecruitmentStatus(p, now()),
       transactionStatus: p.transactionStatus,
       acceptedApplicationId: p.acceptedApplicationId,
       recruitmentDeadlineAt: p.recruitmentDeadlineAt,
       canceledAt: p.canceledAt,
       paymentPendingAt: p.paymentPendingAt,
+      completedAt: p.completedAt,
       projectVersion: p.projectVersion,
     };
   }
@@ -130,7 +135,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     input: AcceptApplicationInput,
   ): Promise<AcceptApplicationResult> {
     requireField(input.applicationId, 'applicationId');
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
 
     // 규칙 55 — "같은 지원서인가"를 상태 조건보다 **먼저** 본다.
     // 순서를 바꾸면 이미 수락된 지원서로 재시도했을 때
@@ -148,7 +153,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       };
     }
 
-    const stored = repo.findProcessed(input.idempotencyKey);
+    const stored = await repo.findProcessed(input.idempotencyKey);
     if (stored) return replay<AcceptApplicationResult>(stored.result);
 
     // 규칙 47 — 한 프로젝트에서 수락된 지원은 최대 1건
@@ -157,20 +162,28 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
         acceptedApplicationId: p.acceptedApplicationId,
       });
     }
-    if (p.recruitmentStatus !== 'OPEN' || p.transactionStatus !== 'NONE') {
+    // CR-AP-003(조준영, 2026-09-08) — 저장값이 아니라 규칙 14 보정값으로 OPEN을 판정한다.
+    // 예약 모집(SCHEDULED) 프로젝트가 모집 시작 시각을 지났는데도 저장값이 그대로 남아
+    // 지원 수락이 막히는 문제(getProjectNegotiationContext와 같은 결함)가 함께 닫힌다.
+    const currentRecruitmentStatus = effectiveRecruitmentStatus(p, now());
+    if (currentRecruitmentStatus !== 'OPEN' || p.transactionStatus !== 'NONE') {
       conflict('모집 중인 프로젝트만 지원을 수락할 수 있습니다.', {
-        recruitmentStatus: p.recruitmentStatus,
+        recruitmentStatus: currentRecruitmentStatus,
         transactionStatus: p.transactionStatus,
       });
     }
     checkVersion(input, p.projectVersion);
 
     const at = now();
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       recruitmentStatus: 'CLOSED',
       transactionStatus: 'CONTRACT_PENDING',
       acceptedApplicationId: input.applicationId,
       recruitmentClosedAt: at,
+      // CR-AP-001 — 수락 시점에 대기 지원은 **전부** 정리된다. 하나는 ACCEPTED 로,
+      // 나머지는 applications 가 AUTO_OTHER_ACCEPTED 로 자동 거절한다.
+      // 하나씩 빼지 않고 0 으로 놓는다 — 중간에 하나 실패해도 어긋나지 않는다.
+      pendingApplicationCount: 0,
       projectVersion: p.projectVersion + 1,
     });
 
@@ -184,7 +197,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       changed: true,
       projectVersion: next.projectVersion,
     };
-    repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
+    await repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
     return result;
   }
 
@@ -195,9 +208,9 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     input: MarkPaymentPendingInput,
   ): Promise<MarkPaymentPendingResult> {
     requireField(input.contractId, 'contractId');
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
 
-    const stored = repo.findProcessed(input.idempotencyKey);
+    const stored = await repo.findProcessed(input.idempotencyKey);
     if (stored) return replay<MarkPaymentPendingResult>(stored.result);
 
     if (p.transactionStatus !== 'CONTRACT_PENDING' || p.canceledAt !== null) {
@@ -216,7 +229,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
 
     if (!alreadyMarked) {
       // 규칙 41 — 두 상태 축을 바꾸지 않으므로 projectVersion 도 올리지 않는다.
-      repo.update(projectId, { paymentPendingAt });
+      await repo.update(projectId, { paymentPendingAt });
     }
 
     const result: MarkPaymentPendingResult = {
@@ -228,7 +241,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       changed: !alreadyMarked,
       projectVersion: p.projectVersion,
     };
-    repo.markProcessed(input.idempotencyKey, result, p.projectVersion);
+    await repo.markProcessed(input.idempotencyKey, result, p.projectVersion);
     return result;
   }
 
@@ -242,9 +255,9 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     requireExpectedVersion(input);
 
     // 판정 순서: 존재 → 중복 방지 키 → 이미 IN_PROGRESS → 그 외 상태 → 버전 → 전이
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
 
-    const stored = repo.findProcessed(input.idempotencyKey);
+    const stored = await repo.findProcessed(input.idempotencyKey);
     if (stored) return replay<StartTransactionResult>(stored.result);
 
     if (p.transactionStatus === 'IN_PROGRESS') {
@@ -271,7 +284,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     checkVersion(input, p.projectVersion);
 
     const at = now();
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       transactionStatus: 'IN_PROGRESS',
       projectVersion: p.projectVersion + 1,
     });
@@ -285,7 +298,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       changed: true,
       projectVersion: next.projectVersion,
     };
-    repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
+    await repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
     return result;
   }
 
@@ -298,9 +311,9 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     requireField(input.contractId, 'contractId');
     requireExpectedVersion(input);
 
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
 
-    const stored = repo.findProcessed(input.idempotencyKey);
+    const stored = await repo.findProcessed(input.idempotencyKey);
     if (stored) return replay<CompleteTransactionResult>(stored.result);
 
     if (p.transactionStatus === 'COMPLETED') {
@@ -324,8 +337,12 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     checkVersion(input, p.projectVersion);
 
     const at = now();
-    const next = repo.update(projectId, {
+    // completedAt — CR-RV-002(조준영, 2026-09-07). 이 함수 앞부분의 이른 return(라인 314)이
+    // COMPLETED 재진입을 이미 막고 있어, 여기서 한 번만 쓰면 이후로는 절대 덮어써지지 않는다.
+    // reviews의 review_windows.opened_at이 이 값을 그대로 쓴다.
+    const next = await repo.update(projectId, {
       transactionStatus: 'COMPLETED',
+      completedAt: at,
       projectVersion: p.projectVersion + 1,
     });
 
@@ -338,7 +355,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       changed: true,
       projectVersion: next.projectVersion,
     };
-    repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
+    await repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
     return result;
   }
 
@@ -349,9 +366,9 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     input: RestorePreContractInput,
   ): Promise<RestorePreContractResult> {
     requireField(input.negotiationId, 'negotiationId');
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
 
-    const stored = repo.findProcessed(input.idempotencyKey);
+    const stored = await repo.findProcessed(input.idempotencyKey);
     if (stored) return replay<RestorePreContractResult>(stored.result);
 
     if (p.transactionStatus === 'NONE') {
@@ -393,7 +410,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
     if (reopened) restoredFields.unshift('recruitmentStatus');
     if (p.paymentPendingAt !== null) restoredFields.push('paymentPendingAt');
 
-    const next = repo.update(projectId, {
+    const next = await repo.update(projectId, {
       recruitmentStatus: reopened ? 'OPEN' : p.recruitmentStatus,
       transactionStatus: 'NONE',
       acceptedApplicationId: null,
@@ -401,6 +418,13 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       recruitmentClosedAt: reopened ? null : p.recruitmentClosedAt,
       projectVersion: p.projectVersion + 1,
     });
+
+    if (p.acceptedApplicationId && ports.applications.restoreAcceptedApplication) {
+      await ports.applications.restoreAcceptedApplication(projectId, {
+        applicationId: p.acceptedApplicationId,
+        occurredAt: at,
+      });
+    }
 
     const result: RestorePreContractResult = {
       projectId,
@@ -415,7 +439,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       changed: true,
       projectVersion: next.projectVersion,
     };
-    repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
+    await repo.markProcessed(input.idempotencyKey, result, next.projectVersion);
     return result;
   }
 
@@ -427,9 +451,9 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
   ): Promise<ApplyPricingBudgetResult> {
     requireField(input.pricingAnalysisId, 'pricingAnalysisId');
     const actorUserId = requireField(input.actorUserId, 'actorUserId');
-    const p = mustFind(projectId);
+    const p = await mustFind(projectId);
 
-    const stored = repo.findProcessed(input.idempotencyKey);
+    const stored = await repo.findProcessed(input.idempotencyKey);
     if (stored) return replay<ApplyPricingBudgetResult>(stored.result);
 
     if (p.clientId !== actorUserId) {
@@ -437,6 +461,18 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
         projectId,
       });
     }
+    // CR-0012 ① 규칙 16 과 같은 잠금이다.
+    // 일반 수정(updateProject)으로는 못 바꾸는 예산을 이 경로로는 바꿀 수 있으면 안 된다.
+    // 모집이 끝났거나 거래가 시작된 뒤에 예산이 바뀌면 계약 금액의 근거가 흔들린다.
+    if (isEditClosed(p, now())) {
+      throw new ProjectContractError(
+        409,
+        'PROJECT_EDIT_CLOSED',
+        '마감되었거나 거래가 시작되어 예산을 변경할 수 없습니다.',
+        { projectId },
+      );
+    }
+
     // 규칙 15 와 같은 잠금이다. 지원자가 보고 지원한 예산이 뒤에서 바뀌면 안 된다.
     if (p.pendingApplicationCount > 0) {
       throw new ProjectContractError(
@@ -447,6 +483,21 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       );
     }
     checkVersion(input, p.projectVersion);
+
+    // CR-0012 ② 화면이 보여준 예산이 그 사이 바뀌었으면 덮어쓰지 않는다.
+    //
+    // 버전 검사(위 checkVersion)로는 이걸 못 잡는다 — 예산 변경은 상태 축이 아니라
+    // projectVersion 을 올리지 않기 때문이다(규칙 44). 그래서 예산 자체를 따로 본다.
+    //
+    // 보내지 않으면 검사하지 않는다. 기존 호출자를 깨지 않기 위해서다.
+    if (input.expectedBudgetAmount !== undefined && input.expectedBudgetAmount !== p.budgetAmount) {
+      throw new ProjectContractError(
+        409,
+        'PROJECT_BUDGET_CONFLICT',
+        '예산이 이미 변경되었습니다. 새로고침 후 다시 시도해 주세요.',
+        { expectedBudgetAmount: input.expectedBudgetAmount, currentBudgetAmount: p.budgetAmount },
+      );
+    }
 
     // 호출자가 보낸 금액을 받지 않는다. 분석에 저장된 값을 읽는다 (규칙 40).
     let recommendedAmount: number;
@@ -470,7 +521,7 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
 
     const at = now();
     // 상태 축이 아니라 예산만 바뀐다 → projectVersion 을 올리지 않는다 (규칙 44).
-    repo.update(projectId, { budgetAmount: recommendedAmount });
+    await repo.update(projectId, { budgetAmount: recommendedAmount });
 
     const result: ApplyPricingBudgetResult = {
       projectId,
@@ -480,13 +531,46 @@ export function createProjectContractService(deps: ContractServiceDeps): Project
       changed: recommendedAmount !== p.budgetAmount,
       projectVersion: p.projectVersion,
     };
-    repo.markProcessed(input.idempotencyKey, result, p.projectVersion);
+    await repo.markProcessed(input.idempotencyKey, result, p.projectVersion);
     return result;
+  }
+
+  /* ─────────────── 지원 건수 갱신 (CR-AP-001) ───────────────
+     applications 가 지원을 만들거나 개별 거절할 때 부른다.
+
+     **왜 project-management 가 갖고 있나.** 이 두 숫자는 projects 행의 컬럼이고
+     (`prisma/schema.prisma` application_count · pending_application_count),
+     규칙 15(예산·일정 잠금)와 규칙 25(삭제 가능 여부) 판정에 쓰인다 —
+     즉 이 기능의 판단 근거다. 저장도 판단도 여기서 한다.
+
+     **수락·마감·취소 때는 부르지 않는다.** 그 셋은 이미 이 서비스가 도는 자리라
+     같은 트랜잭션 안에서 0 으로 놓는다. 밖에서 또 빼면 두 번 빠진다. */
+
+  async function bumpApplicationCounts(
+    projectId: string,
+    delta: { applicationCount?: number; pendingApplicationCount?: number },
+  ): Promise<{ applicationCount: number; pendingApplicationCount: number }> {
+    const p = await mustFind(projectId);
+
+    // 바닥을 0 으로 막는다. 같은 거절이 두 번 들어와도 음수가 되지 않는다 —
+    // 음수가 되면 "대기 지원 없음"으로 읽혀 잠겨 있어야 할 예산이 풀린다.
+    const nextApplicationCount = Math.max(0, p.applicationCount + (delta.applicationCount ?? 0));
+    const nextPending = Math.max(0, p.pendingApplicationCount + (delta.pendingApplicationCount ?? 0));
+
+    const updated = await repo.update(projectId, {
+      applicationCount: nextApplicationCount,
+      pendingApplicationCount: nextPending,
+    });
+    return {
+      applicationCount: updated.applicationCount,
+      pendingApplicationCount: updated.pendingApplicationCount,
+    };
   }
 
   return {
     getProjectNegotiationContext,
     acceptProjectApplication,
+    bumpApplicationCounts,
     markPaymentPending,
     startProjectTransaction,
     completeProjectTransaction,

@@ -6,25 +6,43 @@
 ## 스펙 (features/contracts-payments/)
 - spec.md: 합의·서명·샌드박스 결제 설계 확정 + 4함수·PG 포트 FACT.
   정본 고정은 `review/spec-design-eval.md`. 규칙 19~22는 전이표·필드·FAILED·백로그.
-- api-contract.md: 내부 4함수 + 공개 API 초안 (`negotiation-offers`, `signContract`, 결제).
+- api-contract.md: 내부 4함수 + 공개 API 초안 (`negotiation-offers`, `signContract`, 결제, 납품 4종).
   프론트 `/agreements` 5종은 폐기.
 - review/: 교차 담당 확인 요청·회신.
-  Mock import 안내는 `review/mock-stub-import-guide.md` (유동우·최윤석 공유).
+  Mock import 안내는 `review/mock-stub-import-guide.md` (유동우·조준영 지원·팀장 알림).
   팀장 sandbox 키 요청은 `review/teamlead-pg-sandbox-keys.md`.
   외부 대기(키·14일·REVIEW_CREATED·알림 4종)는 `review/external-wait-2026-08-31.md`.
   알림 포트·수락 손잡이 계약은 `review/yoonseok-ports-contract.md` (수락→결제→리뷰 호출 순서).
-  최윤석 import 입구는 `review/mock-stub-import-guide.md` 알림·손잡이 절.
+  알림 import 입구는 `review/mock-stub-import-guide.md` 알림·손잡이 절.
   8/27 설계서 평가·최적안은 `review/spec-design-eval.md`.
-  금주 마감은 `review/week-wrap-2026-08-28.md`.
+  금주 마감은 `review/week-wrap-2026-09-04.md` (지난주 `week-wrap-2026-08-28.md`).
   ADR-0012 패널 vs 레퍼런스 확인은 `review/reference-panel-gap-2026-09-02.md`.
-  최윤석 접점 확정 요청은 `review/yoonseok-ports-confirm-2026-09-02.md`.
+  팀장(알림)·조준영(지원) 접점 확정 요청은 `review/yoonseok-ports-confirm-2026-09-02.md`.
   팀장 패널 이식성 확정 요청은 `review/teamlead-panel-portability-2026-09-02.md`.
+  팀장 공개 API·패널 3종 통합 요청은 `review/teamlead-public-api-panels-2026-09-03.md`.
 - prototype/: 유동우 포트 스탠드인 Mock + 조준영 호출 서비스 + `PaymentGateway` Mock.
   키는 리포 루트 `.env`. 없으면 Mock·`PgKeyMissingError`. 다른 기능은 `prototype/index.ts`만 import한다.
-  `NotificationTriggerPort`는 publish만. 발송은 최윤석.
+  `NotificationTriggerPort`는 publish만. 발송은 팀장.
   공개 API 스탠드인은 `createPublicApiMock` (`prototype/index.ts` export).
-  GET `/api/v1/payments/:paymentId` (`getPayment`) 포함.
-  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~22 Mock을 확인한다.
+  GET `/api/v1/payments/:paymentId` (`getPayment`)와 POST 준비·승인 (`preparePayment`·`confirmPayment`) 포함.
+  GET `/api/v1/payments/:paymentId/settlement` (`getSettlement`)는 결제 행+납품+프로젝트를 조립한다.
+  GET `/api/v1/projects/:projectId/cancellation` (`getCancellation`)는 프로젝트+합의·계약+무효화 결과를 조립한다.
+  브라우저 `POST /cancel`은 이 폴더가 부르지 않는다.
+  `npx tsx prototype/run.tsx`로 spec 규칙 1~9·10~13·15·16·17·19·20~26 Mock을 확인한다.
+  실서비스 검토 F01~F05·F09·F11은 같은 `run.tsx`. F08은 PRD 전 미구현.
+  교차 생명주기 Coordinator는 내부 Mock이다. 공개 HTTP·`ORCH_*` 코드 없음.
+  합의 화면은 하이브리드 AGR-01·AGR-02·AGR-03(페이지 본문, ViewModel). `/agreements` 5종 폐기 유지.
+  재제안은 `POST .../negotiation-offers/:offerId/counter`. 설계서 `AGREEMENT_*` 코드는 쓰지 않는다.
+  서명 화면은 하이브리드 CTR-01·CTR-02(페이지 본문, ViewModel). 설계서 신설 `CONTRACT_*` 코드는 쓰지 않는다.
+  결제 화면은 하이브리드 PAY-01·PAY-02(페이지 본문, ViewModel). 설계서 신설 `PAYMENT_FORBIDDEN` 코드는 쓰지 않는다.
+  정산 화면은 하이브리드 SET-01 v2.0(페이지 본문, ViewModel). GET 조립. 실행은 내부 Mock.
+  설계서 신설 `SETTLEMENT_*` 코드·지급 버튼·운영 화면은 쓰지 않는다.
+  취소 화면은 하이브리드 CAN-01 v2.0(페이지 본문, ViewModel). 무효화 실행은 내부 Mock.
+  설계서 v2.0 정본. 공개 POST 취소는 유동우. `CANCEL_*` 코드·A-07 POST·환불은 쓰지 않는다.
+  납품 화면은 하이브리드 DLV-01(페이지 본문, ViewModel). 네이밍 2경로
+  (`POST /contracts/:id/deliveries` + `POST /deliveries/:id/approve`)는 쓰지 않는다.
+  GET은 요청 전 `IN_PROGRESS` 행. 승인·정산 `RELEASED` 양쪽에서 complete. `DELIVERY_*` 코드 없음.
+  I-30은 화면에서 `APPROVED`+`PAID`(정산 대기)와 `APPROVED`+`RELEASED`(완료)를 나눈다.
 
 ### Mock 시드 (성공·실패 재현)
 
@@ -43,8 +61,9 @@
 | `prj_deadline` | restore `DEADLINE_PASSED` |
 | `prj_pending_apps` | restore `PENDING_APPLICATIONS_REMAIN` |
 
-- design/: high-fi 3화면 (`agreement.html` · `contract-sign.html` · `payment.html`).
-  패널만 (앱 셸 없음). `_tokens.css`는 design-system v1.0 사본. 키 없음 UX는
+- design/: high-fi (`agreement.html` · `contract-sign.html` · `payment.html` · `delivery.html` · `settlement.html` · `cancellation.html`).
+  합의·납품은 페이지 본문(최대 1200px, 8:4). 서명·결제·정산·취소는 페이지 본문(ViewModel). 앱 셸 없음.
+  `_tokens.css`는 design-system v1.0 사본. 키 없음 UX는
   `prototype/web/PaymentPanel.tsx` `view="keyMissing"`.
   오버레이·reduced-motion은 `design/panel.css`. 합의 거절은 확인 다이얼로그 (앱 셸·stagger 없음).
   화면 카피는 상황 문장. 합의·서명·결제 응답 기한은 스펙에 없어 미표시.
@@ -52,10 +71,10 @@
 ## 교차 담당
 - 유동우 (project-management): 4함수 제공자. 2026-08-25 함수별 정의 회신 반영 완료
   (`review/yudong-function-defs-reply.md`).
-- 최윤석 (applications): 지원 수락 선행. 2026-08-26 함수별 정의 11건 전부 예
-  (`review/yoonseok-function-defs-response-final.html`).
-  알림 4종은 포트 발행 / 발송 대기. 계약은 `review/yoonseok-ports-contract.md`.
-  2026-09-02 확정 요청은 `review/yoonseok-ports-confirm-2026-09-02.md`.
+- 조준영 (applications): 지원 수락 선행. 손잡이·S1·S2는 2026-09-03 예.
+  (`review/yoonseok-ports-confirm-2026-09-02.md`). 2026-08-26 A1–A4 예 유지.
+- 팀장 (notifications): 알림 4종 발송. 조준영은 `publish*`만.
+  계약은 `review/yoonseok-ports-contract.md`.
 
 ## 갱신 이력
 
@@ -88,3 +107,39 @@
 | 2026-09-02 | 최윤석·팀장 확정 요청 (`yoonseok-ports-confirm` · `teamlead-panel-portability`) |
 | 2026-09-02 | 토큰 정본 일치. 서명 로딩/실패·결제 상태·거절 확인 다이얼로그. 실측 PASS 87 |
 | 2026-09-02 | UX 카피 반영. 실패·로딩은 상황 문장. 결제 금액·수수료·정산액 구분. 합의·서명·결제 응답 기한은 스펙에 없어 미표시. 실측 PASS 89 |
+| 2026-09-03 | 회신 대기 중 재실측. `run.tsx` PASS 89. mock-stub-import-guide 검증 수를 89로 맞춤 |
+| 2026-09-03 | 공개 API Mock에 `preparePayment`·`confirmPayment` 파사드. 팀장 통합 요청 `review/teamlead-public-api-panels-2026-09-03.md`. 실측 PASS 91 |
+| 2026-09-03 | 알림 발송 담당을 팀장으로. applications 손잡이·S1·S2는 조준영 확정 |
+| 2026-09-03 | 하이브리드 AGR-01. `/agreements` 5종 폐기 유지. `run.tsx` 상태 산정·필수 카피. 실측 PASS 120 |
+| 2026-09-03 | 하이브리드 DLV-01. 네이밍 2경로 미사용. I-30 화면 구분. `run.tsx` 실측 PASS 163 |
+| 2026-09-04 | 하이브리드 PAY-01. 라우트·오류 코드 유지. Sandbox 페이지·ViewModel. 실 Toss 미연동 |
+| 2026-09-04 | 하이브리드 SET-01. 정산 조회 GET 조립. 지급 버튼·운영 시뮬레이션 없음 |
+| 2026-09-04 | 하이브리드 CAN-01. 취소 결과 GET 조립. A-07 POST·환불 없음 |
+| 2026-09-04 | 하이브리드 AGR-02. 수신자 재제안 Mock·화면. `/agreements` 5종·신설 오류 코드 없음 |
+| 2026-09-04 | 하이브리드 AGR-03. 과거 라운드 대체됨 표시. SUPERSEDED 저장 없음 |
+| 2026-09-04 | 하이브리드 CTR-02. 서명 순서 자유·취소 후 409. `CONTRACT_*` 코드 없음 |
+| 2026-09-04 | 하이브리드 PAY-02. SIGNED 의뢰인 prepare·mark·PENDING 복구·웹훅 Mock. `PAYMENT_*` 신설 코드 없음 |
+| 2026-09-04 | 하이브리드 DLV-01 v2.0. ensureDelivery·멱등 키·승인/정산 양쪽 complete. `DELIVERY_*` 없음. 실측 PASS 290 |
+| 2026-09-04 | 하이브리드 SET-01 v2.0. 수수료 스냅샷·ELIGIBLE·RELEASED 원자·C-03 409 재판정. `SETTLEMENT_*` 없음. 실측 PASS 308 |
+| 2026-09-04 | 하이브리드 CAN-01 v2.0. 무효화 멱등·결제 후 409·감사 보존·GET notification. 규칙 25. 실측 PASS 323 |
+| 2026-09-04 | 금주 wrap (`review/week-wrap-2026-09-04.md`). PASS 323. `app/`·A-07·실토스·환불은 다음 |
+| 2026-09-07 | feedback_loop 9/3·9/5 반영완료. 규칙 17을 app 경로에 맞춤. 키 없음 prototype Mock / app 503 구분 |
+| 2026-09-07 | 설계서 v2.0 하이브리드. invalidate 별칭·state/signaturesPreserved. 공개 POST는 유동우 |
+| 2026-09-07 | 교차 생명주기 Coordinator Mock. SIGNED∧PAID start, APPROVED∧RELEASED complete. HTTP·`ORCH_*` 없음 |
+| 2026-09-07 | 오케스트레이션 리뷰 교차(OR-I11·REVIEW_REQUESTED·getUserRatingSummary 별칭). 발송은 팀장 |
+| 2026-09-07 | 실서비스 검토 F01~F05·F09·F11 Mock. F08은 PRD 전 미구현 |
+| 2026-09-08 | feedback 항목 1 반영완료. RELEASED는 웹훅·배치. 지급 버튼 없음. |
+| 2026-09-08 | feedback 항목 2 반영완료. 빈 제목은 「프로젝트」. 정본은 CR-CP-001. |
+| 2026-09-08 | feedback 항목 3 반영완료. 무효화 inbound만. A-07 포트 연결은 팀장. |
+| 2026-09-08 | feedback 항목 4 반영완료. 납품·정산·취소 high-fi 시안 있음. |
+| 2026-09-08 | feedback 항목 5 반영완료. 정산 URL은 contractId. preparePayment로 id. |
+| 2026-09-09 | 9/8 feedback 항목 1·2 반영완료. deliveries 7컬럼·invalidations 동의(규칙 23·25 근거) |
+| 2026-09-09 | CR-CP-002 제안. 수수료 스냅샷 3컬럼·멱등 bodyHash. 역산 제거 요청 |
+| 2026-09-09 | Toss 키 수신 확인 — `app/`은 실 sandbox 연동. `prototype/`은 Mock 스텁 유지 |
+| 2026-09-09 | 이식 지시서 발행. 파일 메타·다운로드 404·복구 경로·멱등 2경로·포트 배선 |
+| 2026-09-09 | 대기 현황판 신설(`review/waiting-board-2026-09-09.md`) — 내 3기능 대기 전체의 정본 |
+| 2026-09-09 | PG 요청서 회신 결과 4건 기록. PASS 347=키 있음·346=없음. app 미반영 서술 2건 정정 |
+| 2026-09-10 | CR-CP-003 제안. 멱등 Map→DB: payload·(scope,key) PK. 현황판 09-10 |
+| 2026-09-10 | 대기 현황판 09-10. 건수 배선·프로필 보류(RW)·멱등 Map·R4 후속 |
+| 2026-09-11 | QA: prototype 347 · payment-ready API 스모크 6/6(C-07 포함). 현황판 #1 닫음 |
+| 2026-09-11 | **CR-CP-003 반영** — payload·복합 PK·repo 배선. migration `20260911140000_…` |

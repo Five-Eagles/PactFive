@@ -1,0 +1,381 @@
+import { randomUUID } from 'node:crypto';
+import type {
+  Prisma,
+  PrismaClient,
+  Agreement as AgreementModel,
+  Contract as ContractModel,
+  Payment as PaymentModel,
+  Delivery as DeliveryModel,
+  Invalidation as InvalidationModel,
+} from '../../generated/prisma/client';
+import type {
+  AgreementRow,
+  ContractRow,
+  ContractsPaymentsRepository,
+  DeliveryRow,
+  InvalidationRow,
+  NegotiationOfferRow,
+  PaymentRow,
+  SignatureAuditRow,
+} from './in-memory-contracts-payments.repository';
+
+/**
+ * ContractsPaymentsRepository의 Prisma(Supabase Postgres) 구현.
+ *
+ * 2026-09-08, 6기능 Prisma 이식 트랙(팀장 작업). InMemoryContractsPaymentsRepository와 동작을
+ * 최대한 동일하게 맞췄다. 도메인 타입(in-memory-contracts-payments.repository.ts)과
+ * schema.prisma 사이에 3가지 메꿔야 할 간극이 있었다 — 전부 스키마를 다시 건드리지 않고
+ * 이 파일 안에서 흡수했다(schema.prisma는 이번 6기능 트랙의 스코프 밖):
+ *
+ * 1. `AgreementRow.offers`(중첩 배열) ↔ `NegotiationOffer`(자식 테이블, applicationId로 연결).
+ * 2. `Payment.clientId`/`freelancerId`는 schema에서 NOT NULL이지만 도메인 `PaymentRow`는
+ *    이 두 필드를 갖지 않는다 — `savePayment`가 최초 삽입 시 `contractId`로 Contract를 찾아 채운다.
+ * 3. `PaymentRow.clientKey`는 여전히 schema에 저장 컬럼이 없다 — `process.env.PG_CLIENT_KEY`.
+ *
+ * **2026-09-09 CR-CP-002** — `platformFeeRateBps` 저장 컬럼 반영.
+ *
+ * **2026-09-11 CR-CP-003** — `getIdempotent`/`setIdempotent`를 `payment_idempotency_records`
+ * (`payload` Json · PK `(scope, idempotency_key)`)로 옮긴다. 프로세스 Map은 제거한다.
+ */
+export class PrismaContractsPaymentsRepository implements ContractsPaymentsRepository {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async findAgreementByProjectId(projectId: string): Promise<AgreementRow | undefined> {
+    const row = await this.prisma.agreement.findFirst({ where: { application: { projectId } } });
+    if (!row) return undefined;
+    return this.toAgreementRow(row, projectId);
+  }
+
+  async findAgreementById(agreementId: string): Promise<AgreementRow | undefined> {
+    const row = await this.prisma.agreement.findUnique({ where: { id: agreementId } });
+    if (!row) return undefined;
+    const application = await this.prisma.application.findUnique({ where: { id: row.applicationId } });
+    return this.toAgreementRow(row, application?.projectId ?? '');
+  }
+
+  async saveAgreement(row: AgreementRow): Promise<void> {
+    await this.prisma.agreement.upsert({
+      where: { id: row.agreementId },
+      create: {
+        id: row.agreementId,
+        applicationId: row.applicationId,
+        proposedByUserId: row.proposedByUserId,
+        agreedAmount: row.agreedAmount,
+        status: row.status,
+        respondedAt: row.respondedAt ? new Date(row.respondedAt) : null,
+      },
+      update: {
+        proposedByUserId: row.proposedByUserId,
+        agreedAmount: row.agreedAmount,
+        status: row.status,
+        respondedAt: row.respondedAt ? new Date(row.respondedAt) : null,
+      },
+    });
+    // offers는 항상 "다음 상태의 전체 배열"을 받는다 — 전량 삭제 후 재삽입.
+    // C-02 — 기존 offerId를 유지한다(nof_ 신규 UUID로 바꾸면 클라이언트의 offerId가 깨진다).
+    await this.prisma.negotiationOffer.deleteMany({ where: { applicationId: row.applicationId } });
+    if (row.offers.length > 0) {
+      await this.prisma.negotiationOffer.createMany({
+        data: row.offers.map((offer) => ({
+          id: offer.offerId,
+          applicationId: row.applicationId,
+          round: offer.round,
+          proposedByUserId: offer.offeredByUserId,
+          offeredAmount: offer.amount,
+          rejectedReason: offer.rejectedReason,
+        })),
+      });
+    }
+  }
+
+  async findContractById(contractId: string): Promise<ContractRow | undefined> {
+    const row = await this.prisma.contract.findUnique({ where: { id: contractId } });
+    return row ? toContractRow(row) : undefined;
+  }
+
+  async findContractByProjectId(projectId: string): Promise<ContractRow | undefined> {
+    const row = await this.prisma.contract.findFirst({ where: { projectId } });
+    return row ? toContractRow(row) : undefined;
+  }
+
+  async saveContract(row: ContractRow): Promise<void> {
+    await this.prisma.contract.upsert({
+      where: { id: row.contractId },
+      create: {
+        id: row.contractId,
+        agreementId: row.agreementId,
+        projectId: row.projectId,
+        clientId: row.clientId,
+        freelancerId: row.freelancerId,
+        projectTitleSnapshot: row.projectTitleSnapshot,
+        agreedAmount: row.agreedAmount,
+        workStartDate: new Date(row.workStartDate),
+        workEndDate: new Date(row.workEndDate),
+        termsSnapshot: row.termsSnapshot as unknown as Prisma.InputJsonValue,
+        status: row.status,
+        clientSignedAt: row.clientSignedAt ? new Date(row.clientSignedAt) : null,
+        freelancerSignedAt: row.freelancerSignedAt ? new Date(row.freelancerSignedAt) : null,
+        signedAt: row.signedAt ? new Date(row.signedAt) : null,
+      },
+      update: {
+        status: row.status,
+        clientSignedAt: row.clientSignedAt ? new Date(row.clientSignedAt) : null,
+        freelancerSignedAt: row.freelancerSignedAt ? new Date(row.freelancerSignedAt) : null,
+        signedAt: row.signedAt ? new Date(row.signedAt) : null,
+      },
+    });
+  }
+
+  async recordSignature(row: SignatureAuditRow): Promise<void> {
+    const contract = await this.prisma.contract.findUnique({ where: { id: row.contractId } });
+    const signerRole = contract && row.signerId === contract.freelancerId ? 'FREELANCER' : 'CLIENT';
+    await this.prisma.contractSignatureAudit.create({
+      data: {
+        id: `csa_${randomUUID().replace(/-/g, '')}`,
+        contractId: row.contractId,
+        signerId: row.signerId,
+        signerRole,
+        signedAt: new Date(row.signedAt),
+      },
+    });
+  }
+
+  async hasSignatureAudit(contractId: string): Promise<boolean> {
+    const count = await this.prisma.contractSignatureAudit.count({ where: { contractId } });
+    return count > 0;
+  }
+
+  async findPaymentById(paymentId: string): Promise<PaymentRow | undefined> {
+    const row = await this.prisma.payment.findUnique({ where: { id: paymentId } });
+    return row ? toPaymentRow(row) : undefined;
+  }
+
+  async findPaymentByContractId(contractId: string): Promise<PaymentRow | undefined> {
+    const row = await this.prisma.payment.findUnique({ where: { contractId } });
+    return row ? toPaymentRow(row) : undefined;
+  }
+
+  async findPaymentByOrderId(orderId: string): Promise<PaymentRow | undefined> {
+    const row = await this.prisma.payment.findUnique({ where: { pgOrderId: orderId } });
+    return row ? toPaymentRow(row) : undefined;
+  }
+
+  async savePayment(row: PaymentRow): Promise<void> {
+    const existing = await this.prisma.payment.findUnique({ where: { id: row.paymentId } });
+    let clientId: string;
+    let freelancerId: string;
+    if (existing) {
+      clientId = existing.clientId;
+      freelancerId = existing.freelancerId;
+    } else {
+      // 파일 헤더 주석 2번 — Payment.clientId/freelancerId는 NOT NULL이지만 PaymentRow엔 없다.
+      const contract = await this.prisma.contract.findUniqueOrThrow({ where: { id: row.contractId } });
+      clientId = contract.clientId;
+      freelancerId = contract.freelancerId;
+    }
+    // Payment는 계약당 한 건만 존재한다. id만 기준으로 upsert하면 두 개의
+    // preparePayment 요청이 동시에 paymentId를 새로 생성할 때 서로 다른 id로
+    // INSERT를 시도하여 payments_contract_id_key(P2002)가 발생한다. 계약 유니크
+    // 키를 기준으로 upsert해야 재시도·더블클릭도 같은 결제 원장을 갱신한다.
+    await this.prisma.payment.upsert({
+      where: { contractId: row.contractId },
+      create: {
+        id: row.paymentId,
+        contractId: row.contractId,
+        clientId,
+        freelancerId,
+        paymentAmount: row.amount,
+        platformFeeAmount: row.platformFeeAmount,
+        settlementAmount: row.settlementAmount,
+        // CR-CP-002 — 결제 생성 시점의 요율 스냅샷. feePolicyVersion·pgCostAmount는 아직
+        // 도메인 PaymentRow에 없어(파일 헤더 주석 3번) 스키마 기본값을 그대로 쓴다.
+        platformFeeRateBps: row.platformFeeRateBps,
+        status: row.status,
+        pgOrderId: row.orderId,
+        pgPaymentKey: row.paymentKey,
+        failedAt: row.failedAt ? new Date(row.failedAt) : null,
+        failureCode: row.failureCode,
+        releasedAt: row.releasedAt ? new Date(row.releasedAt) : null,
+      },
+      update: {
+        status: row.status,
+        pgOrderId: row.orderId,
+        pgPaymentKey: row.paymentKey,
+        failedAt: row.failedAt ? new Date(row.failedAt) : null,
+        failureCode: row.failureCode,
+        releasedAt: row.releasedAt ? new Date(row.releasedAt) : null,
+      },
+    });
+  }
+
+  async findDeliveryByContractId(contractId: string): Promise<DeliveryRow | undefined> {
+    const row = await this.prisma.delivery.findUnique({ where: { contractId } });
+    return row ? toDeliveryRow(row) : undefined;
+  }
+
+  async saveDelivery(row: DeliveryRow): Promise<void> {
+    await this.prisma.delivery.upsert({
+      where: { contractId: row.contractId },
+      create: {
+        id: row.deliveryId,
+        contractId: row.contractId,
+        status: row.status,
+        version: row.version,
+        message: row.message,
+        requestedAt: row.requestedAt ? new Date(row.requestedAt) : null,
+        approvedAt: row.approvedAt ? new Date(row.approvedAt) : null,
+        objectKey: row.objectKey,
+        fileName: row.fileName,
+        mimeType: row.mimeType,
+        sizeBytes: row.sizeBytes,
+        fileSha256: row.fileSha256,
+      },
+      update: {
+        status: row.status,
+        version: row.version,
+        message: row.message,
+        requestedAt: row.requestedAt ? new Date(row.requestedAt) : null,
+        approvedAt: row.approvedAt ? new Date(row.approvedAt) : null,
+        objectKey: row.objectKey,
+        fileName: row.fileName,
+        mimeType: row.mimeType,
+        sizeBytes: row.sizeBytes,
+        fileSha256: row.fileSha256,
+      },
+    });
+  }
+
+  async findLatestInvalidationByProjectId(projectId: string): Promise<InvalidationRow | undefined> {
+    // schema의 ix_invalidations_latest_by_project 인덱스([projectId, createdAt])를 그대로 쓴다.
+    const row = await this.prisma.invalidation.findFirst({
+      where: { projectId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return row ? toInvalidationRow(row) : undefined;
+  }
+
+  async saveInvalidation(row: InvalidationRow): Promise<void> {
+    await this.prisma.invalidation.upsert({
+      where: { cancellationId: row.cancellationId },
+      create: {
+        cancellationId: row.cancellationId,
+        projectId: row.projectId,
+        contractInvalidation: row.contractInvalidation,
+      },
+      update: {
+        contractInvalidation: row.contractInvalidation,
+      },
+    });
+  }
+
+  async getIdempotent<T>(namespace: string, key: string): Promise<T | undefined> {
+    // CR-CP-003 — scope+key 복합 PK. 예전에 Map에 쓰던 `${namespace}:${key}` 단일 키와 같다.
+    const scope = namespace.slice(0, 40);
+    const row = await this.prisma.paymentIdempotencyRecord.findUnique({
+      where: { scope_idempotencyKey: { scope, idempotencyKey: key } },
+    });
+    if (!row) return undefined;
+    return row.payload as T;
+  }
+
+  async setIdempotent<T>(namespace: string, key: string, value: T): Promise<void> {
+    const scope = namespace.slice(0, 40);
+    const payload = value as Prisma.InputJsonValue;
+    await this.prisma.paymentIdempotencyRecord.upsert({
+      where: { scope_idempotencyKey: { scope, idempotencyKey: key } },
+      create: { scope, idempotencyKey: key, payload, bodyHash: null },
+      update: { payload, bodyHash: null },
+    });
+  }
+
+  private async toAgreementRow(row: AgreementModel, projectId: string): Promise<AgreementRow> {
+    const offers = await this.prisma.negotiationOffer.findMany({
+      where: { applicationId: row.applicationId },
+      orderBy: { round: 'asc' },
+    });
+    return {
+      agreementId: row.id,
+      projectId,
+      applicationId: row.applicationId,
+      proposedByUserId: row.proposedByUserId,
+      status: row.status,
+      agreedAmount: row.agreedAmount,
+      respondedAt: row.respondedAt ? row.respondedAt.toISOString() : null,
+      offers: offers.map(
+        (offer): NegotiationOfferRow => ({
+          offerId: offer.id,
+          round: offer.round,
+          amount: offer.offeredAmount,
+          offeredByUserId: offer.proposedByUserId,
+          rejectedReason: offer.rejectedReason,
+        }),
+      ),
+    };
+  }
+}
+
+function toContractRow(row: ContractModel): ContractRow {
+  return {
+    contractId: row.id,
+    agreementId: row.agreementId,
+    projectId: row.projectId,
+    clientId: row.clientId,
+    freelancerId: row.freelancerId,
+    agreedAmount: row.agreedAmount,
+    projectTitleSnapshot: row.projectTitleSnapshot,
+    workStartDate: row.workStartDate.toISOString().slice(0, 10),
+    workEndDate: row.workEndDate.toISOString().slice(0, 10),
+    termsSnapshot: row.termsSnapshot as unknown as ContractRow['termsSnapshot'],
+    status: row.status,
+    clientSignedAt: row.clientSignedAt ? row.clientSignedAt.toISOString() : null,
+    freelancerSignedAt: row.freelancerSignedAt ? row.freelancerSignedAt.toISOString() : null,
+    signedAt: row.signedAt ? row.signedAt.toISOString() : null,
+  };
+}
+
+function toPaymentRow(row: PaymentModel): PaymentRow {
+  return {
+    paymentId: row.id,
+    contractId: row.contractId,
+    orderId: row.pgOrderId,
+    amount: row.paymentAmount,
+    // CR-CP-002 — 저장된 스냅샷을 그대로 읽는다. 이전엔 저장 컬럼이 없어 platformFeeAmount÷
+    // paymentAmount로 역산했다(파일 헤더 주석 3번 — 고정 요율 하나만 쓰는 동안은 우연히
+    // 정확했다).
+    platformFeeRateBps: row.platformFeeRateBps,
+    platformFeeAmount: row.platformFeeAmount,
+    settlementAmount: row.settlementAmount,
+    status: row.status === 'REFUNDED' ? 'FAILED' : row.status,
+    // 서버 시크릿이 아니다(public-api.service.ts 원본 주석) — 저장하지 않고 매번 다시 채운다.
+    clientKey: process.env.PG_CLIENT_KEY ?? '',
+    paymentKey: row.pgPaymentKey,
+    failedAt: row.failedAt ? row.failedAt.toISOString() : null,
+    failureCode: row.failureCode,
+    releasedAt: row.releasedAt ? row.releasedAt.toISOString() : null,
+  };
+}
+
+function toDeliveryRow(row: DeliveryModel): DeliveryRow {
+  return {
+    deliveryId: row.id,
+    contractId: row.contractId,
+    status: row.status,
+    version: row.version,
+    message: row.message,
+    requestedAt: row.requestedAt ? row.requestedAt.toISOString() : null,
+    approvedAt: row.approvedAt ? row.approvedAt.toISOString() : null,
+    objectKey: row.objectKey,
+    fileName: row.fileName,
+    mimeType: row.mimeType,
+    sizeBytes: row.sizeBytes,
+    fileSha256: row.fileSha256,
+  };
+}
+
+function toInvalidationRow(row: InvalidationModel): InvalidationRow {
+  return {
+    cancellationId: row.cancellationId,
+    projectId: row.projectId,
+    contractInvalidation: row.contractInvalidation as InvalidationRow['contractInvalidation'],
+  };
+}
