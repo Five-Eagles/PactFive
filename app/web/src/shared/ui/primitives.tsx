@@ -497,6 +497,92 @@ export function FactsSkeleton({ withActions = true }: { withActions?: boolean })
   );
 }
 
+/**
+ * ProjectDetailPage(SCR-B02) 전용 — 실제 `.detail` 2단 그리드
+ * (`grid-template-columns: 1fr 320px`) 구조를 그대로 재현한다 (ADR-0018).
+ * 좌: 배지 → 제목(.h2) → 캡션 → 설명 카드 → "모집 정보" 카드(.kv 행 4개)
+ * 우: .side(sticky) 의뢰인 카드 + 버튼 자리
+ */
+export function ProjectDetailSkeleton() {
+  return (
+    <article className="detail" role="status" aria-busy="true">
+      <span className="sr-only">불러오는 중입니다</span>
+      <div aria-hidden="true">
+        <Skeleton shape="pill" width="88px" />
+        <div style={{ marginTop: 10 }}>
+          <Skeleton shape="line" width="60%" />
+        </div>
+        <div style={{ margin: '10px 0 20px' }}>
+          <Skeleton shape="line" width="30%" />
+        </div>
+
+        <div className="card" style={{ marginBottom: 20 }}>
+          <Skeleton shape="line" width="100%" />
+          <Skeleton shape="line" width="100%" />
+          <Skeleton shape="line" width="70%" />
+        </div>
+
+        <div style={{ margin: '0 0 12px' }}>
+          <Skeleton shape="line" width="20%" />
+        </div>
+        <div className="card">
+          <div className="kv">
+            <span className="kv__k">
+              <Skeleton shape="line" width="60%" />
+            </span>
+            <span>
+              <Skeleton shape="line" width="40%" />
+            </span>
+          </div>
+          <div className="kv">
+            <span className="kv__k">
+              <Skeleton shape="line" width="60%" />
+            </span>
+            <span>
+              <Skeleton shape="line" width="70%" />
+            </span>
+          </div>
+          <div className="kv">
+            <span className="kv__k">
+              <Skeleton shape="line" width="60%" />
+            </span>
+            <span className="pcard__skills">
+              <Skeleton shape="pill" width="48px" />
+              <Skeleton shape="pill" width="64px" />
+              <Skeleton shape="pill" width="56px" />
+            </span>
+          </div>
+          <div className="kv">
+            <span className="kv__k">
+              <Skeleton shape="line" width="60%" />
+            </span>
+            <span>
+              <Skeleton shape="line" width="50%" />
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <aside className="side" aria-hidden="true">
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 10 }}>
+            <Skeleton shape="line" width="35%" />
+          </div>
+          <div style={{ marginBottom: 2 }}>
+            <Skeleton shape="line" width="70%" />
+          </div>
+          <Skeleton shape="line" width="55%" />
+        </div>
+        <div className="btn-row">
+          <span style={{ flex: 1 }}>
+            <Skeleton shape="button" width="100%" />
+          </span>
+        </div>
+      </aside>
+    </article>
+  );
+}
+
 export function PermissionAwareActions({ actions }: { actions: ActionSpec[] }) {
   return (
     <div className="row__acts">

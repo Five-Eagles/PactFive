@@ -6,8 +6,8 @@ import {
   Chip,
   DeadlineIndicator,
   Money,
+  ProjectDetailSkeleton,
   RecruitmentBadge,
-  SkeletonStack,
   TransactionBadge,
 } from '../../shared/ui/primitives';
 import { isClientDetail, useProject } from './useProject';
@@ -61,11 +61,8 @@ export function ProjectDetailPage({
   if (loading) {
     return (
       <PageBody>
-        {/* 시안 2단 구조(제목·설명·모집정보)를 흉내 낸 글줄 스택 (ADR-0018) */}
-        <SkeletonStack
-          widths={['25%', '55%', '20%', '100%', '100%', '80%']}
-          label="불러오는 중입니다"
-        />
+        {/* 실제 .detail 2단 그리드(1fr 320px)를 그대로 재현한 스켈레톤 (ADR-0018) */}
+        <ProjectDetailSkeleton />
       </PageBody>
     );
   }
