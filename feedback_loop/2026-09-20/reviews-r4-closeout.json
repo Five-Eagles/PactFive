@@ -1,0 +1,46 @@
+{
+  "ranAt": "2026-09-20T02:23:02.076Z",
+  "results": [
+    {
+      "n": "API client myDirection",
+      "p": true,
+      "d": "dir=CLIENT_TO_FREELANCER"
+    },
+    {
+      "n": "API freelancer myDirection",
+      "p": true,
+      "d": "dir=FREELANCER_TO_CLIENT"
+    },
+    {
+      "n": "UI tagsForDirection(myDirection)",
+      "p": true,
+      "d": "wired"
+    },
+    {
+      "n": "UI ConfirmDialog",
+      "p": true,
+      "d": "confirm modal"
+    },
+    {
+      "n": "UI client labels",
+      "p": true,
+      "d": "client PROFESSIONAL_ATTITUDE"
+    },
+    {
+      "n": "UI freelancer labels",
+      "p": true,
+      "d": "freelancer PROFESSIONAL_ATTITUDE differs"
+    },
+    {
+      "n": "types both tag sets",
+      "p": true,
+      "d": "types"
+    },
+    {
+      "n": "web preview (optional)",
+      "p": true,
+      "d": "unreachable (ECONNREFUSED) — optional — not required for closeout"
+    }
+  ],
+  "verdict": "R4 closed for increment (API+source)"
+}

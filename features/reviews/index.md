@@ -63,3 +63,4 @@
 | 2026-09-20 | R-06 콜드 재시작 검증 8/8 PASS · develop(#132) sync |
 | 2026-09-20 | bodyHash sha256 정합(VarChar 64) · dev simulate-payment-paid · COMPLETED 스모크 |
 | 2026-09-20 | R4 점검: myDirection·태그 맵 API/코드 4/4 (브라우저 시각은 선택) |
+| 2026-09-20 | R4 closeout: ConfirmDialog·방향 라벨 포함 API+소스 8/8 — 현황판 #4 닫음 |
