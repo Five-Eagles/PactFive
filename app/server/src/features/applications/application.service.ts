@@ -26,6 +26,8 @@ import {
   type ApplicationRepository,
   type ApplicationRow,
   type ApplicationStatus,
+  type ApplicationUnitOfWork,
+  type ApplicationWriteTx,
   type CreateApplicationBody,
   type CreateApplicationInput,
   type CreateApplicationResult,
@@ -70,6 +72,8 @@ export type ApplicationServiceDeps = {
   userDisplay?: UserDisplayPort;
   now: () => string;
   nextRequestId: () => string;
+  /** R-001 — Prisma 모드에서 INSERT+bump를 한 커밋으로 묶는다. 없으면 순차 호출(in-memory). */
+  unitOfWork?: ApplicationUnitOfWork;
 };
 
 function requireActor(actorUserId: string | undefined): string {
@@ -234,7 +238,7 @@ function toDetail(row: ApplicationRow, project: ProjectApplicationContext | null
 }
 
 async function recordTransition(
-  repository: ApplicationRepository,
+  repository: Pick<ApplicationRepository, 'appendStateEvent'> | Pick<ApplicationWriteTx, 'appendStateEvent'>,
   row: ApplicationRow,
   fromStatus: ApplicationStatus | null,
   at: string,
@@ -493,14 +497,26 @@ export async function createApplication(
     decidedAt: null,
     createdAt: nowIso,
   };
-  await deps.repository.insertApplication(row);
-  await recordTransition(deps.repository, row, null, nowIso);
-  // A-03 — CR-AP-001 포트로 누적·대기 카운트를 올린다. 실패를 삼키면 행만 남고 건수는 0이 된다(R-001).
-  await deps.projectContext.bumpApplicationCounts(projectId, {
-    applicationCount: 1,
-    pendingApplicationCount: 1,
-  });
-  await deps.repository.setIdempotency(scopedKey, bodyHash(parsed), row.applicationId);
+  // R-001 — Prisma UoW가 있으면 INSERT·전이·bump·멱등을 한 커밋으로 묶는다.
+  if (deps.unitOfWork) {
+    await deps.unitOfWork.run(async (tx) => {
+      await tx.insertApplication(row);
+      await recordTransition(tx, row, null, nowIso);
+      await tx.bumpApplicationCounts(projectId, {
+        applicationCount: 1,
+        pendingApplicationCount: 1,
+      });
+      await tx.setIdempotency(scopedKey, bodyHash(parsed), row.applicationId);
+    });
+  } else {
+    await deps.repository.insertApplication(row);
+    await recordTransition(deps.repository, row, null, nowIso);
+    await deps.projectContext.bumpApplicationCounts(projectId, {
+      applicationCount: 1,
+      pendingApplicationCount: 1,
+    });
+    await deps.repository.setIdempotency(scopedKey, bodyHash(parsed), row.applicationId);
+  }
   await publish(deps, {
     type: 'APPLICATION_SUBMITTED',
     projectId,
@@ -709,10 +725,18 @@ export async function rejectApplication(
   }
   const nowIso = deps.now();
   const rejected: ApplicationRow = { ...row, status: 'REJECTED', rejectionType: 'DIRECT', decidedAt: nowIso };
-  await deps.repository.saveApplication(rejected);
-  await recordTransition(deps.repository, rejected, 'PENDING', nowIso);
-  // A-03 — 개별 거절은 대기 건수만 -1 (CR-AP-001). 수락·일괄 거절은 PM이 0으로 맞춘다.
-  await deps.projectContext.bumpApplicationCounts(row.projectId, { pendingApplicationCount: -1 });
+  // R-001 — 상태 변경·전이·pending −1을 한 커밋으로(Prisma UoW).
+  if (deps.unitOfWork) {
+    await deps.unitOfWork.run(async (tx) => {
+      await tx.saveApplication(rejected);
+      await recordTransition(tx, rejected, 'PENDING', nowIso);
+      await tx.bumpApplicationCounts(row.projectId, { pendingApplicationCount: -1 });
+    });
+  } else {
+    await deps.repository.saveApplication(rejected);
+    await recordTransition(deps.repository, rejected, 'PENDING', nowIso);
+    await deps.projectContext.bumpApplicationCounts(row.projectId, { pendingApplicationCount: -1 });
+  }
 
   const operation: ApplicationOperation = {
     operationId: await deps.repository.nextOperationId(),

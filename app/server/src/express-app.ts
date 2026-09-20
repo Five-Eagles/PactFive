@@ -56,6 +56,7 @@ import { PrismaApplicationRepository } from './features/applications/prisma-appl
 import { NotificationApplicationAdapter } from './features/applications/notification.adapter';
 import { createApplicationsPortAdapter } from './features/applications/applications-port.adapter';
 import { createProjectApplicationContextAdapter } from './features/applications/project-application-context.adapter';
+import { createPrismaApplicationUnitOfWork } from './features/applications/prisma-application-unit-of-work';
 import { createAcceptProjectApplicationAdapter } from './features/applications/accept-project-application.adapter';
 import { createApplicationRouter } from './features/applications/application.router';
 import { InMemoryReviewRepository } from './features/reviews/in-memory-review.repository';
@@ -467,6 +468,10 @@ app.use(
       },
       now: projectNow,
       nextRequestId: () => randomId(),
+      // R-001 — Prisma일 때만 INSERT+bump를 한 트랜잭션으로 묶는다.
+      unitOfWork: isPrismaConfigured(authProviderMode)
+        ? createPrismaApplicationUnitOfWork(getPrismaClient())
+        : undefined,
     },
     { requireAuth },
   ),
