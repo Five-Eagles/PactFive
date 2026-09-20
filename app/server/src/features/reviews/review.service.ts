@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { tagsForDirection } from './review.constants';
 import { displayAverageRating } from './display-average';
 import {
@@ -62,15 +63,15 @@ function requireActor(actorUserId: string | undefined): string {
   return actorUserId;
 }
 
-// bodyHash는 정규화된 content를 해시한다(원본 request.content 원본이 아니다) — 안 그러면
-// 트림 전후로 다른 본문이 같은 해시로 통과하거나, content가 항상 null로 계산돼(2026-09-09
-// 이전 결함) 본문이 다른 요청이 같은 idempotencyKey로 통과한다.
+// bodyHash는 정규화된 content를 포함한 본문 지문이다(원본 request.content 원본이 아니다).
+// DB `body_hash` VarChar(64)에 맞추어 sha256 hex를 쓴다 — JSON 원문을 넣으면 길이 초과(P2000).
 function bodyHash(input: CreateReviewInput, content: string | null): string {
-  return JSON.stringify({
+  const raw = JSON.stringify({
     rating: input.rating,
     content,
     tags: [...input.tags].sort(),
   });
+  return createHash('sha256').update(raw).digest('hex');
 }
 
 /** 원본: features/reviews/prototype/server/review.service.ts:47~56 (조준영) 그대로.

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { REVIEW_COLLECTION_METHODS, tagsForDirection } from "./review.constants";
 import { displayAverageRating } from "./display-average";
 import { withKeyedLock } from "./keyed-lock";
@@ -37,11 +38,12 @@ function requireActor(actorUserId: string | undefined): string {
 }
 
 function bodyHash(input: CreateReviewInput, content: string | null): string {
-  return JSON.stringify({
+  const raw = JSON.stringify({
     rating: input.rating,
     content,
     tags: [...input.tags].sort(),
   });
+  return createHash("sha256").update(raw).digest("hex");
 }
 
 function normalizeContent(raw: string | undefined): string | null {

@@ -826,6 +826,47 @@ export function createPublicApiService({
     },
 
     /**
+     * 브라우저 Toss 위젯 없이 READY→PAID(+start)만 만든다 — HTTP는 `/api/internal/dev` 전용.
+     * confirmPayment와 같이 Coordinator `onPaymentPaid`를 타며, paymentKey는 `dev_` 접두 가짜값.
+     */
+    async simulatePaymentPaid(paymentId: string): Promise<{ paymentId: string; status: 'PAID' }> {
+      const row = await repo.findPaymentById(paymentId);
+      if (!row) throw new DomainContractError('PROJECT_NOT_FOUND', '결제를 찾을 수 없습니다.');
+      if (row.status === 'PAID') {
+        return { paymentId: row.paymentId, status: 'PAID' };
+      }
+      if (row.status !== 'READY' && row.status !== 'PENDING') {
+        throw new DomainContractError(
+          'PROJECT_TRANSITION_CONFLICT',
+          '프로젝트 상태가 변경되어 처리할 수 없습니다.',
+        );
+      }
+      const contract = await repo.findContractById(row.contractId);
+      if (!contract) throw new DomainContractError('PROJECT_NOT_FOUND', '계약을 찾을 수 없습니다.');
+      row.status = 'PAID';
+      row.paymentKey = row.paymentKey ?? `dev_${row.paymentId}`;
+      row.failedAt = null;
+      row.failureCode = null;
+      await repo.savePayment(row);
+      await ignoreNotificationFailure(() =>
+        notifications.publishPaymentCompleted({
+          type: 'PAYMENT_COMPLETED',
+          projectId: contract.projectId,
+          projectTitle: contract.projectTitleSnapshot,
+          paymentId: row.paymentId,
+          freelancerId: contract.freelancerId,
+          occurredAt: now(),
+        }),
+      );
+      await coordinator.onPaymentPaid({
+        eventId: randomId('evt_paid'),
+        projectId: contract.projectId,
+        occurredAt: now(),
+      });
+      return { paymentId: row.paymentId, status: 'PAID' };
+    },
+
+    /**
      * 브라우저 경로가 아니다(spec.md 규칙 24) — HTTP 라우트로 노출하지 않는다. Sandbox 정산
      * 실행은 지급 버튼이 없어, 이 함수를 직접 호출해야만(내부/테스트) RELEASED로 넘어간다.
      * `APPROVED ∧ RELEASED`가 되면 교차 생명주기 Coordinator(규칙 26)가 complete를 재평가한다.
