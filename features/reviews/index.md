@@ -61,3 +61,4 @@
 | 2026-09-11 | QA: prototype 69 · API 스모크 7/7(R-02·myDirection). COMPLETED 전 PROJECT_NOT_COMPLETED |
 | 2026-09-14 | R-06: userExists를 Prisma users 정본으로. 스모크에 상대 미세션 rating 케이스 |
 | 2026-09-20 | R-06 콜드 재시작 검증 8/8 PASS · develop(#132) sync |
+| 2026-09-20 | bodyHash sha256 정합(VarChar 64) · dev simulate-payment-paid · COMPLETED 스모크 |

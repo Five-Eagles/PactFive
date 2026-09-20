@@ -622,6 +622,26 @@ if (!isProduction) {
     }
   });
 
+  // 결제 PAID는 원래 Toss 위젯 paymentKey가 필요하다. 로컬 reviews·납품 QA를 위해
+  // confirmPayment와 같은 Coordinator 경로만 타며 가짜 paymentKey로 READY→PAID 한다.
+  app.post('/api/internal/dev/simulate-payment-paid', async (req: Request, res: Response) => {
+    const paymentId = String((req.body as Record<string, unknown> | undefined)?.paymentId ?? '');
+    if (!paymentId) {
+      res.status(422).json({
+        error: { code: 'VALIDATION_ERROR', message: 'paymentId가 필요합니다.', details: null },
+      });
+      return;
+    }
+    try {
+      const result = await publicApiService.simulatePaymentPaid(paymentId);
+      res.status(200).json({ ok: true, ...result });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ error: { code: 'INTERNAL_ERROR', message: String(error), details: null } });
+    }
+  });
+
   // 정산 RELEASED 전이는 실제 지급 버튼이 없어(public-api.service.ts의
   // simulateSettlementResult 주석 — "Sandbox 정산 실행은 지급 버튼이 없어, 이 함수를
   // 직접 호출해야만") 사용자 API로는 절대 도달할 수 없다. scripts/seed-dev-accounts.js의
