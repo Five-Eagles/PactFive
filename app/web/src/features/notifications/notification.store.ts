@@ -15,6 +15,8 @@ export type NotificationSnapshot = {
   message: string;
   /** 서버가 확정한 전체 읽음 결과다 — readAt을 임의로 만들어내지 않는다. */
   confirmedReadIds: string[];
+  /** 서버 응답 전 화면에만 적용한 읽음 상태다. */
+  optimisticReadIds: string[];
 };
 
 export function createNotificationStore(
@@ -34,6 +36,7 @@ export function createNotificationStore(
     errorMessage: null,
     message: '',
     confirmedReadIds: [],
+    optimisticReadIds: [],
   };
   const listeners = new Set<() => void>();
   let active = true;
@@ -56,6 +59,7 @@ export function createNotificationStore(
         errorMessage: null,
         message: '세션이 만료되었습니다. 다시 로그인해 주세요.',
         confirmedReadIds: [],
+        optimisticReadIds: [],
         isRefreshing: false,
         pendingNotificationId: null,
         isMarkingAllRead: false,
@@ -75,6 +79,7 @@ export function createNotificationStore(
       status: 'ready',
       hasLoaded: true,
       confirmedReadIds: [],
+      optimisticReadIds: [],
     });
   }
   // 한 번에 하나만 — 먼저 시작한 읽기/개수 요청이 나중에 끝난 변경을 덮어쓰지 않는다.
@@ -90,6 +95,21 @@ export function createNotificationStore(
     if (kind === 'all' && !state.unreadCount) return;
     busy = true;
     const current = generation;
+    const previousItems = state.items;
+    const previousUnreadCount = state.unreadCount;
+    if (kind === 'read' && id) {
+      set({
+        optimisticReadIds: state.optimisticReadIds.includes(id)
+          ? state.optimisticReadIds
+          : [...state.optimisticReadIds, id],
+        unreadCount: Math.max(0, (state.unreadCount ?? 0) - 1),
+      });
+    } else if (kind === 'all') {
+      set({
+        optimisticReadIds: state.items.map((entry) => entry.id),
+        unreadCount: 0,
+      });
+    }
     set({
       errorMessage: null,
       message: '',
@@ -109,6 +129,7 @@ export function createNotificationStore(
         set({
           items: state.items.map((entry) => (entry.id === id ? { ...result.item } : entry)),
           unreadCount: result.unreadCount,
+          optimisticReadIds: state.optimisticReadIds.filter((itemId) => itemId !== id),
           message: '알림을 읽음 처리했습니다.',
         });
       } else {
@@ -117,6 +138,7 @@ export function createNotificationStore(
         set({
           unreadCount: result.unreadCount,
           confirmedReadIds: state.items.map((entry) => entry.id),
+          optimisticReadIds: [],
           message: `${result.updatedCount}개의 알림을 읽음 처리했습니다.`,
         });
         // 이 조회는 변경 뒤에 순서대로 실행되며, 그 사이 새로 도착한 미읽음 알림도 포함할 수 있다.
@@ -125,7 +147,10 @@ export function createNotificationStore(
         applyList(fresh);
       }
     } catch (error) {
-      if (valid(current)) fail(error);
+      if (valid(current)) {
+        set({ items: previousItems, unreadCount: previousUnreadCount, optimisticReadIds: [] });
+        fail(error);
+      }
     } finally {
       if (valid(current)) {
         busy = false;

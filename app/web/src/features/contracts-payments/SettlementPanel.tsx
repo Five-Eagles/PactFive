@@ -26,13 +26,14 @@ const STATUS_LABEL: Record<GetSettlementResponse['paymentStatus'], string> = {
 export function SettlementPanel({ view = 'loading', data, onRetry }: SettlementPanelProps) {
   if (view === 'loading') {
     return (
-      <article className="panel" aria-busy="true">
+      <article className="panel" role="status" aria-busy="true">
         <div className="panel-head">
           <h2 className="title">정산</h2>
         </div>
-        <p className="helper">정산 정보를 불러오는 중입니다.</p>
+        <span className="sr-only">정산 정보를 불러오는 중입니다</span>
+        <div className="skeleton" style={{ width: '40%' }} />
         <div className="skeleton" />
-        <div className="skeleton" />
+        <div className="skeleton" style={{ width: '65%' }} />
       </article>
     );
   }

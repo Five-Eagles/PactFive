@@ -6,8 +6,10 @@ import {
   EmptyState,
   Notice,
   PermissionAwareActions,
+  ListRowSkeleton,
   RecruitmentBadge,
   ReopenBadge,
+  SkeletonGroup,
   TransactionBadge,
   type ActionSpec,
 } from '../../shared/ui/primitives';
@@ -232,10 +234,13 @@ export function ProjectManagePage({ clientId, applicantsHref }: ProjectManagePag
         </p>
       )}
 
+      {/* 내 프로젝트가 몇 건일지 몰라도 목록행 자리는 최대 3개까지만 예약한다 (ADR-0018).
+          실제 .card > .row 구조를 그대로 재사용한다 (2026-09-14 수정). */}
       {loading && (
-        <p className="status-line" role="status">
-          불러오는 중입니다…
-        </p>
+        <SkeletonGroup
+          className="card"
+          renderItem={(i) => <ListRowSkeleton key={i} subLines={1} badges={2} actions={1} />}
+        />
       )}
 
       {!loading && !error && data && data.length === 0 && (

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { EmptyState } from '../../../shared/ui/primitives';
+import { EmptyState, ProjectCardSkeleton, SkeletonGroup } from '../../../shared/ui/primitives';
 import { ProjectCard } from '../ProjectCard';
 import { PROJECT_ROUTES } from '../project.routes';
 import type { PublicProjectItem } from '../project.types';
@@ -32,9 +32,7 @@ export function RecruitingProjects({ items, loading, error, renderBookmark }: Re
       <p className="sec__note">모집 중이거나 모집 예정인 프로젝트만 보입니다. 마감된 것은 전체 보기에서 찾을 수 있습니다.</p>
 
       {loading && (
-        <p className="status-line" role="status">
-          불러오는 중입니다…
-        </p>
+        <SkeletonGroup as="ul" className="grid3" renderItem={(i) => <ProjectCardSkeleton key={i} />} />
       )}
       {error && (
         <p className="status-line error-line" role="alert">

@@ -76,8 +76,8 @@ export function signContract(contractId: string): Promise<SignContractResponse> 
   return http.post<SignContractResponse>(`/v1/contracts/${contractId}/sign`);
 }
 
-export function preparePayment(contractId: string): Promise<PreparePaymentResponse> {
-  return http.post<PreparePaymentResponse>('/v1/payments', { contractId });
+export function preparePayment(contractId: string, refreshOrder = false): Promise<PreparePaymentResponse> {
+  return http.post<PreparePaymentResponse>('/v1/payments', { contractId, refreshOrder });
 }
 
 export function fetchPayment(paymentId: string): Promise<GetPaymentResponse> {

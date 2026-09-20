@@ -6,6 +6,7 @@ import {
   Chip,
   DeadlineIndicator,
   Money,
+  ProjectDetailSkeleton,
   RecruitmentBadge,
   TransactionBadge,
 } from '../../shared/ui/primitives';
@@ -60,9 +61,8 @@ export function ProjectDetailPage({
   if (loading) {
     return (
       <PageBody>
-        <p className="status-line" role="status">
-          불러오는 중입니다…
-        </p>
+        {/* 실제 .detail 2단 그리드(1fr 320px)를 그대로 재현한 스켈레톤 (ADR-0018) */}
+        <ProjectDetailSkeleton />
       </PageBody>
     );
   }

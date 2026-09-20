@@ -127,7 +127,7 @@ export type GetContractResponse = {
 // 결제 (PAY-01/02)
 // ---------------------------------------------------------------------------
 
-export type PreparePaymentInput = { contractId: string };
+export type PreparePaymentInput = { contractId: string; refreshOrder?: boolean };
 
 export type PreparePaymentResponse = {
   paymentId: string;

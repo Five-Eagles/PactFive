@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
-import { Button, Notice } from '../../shared/ui/primitives';
+import { Button, Notice, SkeletonStack } from '../../shared/ui/primitives';
 import { useApplicationEligibility, useCreateApplication } from './useApplications';
 import { APPLICATION_ROUTES } from './application.routes';
 import type { CreateApplicationInput, EligibilityBlockedReason } from './application.types';
@@ -73,12 +73,11 @@ export function ApplyPage() {
   if (eligibility.loading) {
     return (
       <PageBody>
-        <article className="panel" aria-busy="true">
+        <article className="panel">
           <div className="panel-head">
             <h2 className="title">지원하기</h2>
           </div>
-          <p className="helper">지원 가능 여부를 확인하는 중입니다.</p>
-          <div className="skeleton" />
+          <SkeletonStack lines={2} widths={['60%', '100%']} label="지원 가능 여부를 확인하는 중입니다" />
         </article>
       </PageBody>
     );
