@@ -1,0 +1,25 @@
+{
+  "ranAt": "2026-09-20T02:15:30.196Z",
+  "results": [
+    {
+      "n": "R4 client myDirection",
+      "p": true,
+      "d": "dir=CLIENT_TO_FREELANCER reason=REVIEW_ALREADY_SUBMITTED"
+    },
+    {
+      "n": "R4 freelancer myDirection",
+      "p": true,
+      "d": "dir=FREELANCER_TO_CLIENT reason=REVIEW_ALREADY_SUBMITTED"
+    },
+    {
+      "n": "R4 ReviewPage tagsForDirection(myDirection)",
+      "p": true,
+      "d": "wired=true"
+    },
+    {
+      "n": "R4 CLIENT vs FREELANCER label maps",
+      "p": true,
+      "d": "both maps present"
+    }
+  ]
+}
