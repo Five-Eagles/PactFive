@@ -80,6 +80,7 @@ CLOSED로, 대기 중이던 지원은 AUTO_REJECTED로 바뀐다. 예전에는 �
    완료해야 `paymentKey`가 나온다. 스크립트 실행 마지막에 `clientKey`·`orderId`·`amount`가
    출력되니, 그 값으로 브라우저에서 결제를 완료한 뒤 그 결과 `paymentKey`로
    `POST /api/v1/payments/confirm`을 호출한다.
+   **로컬 QA 전용 우회:** `POST /api/internal/dev/simulate-payment-paid` (`{ "paymentId": "..." }`) — Toss 없이 READY→PAID(+거래 시작). 프로덕션에는 없음.
 2. **정산 완료(RELEASED)**: 사용자 API에 아예 노출돼 있지 않다. 대신 이번에 dev 전용
    엔드포인트를 하나 열어 뒀다 — `POST /api/internal/dev/simulate-settlement`
    (`{ "paymentId": "..." }`). `express-app.ts`가 `!isProduction`일 때만 이 경로를
