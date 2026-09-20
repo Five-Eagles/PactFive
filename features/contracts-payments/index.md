@@ -144,3 +144,4 @@
 | 2026-09-11 | QA: prototype 347 · payment-ready API 스모크 6/6(C-07 포함). 현황판 #1 닫음 |
 | 2026-09-11 | **CR-CP-003 반영** — payload·복합 PK·repo 배선. migration `20260911140000_…` |
 | 2026-09-20 | QA: prototype 347 · CR-CP-003 스모크 · payment-ready API 6/6 |
+| 2026-09-20 | Toss sandbox 프로브 7/7 (`review/toss-sandbox-probe.mjs`) — 실패 승인·prepare clientKey·PaymentPage. 성공 confirm은 위젯 수동 |
