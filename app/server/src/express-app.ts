@@ -690,9 +690,17 @@ app.use(
     {
       repository: reviewRepository,
       projectContext: reviewProjectContext,
+      // R-06 — 캐시만 보면 "아직 이 인스턴스에서 로그인 안 한 사용자"가 USER_NOT_FOUND가 된다.
+      // Prisma가 켜져 있으면 users 행을 정본으로 보고, 캐시는 빠른 경로로만 쓴다.
       userExistsPort: {
         async userExists(userId: string) {
-          return roleByUserId.has(userId);
+          if (roleByUserId.has(userId)) return true;
+          if (!isPrismaConfigured(authProviderMode)) return false;
+          const row = await getPrismaClient().user.findUnique({
+            where: { id: userId },
+            select: { id: true, deletedAt: true },
+          });
+          return Boolean(row && !row.deletedAt);
         },
       },
       events: reviewEvents,
