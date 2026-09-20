@@ -61,8 +61,17 @@ if (!client?.projectId || !free?.userId) {
 }
 
 const cTok = await login('client-payment-ready');
-const fTok = await login('freelancer-payment-ready');
 const prj = client.projectId;
+
+// R-06 — 의뢰인만 세션 있는 상태에서 상대 userId rating (프리랜서 미인증).
+const ratingCold = await api(`/api/v1/users/${free.userId}/rating`, { token: cTok });
+ok(
+  'R-06 rating without reviewee session',
+  ratingCold.status === 200,
+  `status=${ratingCold.status} code=${ratingCold.body?.error?.code} count=${ratingCold.body?.reviewCount}`,
+);
+
+const fTok = await login('freelancer-payment-ready');
 
 const patch = await api(`/api/v1/projects/${prj}/reviews`, { method: 'PATCH', token: cTok });
 ok('R-02 PATCH reviews 405', patch.status === 405, `status=${patch.status}`);
