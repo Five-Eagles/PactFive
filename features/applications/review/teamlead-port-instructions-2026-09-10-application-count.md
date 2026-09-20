@@ -6,9 +6,10 @@
 | 보내는 사람 | 조준영 (applications) |
 | 근거 | [CR-AP-001](../change-requests/0001-application-count-write-port.md) |
 | 목적 | `bumpApplicationCounts` 포트는 이미 열려 있음. **호출만** 넣으면 됨 |
+| **상태 (2026-09-11)** | **app/ 반영 확인 완료** — `createApplication` +1/+1, DIRECT 거절 pending −1. develop 통합본 기준. 트랜잭션 원자성(R-001)은 별도 |
 
 `app/`은 팀장님만 수정합니다. 유동우 쪽 포트·어댑터는 2026-09-09에 끝났습니다.
-남아 있는 것은 `application.service.ts` 두 줄입니다.
+~~남아 있는 것은 `application.service.ts` 두 줄입니다.~~ → **호출 배선됨.**
 
 ---
 

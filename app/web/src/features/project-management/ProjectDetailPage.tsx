@@ -6,10 +6,12 @@ import {
   Chip,
   DeadlineIndicator,
   Money,
+  ProjectDetailSkeleton,
   RecruitmentBadge,
   TransactionBadge,
 } from '../../shared/ui/primitives';
 import { isClientDetail, useProject } from './useProject';
+import { CONTRACT_ROUTES } from '../contracts-payments/contract.routes';
 
 /**
  * SCR-B02 — 프로젝트 상세
@@ -59,9 +61,8 @@ export function ProjectDetailPage({
   if (loading) {
     return (
       <PageBody>
-        <p className="status-line" role="status">
-          불러오는 중입니다…
-        </p>
+        {/* 실제 .detail 2단 그리드(1fr 320px)를 그대로 재현한 스켈레톤 (ADR-0018) */}
+        <ProjectDetailSkeleton />
       </PageBody>
     );
   }
@@ -182,6 +183,26 @@ export function ProjectDetailPage({
                 </p>
               )}
             </>
+          )}
+          {mine && data.transactionStatus !== 'NONE' && (
+            <div className="btn-row" style={{ marginTop: 12 }}>
+              <Link
+                to={
+                  data.transactionStatus === 'CONTRACT_PENDING'
+                    ? CONTRACT_ROUTES.agreement(data.projectId)
+                    : data.transactionStatus === 'CANCELED'
+                      ? CONTRACT_ROUTES.cancellation(data.projectId)
+                      : CONTRACT_ROUTES.resume(data.projectId)
+                }
+                className="btn btn--primary btn--full"
+              >
+                {data.transactionStatus === 'CONTRACT_PENDING'
+                  ? '금액 합의 계속하기'
+                  : data.transactionStatus === 'CANCELED'
+                    ? '취소 결과 보기'
+                    : '거래 계속하기'}
+              </Link>
+            </div>
           )}
         </aside>
       </article>

@@ -23,13 +23,14 @@ const ACTION_LABEL: Record<PostActionResult, { tone: 'success' | 'warning' | 'da
 export function CancellationPanel({ view = 'loading', data, onRetry }: CancellationPanelProps) {
   if (view === 'loading') {
     return (
-      <article className="panel" aria-busy="true">
+      <article className="panel" role="status" aria-busy="true">
         <div className="panel-head">
           <h2 className="title">취소</h2>
         </div>
-        <p className="helper">취소 정보를 불러오는 중입니다.</p>
+        <span className="sr-only">취소 정보를 불러오는 중입니다</span>
+        <div className="skeleton" style={{ width: '35%' }} />
         <div className="skeleton" />
-        <div className="skeleton" />
+        <div className="skeleton" style={{ width: '55%' }} />
       </article>
     );
   }

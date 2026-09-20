@@ -57,9 +57,7 @@ export type SignUpFormProps = {
 };
 
 export function SignUpForm({ mode = 'register', returnTo = '/', onNavigate = () => undefined }: SignUpFormProps) {
-  const { state, register, completeRegistration, startOAuth, resendConfirmation, logout } = useAuth({
-    restoreOnMount: false,
-  });
+  const { state, register, completeRegistration, startOAuth, resendConfirmation, logout } = useAuth();
   const [draft, setDraft] = useState<SignUpDraft>(initialDraft);
   const [errors, setErrors] = useState<SignUpFieldErrors>({});
   const [accepted, setAccepted] = useState(false);

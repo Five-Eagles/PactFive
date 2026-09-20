@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { isDomainContractError } from './project-transaction.types';
+import { isPaymentGatewayError } from './payment.port';
 import { isPublicApiError, type AuthContext } from './public-api.types';
 import type { createPublicApiService } from './public-api.service';
 
@@ -21,6 +22,16 @@ function sendError(res: Response, error: unknown): void {
   }
   if (isPublicApiError(error)) {
     res.status(error.httpStatus).json(error.body);
+    return;
+  }
+  if (isPaymentGatewayError(error)) {
+    res.status(502).json({
+      error: {
+        code: 'PAYMENT_GATEWAY_ERROR',
+        message: error.message,
+        details: null,
+      },
+    });
     return;
   }
   // 2026-09-10 추가 — project-management/project.controller.ts와 동일한 이유(그쪽 주석
@@ -130,6 +141,7 @@ export function createPublicApiController(service: PublicApiService) {
         const body = req.body as Record<string, unknown>;
         const result = await service.preparePayment(toAuth(req), {
           contractId: String(body.contractId ?? ''),
+          refreshOrder: body.refreshOrder === true,
         });
         res.status(200).json(result);
       } catch (error) {

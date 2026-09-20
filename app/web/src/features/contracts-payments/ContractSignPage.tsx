@@ -8,7 +8,7 @@ import { CONTRACT_ROUTES } from './contract.routes';
 import './panel.css';
 
 /** 계약 서명 페이지 — `/contracts/:contractId/sign`. */
-export function ContractSignPage() {
+export function ContractSignPage({ viewerRole }: { viewerRole: 'CLIENT' | 'FREELANCER' | null }) {
   const { contractId = '' } = useParams();
   const navigate = useNavigate();
 
@@ -64,10 +64,10 @@ export function ContractSignPage() {
   else if (loadState === 'failed') view = 'loadFailed';
   else if (data?.status === 'CANCELED') view = 'canceled';
   else if (data?.status === 'SIGNING') {
-    // 내가 이미 서명했는지는 GetContractResponse에 사용자별 서명 여부가 따로 없어(시각만 있다)
-    // "누군가 한쪽은 서명했다"로 근사한다 — 내가 아직 안 한 쪽이면 다음 서명 클릭이 그대로
-    // 내 서명으로 기록된다(서버가 실제 판정).
-    view = data.clientSignedAt || data.freelancerSignedAt ? 'waiting' : 'ready';
+    // 계약 응답은 양쪽 서명 시각을 모두 주므로 현재 로그인 역할의 시각만 본다.
+    // 한쪽만 서명한 경우 서명하지 않은 쪽에는 반드시 서명 버튼이 보여야 한다.
+    const mySignedAt = viewerRole === 'CLIENT' ? data.clientSignedAt : data.freelancerSignedAt;
+    view = mySignedAt ? 'waiting' : 'ready';
   } else {
     view = 'ready';
   }

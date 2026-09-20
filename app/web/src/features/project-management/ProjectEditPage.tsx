@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
-import { Button, EmptyState, Field, Notice } from '../../shared/ui/primitives';
+import { Button, EmptyState, Field, Notice, SkeletonStack } from '../../shared/ui/primitives';
 import { ApiError } from '../../shared/http';
 import { toIsoDeadlineOrEmpty, toIsoStartOfDayOrEmpty, toKstDateOnly } from '../../shared/date';
 import { updateProject } from './api/project';
@@ -76,9 +76,8 @@ export function ProjectEditPage() {
   if (loading) {
     return (
       <PageBody narrow>
-        <p className="status-line" role="status">
-          불러오는 중입니다…
-        </p>
+        {/* 폼 필드(제목·설명·예산·시작일·마감일) 5칸 자리를 미리 채운다 (ADR-0018) */}
+        <SkeletonStack shape="field" lines={5} label="불러오는 중입니다" />
       </PageBody>
     );
   }

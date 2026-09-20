@@ -57,7 +57,14 @@ export function createRefreshCoordinator(
 }
 
 export function createAuthSession(input: CreateAuthSessionInput): Promise<AuthenticatedSessionResponse> {
-  return runAuthMutation(() => http.post<AuthenticatedSessionResponse>('/v1/auth/sessions', input));
+  // 잘못된 비밀번호의 401은 세션 만료가 아니라 로그인 폼이 보여줘야 하는 입력 오류다.
+  // 전역 401 이동을 태우면 /login이 다시 마운트되며 오류 문구가 "세션이 만료되었습니다"
+  // 로 덮인다(9/11 배포 QA). 보호 API의 401 처리와 로그인 시도의 401을 분리한다.
+  return runAuthMutation(() =>
+    http.post<AuthenticatedSessionResponse>('/v1/auth/sessions', input, {
+      skipUnauthorizedHandler: true,
+    }),
+  );
 }
 
 // `skipUnauthorizedHandler` — 이 호출의 401은 "세션이 만료됐다"가 아니라 대개 "로그인한 적이

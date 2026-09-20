@@ -28,6 +28,11 @@ export class InMemoryAuthRepository implements AuthRepositories {
     return [...this.users.values()].map((user) => ({ ...user }));
   }
 
+  async findById(userId: string): Promise<UserRecord | null> {
+    const user = this.users.get(userId);
+    return user ? { ...user } : null;
+  }
+
   getSessions(): AuthSessionRecord[] {
     return [...this.sessions.values()].map((session) => ({ ...session }));
   }

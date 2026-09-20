@@ -27,7 +27,7 @@ import { PROJECT_ROUTES } from '../project.routes';
  */
 export type HomeHeaderProps = {
   viewer: { email: string; role: 'CLIENT' | 'FREELANCER' } | null;
-  /** 로그인 상태일 때 "이름" 링크가 갈 곳 — 의뢰인은 내 프로젝트, 프리랜서는 내 북마크 */
+  /** 로그인 상태일 때 "이름" 링크가 갈 곳 — 의뢰인은 내 프로젝트, 프리랜서는 내 지원 현황 */
   myActivityHref: string;
   onLogout: () => void;
   /**

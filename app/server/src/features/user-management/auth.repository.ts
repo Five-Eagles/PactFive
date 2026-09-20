@@ -1,6 +1,7 @@
 import type { AuthSessionRecord, RegistrationIntent, UserRecord } from "./auth.types";
 
 export interface UserRepository {
+  findById(userId: string): Promise<UserRecord | null>;
   findByAuthUserId(authUserId: string): Promise<UserRecord | null>;
   findByEmail(email: string): Promise<UserRecord | null>;
   findActiveByEmail(email: string): Promise<UserRecord | null>;

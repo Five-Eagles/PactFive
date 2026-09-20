@@ -64,6 +64,11 @@ export class PrismaAuthRepository implements AuthRepositories {
   // UserRepository
   // ---------------------------------------------------------------------
 
+  async findById(userId: string): Promise<UserRecord | null> {
+    const row = await this.prisma.user.findUnique({ where: { id: userId } });
+    return row ? mapUser(row) : null;
+  }
+
   async findByAuthUserId(authUserId: string): Promise<UserRecord | null> {
     const row = await this.prisma.user.findUnique({ where: { authUserId } });
     return row ? mapUser(row) : null;
