@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
-import { Button, EmptyState, Notice } from '../../shared/ui/primitives';
+import { Button, EmptyState, ListRowSkeleton, Notice, SkeletonGroup } from '../../shared/ui/primitives';
 import { PROJECT_ROUTES } from '../project-management/project.routes';
 import { REVIEW_ROUTES } from '../reviews/review.routes';
+import { CONTRACT_ROUTES } from '../contracts-payments/contract.routes';
 import { useMyApplications } from './useApplications';
 import type { ApplicationRejectionType, MyApplicationItem } from './application.types';
 
@@ -42,9 +43,11 @@ export function MyApplicationsPage() {
   if (loading) {
     return (
       <PageBody>
-        <p className="status-line" role="status">
-          불러오는 중입니다…
-        </p>
+        {/* 실제 .card > .row 구조를 그대로 재사용한다 (2026-09-14 수정) */}
+        <SkeletonGroup
+          className="card"
+          renderItem={(i) => <ListRowSkeleton key={i} subLines={1} badges={1} />}
+        />
       </PageBody>
     );
   }
@@ -95,9 +98,9 @@ export function MyApplicationsPage() {
             <div className="row" key={item.applicationId}>
               <div className="row__main">
                 {item.projectNotice === 'DELETED' ? (
-                  <span>프로젝트</span>
+                  <span>삭제된 프로젝트</span>
                 ) : (
-                  <Link to={PROJECT_ROUTES.detail(item.projectId)}>{item.projectId}</Link>
+                  <Link to={PROJECT_ROUTES.detail(item.projectId)}>{item.projectTitle ?? '프로젝트'}</Link>
                 )}
                 <span className="row__sub">지원일 {item.createdAt.slice(0, 10).replace(/-/g, '.')}</span>
                 {item.projectNotice === 'DELETED' && (
@@ -112,8 +115,27 @@ export function MyApplicationsPage() {
                     <Link to={REVIEW_ROUTES.project(item.projectId)}>
                       <Button variant="primary">리뷰 작성</Button>
                     </Link>
+                    <Link to={CONTRACT_ROUTES.resume(item.projectId)}>
+                      <Button variant="secondary">정산 확인</Button>
+                    </Link>
                   </div>
                 )}
+                {item.status === 'ACCEPTED' &&
+                  item.transactionStatus &&
+                  item.transactionStatus !== 'COMPLETED' &&
+                  item.projectNotice === 'NONE' && (
+                    <div className="btn-row">
+                      <Link to={
+                        item.transactionStatus === 'CONTRACT_PENDING'
+                          ? CONTRACT_ROUTES.agreement(item.projectId)
+                          : CONTRACT_ROUTES.resume(item.projectId)
+                      }>
+                        <Button variant="primary">
+                          {item.transactionStatus === 'CONTRACT_PENDING' ? '금액 합의 참여' : '거래 계속하기'}
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
               </div>
               <span
                 className={`badge ${

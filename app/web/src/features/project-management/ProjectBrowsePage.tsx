@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
-import { Button, EmptyState } from '../../shared/ui/primitives';
+import { Button, EmptyState, ProjectCardSkeleton, SkeletonGroup } from '../../shared/ui/primitives';
 import { useProjectSearch } from './useProject';
 import { ProjectCard } from './ProjectCard';
 import type { ProjectListQuery } from './project.types';
@@ -112,10 +112,15 @@ export function ProjectBrowsePage({ renderBookmark }: ProjectBrowsePageProps) {
         </div>
       </form>
 
+      {/* 몇 건이 올지 몰라도 카드 자리는 최대 3개까지만 예약한다 (ADR-0018). 실제 결과와 같은
+          .grid.grid--cols3 컨테이너·ProjectCard 모양을 그대로 재사용한다 (2026-09-14 수정 —
+          로딩 후 화면과 다르게 그려진다는 피드백 반영). */}
       {loading && (
-        <p className="status-line" role="status">
-          불러오는 중입니다…
-        </p>
+        <SkeletonGroup
+          as="ul"
+          className="grid grid--cols3"
+          renderItem={(i) => <ProjectCardSkeleton key={i} />}
+        />
       )}
 
       {error && (

@@ -27,6 +27,7 @@ export const PROJECT_ROUTES = {
 } as const;
 
 export type ProjectRouteSlots = {
+  registerElement?: ReactNode;
   /**
    * 앱 루트 경로. 대표페이지를 이 자리에 건다.
    *
@@ -64,6 +65,7 @@ export function projectRoutes({
   applyHref,
   applicantsHref,
   pricingAnalysisHref,
+  registerElement,
   homeViewer,
   homeMyActivityHref,
   onHomeLogout,
@@ -91,7 +93,7 @@ export function projectRoutes({
       {/* 등록 경로를 상세보다 먼저 둔다 — `/projects/new` 가 `:projectId` 로 잡히면 안 된다 */}
       <Route
         path={PROJECT_ROUTES.register}
-        element={<ProjectRegisterForm pricingAnalysisHref={pricingAnalysisHref} />}
+        element={registerElement ?? <ProjectRegisterForm pricingAnalysisHref={pricingAnalysisHref} />}
       />
       <Route
         path="/projects/:projectId"

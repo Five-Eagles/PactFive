@@ -1,4 +1,5 @@
 import { Badge, Button, Notice } from './ui';
+import { Link } from 'react-router-dom';
 import type { DeliveryView } from './contract.types';
 
 /**
@@ -33,6 +34,8 @@ export type DeliveryPanelProps = {
   onRequestDelivery?: () => void;
   onApprove?: () => void;
   onRetry?: () => void;
+  settlementHref?: string;
+  reviewHref?: string;
   submitting?: boolean;
 };
 
@@ -55,17 +58,20 @@ export function DeliveryPanel({
   onRequestDelivery,
   onApprove,
   onRetry,
+  settlementHref,
+  reviewHref,
   submitting = false,
 }: DeliveryPanelProps) {
   if (view === 'loading') {
     return (
-      <article className="panel" aria-busy="true">
+      <article className="panel" role="status" aria-busy="true">
         <div className="panel-head">
           <h2 className="title">납품</h2>
         </div>
-        <p className="helper">납품 정보를 불러오는 중입니다.</p>
+        <span className="sr-only">납품 정보를 불러오는 중입니다</span>
+        <div className="skeleton" style={{ width: '40%' }} />
         <div className="skeleton" />
-        <div className="skeleton" />
+        <div className="skeleton" style={{ width: '60%' }} />
       </article>
     );
   }
@@ -125,6 +131,8 @@ export function DeliveryPanel({
               내려받기
             </Button>
           ) : null}
+          {settlementHref ? <Link className="btn btn--secondary" to={settlementHref}>정산 확인</Link> : null}
+          {reviewHref ? <Link className="btn btn--secondary" to={reviewHref}>리뷰 작성</Link> : null}
         </div>
         {canReview ? (
           <p className="helper">거래가 완료됐습니다. 프로젝트 상세에서 리뷰를 남길 수 있습니다.</p>

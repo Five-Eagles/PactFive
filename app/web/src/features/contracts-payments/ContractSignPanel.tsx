@@ -28,13 +28,14 @@ export function ContractSignPanel({
 }: ContractSignPanelProps) {
   if (view === 'loading') {
     return (
-      <article className="panel" aria-busy="true">
+      <article className="panel" role="status" aria-busy="true">
         <div className="panel-head">
           <h2 className="title">계약 서명</h2>
         </div>
-        <p className="helper">계약 내용을 불러오는 중입니다.</p>
+        <span className="sr-only">계약 내용을 불러오는 중입니다</span>
+        <div className="skeleton" style={{ width: '40%' }} />
         <div className="skeleton" />
-        <div className="skeleton" />
+        <div className="skeleton" style={{ width: '60%' }} />
       </article>
     );
   }

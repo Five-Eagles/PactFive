@@ -248,7 +248,19 @@ export function DevAuthToggle({ viewer, onSelectRole, onClear, onLoginAsSeedAcco
           시드 계정 (AUTH_PROVIDER_MODE=supabase 전용)
         </div>
         {accounts === null && !seedAccountsError && (
-          <p style={{ fontSize: 12, color: 'var(--content-tertiary)' }}>불러오는 중...</p>
+          // ADR-0018 — 개발용 위젯이라 우선순위는 낮지만, 같은 shared/ui 시각 규격(design-tokens.md
+          // §14)을 그대로 재사용한다. 최대 3개 자리만 예약한다.
+          <div role="status" aria-busy="true">
+            <span className="sr-only">시드 계정 목록을 불러오는 중입니다</span>
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="ui-skeleton ui-skeleton--line"
+                style={{ height: 20, marginBottom: 6 }}
+                aria-hidden="true"
+              />
+            ))}
+          </div>
         )}
         {seedAccountsError && <p style={{ fontSize: 12, color: 'var(--danger)' }}>{seedAccountsError}</p>}
         {accounts !== null && accounts.length === 0 && (

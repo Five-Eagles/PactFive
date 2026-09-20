@@ -1,0 +1,40 @@
+{
+  "ranAt": "2026-09-11T04:35:55.630Z",
+  "results": [
+    {
+      "n": "R-02 PATCH reviews 405",
+      "p": true,
+      "d": "status=405"
+    },
+    {
+      "n": "GET reviews/me",
+      "p": true,
+      "d": "status=200 canReview=false reason=PROJECT_NOT_COMPLETED myDirection=CLIENT_TO_FREELANCER"
+    },
+    {
+      "n": "GET project reviews",
+      "p": true,
+      "d": "status=200 items=0"
+    },
+    {
+      "n": "GET user rating",
+      "p": true,
+      "d": "status=200 avg=null count=0"
+    },
+    {
+      "n": "GET user reviews",
+      "p": true,
+      "d": "status=200 items=0"
+    },
+    {
+      "n": "freelancer reviews/me myDirection",
+      "p": true,
+      "d": "status=200 myDirection=FREELANCER_TO_CLIENT reason=PROJECT_NOT_COMPLETED"
+    },
+    {
+      "n": "POST invalid/guarded",
+      "p": true,
+      "d": "status=409 code=PROJECT_NOT_COMPLETED canReview=false"
+    }
+  ]
+}

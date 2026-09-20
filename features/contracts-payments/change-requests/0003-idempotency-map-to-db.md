@@ -1,8 +1,9 @@
 ---
 title: "멱등 Map을 DB로 옮긴다 — payload 컬럼 · get/setIdempotent 배선"
-status: "제안"
+status: "반영완료"
 requested_by: "조준영 (contracts-payments)"
 date: "2026-09-10"
+resolved: "2026-09-11"
 affected_docs: [docs/domain/erd.md, app/server/prisma/schema.prisma]
 affected_features: [contracts-payments]
 ---
@@ -11,12 +12,24 @@ affected_features: [contracts-payments]
 
 | | |
 |---|---|
-| 받는 사람 | 팀장 |
-| 보내는 사람 | 조준영 (contracts-payments) |
-| 날짜 | 2026-09-10 |
-| 상태 | 제안 |
+| 상태 | **반영완료** (2026-09-11) |
 | ID | `CR-CP-003` |
-| 근거 | CR-CP-002 A3 후속 · `feedback_loop/2026-09-09/schema-cr-ap-004-cr-cp-002.md` |
+
+## 반영 요약
+
+| 항목 | 결과 |
+|---|---|
+| A1 payload Json | `schema.prisma` + migration `20260911140000_…` |
+| A2 PK `(scope, idempotency_key)` | 적용 |
+| A3 body_hash nullable | 적용 |
+| A4 테이블명 유지 | `payment_idempotency_records` |
+| 배선 | `prisma-contracts-payments.repository.ts` Map 제거 |
+
+확인: `npx tsx features/contracts-payments/review/idempotency-payload-smoke.ts`
+
+---
+
+(이하 원문 제안서)
 
 `app/`은 팀장만 수정한다. 아래는 스키마 보완 + 리포지토리 배선 요청이다.
 

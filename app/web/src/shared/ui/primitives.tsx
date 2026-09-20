@@ -271,6 +271,318 @@ export type ActionSpec = {
   onClick?: () => void;
 };
 
+/* ─────────────── Skeleton (design-tokens.md §14, ADR-0018, 2026-09-14 추가) ─────────────── */
+
+export type SkeletonShape = 'line' | 'row' | 'card' | 'field' | 'pill' | 'button';
+
+/**
+ * 로딩 중 자리 하나. 장식용이라 스크린리더에서 숨긴다 — "불러오는 중" 안내는 이 상자를
+ * 감싸는 `SkeletonStack`/`SkeletonList`의 `role="status"` + `sr-only` 텍스트가 맡는다.
+ *
+ * 클래스 접두어가 `ui-skeleton`인 이유 — `features/contracts-payments/panel.css`가 이미
+ * bare `.skeleton`을 쓰고 있어(그 기능은 의도적으로 이 파일을 쓰지 않는다), 이름이 겹치지
+ * 않게 접두어를 붙였다(tokens.css 해당 절 주석 참고).
+ */
+export function Skeleton({ shape, width }: { shape: SkeletonShape; width?: string }) {
+  return (
+    <div
+      className={`ui-skeleton ui-skeleton--${shape}`}
+      style={width ? { width } : undefined}
+      aria-hidden="true"
+    />
+  );
+}
+
+/**
+ * 상세·패널·폼처럼 콘텐츠 하나를 글줄(또는 필드) 여러 개로 흉내 낼 때 쓴다.
+ * `widths`로 줄마다 폭을 다르게 주면 실제 문단처럼 보인다 — 전부 100%로 두면 "줄이 아니라
+ * 그냥 회색 띠"처럼 보여 콘텐츠 흉내라는 목적이 흐려진다(design-tokens.md §14).
+ */
+export function SkeletonStack({
+  shape = 'line',
+  lines = 3,
+  widths,
+  label = '불러오는 중입니다',
+}: {
+  shape?: 'line' | 'field';
+  lines?: number;
+  widths?: string[];
+  label?: string;
+}) {
+  const items = Array.from({ length: lines }, (_, i) => widths?.[i]);
+  return (
+    <div className="ui-skeleton-stack" role="status" aria-busy="true">
+      <span className="sr-only">{label}</span>
+      {items.map((w, i) => (
+        <Skeleton key={i} shape={shape} width={w} />
+      ))}
+    </div>
+  );
+}
+
+/** 목록·그리드 하나가 통째로 로딩 중일 때 몇 건을 예약해 둘지의 상한. 실제로 몇 건이 올지
+ * 모르는 상태에서 자리를 너무 많이 예약하면 "아직 많이 남았다"는 오해를 준다 — §13 stagger
+ * 규칙(최초 8개까지만 순차 적용)과 같은 이유로 팀장이 3개로 결정했다(2026-09-14). */
+export const MAX_SKELETON_ITEMS = 3;
+
+/**
+ * 목록·그리드처럼 몇 건이 올지 모르는 자리에 쓴다. `count`에 예상 건수를 넘겨도 항상
+ * 최대 `MAX_SKELETON_ITEMS`(3)개까지만 그린다.
+ */
+export function SkeletonList({
+  shape,
+  count = MAX_SKELETON_ITEMS,
+  grid = false,
+  label = '불러오는 중입니다',
+}: {
+  shape: 'row' | 'card';
+  count?: number;
+  grid?: boolean;
+  label?: string;
+}) {
+  const items = Array.from({ length: Math.max(1, Math.min(count, MAX_SKELETON_ITEMS)) });
+  return (
+    <div
+      className={`ui-skeleton-list${grid ? ' ui-skeleton-list--grid' : ''}`}
+      role="status"
+      aria-busy="true"
+    >
+      <span className="sr-only">{label}</span>
+      {items.map((_, i) => (
+        <Skeleton key={i} shape={shape} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * `SkeletonList`의 일반형 — 카드·목록행처럼 뭉뚱그린 상자 하나가 아니라, 실제 화면에 그려질
+ * 마크업(`ProjectCardSkeleton`·`ListRowSkeleton` 등)을 그대로 반복해야 할 때 쓴다.
+ * `renderItem`이 항목 하나의 모양을 결정하고, 이 컴포넌트는 role/aria-busy/sr-only 안내와
+ * "최대 3개" 상한(`MAX_SKELETON_ITEMS`)만 책임진다(2026-09-14 — 사용자 피드백: 스켈레톤이
+ * 로딩 후 실제로 그려지는 모양을 반영해야 한다는 요청으로 `SkeletonList`의 단순 상자 방식을
+ * 보완했다).
+ */
+export function SkeletonGroup({
+  as = 'div',
+  className,
+  count = MAX_SKELETON_ITEMS,
+  grid = false,
+  label = '불러오는 중입니다',
+  renderItem,
+}: {
+  /** 실제 목록이 `<ul>`(예: `.grid`, `<li className="pcard">`)이면 `"ul"`을 준다 — `<div>`
+   * 안에 `<li>`를 두면 시맨틱이 어긋난다. */
+  as?: 'div' | 'ul';
+  /** 실제 화면이 쓰는 그리드 클래스(예: `"grid grid--cols3"`)를 그대로 넘기면 그 값을 쓴다.
+   * 안 주면 기본 `.ui-skeleton-list` 톤을 쓴다. */
+  className?: string;
+  count?: number;
+  grid?: boolean;
+  label?: string;
+  renderItem: (index: number) => ReactNode;
+}) {
+  const items = Array.from({ length: Math.max(1, Math.min(count, MAX_SKELETON_ITEMS)) });
+  const Container = as;
+  return (
+    <Container
+      className={className ?? `ui-skeleton-list${grid ? ' ui-skeleton-list--grid' : ''}`}
+      role="status"
+      aria-busy="true"
+    >
+      <span className="sr-only">{label}</span>
+      {items.map((_, i) => renderItem(i))}
+    </Container>
+  );
+}
+
+/**
+ * 실제 `ProjectCard`(`.pcard`, `ProjectCard.tsx`)의 마크업을 그대로 흉내 낸다 — 새 컨테이너를
+ * 만들지 않고 `.pcard`/`.pcard__top`/`.pcard__skills`/`.pcard__foot` 클래스를 재사용해 실제
+ * 카드와 여백·테두리가 어긋나지 않는다.
+ *
+ * `withCategory`는 카테고리 캡션 줄(`.caption`)이 있는 카드에서만 켠다 — 탐색·홈 카드에는
+ * 있고, 북마크 카드(`MyBookmarksPage.tsx`)에는 없다(실제 마크업 기준, 2026-09-14).
+ */
+export function ProjectCardSkeleton({ withCategory = true }: { withCategory?: boolean }) {
+  return (
+    <li className="pcard" aria-hidden="true">
+      <div className="pcard__top">
+        <Skeleton shape="line" width="65%" />
+        <Skeleton shape="pill" width="52px" />
+      </div>
+      {withCategory && <Skeleton shape="line" width="30%" />}
+      <Skeleton shape="line" width="42%" />
+      <p className="pcard__skills">
+        <Skeleton shape="pill" width="48px" />
+        <Skeleton shape="pill" width="64px" />
+        <Skeleton shape="pill" width="56px" />
+      </p>
+      <div className="pcard__foot">
+        <Skeleton shape="line" width="40%" />
+        <Skeleton shape="line" width="30%" />
+      </div>
+    </li>
+  );
+}
+
+/**
+ * 실제 `.row`(`ProjectManagePage`·`MyApplicationsPage`의 목록행) 마크업을 흉내 낸다.
+ * `subLines`·`badges`·`actions`는 화면마다 실제로 그려지는 개수가 달라 호출부에서 넘긴다 —
+ * 값을 고정하지 않는 이유는 그 개수 차이 자체가 "실제 콘텐츠를 반영"하는 부분이기 때문이다.
+ */
+export function ListRowSkeleton({
+  subLines = 1,
+  badges = 1,
+  actions = 0,
+}: {
+  subLines?: number;
+  badges?: number;
+  actions?: number;
+}) {
+  return (
+    <div className="row" aria-hidden="true">
+      <div className="row__main">
+        <Skeleton shape="line" width="55%" />
+        {Array.from({ length: subLines }, (_, i) => (
+          <Skeleton key={i} shape="line" width="35%" />
+        ))}
+      </div>
+      {badges > 0 && (
+        <div className="row__badges">
+          {Array.from({ length: badges }, (_, i) => (
+            <Skeleton key={i} shape="pill" width="64px" />
+          ))}
+        </div>
+      )}
+      {actions > 0 && (
+        <div className="row__acts">
+          {Array.from({ length: actions }, (_, i) => (
+            <Skeleton key={i} shape="button" width="72px" />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 실제 `.facts`(`dl`/`dt`/`dd`, `ManageApplicantsPage`의 지원자 항목) 마크업을 흉내 낸다.
+ * 이전에는 이 화면에 `SkeletonList shape="row"`를 썼는데, 실제 화면은 `.row`가 아니라
+ * `.facts`를 그린다 — 모양이 달라 "로딩 후 화면과 다르게 그려진다"는 원인 중 하나였다
+ * (2026-09-14 수정).
+ */
+export function FactsSkeleton({ withActions = true }: { withActions?: boolean }) {
+  return (
+    <dl className="facts" aria-hidden="true">
+      <dt>
+        <Skeleton shape="line" width="30%" />
+      </dt>
+      <dd>
+        <Skeleton shape="line" width="80%" />
+      </dd>
+      <dt>
+        <Skeleton shape="line" width="30%" />
+      </dt>
+      <dd>
+        <Skeleton shape="line" width="95%" />
+      </dd>
+      {withActions && (
+        <div className="btn-row">
+          <Skeleton shape="button" width="64px" />
+          <Skeleton shape="button" width="64px" />
+        </div>
+      )}
+    </dl>
+  );
+}
+
+/**
+ * ProjectDetailPage(SCR-B02) 전용 — 실제 `.detail` 2단 그리드
+ * (`grid-template-columns: 1fr 320px`) 구조를 그대로 재현한다 (ADR-0018).
+ * 좌: 배지 → 제목(.h2) → 캡션 → 설명 카드 → "모집 정보" 카드(.kv 행 4개)
+ * 우: .side(sticky) 의뢰인 카드 + 버튼 자리
+ */
+export function ProjectDetailSkeleton() {
+  return (
+    <article className="detail" role="status" aria-busy="true">
+      <span className="sr-only">불러오는 중입니다</span>
+      <div aria-hidden="true">
+        <Skeleton shape="pill" width="88px" />
+        <div style={{ marginTop: 10 }}>
+          <Skeleton shape="line" width="60%" />
+        </div>
+        <div style={{ margin: '10px 0 20px' }}>
+          <Skeleton shape="line" width="30%" />
+        </div>
+
+        <div className="card" style={{ marginBottom: 20 }}>
+          <Skeleton shape="line" width="100%" />
+          <Skeleton shape="line" width="100%" />
+          <Skeleton shape="line" width="70%" />
+        </div>
+
+        <div style={{ margin: '0 0 12px' }}>
+          <Skeleton shape="line" width="20%" />
+        </div>
+        <div className="card">
+          <div className="kv">
+            <span className="kv__k">
+              <Skeleton shape="line" width="60%" />
+            </span>
+            <span>
+              <Skeleton shape="line" width="40%" />
+            </span>
+          </div>
+          <div className="kv">
+            <span className="kv__k">
+              <Skeleton shape="line" width="60%" />
+            </span>
+            <span>
+              <Skeleton shape="line" width="70%" />
+            </span>
+          </div>
+          <div className="kv">
+            <span className="kv__k">
+              <Skeleton shape="line" width="60%" />
+            </span>
+            <span className="pcard__skills">
+              <Skeleton shape="pill" width="48px" />
+              <Skeleton shape="pill" width="64px" />
+              <Skeleton shape="pill" width="56px" />
+            </span>
+          </div>
+          <div className="kv">
+            <span className="kv__k">
+              <Skeleton shape="line" width="60%" />
+            </span>
+            <span>
+              <Skeleton shape="line" width="50%" />
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <aside className="side" aria-hidden="true">
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 10 }}>
+            <Skeleton shape="line" width="35%" />
+          </div>
+          <div style={{ marginBottom: 2 }}>
+            <Skeleton shape="line" width="70%" />
+          </div>
+          <Skeleton shape="line" width="55%" />
+        </div>
+        <div className="btn-row">
+          <span style={{ flex: 1 }}>
+            <Skeleton shape="button" width="100%" />
+          </span>
+        </div>
+      </aside>
+    </article>
+  );
+}
+
 export function PermissionAwareActions({ actions }: { actions: ActionSpec[] }) {
   return (
     <div className="row__acts">

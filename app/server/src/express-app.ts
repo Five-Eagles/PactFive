@@ -40,7 +40,7 @@ import {
   createPublicApiService,
 } from './features/contracts-payments/public-api.service';
 import { createPublicApiRouter } from './features/contracts-payments/public-api.routes';
-import { InMemoryNotificationTriggerAdapter } from './features/contracts-payments/in-memory-notification.adapter';
+import { NotificationContractAdapter } from './features/contracts-payments/notification.adapter';
 import { createTransactionLifecycleCoordinator } from './features/contracts-payments/transaction-lifecycle.coordinator';
 import { hasPgSecretKey, createTossPaymentsAdapter } from './features/contracts-payments/toss-payments.adapter';
 import type { PaymentGateway } from './features/contracts-payments/payment.port';
@@ -71,6 +71,8 @@ import { createNotificationModule } from './features/notifications/notification.
 import type { NotificationAuthResolver } from './features/notifications/notification.routes';
 import { InMemoryNotificationRepository } from './features/notifications/in-memory-notification.repository';
 import { PrismaNotificationRepository } from './features/notifications/prisma-notification.repository';
+import { createProfileRouter } from './features/user-management/profile.routes';
+import { InMemoryProfileRepository, PrismaProfileRepository } from './features/user-management/profile.repository';
 
 /**
  * Express 앱 — 순수 모듈. 여기서 `app.listen()`을 호출하지 않는다.
@@ -133,10 +135,8 @@ const authProviderMode = process.env.AUTH_PROVIDER_MODE ?? (isProduction ? 'supa
 // 참조한다 — 실제로 호출되는 시점(요청이 들어올 때)에는 이미 초기화가 끝나 있으므로 문제
 // 없다(모듈 최상단 코드가 전부 실행된 뒤에야 서버가 요청을 받기 시작한다).
 //
-// applications/project-management/contracts-payments가 정규화된 eventId·수신자 스냅샷을 아직
-// 만들지 않아(change-requests/CR-0001-notifications-integration.md §3·§4) `notifications.delivery`
-// (원천 사건 생성 접점)는 이번 반영에서 아무 곳에도 연결하지 않는다 — router만 마운트한다.
-// feedback_loop/2026-09-09/notifications.md 참고.
+// applications와 contracts-payments가 정규화한 사건은 아래 조립 지점에서
+// `notifications.delivery`로 전달한다. 이 라우터 자체는 인증된 조회·읽음 API를 담당한다.
 // ---------------------------------------------------------------------------
 
 const resolveNotificationAuth: NotificationAuthResolver = async (request) => {
@@ -282,6 +282,10 @@ const verifyAccessToken = async (accessToken: string) => {
 };
 
 export const requireAuth = createRequireAuth(verifyAccessToken);
+const profileRepository = isPrismaConfigured(authProviderMode)
+  ? new PrismaProfileRepository(getPrismaClient())
+  : new InMemoryProfileRepository(new Map());
+app.use(createProfileRouter(profileRepository, requireAuth));
 // 토큰이 있으면 읽고 없으면 통과 — 공개 상세·추천처럼 "비로그인도 보되 로그인하면 더 보여주는"
 // 라우트에 쓴다 (shared/optional-auth.ts 주석 참고).
 const optionalAuth = createOptionalAuth(verifyAccessToken);
@@ -302,7 +306,20 @@ const requireServiceToken = createRequireServiceToken(process.env.INTERNAL_SERVI
 const projectRepository = isPrismaConfigured(authProviderMode)
   ? new PrismaProjectRepository(getPrismaClient())
   : new InMemoryProjectRepository();
-const projectPorts = createInMemoryExternalPorts();
+// 프로젝트 공개 카드의 의뢰인 이름은 user-management가 정본이다. 프로젝트 도메인은
+// 저장소를 직접 조회하지 않고 이 조립 지점에서 읽기 포트만 연결한다.
+const projectPorts = createInMemoryExternalPorts(async (clientId) => {
+  const user = await authRepositories?.findById(clientId);
+  if (!user || user.deletedAt) return null;
+  return {
+    userId: user.id,
+    name: user.name,
+    companyName: null,
+    profileImageUrl: user.profileImageUrl,
+    averageRating: 0,
+    reviewCount: 0,
+  };
+});
 const projectNow = () => new Date().toISOString();
 
 // ai-pricing의 저장소는 project-management보다 먼저 만든다 — 아래 CR-0003 회신(연결 포트)이
@@ -442,6 +459,12 @@ app.use(
       projectContext: projectApplicationContext,
       notifications: applicationNotifications,
       projectApplications: acceptProjectApplicationDelegate,
+      userDisplay: {
+        async getUserDisplayName(userId: string) {
+          const user = await authRepositories?.findById(userId);
+          return user?.name ?? null;
+        },
+      },
       now: projectNow,
       nextRequestId: () => randomId(),
     },
@@ -512,6 +535,16 @@ if (paymentGatewayConfigured) {
   }
 }
 
+// 결제 키 자체는 절대 로그에 남기지 않는다. Vercel 환경 범위(Production/Preview)나
+// 재배포 누락으로 런타임에 키가 주입되지 않는 문제를 확인할 수 있도록 존재 여부만 기록한다.
+console.info('[contracts-payments] payment config', {
+  clientKeyConfigured: Boolean(process.env.PG_CLIENT_KEY?.trim()),
+  secretKeyConfigured: Boolean(process.env.PG_SECRET_KEY?.trim()),
+  gatewayConfigured: paymentGateway !== null,
+  vercelEnvironment: process.env.VERCEL_ENV ?? null,
+  nodeEnvironment: process.env.NODE_ENV ?? null,
+});
+
 // 2026-09-08: 다른 기능과 같은 isPrismaConfigured(authProviderMode) 게이트.
 const contractsPaymentsRepository = isPrismaConfigured(authProviderMode)
   ? new PrismaContractsPaymentsRepository(getPrismaClient())
@@ -521,11 +554,9 @@ function contractsPaymentsRandomId(prefix: string): string {
   return `${prefix}_${randomId()}`;
 }
 
-// 2026-09-07 팀장 반영 — sync-log.md 2026-09-03(67207c8) 이후 develop에 쌓인 #53·#66·#58·#80
-// 4개 PR 분량(재제안 AGR-02/03·납품 DLV-01·정산 조회 SET-01 v2·취소 조회 CAN-01 v2·교차
-// 생명주기 Coordinator)을 여기서 처음 배선한다. 알림 발행은 notifications가 아직 app/에
-// 실제 인바운드를 붙이지 않아(위 reviews 섹션 주석과 같은 이유) 인메모리로 로그만 남긴다.
-const contractsPaymentsNotifications = new InMemoryNotificationTriggerAdapter();
+// contracts-payments 사건도 notifications의 영속 저장소로 전달한다. 알림 실패는
+// notification.port.ts의 정책대로 본 거래 전이를 되돌리지 않는다.
+const contractsPaymentsNotifications = new NotificationContractAdapter(notifications.delivery);
 
 const transactionLifecycleCoordinator = createTransactionLifecycleCoordinator({
   projects: projectTransactionPort,

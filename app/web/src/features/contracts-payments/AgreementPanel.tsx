@@ -87,13 +87,15 @@ export function AgreementPanel({
 }: AgreementPanelProps) {
   if (view === 'loading') {
     return (
-      <article className="panel" aria-busy="true">
+      <article className="panel" role="status" aria-busy="true">
         <div className="panel-head">
           <h2 className="title">금액 합의</h2>
         </div>
-        <p className="helper">합의 내용을 불러오는 중입니다.</p>
+        {/* 텍스트 대신 실제 내용(금액 한 줄 + 이력 두 줄) 크기의 자리를 채운다 (ADR-0018) */}
+        <span className="sr-only">합의 내용을 불러오는 중입니다</span>
+        <div className="skeleton" style={{ width: '40%' }} />
         <div className="skeleton" />
-        <div className="skeleton" />
+        <div className="skeleton" style={{ width: '70%' }} />
       </article>
     );
   }

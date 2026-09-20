@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
-import { Button, Notice } from '../../shared/ui/primitives';
+import { Button, Notice, SkeletonStack } from '../../shared/ui/primitives';
 import { useCreateReview, useMyProjectReview, useProjectReviews } from './useReviews';
 import {
   CLIENT_TO_FREELANCER_TAGS,
@@ -88,13 +88,14 @@ export function ReviewPage() {
   if (loading || meLoading) {
     return (
       <PageBody>
-        <article className="panel" aria-busy="true">
+        <article className="panel">
           <div className="panel-head">
             <h2 className="title">리뷰</h2>
           </div>
-          <p className="helper">리뷰 화면을 불러오는 중입니다.</p>
-          <div className="skeleton" />
-          <div className="skeleton" />
+          <SkeletonStack
+            widths={['30%', '100%', '80%', '50%']}
+            label="리뷰 화면을 불러오는 중입니다"
+          />
         </article>
       </PageBody>
     );

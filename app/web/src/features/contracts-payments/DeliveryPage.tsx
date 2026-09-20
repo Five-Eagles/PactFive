@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { PageBody } from '../../shared/ui/AppShell';
 import { DeliveryPanel, type DeliveryPanelView } from './DeliveryPanel';
 import { fetchDelivery, prepareDeliveryUpload, requestDelivery, approveDelivery } from './api/contract';
+import { CONTRACT_ROUTES } from './contract.routes';
+import { REVIEW_ROUTES } from '../reviews/review.routes';
 import type { GetDeliveryResponse } from './contract.types';
 import './panel.css';
 
@@ -109,6 +111,8 @@ export function DeliveryPage() {
         onRequestDelivery={handleRequestDelivery}
         onApprove={handleApprove}
         onRetry={load}
+        settlementHref={data?.delivery?.status === 'APPROVED' ? CONTRACT_ROUTES.settlement(contractId) : undefined}
+        reviewHref={data?.canReview && data?.delivery?.status === 'APPROVED' && data?.projectId ? REVIEW_ROUTES.project(data.projectId) : undefined}
         submitting={submitting}
       />
     </PageBody>

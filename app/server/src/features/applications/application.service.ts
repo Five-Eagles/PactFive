@@ -38,6 +38,7 @@ import {
   type ProjectApplicationContextPort,
   type ProjectNotice,
   type RejectApplicationResponse,
+  type UserDisplayPort,
 } from './application.types';
 
 /**
@@ -66,6 +67,7 @@ export type ApplicationServiceDeps = {
   projectContext: ProjectApplicationContextPort;
   notifications: ApplicationNotificationPort;
   projectApplications: AcceptProjectApplicationDelegate;
+  userDisplay?: UserDisplayPort;
   now: () => string;
   nextRequestId: () => string;
 };
@@ -209,6 +211,16 @@ function toItem(row: ApplicationRow): CreateApplicationResult['body'] {
     status: row.status,
     rejectionType: row.rejectionType,
     createdAt: row.createdAt,
+  };
+}
+
+async function withFreelancerName(
+  deps: ApplicationServiceDeps,
+  row: ApplicationRow,
+): Promise<CreateApplicationResult['body']> {
+  return {
+    ...toItem(row),
+    freelancerName: (await deps.userDisplay?.getUserDisplayName(row.freelancerId)) ?? null,
   };
 }
 
@@ -515,7 +527,7 @@ export async function listProjectApplications(
   const page = paginate(filtered, query);
   return {
     projectId,
-    items: page.slice.map((row) => toItem(row)),
+    items: await Promise.all(page.slice.map((row) => withFreelancerName(deps, row))),
     page: page.page,
     pageSize: page.pageSize,
     totalCount: page.totalCount,
@@ -539,6 +551,7 @@ export async function listMyApplications(
       return {
         applicationId: row.applicationId,
         projectId: row.projectId,
+        projectTitle: project?.title ?? null,
         status: row.status,
         rejectionType: row.rejectionType,
         createdAt: row.createdAt,
