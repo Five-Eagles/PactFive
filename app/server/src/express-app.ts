@@ -622,6 +622,26 @@ if (!isProduction) {
     }
   });
 
+  // 결제 PAID는 원래 Toss 위젯 paymentKey가 필요하다. 로컬 reviews·납품 QA를 위해
+  // confirmPayment와 같은 Coordinator 경로만 타며 가짜 paymentKey로 READY→PAID 한다.
+  app.post('/api/internal/dev/simulate-payment-paid', async (req: Request, res: Response) => {
+    const paymentId = String((req.body as Record<string, unknown> | undefined)?.paymentId ?? '');
+    if (!paymentId) {
+      res.status(422).json({
+        error: { code: 'VALIDATION_ERROR', message: 'paymentId가 필요합니다.', details: null },
+      });
+      return;
+    }
+    try {
+      const result = await publicApiService.simulatePaymentPaid(paymentId);
+      res.status(200).json({ ok: true, ...result });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ error: { code: 'INTERNAL_ERROR', message: String(error), details: null } });
+    }
+  });
+
   // 정산 RELEASED 전이는 실제 지급 버튼이 없어(public-api.service.ts의
   // simulateSettlementResult 주석 — "Sandbox 정산 실행은 지급 버튼이 없어, 이 함수를
   // 직접 호출해야만") 사용자 API로는 절대 도달할 수 없다. scripts/seed-dev-accounts.js의
@@ -690,9 +710,17 @@ app.use(
     {
       repository: reviewRepository,
       projectContext: reviewProjectContext,
+      // R-06 — 캐시만 보면 "아직 이 인스턴스에서 로그인 안 한 사용자"가 USER_NOT_FOUND가 된다.
+      // Prisma가 켜져 있으면 users 행을 정본으로 보고, 캐시는 빠른 경로로만 쓴다.
       userExistsPort: {
         async userExists(userId: string) {
-          return roleByUserId.has(userId);
+          if (roleByUserId.has(userId)) return true;
+          if (!isPrismaConfigured(authProviderMode)) return false;
+          const row = await getPrismaClient().user.findUnique({
+            where: { id: userId },
+            select: { id: true, deletedAt: true },
+          });
+          return Boolean(row && !row.deletedAt);
         },
       },
       events: reviewEvents,
