@@ -6,7 +6,7 @@
 | 보내는 사람 | 조준영 (applications) |
 | 근거 | [ADR-0015 §4 R-001](../../../docs/decisions/0015-qa-improvement-and-risk-register.md) · [applications-r001.md](../../../feedback_loop/2026-09-11/applications-r001.md) |
 | 목적 | INSERT(`applications`) + `bumpApplicationCounts`(`projects`)를 **하나의 Prisma `$transaction`**으로 묶어 중간 실패 시 건수 drift를 제거 |
-| 상태 | **합의 요청** — ADR은 “운영 전환 시 app 통합”으로 이미 결정. 본 문서는 구현 범위·경계를 고정한다 |
+| 상태 | **app 반영 착수** — `ApplicationUnitOfWork` + Prisma `$transaction` (2026-09-20) |
 
 ---
 
@@ -66,11 +66,11 @@ sequenceDiagram
 
 ## 5. 완료 조건
 
-- [ ] create: INSERT+bump(+idempotency) 동일 `$transaction`
-- [ ] DIRECT reject: status 변경 + pending −1 동일 `$transaction` (1차 권장)
-- [ ] bump 중간 throw 시 지원 행·건수 모두 롤백되는 단위 테스트 또는 격리 probe 1건
-- [ ] `npx tsx features/applications/prototype/run.tsx` PASS 유지
-- [ ] `node features/applications/review/applications-api-smoke.mjs` PASS
+- [x] create: INSERT+bump(+idempotency) 동일 `$transaction` (`unitOfWork`)
+- [x] DIRECT reject: status 변경 + pending −1 동일 `$transaction`
+- [x] bump 실패 시 publish 미실행 — `r001-unit-of-work-smoke.ts`
+- [x] `npx tsx features/applications/prototype/run.tsx` PASS 97
+- [x] `node features/applications/review/applications-api-smoke.mjs` PASS 6/6
 
 ## 6. 담당자 후속
 

@@ -366,11 +366,33 @@ export type ProjectApplicationContextPort = {
    *
    * 음수가 되지 않는다(바닥 0). 실패해도 지원 자체는 성립한다 —
    * 부르는 쪽에서 실패를 삼킬지 던질지 정한다.
+   *
+   * R-001: Prisma 모드에서는 `ApplicationUnitOfWork` 안에서 bump하므로 이 포트를
+   * 직접 부르지 않을 수 있다(create/DIRECT reject).
    */
   bumpApplicationCounts(
     projectId: string,
     delta: { applicationCount?: number; pendingApplicationCount?: number },
   ): Promise<{ applicationCount: number; pendingApplicationCount: number }>;
+};
+
+/**
+ * R-001 — 지원 행 쓰기와 projects 건수 bump를 한 커밋으로 묶는 단위 작업.
+ * 알림 publish는 포함하지 않는다.
+ */
+export type ApplicationWriteTx = {
+  insertApplication(row: ApplicationRow): Promise<void>;
+  saveApplication(row: ApplicationRow): Promise<void>;
+  appendStateEvent(event: ApplicationStateEvent): Promise<void>;
+  setIdempotency(key: string, bodyHash: string, applicationId: string, operationId?: string): Promise<void>;
+  bumpApplicationCounts(
+    projectId: string,
+    delta: { applicationCount?: number; pendingApplicationCount?: number },
+  ): Promise<{ applicationCount: number; pendingApplicationCount: number }>;
+};
+
+export type ApplicationUnitOfWork = {
+  run<T>(fn: (tx: ApplicationWriteTx) => Promise<T>): Promise<T>;
 };
 
 /** applications 화면에서 식별자 대신 표시 이름을 채우기 위한 user-management 접점. */

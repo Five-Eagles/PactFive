@@ -16,7 +16,7 @@
 | # | 증상 / 항목 | 원인 | 담당 | 다음 행동 |
 |---|---|---|---|---|
 | 2 | 프로필 게이트 꺼짐 | **RW 보류** (ADR-0014) | 오민혁 → 팀장 | **켜지 말 것** |
-| R-001 | 지원 행↔건수 `$transaction` | ADR-0015 · 포트 호출은 있음 | **팀장** | [지시서 09-20](../../applications/review/teamlead-port-instructions-2026-09-20-r001-transaction.md) |
+| R-001 | 지원 행↔건수 `$transaction` | **구현 PR** — UoW 배선 | 팀장 리뷰 | [지시서](../../applications/review/teamlead-port-instructions-2026-09-20-r001-transaction.md) |
 
 ## 닫은 것 (오늘)
 
