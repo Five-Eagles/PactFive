@@ -49,3 +49,4 @@
 | 2026-09-10 | CR-AP-001: PM 포트는 열림. app service 호출 미배선 → 팀장 지시서 09-10 |
 | 2026-09-10 | GAP-04 프로필: 포트 이식·게이트 보류(RW) 확인. 화면 전 배선 요청 안 함 |
 | 2026-09-11 | CR-AP-001 app 호출 배선 develop 반영 확인. prototype PASS 97. 현황판 #1 닫음 |
+| 2026-09-20 | QA: prototype 97 · API 스모크 6/6. profileCompletion=null 유지(A-02 미배선) |
