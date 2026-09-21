@@ -1,0 +1,35 @@
+{
+  "ranAt": "2026-09-21T08:25:37.728Z",
+  "results": [
+    {
+      "n": "recruiting OPEN + counts",
+      "p": true,
+      "d": "status=200 recruitment=OPEN ac=1 pending=1"
+    },
+    {
+      "n": "client list applications",
+      "p": true,
+      "d": "status=200 items=1"
+    },
+    {
+      "n": "CLIENT apply blocked",
+      "p": true,
+      "d": "status=403 code=PROJECT_FORBIDDEN"
+    },
+    {
+      "n": "freelancer applications/me",
+      "p": true,
+      "d": "status=200 items=10"
+    },
+    {
+      "n": "eligibility reachable",
+      "p": true,
+      "d": "status=200 canApply=false profileCompletion=null"
+    },
+    {
+      "n": "CLOSED cumulative count",
+      "p": true,
+      "d": "status=200 recruitment=CLOSED ac=1"
+    }
+  ]
+}

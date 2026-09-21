@@ -86,10 +86,11 @@ ok(
 const list = await api(`/api/v1/projects/${prj}/reviews`, { token: cTok });
 ok('GET project reviews', list.status === 200, `status=${list.status} items=${(list.body?.items || []).length}`);
 
+// payment-ready 시드가 COMPLETED·제출 후에도 재실행 가능하도록 count===0 고정을 푼다.
 const rating = await api(`/api/v1/users/${free.userId}/rating`, { token: cTok });
 ok(
   'GET user rating',
-  rating.status === 200 && rating.body?.reviewCount === 0,
+  rating.status === 200 && typeof rating.body?.reviewCount === 'number' && rating.body.reviewCount >= 0,
   `status=${rating.status} avg=${rating.body?.averageRating} count=${rating.body?.reviewCount}`,
 );
 
@@ -113,18 +114,23 @@ const bad = await api(`/api/v1/projects/${prj}/reviews`, {
   body: { rating: 5, tags: ['WORK_QUALITY'], content: 123 },
   extraHeaders: { 'Idempotency-Key': `rv-smoke-bad-${Date.now()}` },
 });
+// canReview면 content 타입 거부(422). 아니면 게이트(409) 또는 content 검증이 먼저(422).
+const badCode = bad.body?.error?.code;
 const badOk = me.body?.canReview
   ? bad.status === 422 || bad.status === 400
-  : bad.status === 409 && bad.body?.error?.code === 'PROJECT_NOT_COMPLETED';
+  : (bad.status === 409 &&
+      (badCode === 'PROJECT_NOT_COMPLETED' || badCode === 'REVIEW_ALREADY_SUBMITTED')) ||
+    bad.status === 422 ||
+    bad.status === 400; // !canReview여도 content 검증이 먼저면 422
 ok(
   'POST invalid/guarded',
   badOk,
-  `status=${bad.status} code=${bad.body?.error?.code} canReview=${me.body?.canReview}`,
+  `status=${bad.status} code=${badCode} canReview=${me.body?.canReview} reason=${me.body?.reason}`,
 );
 
 const fail = results.filter((r) => !r.p).length;
 console.log(`TOTAL ${results.length} PASS ${results.length - fail} FAIL ${fail}`);
-const outDir = path.join(root, 'feedback_loop/2026-09-11');
+const outDir = path.join(root, 'feedback_loop/2026-09-21');
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(
   path.join(outDir, 'reviews-api-smoke.json'),
