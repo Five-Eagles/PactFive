@@ -1,0 +1,35 @@
+{
+  "ranAt": "2026-09-21T08:24:26.026Z",
+  "results": [
+    {
+      "n": "C-07 freelancer prepare blocked",
+      "p": true,
+      "d": "status=403 code=PROJECT_FORBIDDEN"
+    },
+    {
+      "n": "client getPayment",
+      "p": true,
+      "d": "status=200 statusField=READY"
+    },
+    {
+      "n": "client prepare ok/idempotent",
+      "p": true,
+      "d": "status=200 paymentId=pay_28c5666a9e6249e7ba797de41cb8e4ab code=undefined"
+    },
+    {
+      "n": "freelancer getPayment (party)",
+      "p": true,
+      "d": "status=200 code=undefined"
+    },
+    {
+      "n": "client getContract",
+      "p": true,
+      "d": "status=200 contractStatus=SIGNED"
+    },
+    {
+      "n": "negotiation current",
+      "p": true,
+      "d": "status=200 agreement=ACCEPTED contractId=ctr_9bc60af89b584e19b048fb8b1f2650ce"
+    }
+  ]
+}

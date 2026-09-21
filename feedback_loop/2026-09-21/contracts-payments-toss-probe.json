@@ -1,0 +1,41 @@
+{
+  "ranAt": "2026-09-21T08:24:26.975Z",
+  "note": "성공 confirm(유효 paymentKey)은 위젯 수동. 본 프로브는 시드 결제 행을 FAILED로 만들지 않음.",
+  "results": [
+    {
+      "n": "env PG_SECRET_KEY present",
+      "p": true,
+      "d": "prefix=test_gsk…"
+    },
+    {
+      "n": "env PG_CLIENT_KEY present",
+      "p": true,
+      "d": "prefix=test_gck…"
+    },
+    {
+      "n": "Toss sandbox confirm rejects bad paymentKey",
+      "p": true,
+      "d": "status=404 code=NOT_FOUND_PAYMENT_SESSION"
+    },
+    {
+      "n": "Toss sandbox retrieve rejects missing order",
+      "p": true,
+      "d": "status=404 code=NOT_FOUND_MERCHANT"
+    },
+    {
+      "n": "app preparePayment returns sandbox clientKey",
+      "p": true,
+      "d": "status=200 clientKeyPrefix=test_gck… code=null"
+    },
+    {
+      "n": "PaymentPage loads Toss SDK CDN",
+      "p": true,
+      "d": "CDN + loadTossSdk"
+    },
+    {
+      "n": "PaymentPage requestPayment + confirmPayment",
+      "p": true,
+      "d": "widget redirect + server confirm wiring"
+    }
+  ]
+}
