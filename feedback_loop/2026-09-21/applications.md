@@ -4,15 +4,24 @@
 
 | 검증 | 결과 |
 |---|---|
-| `daily-session-start applications` | develop 최신 · `feature/applications` |
-| `npx tsx features/applications/prototype/run.tsx` | **PASS 97 / FAIL 0** |
+| `daily-session-start applications` | develop `e616611` · `feature/applications` |
 | API 스모크 ([applications-api-smoke.json](./applications-api-smoke.json)) | **6 PASS / 0 FAIL** |
-| R-001 UoW 스모크 | **PASS** |
+
+### API 스모크
+
+| 케이스 | 결과 |
+|---|---|
+| recruiting OPEN · counts ≥1 | PASS (`ac=1` pending=`1`) |
+| 의뢰인 지원 목록 | PASS items=1 |
+| CLIENT 지원 POST | PASS **403** |
+| 프리랜서 `/applications/me` | PASS |
+| eligibility | PASS `canApply=false` · `profileCompletion=null` |
+| CLOSED 누적 건수 ≥1 | PASS |
 
 ## 2. 관찰
 
-- **A-02 / 프로필 게이트**: eligibility `profileCompletion=null` 유지. **켜지 않음** (ADR-0014).
-- R-001 `$transaction`는 #138로 develop 반영 완료 — 재회귀 없음.
+- **A-02 / 프로필 게이트**: eligibility `profileCompletion`은 여전히 **null**. **켜지 않음** (ADR-0014).
+- R-001 `$transaction`(#138) 재회귀 없음.
 
 ## 3. 잔여
 

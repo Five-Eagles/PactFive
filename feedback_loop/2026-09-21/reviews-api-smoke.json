@@ -1,0 +1,45 @@
+{
+  "ranAt": "2026-09-21T08:25:46.690Z",
+  "results": [
+    {
+      "n": "R-06 rating without reviewee session",
+      "p": true,
+      "d": "status=200 code=undefined count=1"
+    },
+    {
+      "n": "R-02 PATCH reviews 405",
+      "p": true,
+      "d": "status=405"
+    },
+    {
+      "n": "GET reviews/me",
+      "p": true,
+      "d": "status=200 canReview=false reason=REVIEW_ALREADY_SUBMITTED myDirection=CLIENT_TO_FREELANCER"
+    },
+    {
+      "n": "GET project reviews",
+      "p": true,
+      "d": "status=200 items=2"
+    },
+    {
+      "n": "GET user rating",
+      "p": true,
+      "d": "status=200 avg=5 count=1"
+    },
+    {
+      "n": "GET user reviews",
+      "p": true,
+      "d": "status=200 items=1"
+    },
+    {
+      "n": "freelancer reviews/me myDirection",
+      "p": true,
+      "d": "status=200 myDirection=FREELANCER_TO_CLIENT reason=REVIEW_ALREADY_SUBMITTED"
+    },
+    {
+      "n": "POST invalid/guarded",
+      "p": true,
+      "d": "status=422 code=REVIEW_CONTENT_INVALID canReview=false reason=REVIEW_ALREADY_SUBMITTED"
+    }
+  ]
+}

@@ -5,7 +5,7 @@
 | 보내는 사람 | 조준영 · applications · contracts-payments · reviews |
 | 범위 | 내 세 기능에서 **다른 사람 손을 기다리는 것** |
 | 이전 판 | [waiting-board-2026-09-09.md](waiting-board-2026-09-09.md) |
-| 갱신 | 2026-09-21 — AP/CP/RV 일일 QA 전부 PASS · reviews API 스모크 멱등화 |
+| 갱신 | 2026-09-21 — AP/CP/RV 일일 스모크 FAIL 0 · 열린 #2만 유지 |
 
 원본 — applications 97 · reviews 69 · contracts-payments 347.
 

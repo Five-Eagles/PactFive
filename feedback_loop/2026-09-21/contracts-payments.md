@@ -4,9 +4,7 @@
 
 | 검증 | 결과 |
 |---|---|
-| `npx tsx features/contracts-payments/prototype/run.tsx` | **PASS 347 / FAIL 0** |
 | payment-ready API ([contracts-payments-api-smoke.json](./contracts-payments-api-smoke.json)) | **6 PASS / 0 FAIL** |
-| CR-CP-003 idempotency payload | **PASS** |
 | Toss sandbox 프로브 ([contracts-payments-toss-probe.json](./contracts-payments-toss-probe.json)) | **7 PASS / 0 FAIL** |
 
 ## 2. 관찰

@@ -4,10 +4,8 @@
 
 | 검증 | 결과 |
 |---|---|
-| `npx tsx features/reviews/prototype/run.tsx` | **PASS 69 / FAIL 0** |
 | API 스모크 ([reviews-api-smoke.json](./reviews-api-smoke.json)) | **8 PASS / 0 FAIL** |
-| COMPLETED 스모크 ([reviews-completed-smoke.json](./reviews-completed-smoke.json)) | **4 PASS / 0 FAIL** (이미 제출 → skip) |
-| R4 closeout | **8 PASS** (web preview optional unreachable) |
+| COMPLETED 스모크 ([reviews-completed-smoke.json](./reviews-completed-smoke.json)) | **4 PASS / 0 FAIL** (이미 제출 → skip/409) |
 
 ## 2. 수정
 
