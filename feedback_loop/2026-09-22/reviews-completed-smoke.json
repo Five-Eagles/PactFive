@@ -1,0 +1,25 @@
+{
+  "ranAt": "2026-09-22T00:46:02.246Z",
+  "results": [
+    {
+      "n": "pipeline",
+      "p": true,
+      "d": "skipped — me reason=REVIEW_ALREADY_SUBMITTED canReview=false"
+    },
+    {
+      "n": "reviews/me completed-or-submitted",
+      "p": true,
+      "d": "status=200 canReview=false reason=REVIEW_ALREADY_SUBMITTED myDirection=CLIENT_TO_FREELANCER"
+    },
+    {
+      "n": "R-03 content typeof → 422",
+      "p": true,
+      "d": "status=422 code=REVIEW_CONTENT_INVALID"
+    },
+    {
+      "n": "createReview (sha256 bodyHash)",
+      "p": true,
+      "d": "status=409 reviewId=undefined visibility=undefined code=REVIEW_ALREADY_SUBMITTED"
+    }
+  ]
+}

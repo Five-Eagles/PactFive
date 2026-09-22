@@ -108,7 +108,7 @@ ok(
 
 const fail = results.filter((r) => !r.p).length;
 console.log(`TOTAL ${results.length} PASS ${results.length - fail} FAIL ${fail}`);
-const outDir = path.join(root, 'feedback_loop/2026-09-21');
+const outDir = path.join(root, 'feedback_loop/2026-09-22');
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(
   path.join(outDir, 'applications-api-smoke.json'),
