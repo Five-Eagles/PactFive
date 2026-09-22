@@ -1720,7 +1720,7 @@ paths:
               $ref: '#/components/schemas/UmLoginRequest'
       responses:
         '200':
-          description: 로그인 성공. Set-Cookie: __Host-pactfiveRefreshToken (Secure; HttpOnly; SameSite=Strict) 포함.
+          description: "로그인 성공. Set-Cookie: __Host-pactfiveRefreshToken (Secure; HttpOnly; SameSite=Strict) 포함."
           content:
             application/json:
               schema:
@@ -1784,7 +1784,7 @@ paths:
               $ref: '#/components/schemas/UmCompleteRegistrationRequest'
       responses:
         '200':
-          description: 복구 성공. 일반 로그인과 동일한 Set-Cookie: __Host-pactfiveRefreshToken 포함, 복구 쿠키는 제거됨.
+          description: "복구 성공. 일반 로그인과 동일한 Set-Cookie: __Host-pactfiveRefreshToken 포함, 복구 쿠키는 제거됨."
           content:
             application/json:
               schema:
