@@ -9,6 +9,8 @@ info:
     api-contract.md가 여전히 정본(source of truth)이며, 이 파일은 그 내용을 OpenAPI 형식으로
     재구성한 파생 문서다. 상세 서술(에러 사유, 동시성/멱등 규칙, 도메인 배경)은 원본
     api-contract.md를 함께 참고할 것.
+  license:
+    name: Proprietary — 내부 부트캠프 캡스톤 과제 제출용, 외부 재배포 금지
 servers:
   - url: /api/v1
     description: 공개 API (BFF/웹이 호출하는 표준 경로)
@@ -1230,10 +1232,12 @@ components:
         myDirection:
           allOf:
             - $ref: '#/components/schemas/RvReviewDirection'
+          type: string
           nullable: true
         myReview:
           allOf:
             - $ref: '#/components/schemas/RvCreateReviewResponse'
+          type: object
           nullable: true
         counterpartyReviewVisibility:
           type: string
@@ -1437,9 +1441,11 @@ components:
               type: string
               enum: [PENDING]
             result:
+              type: object
               nullable: true
               enum: [null]
             failure:
+              type: object
               nullable: true
               enum: [null]
     AipApprovedPricingAnalysis:
@@ -1466,6 +1472,7 @@ components:
                     $ref: '#/components/schemas/AipPricingBreakdownItem'
                   description: 항목 금액 합계는 recommendedAmount와 정확히 같아야 한다.
             failure:
+              type: object
               nullable: true
               enum: [null]
     AipRejectedPricingAnalysis:
@@ -1477,6 +1484,7 @@ components:
               type: string
               enum: [REJECTED]
             result:
+              type: object
               nullable: true
               enum: [null]
             failure:
@@ -2262,6 +2270,12 @@ paths:
       tags: [project-management]
       security:
         - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -2311,6 +2325,12 @@ paths:
       tags: [project-management]
       security:
         - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
         '204':
           description: 삭제 성공(본문 없음). 이미 삭제된 프로젝트를 다시 삭제해도 204.
@@ -2909,6 +2929,12 @@ paths:
       tags: [applications]
       security:
         - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -3013,6 +3039,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApListPage'
+        '401':
+          description: "AUTH_REQUIRED — 인증 토큰 없음/무효"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /applications/{applicationId}:
     get:

@@ -63,6 +63,8 @@ info:
     api-contract.md가 여전히 정본(source of truth)이며, 이 파일은 그 내용을 OpenAPI 형식으로
     재구성한 파생 문서다. 상세 서술(에러 사유, 동시성/멱등 규칙, 도메인 배경)은 원본
     api-contract.md를 함께 참고할 것.
+  license:
+    name: Proprietary — 내부 부트캠프 캡스톤 과제 제출용, 외부 재배포 금지
 servers:
   - url: /api/v1
     description: 공개 API (BFF/웹이 호출하는 표준 경로)
@@ -91,7 +93,7 @@ components:
       type: http
       scheme: bearer
       description: >-
-        Authorization: Bearer <accessToken>. user-management의 세션 발급 endpoint(로그인·
+        `Authorization: Bearer <accessToken>`. user-management의 세션 발급 endpoint(로그인·
         가입 확인·OAuth 콜백·Refresh)는 세션이 아직 없으므로 예외적으로 인증 없이 호출한다
         (아래 각 operation의 security로 표시).
     serviceAuth:
@@ -1284,10 +1286,12 @@ components:
         myDirection:
           allOf:
             - $ref: '#/components/schemas/RvReviewDirection'
+          type: string
           nullable: true
         myReview:
           allOf:
             - $ref: '#/components/schemas/RvCreateReviewResponse'
+          type: object
           nullable: true
         counterpartyReviewVisibility:
           type: string
@@ -1491,9 +1495,11 @@ components:
               type: string
               enum: [PENDING]
             result:
+              type: object
               nullable: true
               enum: [null]
             failure:
+              type: object
               nullable: true
               enum: [null]
     AipApprovedPricingAnalysis:
@@ -1520,6 +1526,7 @@ components:
                     $ref: '#/components/schemas/AipPricingBreakdownItem'
                   description: 항목 금액 합계는 recommendedAmount와 정확히 같아야 한다.
             failure:
+              type: object
               nullable: true
               enum: [null]
     AipRejectedPricingAnalysis:
@@ -1531,6 +1538,7 @@ components:
               type: string
               enum: [REJECTED]
             result:
+              type: object
               nullable: true
               enum: [null]
             failure:
@@ -1774,7 +1782,7 @@ paths:
               $ref: '#/components/schemas/UmLoginRequest'
       responses:
         '200':
-          description: 로그인 성공. Set-Cookie: __Host-pactfiveRefreshToken (Secure; HttpOnly; SameSite=Strict) 포함.
+          description: "로그인 성공. Set-Cookie: __Host-pactfiveRefreshToken (Secure; HttpOnly; SameSite=Strict) 포함."
           content:
             application/json:
               schema:
@@ -1838,7 +1846,7 @@ paths:
               $ref: '#/components/schemas/UmCompleteRegistrationRequest'
       responses:
         '200':
-          description: 복구 성공. 일반 로그인과 동일한 Set-Cookie: __Host-pactfiveRefreshToken 포함, 복구 쿠키는 제거됨.
+          description: "복구 성공. 일반 로그인과 동일한 Set-Cookie: __Host-pactfiveRefreshToken 포함, 복구 쿠키는 제거됨."
           content:
             application/json:
               schema:
@@ -2316,6 +2324,12 @@ paths:
       tags: [project-management]
       security:
         - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -2365,6 +2379,12 @@ paths:
       tags: [project-management]
       security:
         - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
         '204':
           description: 삭제 성공(본문 없음). 이미 삭제된 프로젝트를 다시 삭제해도 204.
@@ -2963,6 +2983,12 @@ paths:
       tags: [applications]
       security:
         - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -3067,6 +3093,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApListPage'
+        '401':
+          description: "AUTH_REQUIRED — 인증 토큰 없음/무효"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /applications/{applicationId}:
     get:
