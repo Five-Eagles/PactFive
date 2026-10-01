@@ -43,10 +43,46 @@ const VALID_CATEGORIES = [
   'MARKETING',
 ] as const;
 
-/** is_custom = false 인 공식 기술만. 커스텀이 섞이면 422 (규칙 5) */
+/**
+ * is_custom = false 인 공식 기술만. 커스텀이 섞이면 422 (규칙 5)
+ * 2026-10-01: PRD v6.6 §8.2 기술 스택 32종으로 맞췄다(ADR-0020 초안). 목록 변경 시
+ * scripts/lib/seed-skill-catalog.ts 와 app/web project.types.ts SKILL_OPTIONS 도 같이 고친다.
+ */
 const OFFICIAL_SKILLS = [
-  'REACT', 'NODEJS', 'SQL', 'TYPESCRIPT', 'JAVASCRIPT', 'VUE',
-  'SPRING', 'FIGMA', 'FLUTTER', 'PYTHON', 'HTML_CSS', 'AWS',
+  'HTML_CSS',
+  'JAVASCRIPT',
+  'TYPESCRIPT',
+  'REACT',
+  'VUE',
+  'FRONTEND_ETC',
+  'NODEJS',
+  'JAVA',
+  'PYTHON',
+  'PHP',
+  'GO',
+  'BACKEND_ETC',
+  'IOS',
+  'ANDROID',
+  'CROSS_PLATFORM',
+  'SQL',
+  'NOSQL',
+  'CLOUD',
+  'DEVOPS',
+  'DATA_ANALYSIS',
+  'UI_UX_DESIGN',
+  'GRAPHIC_DESIGN',
+  'BRANDING',
+  'VIDEO_MOTION',
+  'DESIGN_ETC',
+  'PERFORMANCE_MARKETING',
+  'CONTENT_MARKETING',
+  'SEO',
+  'SNS_MARKETING',
+  'SERVICE_PLANNING',
+  'QA_TEST',
+  'ETC_SKILL',
+  // 32종 이전에 쓰던 4종. 기존 프로젝트 데이터 호환용으로만 인정하고 새 화면 선택지에는 없다.
+  'SPRING', 'FIGMA', 'FLUTTER', 'AWS',
 ] as const;
 
 /** 프리랜서가 직접 만든 기술. 프로젝트 요구 기술에 넣을 수 없다 (PRD D-64) */
@@ -62,17 +98,41 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const SKILL_LABELS: Record<string, string> = {
-  REACT: 'React',
-  NODEJS: 'Node.js',
-  SQL: 'SQL',
-  TYPESCRIPT: 'TypeScript',
+  HTML_CSS: 'HTML/CSS',
   JAVASCRIPT: 'JavaScript',
+  TYPESCRIPT: 'TypeScript',
+  REACT: 'React',
   VUE: 'Vue',
+  FRONTEND_ETC: '프론트엔드 기타',
+  NODEJS: 'Node.js',
+  JAVA: 'Java',
+  PYTHON: 'Python',
+  PHP: 'PHP',
+  GO: 'Go',
+  BACKEND_ETC: '백엔드 기타',
+  IOS: 'iOS',
+  ANDROID: 'Android',
+  CROSS_PLATFORM: '크로스플랫폼',
+  SQL: 'SQL',
+  NOSQL: 'NoSQL',
+  CLOUD: '클라우드',
+  DEVOPS: 'DevOps',
+  DATA_ANALYSIS: '데이터 분석',
+  UI_UX_DESIGN: 'UI/UX 디자인',
+  GRAPHIC_DESIGN: '그래픽 디자인',
+  BRANDING: '브랜딩',
+  VIDEO_MOTION: '영상/모션',
+  DESIGN_ETC: '디자인 기타',
+  PERFORMANCE_MARKETING: '퍼포먼스 마케팅',
+  CONTENT_MARKETING: '콘텐츠 마케팅',
+  SEO: 'SEO',
+  SNS_MARKETING: 'SNS 마케팅',
+  SERVICE_PLANNING: '서비스 기획',
+  QA_TEST: 'QA/테스트',
+  ETC_SKILL: '기타',
   SPRING: 'Spring',
   FIGMA: 'Figma',
   FLUTTER: 'Flutter',
-  PYTHON: 'Python',
-  HTML_CSS: 'HTML/CSS',
   AWS: 'AWS',
 };
 

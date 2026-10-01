@@ -51,3 +51,6 @@ Thumbs.db
 # ===== Misc =====
 *.local
 .cache/
+
+# check-db-readonly.js 결과 (로컬 전용)
+scripts/.out/
