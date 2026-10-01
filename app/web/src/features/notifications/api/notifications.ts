@@ -15,13 +15,13 @@ import type {
  * "폴더 간 접점" — fetch 직접 호출 없이 공용 http만 거친다).
  */
 
-const identifier = /^[A-Za-z0-9][A-Za-z0-9_-]{0,29}(?![\s\S])/;
+const identifier = /^[A-Za-z0-9][A-Za-z0-9_-]{0,39}(?![\s\S])/;
 /** 알림은 서버가 만든 내부 경로만 이동시킨다. 외부 URL과 임의 경로는 거부한다. */
 export function isNotificationInternalLink(value: string): boolean {
   return (
-    /^\/projects\/[A-Za-z0-9][A-Za-z0-9_-]{0,29}(?:\/(?:applicants|agreements|transaction|reviews|cancellation))?$/.test(value) ||
+    /^\/projects\/[A-Za-z0-9][A-Za-z0-9_-]{0,39}(?:\/(?:applicants|agreements|transaction|reviews|cancellation))?$/.test(value) ||
     /^\/applications\/me$/.test(value) ||
-    /^\/contracts\/[A-Za-z0-9][A-Za-z0-9_-]{0,29}\/(?:payment|delivery|settlement|sign)$/.test(value)
+    /^\/contracts\/[A-Za-z0-9][A-Za-z0-9_-]{0,39}\/(?:payment|delivery|settlement|sign)$/.test(value)
   );
 }
 
