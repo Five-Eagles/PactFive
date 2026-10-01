@@ -92,6 +92,14 @@ export type PublicApiServiceDeps = {
    * express-app이 applications 저장소로 연결한다.
    */
   resolveApplicationFreelancer?: (applicationId: string) => Promise<string | null>;
+  /**
+   * 2026-10-01 (ADR-0019 초안): 납품 승인 직후 Sandbox 정산을 자동 실행할지.
+   * 규칙 24는 정산 실행을 다음 Increment(웹훅·배치)로 미뤘는데, 그 결과 사용자 API만으로는
+   * 어떤 거래도 COMPLETED에 도달하지 못해 리뷰까지 이어지지 않았다. RFP §3.2.3 "의뢰인 완료 승인 +
+   * 시스템의 수수료 차감 후 지급 처리"를 Sandbox에서 충족하도록, 승인 직후 simulateSettlementResult
+   * ('SUCCESS')를 같은 요청 안에서 호출한다. 실패해도 승인은 되돌리지 않는다(정산은 재평가 가능).
+   */
+  autoSettleOnApproval?: boolean;
 };
 
 /** @deprecated PublicApiServiceDeps를 쓴다. 이전 이름과의 호환용. */
@@ -169,6 +177,7 @@ export function createPublicApiService({
   randomId,
   platformFeeRate = 0.1,
   resolveApplicationFreelancer,
+  autoSettleOnApproval = false,
 }: PublicApiServiceDeps) {
   /** prepareDeliveryUpload가 발급한 uploadId → objectKey (C-10 검증용, 프로세스 메모리). */
   const preparedUploads = new Map<string, { contractId: string; objectKey: string }>();
@@ -252,7 +261,7 @@ export function createPublicApiService({
     return row;
   }
 
-  return {
+  const service = {
     async getCurrentNegotiationOffer(
       projectId: string,
       auth: AuthContext | null,
@@ -1249,12 +1258,21 @@ export function createPublicApiService({
         projectId: contract.projectId,
         occurredAt: delivery.approvedAt!,
       });
+      if (autoSettleOnApproval) {
+        try {
+          const payment = await repo.findPaymentByContractId(contract.contractId);
+          if (payment?.status === 'PAID') await service.simulateSettlementResult(payment.paymentId, 'SUCCESS');
+        } catch (error) {
+          console.error('[contracts-payments] 승인 후 자동 정산 실패 — 승인은 유지한다:', error instanceof Error ? error.message : error);
+        }
+      }
 
       const response = await assembleDeliveryResponse(contractId, contract, auth!);
       await repo.setIdempotent('delivery-approve', input.idempotencyKey, { input, response });
       return { ...response, alreadyProcessed: false };
     },
   };
+  return service;
 
   /** getDelivery·requestDelivery·approveDelivery가 공유하는 응답 조립 헬퍼. */
   async function assembleDeliveryResponse(

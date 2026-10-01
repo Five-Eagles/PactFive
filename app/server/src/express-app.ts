@@ -577,6 +577,9 @@ const publicApiService = createPublicApiService({
   coordinator: transactionLifecycleCoordinator,
   now: projectNow,
   randomId: contractsPaymentsRandomId,
+  // 2026-10-01 (ADR-0019 초안): 납품 승인 직후 Sandbox 정산 자동 실행 → 거래 COMPLETED → 리뷰 가능.
+  // 끄려면 AUTO_SETTLE_ON_APPROVAL=false.
+  autoSettleOnApproval: process.env.AUTO_SETTLE_ON_APPROVAL !== 'false',
   // C-01 — 선정 지원서의 freelancerId로 협상 당사자를 가른다.
   resolveApplicationFreelancer: async (applicationId) => {
     const row = await applicationRepository.getApplication(applicationId);
