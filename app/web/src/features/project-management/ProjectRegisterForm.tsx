@@ -5,7 +5,7 @@ import { Button, Field, Notice } from '../../shared/ui/primitives';
 import { ApiError } from '../../shared/http';
 import { registerProject } from './api/project';
 import { PROJECT_ROUTES } from './project.routes';
-import { CATEGORY_OPTIONS, SKILL_OPTIONS } from './project.types';
+import { CATEGORY_OPTIONS, SKILL_GROUPS, SKILL_OPTIONS } from './project.types';
 import { useDraft } from './useDraft';
 import {
   applyPricingRecommendation,
@@ -322,16 +322,23 @@ export function ProjectRegisterForm({ pricingAnalysisHref }: ProjectRegisterForm
             required
             helperText="최소 1개, 최대 10개까지 선택할 수 있습니다."
           >
-            <div id="skills" style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              {SKILL_OPTIONS.map((skill) => (
-                <label key={skill.value} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <input
-                    type="checkbox"
-                    checked={draft.skillIds.includes(skill.value)}
-                    onChange={() => toggleSkill(skill.value)}
-                  />
-                  {skill.label}
-                </label>
+            <div id="skills" style={{ display: 'grid', gap: 14 }}>
+              {SKILL_GROUPS.map((group) => (
+                <fieldset key={group.value} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+                  <legend className="caption" style={{ marginBottom: 6 }}>{group.label}</legend>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px' }}>
+                    {SKILL_OPTIONS.filter((skill) => skill.group === group.value).map((skill) => (
+                      <label key={skill.value} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <input
+                          type="checkbox"
+                          checked={draft.skillIds.includes(skill.value)}
+                          onChange={() => toggleSkill(skill.value)}
+                        />
+                        {skill.label}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
               ))}
             </div>
           </Field>

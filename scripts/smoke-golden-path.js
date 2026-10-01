@@ -136,7 +136,7 @@ async function main() {
     const r = await call('POST', '/api/v1/projects', { token: ctx.client.token, body: {
       title: `골든패스 점검 프로젝트 ${new Date().toISOString().slice(0, 16)}`,
       description: '대표 흐름 자동 점검용 프로젝트입니다. 쇼핑몰 관리자 화면과 주문 API를 만듭니다.',
-      category: 'WEB_DEVELOPMENT', recruitmentDeadlineAt: deadline, budgetAmount: 3000000, skillIds: ['REACT', 'NODEJS'],
+      category: 'WEB_DEVELOPMENT', recruitmentDeadlineAt: deadline, budgetAmount: 3000000, skillIds: ['REACT', 'NODEJS', 'CLOUD'],
     } });
     ctx.projectId = find(r.json, 'projectId') ?? find(r.json, 'id');
     return record('프로젝트 등록', (r.status === 200 || r.status === 201) && !!ctx.projectId, `${brief(r)} projectId=${ctx.projectId}`);
